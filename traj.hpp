@@ -99,7 +99,7 @@ class TrajIndex : public std::deque<Traj>
         std::map<size_t,T>& posToTraj(const size_t &t,const std::map<size_t,T> &posMap,std::map<size_t,T> &trajMap) const;
 
 
-		struct Converter : public std::unary_function<size_t,size_t>
+		struct Converter : public std::unary_function<const size_t&,size_t>
 		{
 			const size_t t;
 			const TrajIndex *const index ;
@@ -111,7 +111,7 @@ class TrajIndex : public std::deque<Traj>
 				return (*index)[in][t];
 			}
 		};
-		struct Inverser : public std::unary_function<size_t,size_t>
+		struct Inverser : public std::unary_function<const size_t&,size_t>
 		{
 			const size_t t;
 			const TrajIndex *const index ;

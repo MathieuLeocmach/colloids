@@ -31,6 +31,8 @@
 //double wigner3j( int l, int m1, int m2, int m3);
 
 using namespace std;
+using namespace Colloids;
+using namespace tvmet;
 
 double BooData::w3j[30] = {
     //l=0
@@ -80,14 +82,14 @@ double & BooData::getW3j(const size_t &l, const int &m1, const int &m2)
 
 
 /** \brief constructor from one bond */
-BooData::BooData(const valarray<double> &rij): valarray< complex <double> >(complex <double>(0.0,0.0),16)
+BooData::BooData(const Coord &rij): valarray< complex <double> >(complex <double>(0.0,0.0),16)
 {
-    valarray<double> diff(0.0,3);
+    Coord diff;
 	double theta, phi;
 
 	// conversion to polar coordinates (physical convention, not mathematical)
-    diff=rij/sqrt((rij*rij).sum());
-    theta = acos(diff[2]);
+    diff = normalize(rij);
+    theta = acos(diff.back());
 	if(diff[0]==0.0)
 	{
 	    if(diff[1]==0.0) phi=0.0;

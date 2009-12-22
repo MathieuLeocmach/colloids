@@ -22,6 +22,7 @@
 #include <boost/bind.hpp>
 
 using namespace std;
+using namespace Colloids;
 
 /** @brief segregate at each time step a population of trajectories into clusters of recursively neighbouring particles
   * \param dynParts The DynamicParticles the clusters are made of
@@ -32,9 +33,9 @@ using namespace std;
   */
 DynamicClusters::DynamicClusters(DynamicParticles &dynParts, std::set<size_t> &population, const double &range)
 {
-    boost::ptr_vector< vector< set<size_t> > > ngbList;
-    ngbList=dynParts.getNgbList(range);
-    assign(dynParts,population,ngbList);
+    DynNgbList ngbs;
+    ngbs=dynParts.getNgbList(range);
+    assign(dynParts,population,ngbs);
     return;
 }
 
@@ -44,9 +45,9 @@ DynamicClusters::DynamicClusters(DynamicParticles &dynParts, std::set<size_t> &p
   * \param ngbList The list of the neighbours each particle of each time step.
   * The cluster k of time step t0+1 is the cluster having the maximum common particles with cluster k of time t0.
   */
-DynamicClusters::DynamicClusters(DynamicParticles &dynParts, std::set<size_t> &population, const boost::ptr_vector< std::vector< std::set<size_t> > > &ngbList)
+DynamicClusters::DynamicClusters(DynamicParticles &dynParts, std::set<size_t> &population, const DynNgbList &ngbs)
 {
-    assign(dynParts,population,ngbList);
+    assign(dynParts,population,ngbs);
     return;
 }
 
@@ -56,12 +57,12 @@ DynamicClusters::DynamicClusters(DynamicParticles &dynParts, std::set<size_t> &p
   * \param ngbList The list of the neighbours each particle of each time step.
   * The cluster k of time step t0+1 is the cluster having the maximum common particles with cluster k of time t0.
   */
-DynamicClusters& DynamicClusters::assign(DynamicParticles &dynParts, std::set<size_t> &population, const boost::ptr_vector< std::vector< std::set<size_t> > > &ngbList)
+DynamicClusters& DynamicClusters::assign(DynamicParticles &dynParts, std::set<size_t> &population, const DynNgbList &ngbs)
 {
     parts = &dynParts;
 
     // retreive the unsorted cluster list at each time step
-    vector< deque< set<size_t> > > unsorted_clusters(parts->getNbTimeSteps());
+    vector< vector< set<size_t> > > unsorted_clusters(parts->getNbTimeSteps());
     for(size_t t=0;t<parts->getNbTimeSteps();++t)
     {
         set<size_t> popul_t;
@@ -69,13 +70,13 @@ DynamicClusters& DynamicClusters::assign(DynamicParticles &dynParts, std::set<si
         if(parts->trajectories[*tr].exist(t))
             popul_t.insert(popul_t.end(),parts->trajectories[*tr][t]);
 
-        parts->positions[t].segregate(popul_t, unsorted_clusters[t],ngbList[t]);
+        parts->positions[t].segregate(popul_t, unsorted_clusters[t],ngbs[t]);
     }
 
     //translate in terms of trajectories, removing single particle clusters
     members.resize(parts->getNbTimeSteps());
     for(size_t t=0;t<parts->getNbTimeSteps();++t)
-        for(deque< set<size_t> >::const_iterator k=unsorted_clusters[t].begin();k!=unsorted_clusters[t].end();++k)
+        for(vector< set<size_t> >::const_iterator k=unsorted_clusters[t].begin();k!=unsorted_clusters[t].end();++k)
             if((*k).size()>1)
             {
                 members[t].push_back(set<size_t>());

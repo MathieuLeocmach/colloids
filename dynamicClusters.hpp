@@ -28,37 +28,40 @@
 #define dynamic_clusters_H
 
 #include "dynamicParticles.hpp"
-
-/**
-    \brief Object representing clusters evolving in time
-*/
-class DynamicClusters
+namespace Colloids
 {
 
-    public:
-        /** \brief The DynamicParticles of which the clusters are made of */
-        DynamicParticles *parts;
+    /**
+        \brief Object representing clusters evolving in time
+    */
+    class DynamicClusters
+    {
 
-        /**
-            \brief Clusters' members, time step by time step.
-            The cluster given by members[t][i] is NOT (in general) the same cluster as members[t+1][i]
-        */
-        std::deque< std::deque<std::set<size_t> > > members;
-        /**
-            \brief The list of the clusters.
-            The cluster given by members[t][trajectories[i][t]] IS the same cluster as members[t+1][trajectories[i][t+1]]
-        */
-        TrajIndex trajectories;
+        public:
+            /** \brief The DynamicParticles of which the clusters are made of */
+            DynamicParticles *parts;
 
-        DynamicClusters(DynamicParticles &dynParts, std::set<size_t> &population, const double &range);
-        DynamicClusters(DynamicParticles &dynParts, std::set<size_t> &population, const boost::ptr_vector< std::vector< std::set<size_t> > > &ngbList);
+            /**
+                \brief Clusters' members, time step by time step.
+                The cluster given by members[t][i] is NOT (in general) the same cluster as members[t+1][i]
+            */
+            std::deque< std::deque<std::set<size_t> > > members;
+            /**
+                \brief The list of the clusters.
+                The cluster given by members[t][trajectories[i][t]] IS the same cluster as members[t+1][trajectories[i][t+1]]
+            */
+            TrajIndex trajectories;
 
-        DynamicClusters& assign(DynamicParticles &dynParts, std::set<size_t> &population, const boost::ptr_vector< std::vector< std::set<size_t> > > &ngbList);
+            DynamicClusters(DynamicParticles &dynParts, std::set<size_t> &population, const double &range);
+            DynamicClusters(DynamicParticles &dynParts, std::set<size_t> &population, const DynNgbList &ngbs);
 
-        scalarDynamicField getLabels() const;
+            DynamicClusters& assign(DynamicParticles &dynParts, std::set<size_t> &population, const DynNgbList &ngbs);
 
-        BoundingBox bounds(const std::set<size_t> &cluster,const size_t &time);
+            scalarDynamicField getLabels() const;
 
-        std::valarray<double> getLargestDelta(const size_t &time);
+            BoundingBox bounds(const std::set<size_t> &cluster,const size_t &time);
+
+            std::valarray<double> getLargestDelta(const size_t &time);
+    };
 };
 #endif

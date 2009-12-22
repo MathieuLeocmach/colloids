@@ -18,11 +18,12 @@
 **/
 
 //ask for the definition of the class IndexedParticles
-#include "../indexedParticles.hpp"
+#include "../particles.hpp"
 #include "../files_series.hpp"
 #include <boost/progress.hpp>
 
 using namespace std;
+using namespace Colloids;
 
 int main(int argc, char ** argv)
 {
@@ -50,6 +51,7 @@ int main(int argc, char ** argv)
             sscanf(argv[4],"%u",&t_offset);
             sscanf(argv[5],"%u",&t_span);
             sscanf(argv[6],"%lf",&minSep);
+            const double sep = 2.0*radius*minSep;
 
             vector<string> tokens(1,token);
             TokenTree tt(tokens,filename);
@@ -57,8 +59,7 @@ int main(int argc, char ** argv)
             boost::progress_display show_progress(t_span);
             while(v[0]<t_offset+t_span)
             {
-                IndexedParticles Centers(tt(v),radius,minSep);
-                Centers.exportToFile(tt(v));
+                Particles(tt(v)).cut(sep).exportToFile(tt(v));
                 v[0]++;
                 ++show_progress;
             }
@@ -75,8 +76,8 @@ int main(int argc, char ** argv)
             sscanf(argv[2],"%lf",&radius);
             sscanf(argv[3],"%lf",&minSep);
 
-            IndexedParticles Centers(filename,radius,minSep);
-            Centers.exportToFile(filename);
+            const double sep = 2.0*radius*minSep;
+            Particles(filename).cut(sep).exportToFile(filename);
         }
     }
     catch(const exception &e)

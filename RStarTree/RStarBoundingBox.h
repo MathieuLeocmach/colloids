@@ -24,7 +24,6 @@
 #include <cstddef>
 #include <string>
 #include <sstream>
-#include <valarray>
 
 /**
     \struct RstarBoundingBox RstarBoundingBox.h
@@ -233,7 +232,8 @@ struct RStarBoundingBox {
 	}
 
 	/** \brief translation of the box  */
-	RStarBoundingBox<dimensions,grain>& operator+=(const std::valarray<grain> &v)
+	template<class Coordinates>
+	RStarBoundingBox<dimensions,grain>& operator+=(const Coordinates &v)
 	{
 		for (std::size_t axis = 0; axis < dimensions; axis++)
 		{
@@ -351,13 +351,13 @@ struct SortBoundedItemsByOverlapEnlargement :
  * of BoundedItems by the same vector
  **********************************************************/
 
-template <typename BoundedItem>
+template <typename BoundedItem, typename Coordinates>
 struct TranslateBoundingBox :
 	public std::unary_function< BoundedItem *, void >
 {
-	const std::valarray<typename BoundedItem::BoundingBox::grain_type> * trans;
+	const Coordinates * trans;
 	const bool ContinueVisiting;
-	explicit TranslateBoundingBox(const std::valarray<typename BoundedItem::BoundingBox::grain_type> * v) : trans(v), ContinueVisiting(true) {}
+	explicit TranslateBoundingBox(const Coordinates * v) : trans(v), ContinueVisiting(true) {}
 
 	void operator() (BoundedItem * item)
 	{

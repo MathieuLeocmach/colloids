@@ -28,37 +28,36 @@
 #ifndef periodic_particles_H
 #define periodic_particles_H
 
-#include "indexedParticles.hpp"
+#include "particles.hpp"
 
-
-/** \brief indexed particles with periodic boundary conditions */
-class PeriodicParticles : public IndexedParticles
+namespace Colloids
 {
-    public:
+    /** \brief indexed particles with periodic boundary conditions */
+    class PeriodicParticles : public Particles
+    {
+        public:
 
-        PeriodicParticles(const double &rad) : IndexedParticles(rad){return;};
-        PeriodicParticles(const std::deque< std::valarray<double> > &input,const double &rad) : IndexedParticles(input,rad){return;};
-        PeriodicParticles(const Particles &input):IndexedParticles(input){return;};
-        PeriodicParticles(const std::string &filename,const double &rad) : IndexedParticles(filename,rad){return;};
-        PeriodicParticles(const std::deque< std::valarray<double> > &input,const double &rad,const double &minSep) : IndexedParticles(input,rad,minSep){return;};
-        PeriodicParticles(const std::string &filename,const double &rad,const double &minSep) : IndexedParticles(filename,rad,minSep){return;};
-        PeriodicParticles(const size_t &Nb, const BoundingBox &b,const double &rad, const std::string &filename) : IndexedParticles(Nb,b,rad,filename){return;};
+            PeriodicParticles(const double &rad) : Particles(rad){return;};
+            PeriodicParticles(const std::vector<Coord> &input,const double &rad) : Particles(input,rad){return;};
+            PeriodicParticles(const Particles &input) : Particles(input){return;};
+            PeriodicParticles(const std::string &filename,const double &rad) : Particles(filename,rad){return;};
+            PeriodicParticles(const size_t &Nb, const BoundingBox &b, const std::string &filename, const double &rad) : Particles(Nb,b,filename,rad){return;};
 
-        inline double getPeriod(const size_t &i) const;
+            inline double getPeriod(const size_t &d) const;
 
-        void periodify(std::valarray<double>&v) const;
-        std::valarray<double> getDiff(const std::valarray<double> &from,const size_t &to) const;
-        std::valarray<double> getDiff(const size_t &from,const size_t &to) const;
-        double getNumberDensity() const;
-        std::set<size_t> getInside(const double &cutoff) const;
-        std::set<size_t> getRealInside(const double &cutoff) const;
-        std::set<size_t> getEnclosed(const BoundingBox &b) const;
-        //set<size_t> getEuclidianNeighbours(const valarray<double> &center, const double &range) const;
+            void periodify(Coord &v) const;
+            Coord getDiff(const Coord &from,const size_t &to) const;
+            Coord getDiff(const size_t &from,const size_t &to) const;
+            double getNumberDensity() const;
+            std::set<size_t> getInside(const double &margin) const;
+            std::set<size_t> getEnclosed(const BoundingBox &b) const;
+            //set<size_t> getEuclidianNeighbours(const valarray<double> &center, const double &range) const;
+    };
+
+    /** \brief get the periodicity according to the bounding box */
+    inline double PeriodicParticles::getPeriod(const size_t &d) const
+    {
+        return bb.edges[d].second-bb.edges[d].first;
+    }
 };
-
-/** \brief get the periodicity according to the bounding box */
-inline double PeriodicParticles::getPeriod(const size_t &i) const
-{
-    return bb.edges[i].second-bb.edges[i].first;
-}
 #endif
