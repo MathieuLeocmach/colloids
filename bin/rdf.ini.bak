@@ -1,0 +1,10 @@
+
+tsize=1
+toffset=0
+nbdigit_t=0
+inputPath = c:/data/kawasaki_output/gauss_
+
+
+nbDiameterCutOff=6
+Nbins=100
+radius = 5

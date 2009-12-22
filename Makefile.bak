@@ -1,0 +1,145 @@
+#
+#    Copyright 2009 Mathieu Leocmach
+#
+#    This file is part of Colloids.
+#
+#    Colloids is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    Colloids is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with Colloids.  If not, see <http://www.gnu.org/licenses/>.
+
+#directory tree related. Must be adapted for each machine
+OUTPUT_DIR = c:/bin/
+#OUTPUT_DIR = ./
+BOOST_DIR = C:/code_lib/boost_1_36_0
+CIMG_DIR = C:/code_lib/CImg-1.3.1
+FFTW3_DIR = C:/code_lib/fftw
+TIFF_DIR = "C:/Program Files/GnuWin32"
+
+#complier related
+CPP = g++
+CXXFLAGS += -O3 -Wall -I$(BOOST_DIR) -I$(CIMG_DIR) -I$(FFTW3_DIR) -I$(TIFF_DIR)/include -march=prescott
+LDFLAGS += -L$(OUTPUT_DIR)
+ifeq ($(CPP),icpc)
+	CXXFLAGS += -xHost
+endif
+
+#OS related
+OS=win
+LIB_BASE_NAME = particles
+GRAPHIC_LIB_BASE_NAME = graphic_$(LIB_BASE_NAME)
+ifeq ($(OS),win)
+	SONAME = $(LIB_BASE_NAME).dll
+	GRAPHIC_SONAME = $(GRAPHIC_LIB_BASE_NAME).dll
+	EXT = .exe
+	MKDIR_COMMAND =
+else
+	SONAME = lib$(LIB_BASE_NAME).so
+	GRAPHIC_SONAME = lib$(GRAPHIC_LIB_BASE_NAME).so
+	EXT =
+	MKDIR_COMMAND = -p
+endif
+LIB_NAME = $(OUTPUT_DIR)$(SONAME)
+LIB_GRAPHIC_NAME = $(OUTPUT_DIR)$(GRAPHIC_SONAME)
+LIBS += -l$(LIB_BASE_NAME)
+LIBS_GRAPHIC = $(LIBS) -lgdi32 -ltiff -lfftw3-3 -lboost_program_options-mt
+GRAPHIC_FLAGS = -Dcimg_use_tiff -Dcimg_use_fftw3 -DTIXML_USE_STL -DINSTAL_PATH=\"$(OUTPUT_DIR)\"
+
+#following option is -DLINUX even under MinGW
+CXXFLAGS += -DLINUX
+OBJ_OUTPUT = objs/
+
+
+SRC := $(wildcard *.cpp)
+HEADERS := $(wildcard *.hpp)
+OBJ := $(addprefix $(OBJ_OUTPUT), $(SRC:.cpp=.o) )
+TARGETS := $(notdir $(basename $(wildcard mains/*.cpp)))
+
+SRC_PERIODIC := rdf.cpp boo.cpp
+OBJ_PERIODIC := $(addprefix $(OBJ_OUTPUT)mains/periodic_, $(SRC_PERIODIC:.cpp=.o) )
+TARGETS_PERIODIC := $(addprefix periodic_, $(basename $(SRC_PERIODIC)))
+
+SRC_GRAPHIC := $(wildcard graphic/*.cpp)
+HEADER_GRAPHIC := $(wildcard graphic/*.hpp)
+OBJ_GRAPHIC := $(addprefix $(OBJ_OUTPUT), $(SRC_GRAPHIC:.cpp=.o) )
+TARGETS_GRAPHIC := $(notdir $(basename $(wildcard graphic/mains/*.cpp)))
+
+SRC_TINYXML := $(addprefix tinyxml/, tinyxml.cpp tinyxmlparser.cpp tinyxmlerror.cpp tinystr.cpp)
+OBJ_TINYXML := $(addprefix $(OBJ_OUTPUT), $(SRC_TINYXML:.cpp=.o) )
+
+all: library graphiclibrary $(TARGETS) $(TARGETS_PERIODIC)
+
+library: $(LIB_NAME)
+
+graphiclibrary: $(LIB_GRAPHIC_NAME) $(LIB_NAME)
+
+$(LIB_NAME): $(OBJ)
+	-@mkdir $(MKDIR_COMMAND) $(OUTPUT_DIR)
+	@$(CPP) -o $@ -shared $^
+
+$(LIB_GRAPHIC_NAME): $(OBJ_GRAPHIC) $(OBJ_TINYXML)
+	-@mkdir $(MKDIR_COMMAND) $(OUTPUT_DIR)
+	@$(CPP) -o $@ -shared $^ $(LDFLAGS) $(LIBS_GRAPHIC) $(GRAPHIC_FLAGS)
+
+
+#making the target "c:/bin/target.exe" a dependency of the target "target"
+$(foreach tar,$(TARGETS) $(TARGETS_PERIODIC),$(eval $(tar): library $(OUTPUT_DIR)$(tar)$(EXT)) )
+$(foreach tar,$(TARGETS_GRAPHIC),$(eval $(tar): library graphiclibrary $(OUTPUT_DIR)$(tar)$(EXT)) )
+
+#linking of each target
+$(foreach tar,$(TARGETS) $(TARGETS_PERIODIC),$(eval $(OUTPUT_DIR)$(tar)$(EXT): $(OBJ_OUTPUT)mains/$(tar).o library ; $(CPP) -o $$@ $$< $(LDFLAGS) $(LIBS) ))
+$(foreach tar,$(TARGETS_GRAPHIC),$(eval $(OUTPUT_DIR)$(tar)$(EXT): $(OBJ_OUTPUT)graphic/mains/$(tar).o library graphiclibrary; $(CPP) -o $$@ $$< $(LDFLAGS) $(GRAPHIC_FLAGS) $(LIBS_GRAPHIC) -l$(GRAPHIC_LIB_BASE_NAME)))
+
+
+#compiling each object
+$(OBJ_OUTPUT)%.o: %.cpp $(HEADERS)
+	-@mkdir $(MKDIR_COMMAND) $(OBJ_OUTPUT)
+	@$(CPP) -o $@ -c $< -fPIC $(CXXFLAGS) $(GRAPHIC_FLAGS)
+
+$(OBJ_OUTPUT)graphic/%.o: graphic/%.cpp %.hpp $(HEADERS)
+	-@mkdir $(MKDIR_COMMAND) $(OBJ_OUTPUT)graphic
+	@$(CPP) -o $@ -c $< -fPIC $(CXXFLAGS) $(GRAPHIC_FLAGS)
+
+$(OBJ_OUTPUT)mains/%.o: mains/%.cpp $(HEADERS)
+	-@mkdir $(MKDIR_COMMAND) $(OBJ_OUTPUT)mains
+	@$(CPP) -o $@ -c $< $(CXXFLAGS) $(GRAPHIC_FLAGS)
+
+$(OBJ_OUTPUT)graphic/mains/%.o: graphic/mains/%.cpp $(HEADERS)
+	-@mkdir $(MKDIR_COMMAND) $(OBJ_OUTPUT)graphic/mains
+	@$(CPP) -o $@ -c $< $(CXXFLAGS) $(GRAPHIC_FLAGS)
+
+$(OBJ_OUTPUT)mains/periodic_%.o: mains/%.cpp
+	-@mkdir $(MKDIR_COMMAND) $(OBJ_OUTPUT)mains
+	@$(CPP) -o $@ -c $< $(CXXFLAGS) -Duse_periodic
+
+$(OBJ_OUTPUT)tinyxml/%.o: tinyxml/%.cpp
+	-@mkdir $(MKDIR_COMMAND) $(OBJ_OUTPUT)tinyxml
+	@$(CPP) -o $@ -c $< -fPIC $(CXXFLAGS) $(GRAPHIC_FLAGS)
+
+clean: cleanlibrary cleangraphiclibrary $(addprefix clean, $(TARGETS) $(TARGETS_PERIODIC))
+
+cleanlibrary:
+	-@rm -rf $(OBJ_OUTPUT)*.o
+
+cleangraphiclibrary: cleantinyxml
+	-@rm -rf $(OBJ_OUTPUT)graphic/*.o
+
+cleantinyxml:
+	-@rm -rf $(OBJ_OUTPUT)tinyxml/*.o
+
+#cleaning each target
+$(foreach tar,$(TARGETS) $(TARGETS_PERIODIC),$(eval clean$(tar): cleanlibrary; -@rm -rf $(OBJ_OUTPUT)mains/$(tar).o) )
+$(foreach tar,$(TARGETS_GRAPHIC),$(eval clean$(tar): cleanlibrary cleangraphiclibrary; -@rm -rf $(OBJ_OUTPUT)graphic/mains/$(tar).o) )
+
+mrproper: clean
+	-@($(foreach tar, $(TARGETS) $(TARGETS_PERIODIC), rm -rf $(OUTPUT_DIR)$(tar)$(EXT) &&) rm -rf $(LIB_NAME))
+
+

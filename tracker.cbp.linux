@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6" />
+	<Project>
+		<Option title="tracker" />
+		<Option pch_mode="2" />
+		<Option compiler="gcc" />
+		<Build>
+			<Target title="tracker">
+				<Option output="bin/tracker" prefix_auto="1" extension_auto="1" />
+				<Option object_output="tracker/obj/" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-O2" />
+					<Add option="-Dcimg_use_vt100" />
+					<Add option="-Dcimg_use_xshm" />
+					<Add option="-Dcimg_use_xrandr" />
+					<Add option="-Dcimg_use_tiff" />
+					<Add directory="/usr/include/CImg" />
+					<Add directory="/usr/X11R6/include" />
+				</Compiler>
+				<Linker>
+					<Add option="-s" />
+					<Add library="m" />
+					<Add library="pthread" />
+					<Add library="X11" />
+					<Add library="Xext" />
+					<Add library="Xrandr" />
+					<Add library="tiff" />
+					<Add directory="/usr/X11R6/lib" />
+				</Linker>
+			</Target>
+			<Target title="rdf">
+				<Option output="bin/rdf" prefix_auto="1" extension_auto="1" />
+				<Option object_output="rdf/obj/" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+			</Target>
+			<Target title="orientation">
+				<Option output="bin/orientation" prefix_auto="1" extension_auto="1" />
+				<Option object_output="orientation/obj/" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+			</Target>
+		</Build>
+		<Compiler>
+			<Add option="-Wall" />
+		</Compiler>
+		<Unit filename="ConfigFile/ConfigFile.cpp" />
+		<Unit filename="ConfigFile/ConfigFile.h" />
+		<Unit filename="RStarTree/RStarBoundingBox.h" />
+		<Unit filename="RStarTree/RStarTree.h" />
+		<Unit filename="RStarTree/RStarVisitor.h" />
+		<Unit filename="orientation/orientation.cpp">
+			<Option target="orientation" />
+		</Unit>
+		<Unit filename="particles.hpp" />
+		<Unit filename="rdf/rdf.cpp">
+			<Option compilerVar="CC" />
+			<Option target="rdf" />
+		</Unit>
+		<Unit filename="tracker/tracker.cpp">
+			<Option compilerVar="CC" />
+			<Option target="tracker" />
+		</Unit>
+		<Extensions>
+			<code_completion />
+			<debugger />
+		</Extensions>
+	</Project>
+</CodeBlocks_project_file>

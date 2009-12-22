@@ -1,0 +1,81 @@
+/**
+    Copyright 2008,2009 Mathieu Leocmach
+
+    This file is part of Colloids.
+
+    Colloids is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Colloids is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Colloids.  If not, see <http://www.gnu.org/licenses/>.
+**/
+
+//Define the preprocessor variable "use_periodic" if you want periodic boundary conditions
+#include "../periodic.hpp"
+
+using namespace std;
+
+int main(int argc, char ** argv)
+{
+    try
+    {
+
+		if(argc<5)
+		{
+			cout << "Syntax : [periodic_]rdf [path]filename radius NbOfBins range" << endl;
+			cout << " range is in diameter unit" << endl;
+			return EXIT_FAILURE;
+		}
+
+		cout << "Radial Distribution function" << endl;
+		const string filename(argv[1]);
+		const string inputPath = filename.substr(0,filename.find_last_of("."));
+		double radius,nbDiameterCutOff;
+		sscanf(argv[2],"%lf",&radius);
+		size_t Nbins;
+		sscanf(argv[3],"%u",&Nbins);
+		sscanf(argv[4],"%lf",&nbDiameterCutOff);
+
+		//construct the particle container out of the datafile
+	#ifdef use_periodic
+		if(argc<9)
+		{
+			cout << "Syntax : periodic_rdf [path]filename radius NbOfBins range Nb dx dy dz" << endl;
+			cout << " range is in diameter unit" << endl;
+			return EXIT_FAILURE;
+		}
+		size_t Nb;
+		sscanf(argv[5],"%u",&Nb);
+		BoundingBox b;
+		for(size_t d=0;d<3;++d)
+		{
+			b.edges[d].first=0.0;
+			sscanf(argv[6+d],"%lf",&b.edges[d].second);
+		}
+		PeriodicParticles Centers(Nb,b,radius,filename);
+		cout << "With periodic boundary conditions"<<endl;
+	#else
+		IndexedParticles Centers(filename,radius);
+	#endif
+		cout << Centers.size() << " particles ... ";
+
+		//get g(r)
+		vector<double> g = Centers.getRdf(Nbins,nbDiameterCutOff);
+		cout << " done !" << endl;
+
+		saveRDF(g,inputPath + ".rdf",((double)Nbins)/nbDiameterCutOff);
+    }
+    catch(const std::exception &e)
+    {
+        cerr<<e.what() << endl;
+        return EXIT_FAILURE;
+    }
+    return EXIT_SUCCESS;
+}

@@ -1,0 +1,21 @@
+# Tracking configuration
+input=C:/Code_data/YLP4 100% H+1/crystal1_z000_ch00.tif
+outputPath = C:/Code_output/YLP4 100% H+1/crystal1_
+displayRadius = 4.8
+radiusMin = 3.48
+radiusMax = 64
+zradiusMin = 3.48
+zradiusMax = 64
+threshold = 90
+
+# Specific to file serie mode
+channel = 1
+xsize = 256
+ysize = 256
+zsize = 128
+tsize = 1
+zoffset = 0
+toffset = 0
+voxelWidth = 1
+voxelDepth = 1
+

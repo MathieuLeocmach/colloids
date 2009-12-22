@@ -1,0 +1,468 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6" />
+	<Project>
+		<Option title="tracker" />
+		<Option pch_mode="2" />
+		<Option compiler="gcc" />
+		<Build>
+			<Target title="tracker">
+				<Option output="c:\bin\tracker" prefix_auto="1" extension_auto="1" />
+				<Option object_output="objs\" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-O2" />
+					<Add option="-Dcimg_use_tiff" />
+					<Add option="-Dcimg_use_fftw3" />
+					<Add directory="C:\code_lib\CImg-1.2.9" />
+					<Add directory="C:\Program Files\GnuWin32\include" />
+					<Add directory="C:\code_lib\fftw" />
+				</Compiler>
+				<Linker>
+					<Add option="-s" />
+					<Add library="gdi32" />
+					<Add library="tiff" />
+					<Add library="fftw3-3" />
+					<Add directory="C:\Program Files\GnuWin32\lib" />
+					<Add directory="C:\code_lib\fftw" />
+				</Linker>
+			</Target>
+			<Target title="rdf">
+				<Option output="c:\bin\rdf" prefix_auto="1" extension_auto="1" />
+				<Option object_output="objs\" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+			</Target>
+			<Target title="orientation">
+				<Option output="c:\bin\orientation" prefix_auto="1" extension_auto="1" />
+				<Option object_output="objs\" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+			</Target>
+			<Target title="sim2xp">
+				<Option output="c:\bin\sim2xp" prefix_auto="1" extension_auto="1" />
+				<Option object_output="objs\" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+			</Target>
+			<Target title="data2img">
+				<Option output="c:\bin\data2img" prefix_auto="1" extension_auto="1" />
+				<Option object_output="objs\" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-O2" />
+					<Add option="-Dcimg_use_tiff" />
+					<Add option="-Dcimg_use_fftw3" />
+					<Add directory="C:\code_lib\CImg-1.2.9" />
+					<Add directory="C:\Program Files\GnuWin32\include" />
+					<Add directory="C:\code_lib\fftw" />
+				</Compiler>
+				<Linker>
+					<Add option="-s" />
+					<Add library="gdi32" />
+					<Add library="tiff" />
+					<Add library="fftw3-3" />
+					<Add directory="C:\Program Files\GnuWin32\lib" />
+					<Add directory="C:\code_lib\fftw" />
+				</Linker>
+			</Target>
+			<Target title="rdf all range">
+				<Option output="c:\bin\rdf_ar" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj2\" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+			</Target>
+			<Target title="animate">
+				<Option output="c:\bin\animate" prefix_auto="1" extension_auto="1" />
+				<Option object_output="objs\" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+			</Target>
+			<Target title="concat_animations">
+				<Option output="c:\bin\concat_animations" prefix_auto="1" extension_auto="1" />
+				<Option object_output="objs\" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+			</Target>
+			<Target title="linker">
+				<Option output="c:\bin\linker" prefix_auto="1" extension_auto="1" />
+				<Option object_output="objs\" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Option use_console_runner="0" />
+				<Option parameters='&quot;c:\Code_output\Tsuru11dm_phi=54.91\1h_t000.dat&quot; &quot;_t&quot; 5.8 0.5 0 120' />
+				<Compiler>
+					<Add option="-O3" />
+					<Add option="-W" />
+				</Compiler>
+			</Target>
+			<Target title="dynHetero">
+				<Option output="c:\bin\dynHetero" prefix_auto="1" extension_auto="1" />
+				<Option object_output="objs\" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Option use_console_runner="0" />
+			</Target>
+			<Target title="boo">
+				<Option output="c:\bin\boo" prefix_auto="1" extension_auto="1" />
+				<Option object_output="objs\" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Option use_console_runner="0" />
+				<Compiler>
+					<Add option="-O3" />
+					<Add directory="C:\code_lib\boost_1_36_0" />
+				</Compiler>
+				<Linker>
+					<Add directory="C:\code_lib\boost_1_36_0" />
+				</Linker>
+			</Target>
+			<Target title="periodic rdf">
+				<Option output="c:\bin\periodic_rdf" prefix_auto="1" extension_auto="1" />
+				<Option object_output="objs\" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Option use_console_runner="0" />
+				<Compiler>
+					<Add option="-Dperiodic" />
+				</Compiler>
+			</Target>
+			<Target title="periodic boo">
+				<Option output="c:\bin\periodic_boo" prefix_auto="1" extension_auto="1" />
+				<Option object_output="objs\" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Option use_console_runner="0" />
+				<Compiler>
+					<Add option="-O3" />
+					<Add option="-Dperiodic" />
+					<Add directory="C:\code_lib\boost_1_36_0" />
+				</Compiler>
+				<Linker>
+					<Add directory="C:\code_lib\boost_1_36_0" />
+				</Linker>
+			</Target>
+			<Target title="MSD">
+				<Option output="c:\bin\MSD" prefix_auto="1" extension_auto="1" />
+				<Option object_output="objs\" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Option use_console_runner="0" />
+				<Option parameters='&quot;c:\Code_output\Tsuru11dm_phi=54.91\1h_t000_linked.traj&quot;' />
+				<Compiler>
+					<Add option="-W" />
+					<Add option="-g" />
+				</Compiler>
+			</Target>
+			<Target title="ngb_count">
+				<Option output="c:\bin\ngb_count" prefix_auto="1" extension_auto="1" />
+				<Option object_output="objs\" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+			</Target>
+			<Target title="sumrdf">
+				<Option output="c:\bin\sumrdf" prefix_auto="1" extension_auto="1" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Option use_console_runner="0" />
+			</Target>
+			<Target title="angular_distrib">
+				<Option output="c:\bin\rdf" prefix_auto="1" extension_auto="1" />
+				<Option object_output="objs\" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+			</Target>
+			<Target title="ISF">
+				<Option output="c:\bin\ISF" prefix_auto="1" extension_auto="1" />
+				<Option object_output="objs\" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Option use_console_runner="0" />
+				<Option parameters='&quot;c:\Code_output\Tsuru11dm_phi=54.91\1h_t000_linked.traj&quot;' />
+				<Compiler>
+					<Add option="-O3" />
+					<Add option="-W" />
+					<Add option="-g" />
+				</Compiler>
+			</Target>
+		</Build>
+		<Compiler>
+			<Add option="-Wall" />
+		</Compiler>
+		<Unit filename="ConfigFile\ConfigFile.cpp">
+			<Option target="tracker" />
+			<Option target="rdf all range" />
+		</Unit>
+		<Unit filename="ConfigFile\ConfigFile.h">
+			<Option target="tracker" />
+			<Option target="rdf all range" />
+		</Unit>
+		<Unit filename="RStarTree\RStarBoundingBox.h">
+			<Option target="tracker" />
+			<Option target="rdf" />
+			<Option target="orientation" />
+			<Option target="sim2xp" />
+			<Option target="data2img" />
+			<Option target="rdf all range" />
+			<Option target="animate" />
+			<Option target="concat_animations" />
+			<Option target="periodic rdf" />
+			<Option target="ngb_count" />
+			<Option target="angular_distrib" />
+			<Option target="MSD" />
+			<Option target="ISF" />
+		</Unit>
+		<Unit filename="RStarTree\RStarTree.h">
+			<Option target="tracker" />
+			<Option target="rdf" />
+			<Option target="orientation" />
+			<Option target="sim2xp" />
+			<Option target="data2img" />
+			<Option target="rdf all range" />
+			<Option target="animate" />
+			<Option target="concat_animations" />
+			<Option target="periodic rdf" />
+			<Option target="ngb_count" />
+			<Option target="angular_distrib" />
+			<Option target="MSD" />
+			<Option target="ISF" />
+		</Unit>
+		<Unit filename="RStarTree\RStarVisitor.h">
+			<Option target="tracker" />
+			<Option target="rdf" />
+			<Option target="orientation" />
+			<Option target="sim2xp" />
+			<Option target="data2img" />
+			<Option target="rdf all range" />
+			<Option target="animate" />
+			<Option target="concat_animations" />
+			<Option target="periodic rdf" />
+			<Option target="ngb_count" />
+			<Option target="angular_distrib" />
+			<Option target="MSD" />
+			<Option target="ISF" />
+		</Unit>
+		<Unit filename="animate\animate.cpp">
+			<Option target="animate" />
+		</Unit>
+		<Unit filename="animation.cpp">
+			<Option target="animate" />
+			<Option target="concat_animations" />
+			<Option target="dynHetero" />
+			<Option target="boo" />
+			<Option target="periodic boo" />
+			<Option target="linker" />
+			<Option target="MSD" />
+			<Option target="ISF" />
+		</Unit>
+		<Unit filename="animation.hpp">
+			<Option target="animate" />
+			<Option target="concat_animations" />
+			<Option target="dynHetero" />
+			<Option target="linker" />
+			<Option target="MSD" />
+			<Option target="ISF" />
+		</Unit>
+		<Unit filename="boo\boo.cpp">
+			<Option target="boo" />
+			<Option target="periodic boo" />
+		</Unit>
+		<Unit filename="boo\boo.hpp">
+			<Option target="boo" />
+			<Option target="periodic boo" />
+		</Unit>
+		<Unit filename="boo\mainboo.cpp">
+			<Option target="boo" />
+			<Option target="periodic boo" />
+		</Unit>
+		<Unit filename="boo\wigner3j.cpp">
+			<Option target="boo" />
+			<Option target="periodic boo" />
+		</Unit>
+		<Unit filename="concat_animations\concat_animations.cpp">
+			<Option target="concat_animations" />
+		</Unit>
+		<Unit filename="data2img\data2img.cpp">
+			<Option target="data2img" />
+		</Unit>
+		<Unit filename="dynHetero\ISF.cpp">
+			<Option target="ISF" />
+		</Unit>
+		<Unit filename="dynHetero\MSD.cpp">
+			<Option target="MSD" />
+		</Unit>
+		<Unit filename="dynHetero\dynHetero.cpp">
+			<Option target="dynHetero" />
+		</Unit>
+		<Unit filename="dynamicParticles.cpp">
+			<Option target="linker" />
+			<Option target="MSD" />
+			<Option target="ISF" />
+		</Unit>
+		<Unit filename="dynamicParticles.hpp">
+			<Option target="linker" />
+			<Option target="MSD" />
+			<Option target="ISF" />
+		</Unit>
+		<Unit filename="files_series.cpp">
+			<Option target="animate" />
+			<Option target="concat_animations" />
+			<Option target="linker" />
+			<Option target="dynHetero" />
+			<Option target="MSD" />
+			<Option target="sumrdf" />
+			<Option target="ISF" />
+		</Unit>
+		<Unit filename="files_series.hpp">
+			<Option target="tracker" />
+			<Option target="data2img" />
+			<Option target="animate" />
+			<Option target="concat_animations" />
+			<Option target="linker" />
+			<Option target="dynHetero" />
+			<Option target="MSD" />
+			<Option target="sumrdf" />
+			<Option target="ISF" />
+		</Unit>
+		<Unit filename="graphicParticles.cpp">
+			<Option target="tracker" />
+			<Option target="sim2xp" />
+			<Option target="data2img" />
+		</Unit>
+		<Unit filename="graphicParticles.hpp">
+			<Option target="tracker" />
+			<Option target="data2img" />
+		</Unit>
+		<Unit filename="indexedParticles.cpp">
+			<Option target="rdf" />
+			<Option target="orientation" />
+			<Option target="rdf all range" />
+			<Option target="animate" />
+			<Option target="concat_animations" />
+			<Option target="linker" />
+			<Option target="dynHetero" />
+			<Option target="boo" />
+			<Option target="periodic rdf" />
+			<Option target="periodic boo" />
+			<Option target="MSD" />
+			<Option target="ngb_count" />
+			<Option target="angular_distrib" />
+			<Option target="ISF" />
+		</Unit>
+		<Unit filename="indexedParticles.hpp">
+			<Option target="rdf" />
+			<Option target="orientation" />
+			<Option target="rdf all range" />
+			<Option target="animate" />
+			<Option target="concat_animations" />
+			<Option target="linker" />
+			<Option target="dynHetero" />
+			<Option target="boo" />
+			<Option target="periodic rdf" />
+			<Option target="periodic boo" />
+			<Option target="MSD" />
+			<Option target="ngb_count" />
+			<Option target="angular_distrib" />
+			<Option target="ISF" />
+		</Unit>
+		<Unit filename="linker\linker.cpp">
+			<Option target="linker" />
+		</Unit>
+		<Unit filename="ngb_count\ngb_count.cpp">
+			<Option target="ngb_count" />
+		</Unit>
+		<Unit filename="orientation\angular_distrib.cpp">
+			<Option target="boo" />
+			<Option target="angular_distrib" />
+		</Unit>
+		<Unit filename="orientation\angular_distrib.hpp">
+			<Option target="boo" />
+			<Option target="angular_distrib" />
+		</Unit>
+		<Unit filename="orientation\orientation.cpp">
+			<Option target="orientation" />
+		</Unit>
+		<Unit filename="particles.cpp">
+			<Option target="tracker" />
+			<Option target="rdf" />
+			<Option target="orientation" />
+			<Option target="sim2xp" />
+			<Option target="data2img" />
+			<Option target="rdf all range" />
+			<Option target="animate" />
+			<Option target="concat_animations" />
+			<Option target="linker" />
+			<Option target="dynHetero" />
+			<Option target="boo" />
+			<Option target="periodic rdf" />
+			<Option target="periodic boo" />
+			<Option target="MSD" />
+			<Option target="ngb_count" />
+			<Option target="angular_distrib" />
+			<Option target="ISF" />
+		</Unit>
+		<Unit filename="particles.hpp">
+			<Option target="tracker" />
+			<Option target="rdf" />
+			<Option target="orientation" />
+			<Option target="sim2xp" />
+			<Option target="data2img" />
+			<Option target="rdf all range" />
+			<Option target="animate" />
+			<Option target="concat_animations" />
+			<Option target="linker" />
+			<Option target="dynHetero" />
+			<Option target="boo" />
+			<Option target="periodic rdf" />
+			<Option target="periodic boo" />
+			<Option target="MSD" />
+			<Option target="ngb_count" />
+			<Option target="angular_distrib" />
+			<Option target="ISF" />
+		</Unit>
+		<Unit filename="periodic.cpp">
+			<Option target="periodic rdf" />
+			<Option target="periodic boo" />
+		</Unit>
+		<Unit filename="periodic.hpp">
+			<Option target="periodic rdf" />
+			<Option target="boo" />
+			<Option target="periodic boo" />
+		</Unit>
+		<Unit filename="rdf\rdf.cpp">
+			<Option compilerVar="CC" />
+			<Option target="rdf" />
+			<Option target="periodic rdf" />
+		</Unit>
+		<Unit filename="rdf\rdf_all_range.cpp">
+			<Option target="rdf all range" />
+		</Unit>
+		<Unit filename="rdf\sumrdf.cpp">
+			<Option target="sumrdf" />
+		</Unit>
+		<Unit filename="sim2xp\sim2xp.cpp">
+			<Option target="sim2xp" />
+		</Unit>
+		<Unit filename="time_tracker.cpp">
+			<Option target="dynHetero" />
+		</Unit>
+		<Unit filename="time_tracker.hpp">
+			<Option target="dynHetero" />
+		</Unit>
+		<Unit filename="tracker\tracker.cpp">
+			<Option compilerVar="CC" />
+			<Option target="tracker" />
+		</Unit>
+		<Unit filename="traj.hpp">
+			<Option target="linker" />
+			<Option target="MSD" />
+			<Option target="ISF" />
+		</Unit>
+		<Extensions>
+			<code_completion />
+			<debugger />
+		</Extensions>
+	</Project>
+</CodeBlocks_project_file>
