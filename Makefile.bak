@@ -50,7 +50,7 @@ endif
 LIB_NAME = $(OUTPUT_DIR)$(SONAME)
 LIB_GRAPHIC_NAME = $(OUTPUT_DIR)$(GRAPHIC_SONAME)
 LIBS += -l$(LIB_BASE_NAME)
-LIBS_GRAPHIC = $(LIBS) -lgdi32 -ltiff -lfftw3-3 -lboost_program_options-mt
+LIBS_GRAPHIC = $(LIBS) -lgdi32 -ltiff -lfftw3f-3 -lboost_program_options-mt
 GRAPHIC_FLAGS = -Dcimg_use_tiff -Dcimg_use_fftw3 -DTIXML_USE_STL -DINSTAL_PATH=\"$(OUTPUT_DIR)\"
 
 #following option is -DLINUX even under MinGW
