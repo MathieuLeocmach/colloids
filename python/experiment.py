@@ -150,6 +150,20 @@ class Experiment:
                 )
         r,g = np.loadtxt(name, unpack=True)
         return r[np.argmax(g)]
+        gm = g.argmax()
+        return np.average(r[gm-1:gm+2],weights=g[gm-1:gm+2])
+
+    def get_Nb_density(self, averaged=True):
+        nbs = np.empty((size))
+        Vs = np.empty((size))
+        for t,fname in enum(self):
+            coords = np.loadtxt(fname,delimiter='\t', skiprows=2)
+            nbs[t-self.offset] = len(coords)
+            Vs[t-self.offset] = np.ptp(coords, axis=0).prod()
+        if averaged:
+            return (nbs/Vs).mean()
+        else:
+            return (nbs, Vs)
     
     def get_tau(self,thr=exp(-1),force=False):
         """Get the Self-ISF decay time"""
