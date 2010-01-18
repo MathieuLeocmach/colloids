@@ -154,8 +154,8 @@ class Experiment:
         return np.average(r[gm-1:gm+2],weights=g[gm-1:gm+2])
 
     def get_Nb_density(self, averaged=True):
-        nbs = np.empty((size))
-        Vs = np.empty((size))
+        nbs = np.empty((self.size))
+        Vs = np.empty((self.size))
         for t,fname in enum(self):
             coords = np.loadtxt(fname,delimiter='\t', skiprows=2)
             nbs[t-self.offset] = len(coords)
@@ -167,8 +167,8 @@ class Experiment:
 
     def get_zPortion_Nbd(self, lowerMargin=0, upperMargin=0, averaged=True):
         """Get the number density of a z-slab"""
-        nbs = np.empty((size))
-        Vs = np.empty((size))
+        nbs = np.empty((self.size))
+        Vs = np.empty((self.size))
         for t,fname in enum(self):
             coords = np.loadtxt(fname,delimiter='\t', skiprows=2)
             m = np.amin(coords[:,-1])+lowerMargin
