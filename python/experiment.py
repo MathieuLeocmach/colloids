@@ -340,6 +340,19 @@ class Txp:
         sw = np.swapaxes(self.positions[1:],0,1)
         sw -= drift
 
+    def z_slab(self, lowerMargin=0, upperMargin=0):
+        """remove all trajectories that are not in the slab
+            defined by lowerMargin and upperMargin"""
+        m = np.amin(self.positions[:,:,-1], axis=1)+lowerMargin
+        M = np.amax(self.positions[:,:,-1], axis=1)-upperMargin
+        self.positions = self.positions[
+            :, np.bitwise_and(
+                np.amin(tx.positions[:,:,-1].T>m, axis=1),
+                np.amin(tx.positions[:,:,-1].T<M, axis=1)
+                )
+            ]
+
+
     def msd(self,start,stop,av):
         """
         Mean square displacement
