@@ -164,6 +164,22 @@ class Experiment:
             return (nbs/Vs).mean()
         else:
             return (nbs, Vs)
+
+    def get_zPortion_Nbd(self, lowerMargin=0, upperMargin=0, averaged=True):
+        """Get the number density of a z-slab"""
+        nbs = np.empty((size))
+        Vs = np.empty((size))
+        for t,fname in enum(self):
+            coords = np.loadtxt(fname,delimiter='\t', skiprows=2)
+            m = np.amin(coords[:,-1])+lowerMargin
+            M = np.amax(coords[:,-1])-upperMargin
+            coords = coords[np.bitwise_and(m>coords[:,-1], coords[:,-1]<M)]
+            nbs[t-self.offset] = len(coords)
+            Vs[t-self.offset] = np.ptp(coords, axis=0).prod()
+        if averaged:
+            return (nbs/Vs).mean()
+        else:
+            return (nbs, Vs)
     
     def get_tau(self,thr=exp(-1),force=False):
         """Get the Self-ISF decay time"""
