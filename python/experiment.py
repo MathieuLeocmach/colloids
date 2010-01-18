@@ -347,8 +347,8 @@ class Txp:
         M = np.amax(self.positions[:,:,-1], axis=1)-upperMargin
         self.positions = self.positions[
             :, np.bitwise_and(
-                np.amin(tx.positions[:,:,-1].T>m, axis=1),
-                np.amin(tx.positions[:,:,-1].T<M, axis=1)
+                np.amin(self.positions[:,:,-1].T>m, axis=1),
+                np.amin(self.positions[:,:,-1].T<M, axis=1)
                 )
             ]
 
