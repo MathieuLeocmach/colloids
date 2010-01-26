@@ -1,8 +1,24 @@
 /**
+    Copyright 2008,2009 Mathieu Leocmach
+
+    This file is part of Colloids.
+
+    Colloids is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Colloids is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Colloids.  If not, see <http://www.gnu.org/licenses/>.
+
  * \file mainTracker.cpp
  * \brief main tracking program
  * \author Mathieu Leocmach
- * \version 0.1
  * \date 7 april 2009
  *
  * Object oriented implementation of the code elaborated in 2008.
@@ -29,9 +45,10 @@
  */
 
 #include <boost/program_options.hpp>
-#include "../graphicParticles.hpp"
-#include "../tracker.hpp"
+#include "../lifTracker.hpp"
+#include "../serieTracker.hpp"
 #include <boost/progress.hpp>
+#include <boost/format.hpp>
 
 namespace po = boost::program_options;
 using namespace std;
@@ -40,11 +57,49 @@ using namespace std;
 #define INSTAL_PATH "c:/bin/"
 #endif
 
+/** \brief Functor to save a serie of particles to file */
+struct ParticlesExporter : public unary_function<const Particles&, void>
+{
+    size_t t;
+    ofstream * nbs;
+    boost::format outputFileName;
+    boost::progress_display *show_progress;
+
+    /** \brief  Constructor. Need the size of the serie only to get the right number of digits  */
+    ParticlesExporter(const string& outputPath, size_t size, bool quiet)
+    {
+        t=0;
+        ostringstream nbframes;
+        nbframes << size-1;
+        const size_t digits = max(nbframes.str().size(), 1u);
+        ostringstream os;
+        os<<outputPath<<"_t%|0"<<digits<<"d|.dat";
+        outputFileName.parse(os.str());
+        if(quiet)
+            show_progress = new boost::progress_display(size-1);
+        else
+            show_progress = 0;
+        nbs = new ofstream((outputPath+".nb").c_str(), ios::out | ios::trunc);
+    }
+
+    /** \brief  Export the Particles object to the next file of the serie.
+        For example outputDir/30s_t025.dat
+    */
+    void operator()(const Particles& parts)
+    {
+        parts.exportToFile((outputFileName % (t++)).str());
+        (*nbs) << parts.size() << endl;
+        if(show_progress)
+            ++(*show_progress);
+    }
+};
+
 int main(int ac, char* av[])
 {
     try {
         string inputFile,outputPath;
-        double Zratio=1.0,displayRadius,radiusMin, radiusMax, zradiusMin, zradiusMax,threshold;
+        //double Zratio=1.0,displayRadius,radiusMin, radiusMax, zradiusMin, zradiusMax,threshold;
+        double Zratio=1.0,radiusMin, radiusMax, threshold;
         size_t serie;
 
         // Declare a group of options that will be
@@ -66,11 +121,11 @@ int main(int ac, char* av[])
             ("input,i", po::value<string>(&inputFile), "input file")
             ("outputPath,o", po::value<string>(&outputPath), "Path to output coordinate files")
             ("serie", po::value<size_t>(&serie), "Serie to track (modeLIF only, optional)")
-            ("displayRadius",po::value<double>(&displayRadius)->default_value(5.0), "real size of a particle in pixels")
+            //("displayRadius",po::value<double>(&displayRadius)->default_value(5.0), "real size of a particle in pixels")
             ("radiusMin", po::value<double>(&radiusMin), "Minimum radius of the band pass filter in xy")
             ("radiusMax", po::value<double>(&radiusMax), "Maximum radius of the band pass filter in xy")
-            ("zradiusMin", po::value<double>(&zradiusMin), "Minimum radius of the band pass filter in z")
-            ("zradiusMax", po::value<double>(&zradiusMax), "Maximum radius of the band pass filter in z")
+            //("zradiusMin", po::value<double>(&zradiusMin), "Minimum radius of the band pass filter in z")
+            //("zradiusMax", po::value<double>(&zradiusMax), "Maximum radius of the band pass filter in z")
             ("threshold", po::value<double>(&threshold)->default_value(0.0), "Minimum intensity of a center after band passing (0,255)")
             ;
 
@@ -81,9 +136,9 @@ int main(int ac, char* av[])
             ("xsize", po::value<size_t>()->default_value(255), "number of colums in one image")
             ("ysize", po::value<size_t>()->default_value(255), "number of rows in one image")
             ("zsize", po::value<size_t>()->default_value(255), "number of planes to track")
-            ("zoffset", po::value<size_t>()->default_value(0), "first plane to track")
+            //("zoffset", po::value<size_t>()->default_value(0), "first plane to track")
             ("tsize", po::value<size_t>()->default_value(1), "number of time steps to track")
-            ("toffset", po::value<size_t>()->default_value(0), "first time step to track")
+            //("toffset", po::value<size_t>()->default_value(0), "first time step to track")
             ("voxelWidth", po::value<double>()->default_value(1.0), "real size of a pixel in a xy plane")
             ("voxelDepth", po::value<double>()->default_value(1.0), "real size of a pixel in z")
             ;
@@ -114,90 +169,69 @@ int main(int ac, char* av[])
         notify(vm);
         ifs.close();
 
+        //makes sure the last character of outputpath is not an underscore, because we will add one anyway
+        //because the last 't' of "seriet000.dat" is not equivalent to the last '_t' of "serie_t000.dat"
+        //so '_t' is a much better token than 't'
+        if(outputPath.substr(outputPath.size()-1) == "_")
+            outputPath.erase(outputPath.end()-1);
+
+
         Tracker::loadWisdom(INSTAL_PATH "wisdom.fftw");
 
-        boost::progress_display *show_progress;
 
         if (vm.count("modeSerie"))
         {
             Zratio = vm["voxelDepth"].as<double>() / vm["voxelWidth"].as<double>();
             //initialize the tracker
-            vector<string> tokens(2);
-            tokens[0]="_t";
-            tokens[1]="_z";
-            TokenTree input(tokens,inputFile);
-            cout << input<<endl;
-            FileSerieTracker track(input,Zratio,
+            boost::array<size_t, 4> xyzt = {
                 vm["xsize"].as<size_t>(),
                 vm["ysize"].as<size_t>(),
                 vm["zsize"].as<size_t>(),
-                vm["channel"].as<size_t>()
-                );
+                vm["tsize"].as<size_t>()
+            };
+            SerieTracker track(inputFile, xyzt, vm["channel"].as<size_t>(), Zratio);
+            cout << "tracker ok"<<endl;
             Tracker::saveWisdom(INSTAL_PATH "wisdom.fftw");
-            track.view = !!vm.count("view");
-            track.quiet = !!vm.count("quiet");
-            track.displayRadius = displayRadius;
-            track.makeBandPassMask(radiusMin, radiusMax, zradiusMin, zradiusMax);
+            track.setView(!!vm.count("view"));
+            track.setQuiet(!!vm.count("quiet"));
+            track.setThreshold(threshold);
+            track.setIsotropicBandPass(radiusMin, radiusMax); //not using zradius for the moment
 
-            const size_t digits = max(track.fileSerie->nbdigit,(size_t)1);
-            ostringstream os;
-            os<<outputPath<<"t%|0"<<digits<<"d|.dat";
-            boost::format outputFileName(os.str());
+            boost::progress_timer ptimer;
+            for_each(track, track.end(), ParticlesExporter(outputPath, vm["tsize"].as<size_t>(), track.quiet()));
 
-            if(track.quiet) show_progress = new boost::progress_display(vm["tsize"].as<size_t>());
-            for(size_t t=vm["toffset"].as<size_t>();t<vm["tsize"].as<size_t>()+vm["toffset"].as<size_t>();++t)
-            {
-                track.load3D(t);
-                GraphicParticles Centers = track.trackXYZ(threshold);
-
-                //export into a file
-                Centers.exportToFile((outputFileName % t).str());
-                if(track.quiet) ++(*show_progress);
-            }
         }
 
         if(vm.count("modeLIF"))
         {
-            auto_ptr<LifFile> lif(new LifFile(inputFile));
+            LifReader reader(inputFile);
             //saving xml header
-            FILE * header = fopen((inputFile.substr(0,inputFile.find_last_of("."))+"_header.xml").c_str(),"w");
-            if(!header)
-            {
-                cerr<<"Create the output directory first !"<<endl;
-                return EXIT_FAILURE;
-            }
-            lif->Header.Print(header);
-            fclose(header);
+            FILE * headerFile = fopen((inputFile.substr(0,inputFile.find_last_of("."))+"_header.xml").c_str(),"w");
+            reader.getXMLHeader().Print(headerFile);
+            fclose(headerFile);
+            cout<<"header exported"<<endl;
 
-            if(!vm.count("serie"))
-                serie = lif->chooseSerie();
+            if(!vm.count("serie") || serie >= reader.getNbSeries())
+                serie = reader.chooseSerieNumber();
 
-            LifTracker track(lif,serie,lif->chooseChannel(serie));
-            Tracker::saveWisdom(INSTAL_PATH "wisdom.fftw");
+            LifTracker track(reader.getSerie(serie));
             cout << "tracker ok"<<endl;
-            track.view = !!vm.count("view");
-            track.quiet = !!vm.count("quiet");
-            track.displayRadius = displayRadius;
-            track.makeBandPassMask(radiusMin, radiusMax, zradiusMin, zradiusMax);
+            /*ofstream out((outputPath+"img.raw").c_str(), ios_base::out | ios_base::trunc);
+            track.getTracker().copyImage(ostream_iterator<int>(out,"\t"));
+            out.close();*/
+            Tracker::saveWisdom(INSTAL_PATH "wisdom.fftw");
+            track.setView(!!vm.count("view"));
+            track.setQuiet(!!vm.count("quiet"));
+            track.setThreshold(threshold);
+            track.setIsotropicBandPass(radiusMin, radiusMax); //not using zradius for the moment
+            //string maskoutput = outputPath+"mask.txt";
+            //track.getTracker().maskToFile(maskoutput);
 
-            ostringstream nbframes;
-            nbframes << track.lif->getNbFrames(serie);
-            const size_t digits = max(nbframes.str().size(),(size_t)1);
-            ostringstream os;
-            os<<outputPath<<"t%|0"<<digits<<"d|.dat";
-            boost::format outputFileName(os.str());
-
-            if(track.quiet) show_progress = new boost::progress_display(track.lif->getNbFrames(serie));
             boost::progress_timer ptimer;
-            const size_t tsize = track.lif->getNbFrames(serie);
-            for(size_t t=0;t<tsize;++t)
-            {
-                track.load3D(t);
-                GraphicParticles Centers = track.trackXYZ(threshold);
+            for_each(track, track.end(), ParticlesExporter(outputPath, track.getLif().getNbTimeSteps(), track.quiet()));
 
-                Centers.exportToFile((outputFileName % t).str());
-                if(track.quiet) ++(*show_progress);
-            }
+            //display radius no more in use
+            //track.displayRadius = displayRadius;
         }
         Tracker::saveWisdom(INSTAL_PATH "wisdom.fftw");
     }
