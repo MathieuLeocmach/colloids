@@ -150,6 +150,36 @@ class Experiment:
                 )
         r,g = np.loadtxt(name, unpack=True)
         return r[np.argmax(g)]
+        gm = g.argmax()
+        return np.average(r[gm-1:gm+2],weights=g[gm-1:gm+2])
+
+    def get_Nb_density(self, averaged=True):
+        nbs = np.empty((self.size))
+        Vs = np.empty((self.size))
+        for t,fname in enum(self):
+            coords = np.loadtxt(fname,delimiter='\t', skiprows=2)
+            nbs[t-self.offset] = len(coords)
+            Vs[t-self.offset] = np.ptp(coords, axis=0).prod()
+        if averaged:
+            return (nbs/Vs).mean()
+        else:
+            return (nbs, Vs)
+
+    def get_zPortion_Nbd(self, lowerMargin=0, upperMargin=0, averaged=True):
+        """Get the number density of a z-slab"""
+        nbs = np.empty((self.size))
+        Vs = np.empty((self.size))
+        for t,fname in enum(self):
+            coords = np.loadtxt(fname,delimiter='\t', skiprows=2)
+            m = np.amin(coords[:,-1])+lowerMargin
+            M = np.amax(coords[:,-1])-upperMargin
+            coords = coords[np.bitwise_and(m>coords[:,-1], coords[:,-1]<M)]
+            nbs[t-self.offset] = len(coords)
+            Vs[t-self.offset] = np.ptp(coords, axis=0).prod()
+        if averaged:
+            return (nbs/Vs).mean()
+        else:
+            return (nbs, Vs)
     
     def get_tau(self,thr=exp(-1),force=False):
         """Get the Self-ISF decay time"""
@@ -309,6 +339,19 @@ class Txp:
         drift = np.cumsum(np.diff(self.positions,axis=0).mean(axis=1),axis=0)
         sw = np.swapaxes(self.positions[1:],0,1)
         sw -= drift
+
+    def z_slab(self, lowerMargin=0, upperMargin=0):
+        """remove all trajectories that are not in the slab
+            defined by lowerMargin and upperMargin"""
+        m = np.amin(self.positions[:,:,-1], axis=1)+lowerMargin
+        M = np.amax(self.positions[:,:,-1], axis=1)-upperMargin
+        self.positions = self.positions[
+            :, np.bitwise_and(
+                np.amin(self.positions[:,:,-1].T>m, axis=1),
+                np.amin(self.positions[:,:,-1].T<M, axis=1)
+                )
+            ]
+
 
     def msd(self,start,stop,av):
         """

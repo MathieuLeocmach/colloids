@@ -1,0 +1,63 @@
+/**
+    Copyright 2010 Mathieu Leocmach
+
+    This file is part of Colloids.
+
+    Colloids is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Colloids is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Colloids.  If not, see <http://www.gnu.org/licenses/>.
+**/
+
+//Define the preprocessor variable "periodic" if you want periodic boundary conditions
+#include "../periodic.hpp"
+
+using namespace std;
+
+int main(int argc, char ** argv)
+{
+	try
+    {
+		if(argc<2) throw invalid_argument("Syntax : bonds coordinateFile [maxBondLength]");
+
+		const string filename(argv[1]);
+		const string inputPath = filename.substr(0,filename.find_last_of("."));
+		const string ext = filename.substr(filename.find_last_of(".")+1);
+		double maxBondLength = 0.0;
+		deque<pair<size_t, size_t> > bonds;
+		IndexedParticles parts(filename,1);
+		if(argc>2)
+			sscanf(argv[2],"%lf",&maxBondLength);
+		else
+		{
+			vector<double> g = parts.getRdf(200,15.0);
+			//set the max bond length as the first minima of g(r)
+			//the loop is here only to get rid of possible multiple centers at small r
+			vector<double>::iterator first_peak = g.begin();
+			while(maxBondLength==0.0)
+			{
+				first_peak = max_element(g.begin(),g.end());
+				maxBondLength = *min_element(first_peak,g.end());
+			}
+		}
+		bonds = parts.getBonds(maxBondLength);
+		ofstream output((inputPath + ".bonds").c_str(), ios::out | ios::trunc);
+		for(deque<pair<size_t, size_t> >::const_iterator b=bonds.begin(); b!= bonds.end();++b)
+			output<<b->first<<" "<<b->second<<endl;
+    }
+    catch(const exception &e)
+    {
+        cerr<< e.what()<<endl;
+        return EXIT_FAILURE;
+    }
+    return EXIT_SUCCESS;
+}
+

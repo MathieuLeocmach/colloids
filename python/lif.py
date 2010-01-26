@@ -310,7 +310,7 @@ class LifReader(LifHeader):
             raise Exception("This is not a valid LIF file")
         if testBlock != '*':
             raise Exception ("Invalid block at %l" % self.f.tell())
-        if not hasattr(self, '__version') or self.getVersion()<2:
+        if not hasattr(self, 'xmlHeader') or self.getVersion()<2:
             memorysize, = struct.unpack("L",self.f.read(4))
         else:
             memorysize, = struct.unpack("Q",self.f.read(8))

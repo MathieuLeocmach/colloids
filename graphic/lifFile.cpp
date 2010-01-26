@@ -1,42 +1,358 @@
 /**
+    Copyright 2008,2009 Mathieu Leocmach
+
+    This file is part of Colloids.
+
+    Colloids is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Colloids is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Colloids.  If not, see <http://www.gnu.org/licenses/>.
+
  * \file lifFile.cpp
- * \brief Implement classes to read directly from Leica .lif file
+ * \brief Define classes to read directly from Leica .lif file
  * \author Mathieu Leocmach
- * \version 0.1
- * \date 31 March 2009
+ * \date 28 March 2009
  *
- * Strongly inspired from BioimageXD VTK implementation but translated to fit with CImg framework
+ * Strongly inspired from BioimageXD VTK implementation but using standard library instead of VTK objects
  *
  */
-
-#include <stdexcept>
+#include <algorithm>
+#include <numeric>
 #include "lifFile.hpp"
 
 using namespace std;
 
-/** \brief Constructor from lif file name */
-LifFile::LifFile(const string &filename)
+/** @brief LifSerieHeader constructor  */
+LifSerieHeader::LifSerieHeader(TiXmlElement *root) : name(root->Attribute("Name")), rootElement(root)
 {
-    //FILE * output;
-    //output = fopen((filename+"_header.xml").c_str(),"w");
-    //ofstream output((filename+"_header.xml").c_str(), ios::out | ios::trunc);
+    //XML parsing
+    TiXmlNode *elementImage = rootElement->FirstChild("Data")->FirstChild("Image");
+    // If Image element found
+    if (elementImage)
+        parseImage(elementImage);
+    return;
+}
+
+/** @brief Let the user choose a Channel  */
+size_t LifSerieHeader::chooseChannel() const
+{
+    for(size_t ch=0;ch<channels.size();++ch)
+        cout << "("<<ch<<")"<<channels[ch].getName()<<endl;
+
+	if(channels.size() == 1)
+		return 0;
+
+	size_t channel;
+    do
+    {
+        cout<<"Chose a channel between 0 and "<<channels.size()-1<<": ";
+        cin>>channel;
+    }while(channel >= channels.size());
+    return channel;
+}
+
+/** \brief get the real size of a pixel (in meters) in the dimension d */
+double LifSerieHeader::getVoxelSize(const size_t d) const
+{
+    const string voxel = "dblVoxel", dims = "XYZ";
+    map<string, ScannerSettingRecord>::const_iterator it = scannerSettings.find(voxel+dims[d]);
+    if(it == scannerSettings.end())
+        return 0.0;
+    stringstream sstream( it->second.variant);
+    double voxelSize;
+    sstream >> voxelSize;
+    return voxelSize;
+}
+
+/** \brief get the resolution of a channel of a serie, in Bits per pixel*/
+int LifSerieHeader::getResolution(const size_t channel) const
+{
+    return channels[channel].resolution;
+}
+
+/** @brief get the number of time steps  */
+size_t LifSerieHeader::getNbTimeSteps() const
+{
+    map<string, DimensionData>::const_iterator it = dimensions.find("T");
+    if(it == dimensions.end()) return 1;
+    return it->second.numberOfElements;
+}
+
+/** @brief getSpatialDimensions  */
+vector<size_t> LifSerieHeader::getSpatialDimensions() const
+{
+    vector<size_t> dims;
+    for(map<string, DimensionData>::const_iterator d = dimensions.begin(); d != dimensions.end(); d++)
+        if(d->second.dimID <4)
+			dims.push_back(d->second.numberOfElements);
+    return dims;
+}
+
+/** @brief get the number of pixels in one time step, ie the product of the spatial dimensions  */
+size_t LifSerieHeader::getNbPixelsInOneTimeStep() const
+{
+    const vector<size_t> dims = getSpatialDimensions();
+    return accumulate(dims.begin(), dims.end(), 1, multiplies<size_t>());
+}
+
+/** @brief get the ratio (Z voxel size)/(X voxel size)  */
+double LifSerieHeader::getZXratio() const
+{
+    double x = getVoxelSize(0), z = getVoxelSize(2);
+    if(z==0.0)
+        return 1.0;
+    else
+        return z/x;
+}
+
+
+
+/** @brief parse the "Image" node of the XML header  */
+void LifSerieHeader::parseImage(TiXmlNode *elementImage)
+{
+    TiXmlNode *elementImageDescription = elementImage->FirstChild("ImageDescription");
+    if (elementImageDescription)
+        parseImageDescription(elementImageDescription);
+
+
+    // Parse time stamps even if there aren't any, then add empty
+    // Unsigned Long Long to timestamps vector
+    TiXmlNode *elementTimeStampList = elementImage->FirstChild("TimeStampList");
+    parseTimeStampList(elementTimeStampList);
+
+
+    // Parse Hardware Setting List even if there aren't
+    TiXmlNode *elementHardwareSettingList = 0;
+    TiXmlNode *child = 0;
+    string Name;
+    while( child = elementImage->IterateChildren("Attachment",child ) )
+    {
+        Name = child->ToElement()->Attribute("Name");
+        if(Name=="HardwareSettingList" && !child->NoChildren())
+            elementHardwareSettingList = child;
+    }
+    parseHardwareSettingList(elementHardwareSettingList);
+}
+
+/** @brief parse the "ImageDescription" node of the XML header  */
+void LifSerieHeader::parseImageDescription(TiXmlNode *elementImageDescription)
+{
+    TiXmlNode *elementChannels = elementImageDescription->FirstChild("Channels");
+    TiXmlNode *elementDimensions = elementImageDescription->FirstChild("Dimensions");
+    if (elementChannels && elementDimensions)
+	{
+        TiXmlNode *child = 0;
+
+        // Get info of channels
+        while(child = elementChannels->IterateChildren(child))
+            this->channels.push_back(ChannelData(child->ToElement()));
+
+        // Get info of dimensions
+        child = 0;
+        while(child = elementDimensions->IterateChildren(child))
+        {
+            DimensionData data(child->ToElement());
+            this->dimensions.insert(
+                make_pair(data.getName(),data)
+                );
+        }
+	}
+}
+
+/** @brief parse the "TimeStampList" node of the XML header  */
+void LifSerieHeader::parseTimeStampList(TiXmlNode *elementTimeStampList)
+{
+    if (elementTimeStampList)
+    {
+        unsigned long highInt;
+        unsigned long lowInt;
+        unsigned long long timeStamp;
+        TiXmlNode *child = 0;
+        while(child = elementTimeStampList->IterateChildren(child))
+        {
+            child->ToElement()->QueryValueAttribute<unsigned long>("HighInteger",&highInt);
+            child->ToElement()->QueryValueAttribute<unsigned long>("LowInteger",&lowInt);
+            timeStamp = highInt;
+            timeStamp <<= 32;
+            timeStamp += lowInt;
+            timeStamp /= 10000; // Convert to ms
+            this->timeStamps.push_back(timeStamp);
+        }
+    }
+}
+
+/** @brief parse the "HardwareSettingList" node of the XML header  */
+void LifSerieHeader::parseHardwareSettingList(TiXmlNode *elementHardwareSettingList)
+{
+    TiXmlNode *elementHardwareSetting = elementHardwareSettingList->FirstChild();
+    TiXmlNode *elementScannerSetting = elementHardwareSetting->FirstChild("ScannerSetting");
+
+    parseScannerSetting(elementScannerSetting);
+    //no real need of filter settings for the moment
+    //TiXmlNode *elementFilterSetting = elementHardwareSetting->FirstChild("FilterSetting");
+    //ParseFilterSetting(elementFilterSetting);
+}
+
+/** @brief parse the "ScannerSetting" node of the XML header  */
+void LifSerieHeader::parseScannerSetting(TiXmlNode *elementScannerSetting)
+{
+    if(elementScannerSetting)
+    {
+        TiXmlNode *child = 0;
+        while(child = elementScannerSetting->IterateChildren("ScannerSettingRecord", child))
+            this->scannerSettings.insert(
+                make_pair(
+                    child->ToElement()->Attribute("Identifier"),
+                    ScannerSettingRecord(child->ToElement())
+                    )
+                );
+    }
+}
+
+/** @brief LifSerie constructor  */
+LifSerie::LifSerie(LifSerieHeader serie, const std::string &filename, unsigned long long offset, unsigned long long memorySize) :
+ LifSerieHeader(serie)
+{
     file.open(filename.c_str(), ios::in | ios::binary);
     if(!file)
         throw invalid_argument(("No such file as "+filename).c_str());
 
+    //get size of the file
+    file.seekg(0,ios::end);
+    fileSize = file.tellg();
+    //cout<<"offset: "<<offset<<"\tmemorySize: "<<memorySize<<"\tfileSize: "<<fileSize<<endl;
+    //check the validity of the offset and memorysize parameters
+    if(offset >= fileSize)
+        throw invalid_argument("Offset is larger than file size");
+    if(offset+memorySize > fileSize)
+        throw invalid_argument("The end of the serie is further than the end of file");
+
+    this->offset = offset;
+    this->memorySize = memorySize;
+}
+
+/**
+    \brief fill a memory buffer that already has the good dimension
+    If more than one channel, all channels are retrieved interlaced
+  */
+void LifSerie::fill3DBuffer(void* buffer, size_t t)
+{
+    char *pos = static_cast<char*>(buffer);
+    unsigned long int frameDataSize = getNbPixelsInOneTimeStep()*channels.size();
+    file.seekg(getOffset(t) ,ios::beg);
+    file.read(pos,frameDataSize);
+}
+
+/** @brief return an iterator to the begining of the data of time step t
+    No gestion of multi-channel.
+*/
+istreambuf_iterator<char> LifSerie::begin(size_t t)
+{
+    file.seekg(getOffset(t));
+    return istreambuf_iterator<char>(file);
+}
+
+
+/** @brief get the position in file where starts the data of time step t  */
+unsigned long long LifSerie::getOffset(size_t t) const
+{
+    if(t >= getNbTimeSteps())
+        throw out_of_range("Time step out of range");
+    if(t==0)
+        return this->offset;
+
+    map<string, DimensionData>::const_iterator it = dimensions.find("T");
+    if(it == dimensions.end())
+        return this->offset;
+
+    return this->offset + it->second.bytesInc * t;
+}
+
+/** @brief LifHeader constructor  */
+ LifHeader::LifHeader(TiXmlDocument &header)
+{
+    this->header = header;
+    parseHeader();
+    return;
+}
+
+/** @brief LifHeader
+  *
+  * @todo: document this function
+  */
+ LifHeader::LifHeader(std::string &header)
+{
+    this->header.Parse(header.c_str(),0);
+    parseHeader();
+    return;
+}
+
+
+
+/** @brief Display the available series and let the user choose one  */
+size_t LifHeader::chooseSerieNumber() const
+{
+    cout<< *this <<endl;
+    if(series.size() == 1)
+		return 0;
+
+	size_t s = 0;
+    do
+    {
+        cout<<"Chose a serie between 0 and "<<series.size()-1<<": ";
+        cin>>s;
+    }while(s >= series.size());
+    return s;
+}
+
+/** @brief parse the XML header  */
+void LifHeader::parseHeader()
+{
+    header.RootElement()->QueryIntAttribute("Version", &lifVersion);
+
+    TiXmlElement *elementElement = header.RootElement()->FirstChildElement();
+    if (!elementElement)
+        throw logic_error("No element Element found after root element.");
+
+    this->name = elementElement->Attribute("Name");
+    TiXmlNode *elementChildren = elementElement->FirstChild("Children");
+    if (!elementChildren || elementChildren->NoChildren())
+        throw logic_error("No serie in this experiment.");
+
+    TiXmlNode *serieNode = 0;
+    while (serieNode = elementChildren->IterateChildren("Element", serieNode))
+        series.push_back(new LifSerieHeader(serieNode->ToElement()));
+}
+
+
+
+/** \brief Constructor from lif file name */
+LifReader::LifReader(const string &filename) : file(filename.c_str(), ios::in | ios::binary)
+{
+    const int MemBlockCode = 0x70, TestCode = 0x2a;
+    char lifChar;
+
+    if(!file.is_open())
+        throw invalid_argument(("No such file as "+filename).c_str());
     // Get size of the file
     file.seekg(0,ios::end);
-    FileSize = file.tellg();
+    fileSize = file.tellg();
     file.seekg(0,ios::beg);
+    cout<<filename<<" is "<<fileSize<<" bytes"<<endl;
 
-    const int MemBlockCode = 0x70,TestCode = 0x2a;
     if(readInt() != MemBlockCode)
         throw invalid_argument((filename+" is not a Leica SP5 file").c_str());
 
     // Skip the size of next block
     file.seekg(4,ios::cur);
-
-    char lifChar;
     file>>lifChar;
     if(lifChar != TestCode)
         throw invalid_argument((filename+" is not a Leica SP5 file").c_str());
@@ -53,43 +369,27 @@ LifFile::LifFile(const string &filename)
     for(unsigned int p=0;p<xmlChars/2;++p)
         xmlString[p] = xmlHeader[2*p];
     delete[] xmlHeader;
-    Header.Parse(xmlString.c_str(),0);
-    Header.RootElement()->QueryIntAttribute("Version",&LifVersion);
-    //Header.Print(output);
-    ParseInfoHeader(Header.RootElement());
 
-    // Find image offsets
-    Offsets.assign(Names.size(),0);
-    ImageSizes.assign(Names.size(),0);
-    size_t offsetId = 0;
+    header = new LifHeader(xmlString);
 
-    while (file.tellg() < FileSize)
+    size_t s = 0;
+    while (file.tellg() < fileSize)
     {
         // Check LIF test value
         int lifCheck = readInt();
-
-        if (lifCheck != MemBlockCode) {
-            long long fileOffset = file.tellg();
-            fileOffset -= 4;
-            cerr<< "ReadLIFHeader: File contains wrong MemBlockCode: " << lifCheck << " at: " << fileOffset<<endl;
-            exit(1);
-        }
+        if (lifCheck != MemBlockCode)
+            throw logic_error("File contains wrong MemBlockCode");
 
         // Don't care about the size of the next block
         file.seekg(4,ios::cur);
         // Read testcode
         file>>lifChar;
         if (lifChar != TestCode)
-        {
-            long long fileOffset =file.tellg();
-            fileOffset -= 1;
-            cerr<< "ReadLIFHeader: File contains wrong TestCode: " << lifChar << " at: " << fileOffset<<endl;
-            exit(1);
-        }
+            throw logic_error("File contains wrong TestCode");
 
         // Read size of memory, this is 4 bytes in version 1 and 8 in version 2
         unsigned long long memorySize;
-        if (this->LifVersion >= 2)
+        if (this->getVersion() >= 2)
             memorySize = readUnsignedLongLong();
         else
             memorySize = readUnsignedInt();
@@ -102,348 +402,151 @@ LifFile::LifFile(const string &filename)
         // Skip over memory description
         file.seekg(memDescrSize,ios::cur);
 
-        // Add image offset if memory size is > 0
+        // Add serie if memory size is > 0
         if (memorySize > 0)
         {
-            Offsets[offsetId]=file.tellg();
-            ImageSizes[offsetId]=memorySize;
-            offsetId++;
+            if(s >= getLifHeader().getNbSeries())
+                throw logic_error("Too many memory blocks");
+
+            series.push_back(new LifSerie(
+                    this->header->getSerieHeader(s),
+                    filename,
+                    file.tellg(),
+                    memorySize)
+                    );
+            s++;
+            //jump to the next memory block
             file.seekg(static_cast<streampos>(memorySize),ios::cur);
         }
     }
 
-    //output.close();
-    //fclose(output);
     return;
 }
 
 /** \brief read an int form file advancing the cursor*/
-int LifFile::readInt()
+int LifReader::readInt()
 {
     char buffer[4];
     file.read(buffer,4);
     return *((int*)(buffer));
 }
 /** \brief read an unsigned int form file advancing the cursor*/
-unsigned int LifFile::readUnsignedInt()
+unsigned int LifReader::readUnsignedInt()
 {
     char buffer[4];
     file.read(buffer,4);
     return *((unsigned int*)(buffer));
 }
 /** \brief read an unsigned long long int form file advancing the cursor*/
-unsigned long long LifFile::readUnsignedLongLong()
+unsigned long long LifReader::readUnsignedLongLong()
 {
     char buffer[8];
     file.read(buffer,8);
     return *((unsigned long long*)(buffer));
 }
 
-/** \brief Transforms XML Header into exploitable informations*/
-int LifFile::ParseInfoHeader(TiXmlElement *rootElement, int root)
-{
-    TiXmlElement *elementElement = rootElement;
-    if (root)
-	{
-        elementElement = rootElement->FirstChildElement();
-        if (!elementElement)
-        {
-            cerr<< "ParseXMLHeader: No element Element found after root element."<<endl;
-            return 0;
-        }
-	}
-    TiXmlNode *elementData = elementElement->FirstChild("Data");//->ToElement();
-    TiXmlNode *elementImage = elementData->FirstChild("Image");
-    TiXmlNode *elementMemory = elementElement->FirstChild("Memory");
-    TiXmlNode *elementChildren = elementElement->FirstChild("Children");
-
-
-    // If Image element found
-    if (elementImage)
-    {
-        this->ParseImage(elementImage);
-        // Check that image info is read correctly and then add image name
-        if (Channels.size() > Names.size() || Dimensions.size() > Names.size())
-        {
-            const char *imageName = elementElement->Attribute("Name");
-            Names.push_back(imageName);
-        }
-    }
-
-    // If Children element found
-    if (elementChildren && !elementChildren->NoChildren())
-    {
-        TiXmlNode * child =0;
-        while( child = elementChildren->IterateChildren("Element", child ) )
-            this->ParseInfoHeader(child->ToElement(),0);
-    }
-
-    return 1;
-}
-
-/** \brief Transforms image XML header into exploitable informations*/
-void LifFile::ParseImage(TiXmlNode *elementImage)
-{
-    TiXmlNode *elementImageDescription = elementImage->FirstChild("ImageDescription");
-    TiXmlNode *elementTimeStampList = elementImage->FirstChild("TimeStampList");
-    TiXmlNode *elementHardwareSettingList = 0;
-
-    if (elementImageDescription)
-        ParseImageDescription(elementImageDescription);
-
-    // Parse time stamps even if there aren't any, then add empty
-    // Unsigned Long Long to timestamps vector
-    ParseTimeStampList(elementTimeStampList);
-
-    TiXmlNode *Iterator = 0;
-    string Name;
-    // Parse Hardware Setting List even if there aren't
-    while( Iterator = elementImage->IterateChildren("Attachment",Iterator ) )
-    {
-        Name = Iterator->ToElement()->Attribute("Name");
-        if(Name=="HardwareSettingList" && !Iterator->NoChildren())
-            elementHardwareSettingList = Iterator;
-    }
-    ParseHardwareSettingList(elementHardwareSettingList);
-}
-
-/** \brief Transforms XML describing an image into exploitable informations*/
-void LifFile::ParseImageDescription(TiXmlNode *elementImageDescription)
-{
-    TiXmlNode *elementChannels = elementImageDescription->FirstChild("Channels");
-    TiXmlNode *elementDimensions = elementImageDescription->FirstChild("Dimensions");
-    if (elementChannels && elementDimensions)
-	{
-        deque<ChannelData*> *ImgChannels = new deque<ChannelData*>;
-        deque<DimensionData*> *ImgDimensions = new deque<DimensionData*>;
-        TiXmlNode *Iterator = 0;
-
-        // Get info of channels
-        while( Iterator = elementChannels->IterateChildren(Iterator ) )
-            ImgChannels->push_back(new ChannelData(Iterator->ToElement()));
-
-        // Get info of dimensions
-        Iterator=0;
-        while( Iterator = elementDimensions->IterateChildren(Iterator ) )
-            ImgDimensions->push_back(new DimensionData(Iterator->ToElement()));
-
-        Channels.push_back(ImgChannels);
-        Dimensions.push_back(ImgDimensions);
-	}
-}
-/** \brief Transforms XML describing time stamps into exploitable informations*/
-void LifFile::ParseTimeStampList(TiXmlNode *elementTimeStampList)
-{
-    deque<unsigned long long> timeStampArray;
-    if (elementTimeStampList)
-    {
-        unsigned long highInt;
-        unsigned long lowInt;
-        unsigned long long timeStamp;
-        TiXmlNode *Iterator = 0;
-        while( Iterator = elementTimeStampList->IterateChildren(Iterator ) )
-        {
-            Iterator->ToElement()->QueryValueAttribute<unsigned long>("HighInteger",&highInt);
-            Iterator->ToElement()->QueryValueAttribute<unsigned long>("LowInteger",&lowInt);
-            timeStamp = highInt;
-            timeStamp <<= 32;
-            timeStamp += lowInt;
-            timeStamp /= 10000; // Convert to ms
-            timeStampArray.push_back(timeStamp);
-        }
-    }
-    TimeStamps.push_back(timeStampArray);
-}
-/** \brief Transforms XML describing Hardware settings into exploitable informations*/
-void LifFile::ParseHardwareSettingList(TiXmlNode *elementHardwareSettingList)
-{
-    TiXmlNode *elementHardwareSetting = elementHardwareSettingList->FirstChild();
-    TiXmlNode *elementScannerSetting = elementHardwareSetting->FirstChild("ScannerSetting");
-    TiXmlNode *elementFilterSetting = elementHardwareSetting->FirstChild("FilterSetting");
-
-    ParseScannerSetting(elementScannerSetting);
-    //no real need of filter settings for the moment
-    //ParseFilterSetting(elementFilterSetting);
-}
-/** \brief Transforms XML describing Scanner settings into exploitable informations*/
-void LifFile::ParseScannerSetting(TiXmlNode *elementScannerSetting)
-{
-    map<string,ScannerSettingRecord*> ScannerSettingMap;
-    if(elementScannerSetting)
-    {
-        ScannerSettingRecord *record;
-        TiXmlNode *Iterator = 0;
-        while( Iterator = elementScannerSetting->IterateChildren("ScannerSettingRecord",Iterator ) )
-        {
-            record = new ScannerSettingRecord(Iterator->ToElement());
-            ScannerSettingMap.insert(pair<string,ScannerSettingRecord*>(record->Identifier,record));
-        }
-    }
-    ScannerSettings.push_back(ScannerSettingMap);
-}
 
 /** \brief constructor from XML  */
-ChannelData::ChannelData(TiXmlElement *Element)
+ChannelData::ChannelData(TiXmlElement *element)
 {
-    Element->QueryIntAttribute("DataType",&DataType);
-    Element->QueryIntAttribute("ChannelTag",&ChannelTag);
-    Element->QueryIntAttribute("Resolution",&Resolution);
-    NameOfMeasuredQuantity = Element->Attribute("NameOfMeasuredQuantity");
-    if (!NameOfMeasuredQuantity) NameOfMeasuredQuantity = "";
-    Element->QueryDoubleAttribute("Min",&Min);
-    Element->QueryDoubleAttribute("Max",&Max);
-    Unit = Element->Attribute("Unit");
-    if (!Unit) Unit = "";
-    LUTName = Element->Attribute("LUTName");
-    if (!LUTName) LUTName = "";
-    Element->QueryIntAttribute("IsLUTInverted",&IsLUTInverted);
+    element->QueryIntAttribute("DataType",&dataType);
+    element->QueryIntAttribute("ChannelTag",&channelTag);
+    element->QueryIntAttribute("Resolution",&resolution);
+    nameOfMeasuredQuantity = element->Attribute("NameOfMeasuredQuantity");
+    element->QueryDoubleAttribute("Min",&minimum);
+    element->QueryDoubleAttribute("Max",&maximum);
+    unit = element->Attribute("Unit");
+    LUTName = element->Attribute("LUTName");
+    element->QueryIntAttribute("IsLUTInverted",(int*)&isLUTInverted);
     // Bytes Inc is 64 bits in LIF version 2 but GetScalarAttribute only allows
     // maximum of unsigned long which can be 32 bits.
-    Element->QueryValueAttribute<unsigned long long>("BytesInc",&BytesInc);
-    Element->QueryIntAttribute("BitInc",&BitInc);
+    element->QueryValueAttribute<unsigned long long>("BytesInc",&bytesInc);
+    element->QueryIntAttribute("BitInc",&bitInc);
 }
 
 /** \brief constructor from XML  */
-DimensionData::DimensionData(TiXmlElement *Element)
+DimensionData::DimensionData(TiXmlElement *element)
 {
-    Element->QueryIntAttribute("DimID",&DimID);
-    Element->QueryIntAttribute("NumberOfElements",(int*)&NumberOfElements);
-    Element->QueryDoubleAttribute("Origin",&Origin);
-    Element->QueryDoubleAttribute("Length",&Length);
-    Unit = Element->Attribute("Unit");
-    if (!Unit) Unit = "";
+    element->QueryIntAttribute("DimID",&dimID);
+    element->QueryIntAttribute("NumberOfElements",(int*)&numberOfElements);
+    element->QueryDoubleAttribute("Origin",&origin);
+    element->QueryDoubleAttribute("Length",&length);
+    unit = element->Attribute("Unit");
     // Bytes Inc is 64 bits in LIF version 2 but GetScalarAttribute only allows
     // maximum of unsigned long which can be 32 bits.
-    Element->QueryValueAttribute<unsigned long long>("BytesInc",&BytesInc);
-    Element->QueryIntAttribute("BitInc",&BitInc);
+    element->QueryValueAttribute<unsigned long long>("BytesInc",&bytesInc);
+    element->QueryIntAttribute("BitInc",&bitInc);
 }
 
 /** \brief constructor from XML  */
-ScannerSettingRecord::ScannerSettingRecord(TiXmlElement *Element)
+ScannerSettingRecord::ScannerSettingRecord(TiXmlElement *element)
 {
-    Identifier = Element->Attribute("Identifier");
-    Unit = Element->Attribute("Unit");
-    if (!Unit) Unit = "";
-    Description = Element->Attribute("Description");
-    Element->QueryIntAttribute("Data",&Data);
-    Variant = Element->Attribute("Variant");
-    Element->QueryIntAttribute("VariantType",&VariantType);
+    identifier = element->Attribute("Identifier");
+    unit = element->Attribute("Unit");
+    description = element->Attribute("Description");
+    element->QueryIntAttribute("Data",&data);
+    variant = element->Attribute("Variant");
+    element->QueryIntAttribute("VariantType",&variantType);
 }
 
 /** \brief constructor from XML  */
-FilterSettingRecord::FilterSettingRecord(TiXmlElement *Element)
+FilterSettingRecord::FilterSettingRecord(TiXmlElement *element)
 {
-    ObjectName = Element->Attribute("ObjectName");
-    ClassName = Element->Attribute("ClassName");
-    Attribute = Element->Attribute("Attribute");
-    Description = Element->Attribute("Description");
-    Element->QueryIntAttribute("Data",&Data);
-    Variant = Element->Attribute("Variant");
-    Element->QueryIntAttribute("VariantType",&VariantType);
-}
-/** \brief get the real size of a pixel (in meters) in the dimension d, for the serie serie */
-double LifFile::getVoxelSize(const size_t &serie, const size_t & d)
-{
-    const string Voxel = "dblVoxel", dims[3] = {"X","Y","Z"};
-    stringstream sstream( ScannerSettings[serie][Voxel+dims[d]]->Variant );
-    double VoxelSize;
-    sstream >> VoxelSize;
-    return VoxelSize;
+    objectName = element->Attribute("ObjectName");
+    className = element->Attribute("ClassName");
+    attribute = element->Attribute("Attribute");
+    description = element->Attribute("Description");
+    element->QueryIntAttribute("Data",&data);
+    variant = element->Attribute("Variant");
+    element->QueryIntAttribute("VariantType",&variantType);
 }
 
-/** \brief get the resolution of a channel of a serie, in Bits per pixel*/
-int LifFile::GetResolution(const size_t & serie, const size_t & channel)
+/** @brief operator<<
+  *
+  * @todo: document this function
+  */
+ostream & operator<<(ostream& out, const LifSerieHeader &s)
 {
-    return Channels[serie]->at(channel)->Resolution;
+    out<< s.getName() <<":\t";
+    const map<string, DimensionData> & dims = s.getDimensionsData();
+    out<< dims.size()<<" dimensions\t";
+    for(map<string, DimensionData>::const_iterator it=dims.begin(); it!=dims.end();++it)
+        out<<it->second<<", ";
+    out<<endl;
+    out<<"\tVoxel sizes (nm)\t";
+    for(map<string, DimensionData>::const_iterator it=dims.begin();it!=dims.end();++it)
+        if(it->second.dimID < 4)
+            cout<<s.getVoxelSize(it->second.dimID-1)*1E9<<"\t";
+    out<<endl;
+    const vector<ChannelData> &channels = s.getChannels();
+    transform(
+        channels.begin(), channels.end(),
+        ostream_iterator<string>(out, "\t"),
+        mem_fun_ref(&ChannelData::getName)
+        );
+    return out;
 }
 
-/** \brief get the offset between the begining of the serie and the begining of the frame*/
-unsigned long long LifFile::GetTimePointOffset(const size_t & serie, const size_t & timepoint)
+/** @brief operator<<
+  *
+  * @todo: document this function
+  */
+ostream & operator<<(ostream& out, const LifHeader &r)
 {
-  for (deque<DimensionData*>::const_iterator dimIter = Dimensions[serie]->begin();
-       dimIter != Dimensions[serie]->end(); dimIter++)
-    {
-      if ((*dimIter)->DimID == 4) return (*dimIter)->BytesInc * timepoint;
-    }
-
-  return 0;
+    out<< r.getName() <<endl;
+    for(size_t s=0; s<r.getNbSeries(); ++s)
+        out<<"("<<s<<") "<<r.getSerieHeader(s)<<endl;
+    return out;
 }
 
-unsigned int LifFile::getNbPixelsInOneFrame(const size_t & serie)
+/** @brief operator<<
+  *
+  * @todo: document this function
+  */
+ostream & operator<<(ostream& out, const DimensionData &d)
 {
-    if (serie >= Dimensions.size()) return 0;
-
-    unsigned int voxels = 1;
-    for (deque<DimensionData*>::const_iterator dimIter = Dimensions[serie]->begin();
-        dimIter != Dimensions[serie]->end(); dimIter++)
-    {
-        if ((*dimIter)->DimID <4) voxels *= (*dimIter)->NumberOfElements;
-    }
-    return voxels;
+    out<<d.getName()<<" "<<d.numberOfElements;
+    return out;
 }
 
-size_t LifFile::getNbFrames(const size_t &serie)
-{
-    if (serie >= Dimensions.size()) return 0;
-    if (Dimensions[serie]->size()<4) return 1;
-    return Dimensions[serie]->at(3)->NumberOfElements;
-}
-
-/**
-    \brief fill a memory buffer that already has the good dimension
-    If more than one channel, all channels are retrieved interlaced
-
-    */
-void LifFile::fill3DBuffer(void* buffer,const size_t & serie, const size_t & frame)
-{
-    char *pos = static_cast<char*>(buffer);
-    unsigned long long serieOffset = Offsets[serie];
-    serieOffset += GetTimePointOffset(serie,frame);
-    unsigned long int frameDataSize = getNbPixelsInOneFrame(serie)*Channels[serie]->size();
-    file.seekg(serieOffset,ios::beg);
-    file.read(pos,frameDataSize);
-}
-
-/** \brief Output the list of the series in the LIF file and ask the user to choose one */
-size_t LifFile::chooseSerie()
-{
-    for(size_t i=0;i<Names.size();++i)
-    {
-        cout<<"("<<i<<")" << Names[i]<<":\t"
-            <<Dimensions[i]->size()<<" dimensions\t";
-        for(size_t d=0;d<Dimensions[i]->size();++d)
-            cout<<Dimensions[i]->at(d)->getName()<<" "
-                <<Dimensions[i]->at(d)->NumberOfElements<<", ";
-        cout<<endl;
-        cout<<"\tVoxel sizes (nm)\t";
-        for(size_t d=0;d<3 && d<Dimensions[i]->size() ;++d)
-            if(Dimensions[i]->at(d)->DimID < 4)
-                cout<<getVoxelSize(i,d)*1E9<<"\t";
-        cout<<endl;
-        for(size_t ch=0;ch<Channels[i]->size();++ch)
-            cout << "\t"<<Channels[i]->at(ch)->getName()<<endl;
-    }
-    size_t serie;
-    do
-    {
-        cout<<"Chose a serie between 0 and "<<Names.size()-1<<": ";
-        cin>>serie;
-    }while(serie>=Names.size());
-    return serie;
-}
-
-/** \brief allows the user to choose a channel */
-size_t LifFile::chooseChannel(const size_t &serie)
-{
-    if(Channels[serie]->size()==1) return 0;
-    size_t channel;
-    for(size_t ch=0;ch<Channels[serie]->size();++ch)
-        cout << "("<<ch<<")"<<Channels[serie]->at(ch)->getName()<<endl;
-    do
-    {
-        cout<<"Chose a channel between 0 and "<<Channels[serie]->size()-1<<": ";
-        cin>>channel;
-    }while(channel>=Channels[serie]->size());
-    return channel;
-}
 
