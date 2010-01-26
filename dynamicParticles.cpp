@@ -530,18 +530,6 @@ void DynamicParticles::exportToVTK(
 	}
 }
 
-/** \brief get the position's neighbour lists */
-DynNgbList DynamicParticles::getNgbList(const double &range)
-{
-    DynNgbList ngbs(getNbTimeSteps());
-    for(size_t t=0;t<getNbTimeSteps();++t)
-    {
-        ngbs.push_back(new NgbList());
-        positions[t].getNgbList(range, ngbs[t]);
-    }
-    return ngbs;
-}
-
 
 /**
     \brief get the index of the trajectories spanning from t0 to t1 and enclosed inside a given bounding box
@@ -971,24 +959,22 @@ vectorDynamicField DynamicParticles::averageVelocities(const std::set<size_t> &s
 }
 
 /** @brief get the neighbours lost between t_from and t_to by the trajectory tr  */
-set<size_t> DynamicParticles::getLostNgbs(const DynNgbList &ngbs,const size_t &tr,const size_t &t_from,const size_t &t_to) const
+set<size_t> DynamicParticles::getLostNgbs(const size_t &tr,const size_t &t_from,const size_t &t_to) const
 {
 	//convert the position index of the neighbours in time t_from to trajectory index
 	set<size_t> ngb_from, ngb_to, ngb_diff;
 	const size_t p_from = trajectories[tr][t_from];
-	NgbList::const_iterator it = ngbs[t_from].find(p_from);
 	transform(
-		it->second.begin(),
-		it->second.end(),
+		positions[t_from].getNgbList()[p_from].begin(),
+		positions[t_from].getNgbList()[p_from].end(),
 		inserter(ngb_from, ngb_from.end()),
 		TrajIndex::Inverser(t_from, trajectories)
 		);
 	//same for t_to
 	const size_t p_to = trajectories[tr][t_to];
-	it = ngbs[t_to].find(p_to);
 	transform(
-		it->second.begin(),
-		it->second.end(),
+		positions[t_to].getNgbList()[p_to].begin(),
+		positions[t_to].getNgbList()[p_to].end(),
 		inserter(ngb_to,ngb_to.end()),
 		TrajIndex::Inverser(t_to,trajectories)
 		);
@@ -1002,7 +988,7 @@ set<size_t> DynamicParticles::getLostNgbs(const DynNgbList &ngbs,const size_t &t
 }
 
 /** @brief get at each time step the number of Lost Neigbours during interval  */
-scalarDynamicField DynamicParticles::getNbLostNgbs(const std::set<size_t> &selection,const DynNgbList &ngbs,const size_t &interval) const
+scalarDynamicField DynamicParticles::getNbLostNgbs(const std::set<size_t> &selection, const size_t &interval) const
 {
 	if(interval<1 || interval>getNbTimeSteps())
 	{
@@ -1020,14 +1006,14 @@ scalarDynamicField DynamicParticles::getNbLostNgbs(const std::set<size_t> &selec
 				res.second->at(t).end(),
 				make_pair(
 					*tr,
-					(double)getLostNgbs(ngbs,*tr,t,t+interval-1).size()
+					(double)getLostNgbs(*tr,t,t+interval-1).size()
 				)
 			);
 	return res;
 }
 
 /** \brief  Time averaged bond angle distribution */
-boost::array<double,180> DynamicParticles::getMeanAngularDistribution(const DynNgbList &selection) const
+/*boost::array<double,180> DynamicParticles::getMeanAngularDistribution(const DynNgbList &selection) const
 {
     boost::array<double,180> angD;
     fill(angD.begin(), angD.end(), 0.0);
@@ -1045,7 +1031,7 @@ boost::array<double,180> DynamicParticles::getMeanAngularDistribution(const DynN
         );
 
     return angD;
-}
+}*/
 
 
 
@@ -1115,7 +1101,7 @@ void DynamicParticles::makeBoo(const size_t &t, const std::set<size_t> &selectio
         if(trajectories[*tr].exist(t))
         {
             p = trajectories[*tr][t];
-            allBoo.insert(allBoo.end(),make_pair(p,positions[t].getBOO(p,1.3*2.0*radius)));
+            allBoo.insert(allBoo.end(),make_pair(p,positions[t].getBOO(p)));
         }
 }
 

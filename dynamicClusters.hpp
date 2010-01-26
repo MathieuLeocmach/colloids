@@ -52,10 +52,9 @@ namespace Colloids
             */
             TrajIndex trajectories;
 
-            DynamicClusters(DynamicParticles &dynParts, std::set<size_t> &population, const double &range);
-            DynamicClusters(DynamicParticles &dynParts, std::set<size_t> &population, const DynNgbList &ngbs);
+            DynamicClusters(DynamicParticles &dynParts, std::set<size_t> &population);
 
-            DynamicClusters& assign(DynamicParticles &dynParts, std::set<size_t> &population, const DynNgbList &ngbs);
+            DynamicClusters& assign(DynamicParticles &dynParts, std::set<size_t> &population);
 
             scalarDynamicField getLabels() const;
 

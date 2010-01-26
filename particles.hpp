@@ -48,9 +48,12 @@
 namespace Colloids
 {
     typedef RStarIndex_S::RTree                                                         RTree;
-    typedef std::map<size_t, std::set<size_t> >                                         NgbList;
+    typedef std::vector< std::set<size_t> >                                             NgbList;
+    typedef std::deque< std::pair<size_t, size_t> >                                     BondList;
     typedef std::pair< const std::string*,std::map<size_t, double>* >					scalarField;
     typedef std::pair< const std::string*,std::map<size_t, Coord>* >	                vectorField;
+
+    BondList ngb2bonds(const NgbList& ngbList);
 
     /**
         \brief defines a set of particles having the same radius
@@ -59,6 +62,9 @@ namespace Colloids
     {
         /** \brief A spatial index of the particles */
         SpatialIndex *index;
+
+        /** \brief A neighbour list */
+        NgbList neighboursList;
 
         public:
             /** \brief overall bounding box */
@@ -99,37 +105,28 @@ namespace Colloids
 
             /** Spatial query and neighbours. Depends on both geometry and spatial index */
             std::set<size_t> getEuclidianNeighbours(const Coord &center, const double &range) const;
+            std::set<size_t> getEuclidianNeighbours(const size_t &center, const double &range) const;
             size_t getNearestNeighbour(const Coord &center, const double &range=1.0) const;
             std::multimap<double,size_t> getEuclidianNeighboursBySqDist(const Coord &center, const double &range) const;
-            double getMeanNbNeighbours(const double &range) const;
-            std::deque< std::pair<size_t,size_t> > getBonds(const double &bondLength) const;
-            void getNgbList(const double &bondLength, NgbList &ngbs) const;
+            NgbList & makeNgbList(const double &bondLength);
+            NgbList & makeNgbList(const BondList &bonds);
+            const NgbList & getNgbList() const {return this->neighboursList;};
+            BondList getBonds() const {return ngb2bonds(getNgbList());};
+
 
             /**Bond Orientational Order related */
             BooData sphHarm_OneBond(const size_t &center, const size_t &neighbour) const;
-            BooData getBOO(const size_t &center,const double &range) const;
-            BooData getAvBOO(const std::map<size_t,BooData> &BOO, const size_t &center,const double &range) const;
-            BooData getBOO(const size_t &center,const std::set<size_t> &ngbList) const;
-            BooData getAvBOO(const std::map<size_t,BooData> &BOO, const size_t &center,const std::set<size_t> &ngbList) const;
-            std::map<size_t,BooData> getBOOs() const;
-            std::map<size_t,BooData> getavBOOs(const std::map<size_t,BooData> &BOO) const;
-            void exportQlm(const std::map<size_t,BooData> &BOO, const std::string &outputPath) const;
-            void exportQ6m(const std::map<size_t,BooData> &BOO, const std::string &outputPath) const;
-            void load_q6m(const std::string &filename, std::map<size_t,BooData> &allBoo) const;
+            BooData getBOO(const size_t &center) const;
+            BooData getCgBOO(const std::vector<BooData> &BOO, const size_t &center) const;
+            void getBOOs(std::vector<BooData> &BOO) const;
+            void getCgBOOs(const std::vector<BooData> &BOO, std::vector<BooData> &cgBOO) const;
+            void exportQlm(const std::vector<BooData> &BOO, const std::string &outputPath) const;
+            void exportQ6m(const std::vector<BooData> &BOO, const std::string &outputPath) const;
+            void load_q6m(const std::string &filename, std::vector<BooData> &BOO) const;
 
             /**Bond angle distribution related  */
-            boost::array<double,180> getAngularDistribution(const size_t &numPt, const std::set<size_t> &ngbs) const;
-            boost::array<double,180> getAngularDistribution(const size_t &numPt,const double &range) const;
+            boost::array<double,180> getAngularDistribution(const size_t &numPt) const;
             boost::array<double,180> getMeanAngularDistribution(const NgbList &selection) const;
-
-            /**cluster */
-            void growCluster(std::set<size_t> &population, std::set<size_t> &cluster, size_t center, const NgbList &ngbs);
-            void segregate(std::set<size_t> &population, std::vector< std::set<size_t> > &clusters, const NgbList &ngbs);
-            void segregateAll(std::vector< std::set<size_t> > &clusters, const NgbList &ngbs);
-            void segregateAll(std::vector< std::set<size_t> > &clusters, const double &range);
-
-
-
 
             /** histograms*/
             struct Binner : public std::binary_function<const size_t &,const size_t &,void>
@@ -182,7 +179,7 @@ namespace Colloids
             /** file outputs */
             void exportToFile(const std::string &filename) const;
             void exportToVTK(
-                const std::string &filename,const std::deque< std::pair<size_t,size_t> > &bonds,
+                const std::string &filename,const BondList &bonds,
                 const std::vector<scalarField> &scalars,	const std::vector<vectorField> &vectors,
                 const std::string &dataName = "particles"
             ) const;
@@ -204,7 +201,10 @@ namespace Colloids
 
     };
 
-    //std::valarray<double> cross_prod(const std::valarray<double> &u,const std::valarray<double> &v);
+    /**cluster */
+    void growCluster(std::set<size_t> &population, std::set<size_t> &cluster, size_t center, const NgbList &ngbs);
+    void segregate(std::set<size_t> &population, std::vector< std::set<size_t> > &clusters, const NgbList &ngbs);
+    void segregateAll(std::vector< std::set<size_t> > &clusters, const Particles &parts);
 
 };
 #endif

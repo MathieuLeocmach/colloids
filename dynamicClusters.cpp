@@ -27,15 +27,12 @@ using namespace Colloids;
 /** @brief segregate at each time step a population of trajectories into clusters of recursively neighbouring particles
   * \param dynParts The DynamicParticles the clusters are made of
   * \param population The indicies of the trajectories than can be added to the clusters
-  * \param range The maximum separation between two particles be be considered in the same cluster (in diameter unit)
+  * \param ngbList The list of the neighbours each particle of each time step.
   * The cluster k of time step t0+1 is the cluster having the maximum common particles with cluster k of time t0.
-  * This version computes the neighbour list of each particle of each time step.
   */
-DynamicClusters::DynamicClusters(DynamicParticles &dynParts, std::set<size_t> &population, const double &range)
+DynamicClusters::DynamicClusters(DynamicParticles &dynParts, std::set<size_t> &population)
 {
-    DynNgbList ngbs;
-    ngbs=dynParts.getNgbList(range);
-    assign(dynParts,population,ngbs);
+    assign(dynParts,population);
     return;
 }
 
@@ -45,19 +42,7 @@ DynamicClusters::DynamicClusters(DynamicParticles &dynParts, std::set<size_t> &p
   * \param ngbList The list of the neighbours each particle of each time step.
   * The cluster k of time step t0+1 is the cluster having the maximum common particles with cluster k of time t0.
   */
-DynamicClusters::DynamicClusters(DynamicParticles &dynParts, std::set<size_t> &population, const DynNgbList &ngbs)
-{
-    assign(dynParts,population,ngbs);
-    return;
-}
-
-/** @brief segregate at each time step a population of trajectories into clusters of recursively neighbouring particles
-  * \param dynParts The DynamicParticles the clusters are made of
-  * \param population The indicies of the trajectories than can be added to the clusters
-  * \param ngbList The list of the neighbours each particle of each time step.
-  * The cluster k of time step t0+1 is the cluster having the maximum common particles with cluster k of time t0.
-  */
-DynamicClusters& DynamicClusters::assign(DynamicParticles &dynParts, std::set<size_t> &population, const DynNgbList &ngbs)
+DynamicClusters& DynamicClusters::assign(DynamicParticles &dynParts, std::set<size_t> &population)
 {
     parts = &dynParts;
 
@@ -70,7 +55,7 @@ DynamicClusters& DynamicClusters::assign(DynamicParticles &dynParts, std::set<si
         if(parts->trajectories[*tr].exist(t))
             popul_t.insert(popul_t.end(),parts->trajectories[*tr][t]);
 
-        parts->positions[t].segregate(popul_t, unsorted_clusters[t],ngbs[t]);
+        segregate(popul_t, unsorted_clusters[t], parts->positions[t].getNgbList());
     }
 
     //translate in terms of trajectories, removing single particle clusters

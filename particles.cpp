@@ -208,7 +208,7 @@ BoundingBox Particles::getOverallBox() const
 
 
 /**
-    \brief get the index of the particles closer than range to center (Euclidian norm)
+    \brief get the indices of the particles closer than range to center (Euclidian norm)
 */
 set<size_t> Particles::getEuclidianNeighbours(const Coord &center, const double &range) const
 {
@@ -219,6 +219,24 @@ set<size_t> Particles::getEuclidianNeighbours(const Coord &center, const double 
     for(set<size_t>::const_iterator p=NormOneNeighbours.begin();p!=NormOneNeighbours.end();++p)
     {
         diff = getDiff(center,*p);
+        if(dot(diff,diff)<rSq) NormTwoNeighbours.insert(NormTwoNeighbours.end(),*p);
+    }
+    return NormTwoNeighbours;
+}
+
+/**
+    \brief get the indices of the particles closer than range to center (Euclidian norm), discarding center itself
+*/
+set<size_t> Particles::getEuclidianNeighbours(const size_t &center, const double &range) const
+{
+    set<size_t> NormOneNeighbours = getEnclosed(bounds((*this)[center],range));
+    NormOneNeighbours.erase(center);
+    set<size_t> NormTwoNeighbours;
+    Coord diff;
+    double rSq = range*range;
+    for(set<size_t>::const_iterator p=NormOneNeighbours.begin();p!=NormOneNeighbours.end();++p)
+    {
+        diff = getDiff((*this)[center],*p);
         if(dot(diff,diff)<rSq) NormTwoNeighbours.insert(NormTwoNeighbours.end(),*p);
     }
     return NormTwoNeighbours;
@@ -276,47 +294,32 @@ size_t Particles::getNearestNeighbour(const Coord &center, const double &range) 
     return nN;
 }
 
-/**
-    \brief get the avearge number of neigbours of the particles.
-*/
-double Particles::getMeanNbNeighbours(const double &range) const
-{
-    double res=0.0;
-    set<size_t> ngb;
-    for(size_t p=0;p<size();++p)
-    {
-        ngb=getEuclidianNeighbours(at(p),range);
-        res+=(double)ngb.size();
-    }
-    res/=size();
-    return res;
-}
-
-
-/** @brief get all couples of particles closer than bondLength  */
-deque< pair<size_t,size_t> > Particles::getBonds(const double &bondLength) const
-{
-	deque< pair<size_t,size_t> > bonds;
-	for(size_t p=0;p<size();++p)
-	{
-		set<size_t> ngb = getEuclidianNeighbours(at(p),bondLength);
-		transform(ngb.lower_bound(p+1),ngb.end(),back_inserter(bonds),boost::bind(make_pair<size_t,size_t>,p,_1));
-	}
-	return bonds;
-}
-
 /** @brief get the neighbours of each particle
   * \param bondLength The maximum separation between two neighbour particles. In diameter units
-  * \param ngbList The output
+  A particle is not it's own neighbour.
   */
-void Particles::getNgbList(const double &bondLength,  NgbList &ngbs) const
+NgbList & Particles::makeNgbList(const double &bondLength)
 {
+    this->neighboursList.clear();
+    this->neighboursList.resize(this->size());
     const double sep = 2.0*bondLength*radius;
-    for(size_t p=0; p<size(); ++p)
-        ngbs.insert(
-            ngbs.end(),
-            make_pair(p, this->getEuclidianNeighbours((*this)[p], sep))
-            );
+    for(size_t p=0;p<size();++p)
+        neighboursList[p] = getEuclidianNeighbours(p, sep);
+
+    return this->neighboursList;
+}
+
+/** @brief make the neighbour list using a list of bonds  */
+NgbList & Particles::makeNgbList(const BondList &bonds)
+{
+    this->neighboursList.clear();
+    this->neighboursList.resize(this->size());
+    for(BondList::const_iterator b=bonds.begin(); b!=bonds.end();++b)
+    {
+        neighboursList[b->first].insert(neighboursList[b->first].end(), b->second);
+        neighboursList[b->second].insert(neighboursList[b->second].end(), b->first);
+    }
+    return this->neighboursList;
 }
 
 
@@ -326,65 +329,20 @@ BooData Particles::sphHarm_OneBond(const size_t &center, const size_t &neighbour
     return BooData(getDiff(center,neighbour));
 }
 
-/**
-    \brief get the orientational order around a given particle
-    \param numPt Index of the reference particle
-    \param range maximum distance to consider a particle as a neighbour
-*/
-BooData Particles::getBOO(const size_t &center,const double &range) const
-{
-    BooData boo;
-    set<size_t> EuNgb = getEuclidianNeighbours(at(center),range);
-    const size_t nb = EuNgb.size()-1;
-    if(nb > 0)
-    {
-        //sum up the contribution of each neighbour to every spherical harmonic.
-        for(set<size_t>::const_iterator p=EuNgb.begin();p!=EuNgb.end();++p)
-            if( *p != center)
-                boo+=sphHarm_OneBond(center,*p);
-
-        boo/=(double)nb;
-    }
-    return boo;
-}
-
-/**
-    \brief get the averaged orientational order around a given particle
-    \param BOO Array of the non-averaged orientational orders around each particle
-    \param numPt Index of the reference particle
-    \param range maximum distance to consider a particle as a neighbour
-*/
-BooData Particles::getAvBOO(const map<size_t,BooData> &BOO, const size_t &center,const double &range) const
-{
-    BooData avBoo;
-    set<size_t> EuNgb = getEuclidianNeighbours(at(center),range);
-    //sum up the contribution of each neighbour including the particle itself.
-    map<size_t,BooData>::const_iterator it;
-    for(set<size_t>::const_iterator p=EuNgb.begin();p!=EuNgb.end();++p)
-    {
-        it=BOO.find(*p);
-        if(it!=BOO.end());
-            avBoo += (*it).second;
-    }
-
-    avBoo/=(double)(EuNgb.size());
-    return avBoo;
-}
-
 /** \brief get the orientational order around a given particle
     \param numPt Index of the reference particle
     \param ngbList List of the center's neighbours
   */
-BooData Particles::getBOO(const size_t &center,const std::set<size_t> &ngbList) const
+BooData Particles::getBOO(const size_t &center) const
 {
 	BooData boo;
-    const size_t nb = ngbList.size()-1;
+	const set<size_t> & ngbList = getNgbList()[center];
+    const size_t nb = ngbList.size();
     if(nb > 0)
     {
         //sum up the contribution of each neighbour to every spherical harmonic.
         for(set<size_t>::const_iterator p=ngbList.begin();p!=ngbList.end();++p)
-            if( *p != center)
-                boo+=sphHarm_OneBond(center,*p);
+            boo+=sphHarm_OneBond(center,*p);
 
         boo/=(double)nb;
     }
@@ -397,53 +355,40 @@ BooData Particles::getBOO(const size_t &center,const std::set<size_t> &ngbList) 
     \param numPt Index of the reference particle
     \param ngbList List of the center's neighbours
   */
-BooData Particles::getAvBOO(const std::map<size_t,BooData> &BOO, const size_t &center,const std::set<size_t> &ngbList) const
+BooData Particles::getCgBOO(const std::vector<BooData> &BOO, const size_t &center) const
 {
-	BooData avBoo;
     //sum up the contribution of each neighbour including the particle itself.
-    map<size_t,BooData>::const_iterator it;
+	BooData avBoo = BOO[center];
+    const std::set<size_t> &ngbList = getNgbList()[center];
     for(set<size_t>::const_iterator p=ngbList.begin();p!=ngbList.end();++p)
-    {
-        it=BOO.find(*p);
-        if(it!=BOO.end());
-            avBoo += (*it).second;
-    }
+            avBoo += BOO[*p];
 
-    avBoo/=(double)(ngbList.size());
+    avBoo/=(double)(1+ngbList.size());
     return avBoo;
 }
 
-
-
-
 /**
-    \brief get the bond orientational order for all usefull particles
+    \brief get the bond orientational order for all particles
 */
-map<size_t,BooData> Particles::getBOOs() const
+void Particles::getBOOs(std::vector<BooData> &BOO) const
 {
-    if(!this->hasIndex()) throw logic_error("Set a spatial index before looking for neighbours !");
-    map<size_t,BooData> res;
-    set<size_t> inside = index->getInside(1.3*2.0*radius);
-    for(set<size_t>::const_iterator p=inside.begin();p!=inside.end();++p)
-        res.insert(res.end(),make_pair(*p,getBOO(*p,1.3*2.0*radius)));
-    return res;
+    BOO.resize(size());
+    for(size_t p=0;p<size();++p)
+        BOO[p] = getBOO(p);
 }
 
 /**
-    \brief get the averaged bond orientational order for all usefull particles
+    \brief get the coarse grained bond orientational order for all particles
 */
-map<size_t,BooData> Particles::getavBOOs(const map<size_t,BooData> &BOO) const
+void Particles::getCgBOOs(const std::vector<BooData> &BOO, std::vector<BooData> &cgBOO) const
 {
-    if(!this->hasIndex()) throw logic_error("Set a spatial index before looking for neighbours !");
-    map<size_t,BooData> res;
-    set<size_t> inside = index->getInside(2.0*1.3*2.0*radius);
-    for(set<size_t>::const_iterator p=inside.begin();p!=inside.end();++p)
-        res.insert(res.end(),make_pair(*p,getAvBOO(BOO,*p,1.3*2.0*radius)));
-    return res;
+    cgBOO.resize(size());
+    for(size_t p=0;p<size();++p)
+        cgBOO[p] = getCgBOO(BOO, p);
 }
 
 /** @brief export qlm in binary  */
-void Particles::exportQlm(const std::map<size_t,BooData> &BOO, const std::string &outputPath) const
+void Particles::exportQlm(const std::vector<BooData> &BOO, const std::string &outputPath) const
 {
     ofstream qlm;
     qlm.open(outputPath.c_str(), ios::binary | ios::trunc);
@@ -451,56 +396,54 @@ void Particles::exportQlm(const std::map<size_t,BooData> &BOO, const std::string
         throw invalid_argument("No such file as "+outputPath);
 
     double buffer[32];
-    for(map<size_t,BooData>::const_iterator p=BOO.begin();p!=BOO.end();++p)
+    for(vector<BooData>::const_iterator p=BOO.begin();p!=BOO.end();++p)
     {
-        qlm.write((char*)&(*p).first,sizeof(size_t));
-        qlm.write((*p).second.toBinary(&buffer[0]),32*sizeof(double));
+        qlm.write(p->toBinary(&buffer[0]),32*sizeof(double));
     }
     qlm.close();
 }
 /** @brief export qlm for l==6 in ascii  */
-void Particles::exportQ6m(const std::map<size_t,BooData> &BOO, const std::string &outputPath) const
+void Particles::exportQ6m(const std::vector<BooData> &BOO, const std::string &outputPath) const
 {
     ofstream q6m;
     q6m.open(outputPath.c_str(), std::ios::out | ios::trunc);
     if(!q6m.is_open())
         throw invalid_argument("No such file as "+outputPath);
 
-    for(map<size_t,BooData>::const_iterator p=BOO.begin();p!=BOO.end();++p)
+    for(vector<BooData>::const_iterator p=BOO.begin();p!=BOO.end();++p)
     {
-    	q6m <<p->first;
     	for(size_t m=0;m<=6;++m)
-			q6m <<"\t"<<p->second(6,m);
+			q6m <<"\t"<<(*p)(6,m);
 		q6m<<endl;
     }
     q6m.close();
 }
 
 /** @brief load q6m from file as BooData  */
-void Particles::load_q6m(const string &filename,map<size_t,BooData> &allBoo) const
+void Particles::load_q6m(const string &filename, vector<BooData> &BOO) const
 {
+    BOO.resize(size());
 	ifstream f(filename.c_str(), ios::in);
 	if(!f)
 		throw invalid_argument("no such file as "+filename);
 
 	size_t p=0;
-	BooData boo;
 	while(!f.eof())
 	{
-		f >> p;
 		for(size_t m=0;m<=6;++m)
-			f>> boo(6,m);
-		allBoo.insert(allBoo.end(),make_pair(p,boo));
+			f>> BOO[p](6,m);
+        p++;
 	}
 	f.close();
 }
 
 /** \brief Get the bond angle distribution around one particle given the list of the particles it is bounded with    */
-boost::array<double,180> Particles::getAngularDistribution(const size_t &numPt, const std::set<size_t> &ngbs) const
+boost::array<double,180> Particles::getAngularDistribution(const size_t &numPt) const
 {
     boost::array<double,180> angD;
+    const std::set<size_t> &ngbs = getNgbList()[numPt];
     fill(angD.begin(), angD.end(), 0.0);
-    const size_t nb = ngbs.size()-1;
+    const size_t nb = ngbs.size();
     if(nb > 1)
     {
         //histogram is scaled by the number of bond angles
@@ -522,14 +465,8 @@ boost::array<double,180> Particles::getAngularDistribution(const size_t &numPt, 
     return angD;
 }
 
-/** \brief Get the bond angle distribution around one particle given the maximum bound length    */
-boost::array<double,180> Particles::getAngularDistribution(const size_t &numPt,const double &range) const
-{
-    return getAngularDistribution(numPt, getEuclidianNeighbours(at(numPt), range));
-}
-
 /** \brief get the mean angular distribution of a given set of particles */
-boost::array<double,180> Particles::getMeanAngularDistribution(const NgbList &selection) const
+/*boost::array<double,180> Particles::getMeanAngularDistribution(const NgbList &selection) const
 {
     boost::array<double,180> angD;
     fill(angD.begin(), angD.end(), 0.0);
@@ -546,73 +483,7 @@ boost::array<double,180> Particles::getMeanAngularDistribution(const NgbList &se
         bind2nd(divides<double>(), (double)selection.size())
         );
     return angD;
-}
-
-/** @brief Grows recursively a cluster of neighbouring particles
-  * \param population The indicies of the particles than can be added to the cluster
-  * \param cluster Collecting the indicies of the particles belonging to the cluster
-  * \param center The particle we are presently looking at
-  * \param ngbList The List of each particle's neighbours
-  */
-void Particles::growCluster(std::set<size_t> &population, std::set<size_t> &cluster, size_t center, const NgbList &ngbs)
-{
-    NgbList::const_iterator c = ngbs.find(center);
-    if(c != ngbs.end())
-    {
-        for(set<size_t>::const_iterator n=c->second.begin();n!=c->second.end();++n)
-        {
-            //are we able to use this particle ?
-            set<size_t>::iterator toBeRemoved = population.find(*n);
-            if(toBeRemoved != population.end())
-            {
-                cluster.insert(cluster.end(),*n);
-                //this particle will be used now so it must be removed from the population
-                // to prevent infinite recursion
-                population.erase(toBeRemoved);
-                //recursion
-                growCluster(population,cluster,*n,ngbs);
-            }
-        }
-    }
-}
-
-/** @brief Segregate a population of particles into clusters of recursively neighbouring particles
-  * \param population The indicies of the particles than can be added to the clusters
-  * \param clusters The list of clusters with the indicies of the particles belonging to each (output)
-  * \param ngbList The List of each particle's neighbours
-  */
-void Particles::segregate(std::set<size_t> &population, std::vector< std::set<size_t> > &clusters, const NgbList &ngbs)
-{
-    size_t center = 0;
-    while(!population.empty())
-    {
-        center = *population.begin();
-        clusters.push_back(set<size_t>());
-        clusters.back().insert(center);
-        growCluster(population,clusters.back(),center,ngbs);
-    }
-}
-
-/** @brief Segregate all particles into clusters of recursively neighbouring particles
-    Prefer this version if you have already computed a neighbour list
-*/
-void Particles::segregateAll(std::vector< std::set<size_t> > &clusters, const NgbList &ngbs)
-{
-    set<size_t> all;
-    for(size_t p=0;p<size();++p)
-        all.insert(all.end(),p);
-    segregate(all,clusters,ngbs);
-}
-
-/** @brief Segregate all particles into clusters of recursively neighbouring particles
-    This version will compute the neighbour list from range (in diameter unit).
-*/
-void Particles::segregateAll(std::vector< std::set<size_t> > &clusters, const double &range)
-{
-    NgbList ngbs;
-    getNgbList(range,ngbs);
-    segregateAll(clusters,ngbs);
-}
+}*/
 
 Particles::Binner::~Binner(void){};
 
@@ -807,7 +678,7 @@ void Particles::exportToVTK(
 /** @brief exportToVTK without bonds  */
 void Particles::exportToVTK(const std::string &filename, const std::vector<scalarField> &scalars, const std::vector<vectorField> &vectors, const std::string &dataName) const
 {
-	exportToVTK(filename,getBonds(1.3*2.0*radius),scalars,vectors,dataName);
+	exportToVTK(filename,getBonds(),scalars,vectors,dataName);
 }
 
 /** @brief export only positions and scalar fields to VTK	*/
@@ -869,12 +740,65 @@ void Particles::getBooFromFile(const string &filename, map<size_t, tvmet::Vector
 	cloud.close();
 }
 
-/** \brief return the cross product between two 3D vectors (=valarray of dim 3) */
-/*valarray<double> cross_prod(const valarray<double> &u,const valarray<double> &v)
+/** @brief from a neighbour list to a bond list  */
+BondList Colloids::ngb2bonds(const NgbList& ngbList)
 {
-    valarray<double>w(0.0,3);
-    w[0]=u[1]*v[2]-u[2]*v[1];
-    w[1]=u[2]*v[0]-u[0]*v[2];
-    w[2]=u[0]*v[1]-u[1]*v[0];
-    return w;
-}*/
+    BondList bonds;
+	for(size_t p=0;p<ngbList.size();++p)
+		transform(
+            ngbList[p].lower_bound(p+1), ngbList[p].end(),
+            back_inserter(bonds),
+            boost::bind(make_pair<size_t,size_t>,p,_1)
+            );
+	return bonds;
+}
+
+/** @brief Grows recursively a cluster of neighbouring particles
+  * \param population The indicies of the particles than can be added to the cluster
+  * \param cluster Collecting the indicies of the particles belonging to the cluster
+  * \param center The particle we are presently looking at
+  * \param ngbList The List of each particle's neighbours
+  */
+void Colloids::growCluster(std::set<size_t> &population, std::set<size_t> &cluster, size_t center, const NgbList &ngbs)
+{
+    for(set<size_t>::const_iterator n=ngbs[center].begin();n!=ngbs[center].end();++n)
+    {
+        //are we able to use this particle ?
+        set<size_t>::iterator toBeRemoved = population.find(*n);
+        if(toBeRemoved != population.end())
+        {
+            cluster.insert(cluster.end(),*n);
+            //this particle will be used now so it must be removed from the population
+            // to prevent infinite recursion
+            population.erase(toBeRemoved);
+            //recursion
+            growCluster(population,cluster,*n,ngbs);
+        }
+    }
+}
+
+/** @brief Segregate a population of particles into clusters of recursively neighbouring particles
+  * \param population The indicies of the particles than can be added to the clusters
+  * \param clusters The list of clusters with the indicies of the particles belonging to each (output)
+  * \param ngbList The List of each particle's neighbours
+  */
+void segregate(std::set<size_t> &population, std::vector< std::set<size_t> > &clusters, const NgbList &ngbs)
+{
+    size_t center = 0;
+    while(!population.empty())
+    {
+        center = *population.begin();
+        clusters.push_back(set<size_t>());
+        clusters.back().insert(center);
+        growCluster(population,clusters.back(),center,ngbs);
+    }
+}
+
+/** @brief Segregate all particles into clusters of recursively neighbouring particles */
+void Colloids::segregateAll(std::vector< std::set<size_t> > &clusters, const Particles& parts)
+{
+    set<size_t> all;
+    for(size_t p=0;p<parts.size();++p)
+        all.insert(all.end(),p);
+    segregate(all, clusters, parts.getNgbList());
+}

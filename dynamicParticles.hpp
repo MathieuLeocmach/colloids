@@ -35,7 +35,6 @@ namespace Colloids
 
     typedef std::pair< std::string,std::vector< std::map<size_t,double> >* >	scalarDynamicField;
     typedef std::pair< std::string,std::vector< std::map<size_t, Coord> >* >	vectorDynamicField;
-    typedef boost::ptr_vector<NgbList>							                DynNgbList;
 
 
     /**
@@ -117,7 +116,6 @@ namespace Colloids
             std::set<size_t> getEnclosed(const BoundingBox &b) const;
             std::set<size_t> getSpanning(const Interval &in) const;
             std::set<size_t> getSpanningInside(const Interval &in, const double &margin) const;
-            DynNgbList getNgbList(const double &range);
 
             /** geometry and dynamics related **/
             virtual Coord getDiff(const size_t &tr_from,const size_t &t_from,const size_t &tr_to,const size_t &t_to) const;
@@ -138,10 +136,10 @@ namespace Colloids
             void exportDynamics(const std::vector< std::set<size_t> >&sets,const std::vector<std::string>&setsNames,const std::string &inputPath) const;
             vectorDynamicField averageVelocities(const std::set<size_t> &selection,const size_t &displInterval,const size_t &avgInterval) const;
 
-            std::set<size_t> getLostNgbs(const DynNgbList &ngbList,const size_t &tr,const size_t &t_from,const size_t &t_to) const;
-            scalarDynamicField getNbLostNgbs(const std::set<size_t> &selection,const DynNgbList &ngbs,const size_t &interval) const;
+            std::set<size_t> getLostNgbs(const size_t &tr,const size_t &t_from,const size_t &t_to) const;
+            scalarDynamicField getNbLostNgbs(const std::set<size_t> &selection, const size_t &interval) const;
 
-            boost::array<double,180> getMeanAngularDistribution(const DynNgbList &selection) const;
+            //boost::array<double,180> getMeanAngularDistribution(const DynNgbList &selection) const;
 
             /** bond orientational order related **/
             std::set<size_t> getBooFromFile(const std::string &prefix, std::vector<std::map<size_t, tvmet::Vector<double, 4> > >&qw) const;
