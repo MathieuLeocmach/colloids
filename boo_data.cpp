@@ -32,7 +32,7 @@
 
 using namespace std;
 using namespace Colloids;
-using namespace tvmet;
+//using namespace tvmet;
 
 double BooData::w3j[30] = {
     //l=0
@@ -89,7 +89,7 @@ BooData::BooData(const Coord &rij): valarray< complex <double> >(complex <double
 
 	// conversion to polar coordinates (physical convention, not mathematical)
     diff = normalize(rij);
-    theta = acos(diff.back());
+    theta = acos(diff[2]);
 	if(diff[0]==0.0)
 	{
 	    if(diff[1]==0.0) phi=0.0;

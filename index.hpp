@@ -27,17 +27,34 @@
 #define index_H
 
 #include <vector>
+#include <valarray>
 #include <set>
 #include <map>
 #include <algorithm>
-#include <tvmet/Vector.h>
+//#include <tvmet/Vector.h>
 #include <boost/ptr_container/ptr_container.hpp>
 
 #include "RStarTree/RStarTree.h"
 
 namespace Colloids
 {
-    typedef tvmet::Vector<double, 3>            Coord;
+    //typedef tvmet::Vector<double, 3>            Coord;
+    typedef std::valarray<double>				Coord;
+    /*struct Coord : public std::valarray<double>{
+    	explicit Coord(double d=0.0):std::valarray<double>(d,3){};
+    	Coord(const std::valarray<double> &v):std::valarray<double>(v){};
+    	Coord(const Coord &v):std::valarray<double>(v){};
+    	Coord & operator=(const Coord &v){return Coord(std::valarray<double>::operator=(dynamic_cast< const std::valarray<double> &>(v)));};
+
+    	double & back(){return (*this)[2];}
+    	const double & back() const {return (*this)[2];}
+    };*/
+
+    inline double dot(const Coord &x, const Coord &y){return (x*y).sum();}
+    inline double norm2(const Coord &x){return dot(x,x);}
+    inline Coord normalize(Coord c){return c/=sqrt(norm2(c));}
+
+
     typedef RStarBoundingBox<3,double>          BoundingBox;
     typedef std::pair<size_t,size_t>            Interval;
     typedef std::pair<Interval, BoundingBox>    TimeBox;

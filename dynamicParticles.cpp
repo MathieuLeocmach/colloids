@@ -28,7 +28,7 @@
 
 using namespace std;
 using namespace Colloids;
-using namespace tvmet;
+//using namespace tvmet;
 /**
     \brief Makes the smallest bounding box enclosing all positions of the trajectory
 */
@@ -110,7 +110,7 @@ size_t DynamicParticles::getMaxSimultaneousParticles() const
 {
     radius = rad;
     dt = time_step;
-    positions.resize(t_size,new Particles(rad));
+    positions.resize(t_size,new Particles(0,rad));
 }
 
 /** \brief constructor from the first time step */
@@ -191,7 +191,7 @@ DynamicParticles::DynamicParticles(
 		//compute objective displacement vector
 		partial_sum(displ.begin(),displ.end(),displ.begin());
 		//largest absolute negative displacement
-		Coord maxd(0.0);
+		Coord maxd(0.0,3);
 		for(vector<Coord>::const_iterator t=displ.begin();t!=displ.end();++t)
 		{
 			maxd[0] = max(maxd[0],(*t)[0]);
@@ -218,7 +218,7 @@ DynamicParticles::DynamicParticles(
         while(v[0]<t_offset+t_size)
         {
 			Particles p(tt(v), radius);
-			if(max(abs(displ[v[0]-t_offset]))>0.0)
+			if(abs(displ[v[0]-t_offset]).max()>0.0)
 				p += displ[v[0]-t_offset];
 
             push_back(p);
@@ -578,7 +578,7 @@ Coord DynamicParticles::getDiff(const size_t &tr_from,const size_t &t_from,const
 /** \brief overall drift between t0 and t1 */
 Coord DynamicParticles::getDrift(const set<size_t>&selection,const size_t &t0,const size_t &t1) const
 {
-    Coord drift(0.0);
+    Coord drift(0.0,3);
     for(set<size_t>::iterator tr=selection.begin();tr!=selection.end();++tr)
         drift += getDiff(*tr,t0,*tr,t1);
 
@@ -589,8 +589,8 @@ Coord DynamicParticles::getDrift(const set<size_t>&selection,const size_t &t0,co
 /** \brief remove the overall drift between each time step */
 void DynamicParticles::removeDrift()
 {
-    vector<Coord> drifts(positions.size(), Coord(0.0));
-    Coord maxNegativeDrift(0.0);
+    vector<Coord> drifts(positions.size(), Coord(0.0,3));
+    Coord maxNegativeDrift(0.0,3);
     for(size_t t0=0;t0+1<getNbTimeSteps();++t0)
     {
         drifts[t0+1] = drifts[t0] - getDrift(getSpanningInside(Interval(t0,t0+1), 2.0*radius),t0,t0+1);
@@ -791,7 +791,7 @@ vector<double> DynamicParticles::getSelfISF(const size_t &t0,const size_t &t1,co
 {
 	set<size_t> sp = getSpanning(Interval(t0,t1+t3));
 	vector< vector<double> >ISF(4,vector<double>(t1-t0+1));
-	vector< Coord > q(3, Coord(0.0));
+	vector< Coord > q(3, Coord(0.0,3));
     for(size_t d=0;d<3;++d)
         q[d][d] = M_PI/radius;
 
@@ -816,7 +816,7 @@ void DynamicParticles::makeDynamics(const std::vector< std::set<size_t> >&sets,s
 	ISF.assign(sets.size()*4,vector<double>(stop+1));
 	cout << "get Mean Square Displacement and Self Intermediate Scattering Function"<<endl;
 
-	vector<Coord> q(3, Coord(0.0));
+	vector<Coord> q(3, Coord(0.0,3));
     for(size_t d=0;d<3;++d)
         q[d][d] = M_PI/radius;
 
@@ -889,7 +889,7 @@ void DynamicParticles::exportDynamics(const string &inputPath) const
   *	\param
   * @todo: document this function
   */
-vectorDynamicField DynamicParticles::averageVelocities(const std::set<size_t> &selection,const size_t &displInterval,const size_t &avgInterval) const
+/*vectorDynamicField DynamicParticles::averageVelocities(const std::set<size_t> &selection,const size_t &displInterval,const size_t &avgInterval) const
 {
 
 	if(displInterval==0 || displInterval>=getNbTimeSteps())
@@ -956,7 +956,7 @@ vectorDynamicField DynamicParticles::averageVelocities(const std::set<size_t> &s
 		trajectories.trajToPos(t+halfInterval,avgVel.second[t],posVel.second[t]);
 
 	return posVel;*/
-}
+//}*/
 
 /** @brief get the neighbours lost between t_from and t_to by the trajectory tr  */
 set<size_t> DynamicParticles::getLostNgbs(const size_t &tr,const size_t &t_from,const size_t &t_to) const
@@ -1036,7 +1036,7 @@ scalarDynamicField DynamicParticles::getNbLostNgbs(const std::set<size_t> &selec
 
 
 /** \brief import q4 and q6 from file, return spanning trajectories */
-set<size_t> DynamicParticles::getBooFromFile(const string &prefix,vector< map< size_t, tvmet::Vector<double, 4> > >&qw) const
+/*set<size_t> DynamicParticles::getBooFromFile(const string &prefix,vector< map< size_t, tvmet::Vector<double, 4> > >&qw) const
 {
     //cout<<"initializing the returned containers"<<endl;
     qw.assign(getNbTimeSteps(), map<size_t, tvmet::Vector<double, 4> >());
@@ -1089,7 +1089,7 @@ set<size_t> DynamicParticles::getBooFromFile(const string &prefix,vector< map< s
 			ret.insert(ret.end(),tr);
     }
 	return ret;
-}
+}*/
 
 /** @brief Calculate local Bond Orientational Order for each trajectory of the selection at the given time step
   */

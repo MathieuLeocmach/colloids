@@ -30,11 +30,12 @@
 #include <complex>
 #include <string>
 #include <boost/array.hpp>
-#include <tvmet/Vector.h>
+#include "index.hpp"
+//#include <tvmet/Vector.h>
 
 namespace Colloids
 {
-    typedef tvmet::Vector<double, 3>            Coord;
+    //typedef tvmet::Vector<double, 3>            Coord;
 
     /** \brief Bond-Orientational-Order data
      *  Coordinates qlm of the local symmetry on the pair spherical harmonics base Ylm(theta,phi)

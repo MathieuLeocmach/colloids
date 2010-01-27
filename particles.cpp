@@ -21,15 +21,15 @@
 
 using namespace std;
 using namespace Colloids;
-using namespace tvmet;
+//using namespace tvmet;
 
 
 
 /**    \brief empty list constructor */
-Particles::Particles(const size_t &n, const double &d, const double &r) : vector<Coord>(n,Coord(d)){radius=r;}
+Particles::Particles(const size_t &n, const double &d, const double &r) : vector<Coord>(n,Coord(d,3)){radius=r;}
 
 /**    \brief constructor from DAT file */
-Particles::Particles(const string &filename, const double &r) : vector<Coord>(0,Coord(0.0))
+Particles::Particles(const string &filename, const double &r) : vector<Coord>(0,Coord(0.0,3))
 {
     radius = r;
     size_t listSize=0, trash;
@@ -41,7 +41,7 @@ Particles::Particles(const string &filename, const double &r) : vector<Coord>(0,
 
     //Header
 	file >> trash >> listSize >> trash;
-	this->assign(listSize,Coord(0.0));
+	this->assign(listSize,Coord(0.0,3));
 
     for(size_t i=0;i<3;++i)
 	{
@@ -59,14 +59,14 @@ Particles::Particles(const string &filename, const double &r) : vector<Coord>(0,
 }
 
 /**    \brief constructor from GRV file */
-Particles::Particles(const size_t &Nb, const BoundingBox &b, const string &filename, const double &r) : vector<Coord>(0,Coord(0.0))
+Particles::Particles(const size_t &Nb, const BoundingBox &b, const string &filename, const double &r) : vector<Coord>(0,Coord(0.0,3))
 {
 	radius=r;
 	ifstream file(filename.c_str(), ios::in);
     if(!file)
         throw invalid_argument("No such file as "+filename);
 
-	this->assign(Nb, Coord(0.0));
+	this->assign(Nb, Coord(0.0,3));
 
     bb=b;
 
@@ -117,7 +117,7 @@ Particles& Particles::operator*=(const Coord &v)
 /** \brief resizing the box, rescaling the coordinates and the radius */
 Particles& Particles::operator*=(const double &mul)
 {
-    const Coord v(mul);
+    const Coord v(mul,3);
     operator*=(v);
     radius*=mul;
 
@@ -719,7 +719,7 @@ double Particles::getVF() const
 }*/
 
 /** @brief get q4 and q6 from a cloud file  */
-void Particles::getBooFromFile(const string &filename, map<size_t, tvmet::Vector<double, 4> >&qw) const
+/*void Particles::getBooFromFile(const string &filename, map<size_t, tvmet::Vector<double, 4> >&qw) const
 {
 	ifstream cloud(filename.c_str(), ios::in);
 	if(!cloud)
@@ -738,7 +738,7 @@ void Particles::getBooFromFile(const string &filename, map<size_t, tvmet::Vector
 		qw.insert(qw.end(),make_pair(p,v));
 	}
 	cloud.close();
-}
+}*/
 
 /** @brief from a neighbour list to a bond list  */
 BondList Colloids::ngb2bonds(const NgbList& ngbList)
@@ -782,7 +782,7 @@ void Colloids::growCluster(std::set<size_t> &population, std::set<size_t> &clust
   * \param clusters The list of clusters with the indicies of the particles belonging to each (output)
   * \param ngbList The List of each particle's neighbours
   */
-void segregate(std::set<size_t> &population, std::vector< std::set<size_t> > &clusters, const NgbList &ngbs)
+void Colloids::segregate(std::set<size_t> &population, std::vector< std::set<size_t> > &clusters, const NgbList &ngbs)
 {
     size_t center = 0;
     while(!population.empty())

@@ -40,7 +40,7 @@
 #include <stdexcept>
 //#include <boost/operators.hpp>
 #include <boost/bind.hpp>
-#include <tvmet/Vector.h>
+//#include <tvmet/Vector.h>
 
 #include "index.hpp"
 #include "boo_data.hpp"
@@ -74,7 +74,7 @@ namespace Colloids
 
 
             /** \brief constructors and destructor */
-            Particles(void) : std::vector<Coord>(0,Coord(0.0)){radius=0;return;};
+            Particles(void) : std::vector<Coord>(0,Coord(0.0,3)){radius=0;return;};
             Particles(const std::vector<Coord> &data, const double &r=0.0) : std::vector<Coord>(data){radius=r;};
             Particles(const size_t &n, const double &d=0.0, const double &r=0.0);
             Particles(const std::string &filename, const double &r=0.0);
@@ -196,7 +196,7 @@ namespace Colloids
             virtual double getNumberDensity() const;
             double getVF() const;
 
-            void getBooFromFile(const std::string &filename,std::map<size_t, tvmet::Vector<double, 4> >&qw) const;
+            //void getBooFromFile(const std::string &filename,std::map<size_t, tvmet::Vector<double, 4> >&qw) const;
             //static bool areTooClose(const std::valarray<double> &c, const Coord &d,const double &Sep);
 
     };

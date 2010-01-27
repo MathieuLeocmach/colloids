@@ -114,7 +114,7 @@ int main(int argc, char ** argv)
         //cluster data container
         deque< set<size_t> > clusters;
         //get the clusters
-        Centers.segregateAll(clusters,ngbList);
+        segregateAll(clusters, Centers);
 
         //labelling
         string name = "clusters";

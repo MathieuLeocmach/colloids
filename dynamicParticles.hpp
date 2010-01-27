@@ -142,7 +142,7 @@ namespace Colloids
             //boost::array<double,180> getMeanAngularDistribution(const DynNgbList &selection) const;
 
             /** bond orientational order related **/
-            std::set<size_t> getBooFromFile(const std::string &prefix, std::vector<std::map<size_t, tvmet::Vector<double, 4> > >&qw) const;
+            //std::set<size_t> getBooFromFile(const std::string &prefix, std::vector<std::map<size_t, tvmet::Vector<double, 4> > >&qw) const;
             void makeBoo(const size_t &t, const std::set<size_t> &selection, std::map<size_t,BooData> &allBoo) const;
             void makeSBoo(const size_t &t, const std::set<size_t> &selection, const std::map<size_t,BooData> &allBoo, std::map<size_t,BooData> &SallBoo) const;
             void makeTimeAverage(
@@ -157,13 +157,13 @@ namespace Colloids
                 const std::vector< std::map<size_t,double> > &timeDependant,
                 std::vector< std::map<size_t,double> > &timeAveraged
             ) const;
-            template<size_t N>
+            /*template<size_t N>
             void makeSlidingTimeAverage(
                 const std::set<size_t> &selection,
                 const size_t &avgInterval,
                 const std::vector< std::map<size_t, tvmet::Vector<double, N> > > &timeDependant,
                 std::vector< std::map<size_t, tvmet::Vector<double, N> > > &timeAveraged
-            ) const;
+            ) const;*/
 
     };
 
@@ -214,7 +214,7 @@ namespace Colloids
       * \param timeDependant The input values, function of time and of trajectories
       * \param timeAverage The output, function of the trajectories
       */
-    template<size_t N>
+    /*template<size_t N>
     void DynamicParticles::makeSlidingTimeAverage(
         const std::set<size_t> &selection,
         const size_t &avgInterval,
@@ -247,7 +247,7 @@ namespace Colloids
                     it->second /= (double)avgInterval;
                 }
         }
-    }
+    }*/
 };
 
 
