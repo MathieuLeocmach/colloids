@@ -19,10 +19,9 @@
 
 
 #include "../dynamicParticles.hpp"
-//#include "../time_tracker.hpp"
-//#include "../files_series.hpp"
 
 using namespace std;
+using namespace Colloids;
 
 int main(int argc, char ** argv)
 {
@@ -51,17 +50,6 @@ int main(int argc, char ** argv)
         const string folder = filename.substr(0,filename.find_last_of("/\\")+1);
         parts.save(head+".traj",nofolder,token,t_offset,t_span);
 
-		//marks a few trajectories to verify the time tracking
-		vector<map <size_t,unsigned char> > labels(t_span);
-		set<size_t> spanning = parts.getSpanning(0,t_span-1);
-		set<size_t>::iterator tr = spanning.begin();
-		for(size_t i=0;i<5 && tr!=spanning.end();++i)
-		{
-			for(size_t t=0;t<t_span;++t)
-				labels[t].insert(make_pair(parts.trajectories[*tr][t],(unsigned char)15));
-			tr++;
-		}
-        parts.exportToPV(noExt+"_linked.pv",labels);
     }
     catch(const std::exception &e)
     {

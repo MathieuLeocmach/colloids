@@ -41,7 +41,7 @@ Particles::Particles(const string &filename, const double &r) : vector<Coord>(0,
 
     //Header
 	file >> trash >> listSize >> trash;
-	this->assign(listSize,Coord(0.0,3));
+	this->assign(listSize, Coord(0.0,3));
 
     for(size_t i=0;i<3;++i)
 	{
@@ -80,7 +80,7 @@ Particles::Particles(const size_t &Nb, const BoundingBox &b, const string &filen
 
 void Particles::push_back(const Coord &p)
 {
-    if(index)
+    if(hasIndex())
         index->insert(size(),bounds(p));
     vector<Coord>::push_back(p);
 }
@@ -186,7 +186,7 @@ void Particles::makeRTreeIndex()
     for(iterator p = this->begin(); p!=this->end();++p)
         boxes.push_back(bounds(*p));
 
-    this->index = new RStarIndex_S(boxes);
+    setIndex(new RStarIndex_S(boxes));
 }
 
 /** @brief get the indices of the particles enclosed by a query box  */

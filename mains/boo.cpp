@@ -23,6 +23,7 @@
 #include "../dynamicParticles.hpp"
 
 using namespace std;
+using namespace Colloids;
 
 int errorMessage()
 {

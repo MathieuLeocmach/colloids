@@ -138,4 +138,3 @@ set<size_t> TreeIndex_T::operator()(const Interval &in) const
     return sel;
 }
 
-

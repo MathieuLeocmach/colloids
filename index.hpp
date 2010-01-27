@@ -36,6 +36,15 @@
 
 #include "RStarTree/RStarTree.h"
 
+//define by a macro all the constructors
+#define INDEX_CONSTRUCTOR(Index, BoundingItem)\
+    explicit Index(const std::vector<BoundingItem> &items)\
+    {\
+        for(size_t i=0;i<items.size();++i)\
+            this->insert(i,items[i]);\
+        return;\
+    };\
+
 namespace Colloids
 {
     //typedef tvmet::Vector<double, 3>            Coord;
@@ -64,13 +73,7 @@ namespace Colloids
     struct BasicIndex
     {
         virtual ~BasicIndex(){return;};
-        virtual void insert(const size_t &i, const BoundingItem &b){};
-        explicit BasicIndex(const std::vector<BoundingItem> &items)
-        {
-            for(size_t i=0;i<items.size();++i)
-                this->insert(i,items[i]);
-            return;
-        };
+        virtual void insert(const size_t &i, const BoundingItem &b)=0;
         virtual std::set<size_t> operator()(const BoundingItem &b) const = 0;
     };
 
@@ -78,7 +81,6 @@ namespace Colloids
     class SpatialIndex : public BasicIndex<BoundingBox>
     {
         public:
-            explicit SpatialIndex(const std::vector<BoundingBox> &items) : BasicIndex<BoundingBox>(items){return;};
             virtual std::set<size_t> getInside(const double &margin) const;
             /** @brief Translate index */
             virtual void operator+=(const Coord &v) = 0;
@@ -89,7 +91,6 @@ namespace Colloids
     class TemporalIndex : public BasicIndex<Interval>
     {
         public:
-            explicit TemporalIndex(const std::vector<Interval> &items) : BasicIndex<Interval>(items){return;};
             virtual Interval getOverallInterval() const = 0;
     };
 
@@ -97,7 +98,6 @@ namespace Colloids
     class SpatioTemporalIndex : public BasicIndex<TimeBox>
     {
         public:
-            explicit SpatioTemporalIndex(const std::vector<TimeBox> &items) : BasicIndex<TimeBox>(items){return;};
             virtual std::set<size_t> operator()(const TimeBox &b) const = 0;
             virtual std::set<size_t> operator()(const BoundingBox &b) const = 0;
             virtual std::set<size_t> operator()(const Interval &in) const = 0;
@@ -114,7 +114,7 @@ namespace Colloids
         std::multimap<size_t, BoundingBox> items;
 
         public:
-            BruteSpatialIndex(const std::vector<BoundingBox> &items) : SpatialIndex(items){return;};
+            INDEX_CONSTRUCTOR(BruteSpatialIndex, BoundingBox)
             void insert(const size_t &i, const BoundingBox &b);
             std::set<size_t> operator()(const BoundingBox &b) const;
             void operator+=(const Coord &v);
@@ -140,7 +140,7 @@ namespace Colloids
                 gathered.insert(leaf->leaf);
             }
         };
-            RStarIndex_S(const std::vector<BoundingBox> &items) : SpatialIndex(items){return;};
+            INDEX_CONSTRUCTOR(RStarIndex_S, BoundingBox)
             void insert(const size_t &i, const BoundingBox &b);
             std::set<size_t> operator()(const BoundingBox &b) const;
             void operator+=(const Coord &v) {tree+=v;};
@@ -155,7 +155,7 @@ namespace Colloids
         Interval *overallInterval;
 
         public:
-            TreeIndex_T(const std::vector<Interval> &items) : TemporalIndex(items){return;};
+            INDEX_CONSTRUCTOR(TreeIndex_T, Interval)
             void insert(const size_t &i, const Interval &in);
             std::set<size_t> operator()(const Interval &in) const;
             Interval getOverallInterval() const{return *overallInterval;};

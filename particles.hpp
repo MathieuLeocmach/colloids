@@ -37,6 +37,7 @@
 #include <iostream>
 #include <sstream>
 #include <fstream>
+#include <memory>
 #include <stdexcept>
 //#include <boost/operators.hpp>
 #include <boost/bind.hpp>
@@ -61,7 +62,7 @@ namespace Colloids
     class Particles : public std::vector<Coord>
     {
         /** \brief A spatial index of the particles */
-        SpatialIndex *index;
+        std::auto_ptr<SpatialIndex> index;
 
         /** \brief A neighbour list */
         NgbList neighboursList;
@@ -97,8 +98,8 @@ namespace Colloids
 
             /** Index related   */
             static BoundingBox bounds(const Coord &center,const double &r=0.0);
-            bool hasIndex() const {return !!index;};
-            void setIndex(SpatialIndex *I) {index = I;}
+            bool hasIndex() const {return !!index.get();};
+            void setIndex(SpatialIndex *I){index.reset(I);};
             void makeRTreeIndex();
             virtual std::set<size_t> getEnclosed(const BoundingBox &b) const;
             BoundingBox getOverallBox() const;

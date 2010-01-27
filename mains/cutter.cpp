@@ -17,7 +17,6 @@
     along with Colloids.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
-//ask for the definition of the class IndexedParticles
 #include "../particles.hpp"
 #include "../files_series.hpp"
 #include <boost/progress.hpp>

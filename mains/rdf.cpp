@@ -21,6 +21,7 @@
 #include "../periodic.hpp"
 
 using namespace std;
+using namespace Colloids;
 
 int main(int argc, char ** argv)
 {
@@ -62,15 +63,21 @@ int main(int argc, char ** argv)
 		PeriodicParticles Centers(Nb,b,radius,filename);
 		cout << "With periodic boundary conditions"<<endl;
 	#else
-		IndexedParticles Centers(filename,radius);
+		Particles Centers(filename,radius);
 	#endif
-		cout << Centers.size() << " particles ... ";
+		cout << Centers.size() << " particles ... spatial indexing ... ";
+		Centers.makeRTreeIndex();
+		cout << "g(r) ... ";
 
 		//get g(r)
 		vector<double> g = Centers.getRdf(Nbins,nbDiameterCutOff);
 		cout << " done !" << endl;
 
-		saveRDF(g,inputPath + ".rdf",((double)Nbins)/nbDiameterCutOff);
+		ofstream output((inputPath + ".rdf").c_str(), ios::out | ios::trunc);
+		output<<"#r\tg"<<endl;
+		const double scale = Nbins/nbDiameterCutOff;
+		for(size_t r=0;r<g.size();++r)
+            output<< r/scale <<"\t"<< g[r] << endl;
     }
     catch(const std::exception &e)
     {
