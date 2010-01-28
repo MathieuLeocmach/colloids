@@ -138,14 +138,14 @@ Particles& Particles::operator+=(const Coord &v)
 /** \brief get the difference vector between a position and one of the particles */
 Coord Particles::getDiff(const Coord &from,const size_t &to) const
 {
-    Coord diff;
+    Coord diff(3);
     diff = at(to)-from;
     return diff;
 }
 /** \brief get the difference vector between two particles */
 Coord Particles::getDiff(const size_t &from,const size_t &to) const
 {
-    Coord diff;
+    Coord diff(3);
     diff = at(to)-at(from);
     return diff;
 }
@@ -155,7 +155,7 @@ Coord Particles::getDiff(const size_t &from,const size_t &to) const
 */
 double Particles::getAngle(const size_t &origin,const size_t &a,const size_t &b) const
 {
-    Coord va,vb;
+    Coord va(3),vb(3);
     va = getDiff(origin,a);
     vb = getDiff(origin,b);
     return acos(dot(va,vb)/sqrt(dot(va,va)*dot(vb,vb)));
@@ -214,7 +214,7 @@ set<size_t> Particles::getEuclidianNeighbours(const Coord &center, const double 
 {
     set<size_t> NormOneNeighbours = getEnclosed(bounds(center,range));
     set<size_t> NormTwoNeighbours;
-    Coord diff;
+    Coord diff(3);
     double rSq = range*range;
     for(set<size_t>::const_iterator p=NormOneNeighbours.begin();p!=NormOneNeighbours.end();++p)
     {
@@ -232,7 +232,7 @@ set<size_t> Particles::getEuclidianNeighbours(const size_t &center, const double
     set<size_t> NormOneNeighbours = getEnclosed(bounds((*this)[center],range));
     NormOneNeighbours.erase(center);
     set<size_t> NormTwoNeighbours;
-    Coord diff;
+    Coord diff(3);
     double rSq = range*range;
     for(set<size_t>::const_iterator p=NormOneNeighbours.begin();p!=NormOneNeighbours.end();++p)
     {
@@ -249,7 +249,7 @@ multimap<double,size_t> Particles::getEuclidianNeighboursBySqDist(const Coord &c
 {
     set<size_t> NormOneNeighbours = getEnclosed(bounds(center,range));
     multimap<double,size_t> NormTwoNeighbours;
-    Coord diff;
+    Coord diff(3);
     double rSq = range*range, distSq;
     for(set<size_t>::const_iterator p=NormOneNeighbours.begin();p!=NormOneNeighbours.end();++p)
     {
@@ -280,7 +280,7 @@ size_t Particles::getNearestNeighbour(const Coord &center, const double &range) 
 
     size_t nN=size();
     double dist=0.0,mindist=rg*rg;
-    Coord diff;
+    Coord diff(3);
     for(set<size_t>::const_iterator it=ngb.begin();it!=ngb.end();++it)
     {
         diff = getDiff(center,*it);
@@ -493,7 +493,7 @@ void Particles::Binner::operator<<(const std::set<size_t> &selection)
 	//for each inside particle, select all particles having their center within the cutoff (norm infinity) and bin them
     for(std::set<size_t>::const_iterator p=selection.begin();p!=selection.end();++p)
     {
-        std::set<size_t> around = parts.getEuclidianNeighbours(parts[*p],cutoff);
+        std::set<size_t> around = parts.getEuclidianNeighbours(*p,cutoff);
         for(std::set<size_t>::const_iterator q=around.begin();q!=around.end();++q)
 			(*this)(*p,*q);
     }
@@ -529,7 +529,7 @@ std::vector<double> Particles::getRdf(const std::set<size_t> &selection, const s
 /**	\brief Make and export the rdf */
 std::vector<double> Particles::getRdf(const size_t &n, const double &nbDiameterCutOff) const
 {
-	return getRdf(index->getInside(2.0*radius*nbDiameterCutOff),n,nbDiameterCutOff);
+	return getRdf(index->getInside(2.0*radius*nbDiameterCutOff), n, nbDiameterCutOff);
 }
 
 /**	\brief Bin a couple of particles into the g and g6 histogram. */

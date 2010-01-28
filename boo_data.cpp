@@ -84,7 +84,7 @@ double & BooData::getW3j(const size_t &l, const int &m1, const int &m2)
 /** \brief constructor from one bond */
 BooData::BooData(const Coord &rij): valarray< complex <double> >(complex <double>(0.0,0.0),16)
 {
-    Coord diff;
+    Coord diff(3);
 	double theta, phi;
 
 	// conversion to polar coordinates (physical convention, not mathematical)

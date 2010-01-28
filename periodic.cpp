@@ -36,7 +36,7 @@ void PeriodicParticles::periodify(Coord &v) const
 /** \brief get the difference vector between a position and one of the particles */
 Coord PeriodicParticles::getDiff(const Coord &from,const size_t &to) const
 {
-    Coord diff;
+    Coord diff(3);
     diff = Particles::getDiff(from,to);
     periodify(diff);
     return diff;
@@ -44,7 +44,7 @@ Coord PeriodicParticles::getDiff(const Coord &from,const size_t &to) const
 /** \brief get the difference vector between two particles */
 Coord PeriodicParticles::getDiff(const size_t &from,const size_t &to) const
 {
-    Coord diff;
+    Coord diff(3);
     diff = Particles::getDiff(from,to);
     periodify(diff);
     return diff;

@@ -60,8 +60,8 @@ namespace Colloids
     };*/
 
     inline double dot(const Coord &x, const Coord &y){return (x*y).sum();}
-    inline double norm2(const Coord &x){return dot(x,x);}
-    inline Coord normalize(Coord c){return c/=sqrt(norm2(c));}
+    inline double norm2(const Coord &x){return sqrt(dot(x,x));}
+    inline Coord normalize(Coord c){return c/=norm2(c);}
 
 
     typedef RStarBoundingBox<3,double>          BoundingBox;

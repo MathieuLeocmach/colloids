@@ -570,7 +570,7 @@ set<size_t> DynamicParticles::getSpanningInside(const Interval &in,const double 
 /** \brief get the difference vector between two positions */
 Coord DynamicParticles::getDiff(const size_t &tr_from,const size_t &t_from,const size_t &tr_to,const size_t &t_to) const
 {
-    Coord diff;
+    Coord diff(3);
     diff = (*this)(tr_to,t_to)-(*this)(tr_from,t_from);
     return diff;
 }
@@ -599,7 +599,7 @@ void DynamicParticles::removeDrift()
                 maxNegativeDrift[i] = drifts[t0+1][i];
     }
     //the smallest value for origin coordinates is set to 0
-    Coord dr;
+    Coord dr(3);
     for(size_t t0=0;t0<getNbTimeSteps();++t0)
     {
         dr = drifts[t0] - maxNegativeDrift;
@@ -614,7 +614,7 @@ void DynamicParticles::removeDrift()
 double DynamicParticles::getSD(const set<size_t>&selection,const size_t &t0,const size_t &t1) const
 {
     double result=0.0;
-    Coord diff;
+    Coord diff(3);
 
     for(set<size_t>::iterator tr=selection.begin();tr!=selection.end();++tr)
     {
