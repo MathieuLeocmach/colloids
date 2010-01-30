@@ -174,7 +174,7 @@ SerieTracker::SerieTracker(const std::string &namePattern, boost::array<size_t, 
         tpos = namePattern.rfind("_t"),
         zpos = namePattern.rfind("_z");
 
-    if(tpos==string::npos)
+    if(tpos!=string::npos)
     {
         if(xyzt[3]>1)
             throw invalid_argument("Name pattern doesn't accept time dependence");
@@ -186,7 +186,7 @@ SerieTracker::SerieTracker(const std::string &namePattern, boost::array<size_t, 
     }
     else
         this->hasTime=false;
-    if(zpos==string::npos)
+    if(zpos!=string::npos)
     {
         if(xyzt[2]>1)
             throw invalid_argument("Name pattern doesn't accept z dependence");
