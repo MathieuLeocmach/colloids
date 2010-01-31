@@ -37,6 +37,20 @@
 #include <vector>
 #include <boost/format.hpp>
 
+namespace Colloids
+{
+    class FileSerie
+    {
+        boost::format pattern;
+        size_t length, offset;
+
+        public:
+            FileSerie(const std::string &filesPattern, const std::string &token, size_t size, size_t offset);
+            std::string operator%(const size_t &step){return (pattern%(step+offset)).str();}
+            size_t size(){return length;}
+    };
+}
+
 class TokenTree
 {
     public:

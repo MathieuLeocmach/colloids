@@ -21,6 +21,29 @@
 #include <stdexcept>
 
 using namespace std;
+using namespace Colloids;
+
+/** @brief Constructor  */
+FileSerie::FileSerie(const std::string &namePattern, const std::string &token, size_t size, size_t offset) :
+    size(size), offset(offset)
+{
+    string head = namePattern, tail;
+	size_t digits=0, pos = namePattern.rfind(token);
+
+    if(pos==string::npos)
+        throw invalid_argument("Name pattern doesn't contain token");
+
+    head.resize(pos);
+    digits = namePattern.find_first_not_of("0123456789", tpos+2);
+    tail = namePattern.substr(tdigits);
+    digits -= pos;
+
+    ostringstream os;
+    os<<head<<token<<"%|0"<<digits<<tail;
+    this->pattern.parse(os.str());
+}
+
+
 
 /**	\brief constructor breaking the string recursively using the tokens */
 TokenTree::TokenTree(const std::vector<string> &toks,const std::string &pattern,const size_t &lev)
