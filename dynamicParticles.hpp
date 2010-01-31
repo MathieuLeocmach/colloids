@@ -32,7 +32,6 @@
 
 namespace Colloids
 {
-
     typedef std::pair< std::string,std::vector< std::map<size_t,double> >* >	scalarDynamicField;
     typedef std::pair< std::string,std::vector< std::map<size_t, Coord> >* >	vectorDynamicField;
 
@@ -65,14 +64,20 @@ namespace Colloids
             SpatioTemporalIndex *index;
 
             /** constructors */
-            DynamicParticles(Particles *parts,const double &time_step=1);
-            DynamicParticles(const std::string &filename);
-            DynamicParticles(
+            explicit DynamicParticles(const TrajMap &trajs, boost::ptr_vector<Particles>& positions, const double &rad=1.0,const double &time_step=1.0);
+            explicit DynamicParticles(boost::ptr_vector<Particles>& positions, const double &rad=1.0,const double &time_step=1.0);
+            explicit DynamicParticles(const TrajMap &trajs, FileSerie &files, const double &rad=1.0,const double &time_step=1.0);
+            explicit DynamicParticles(FileSerie &files, const double &rad=1.0, const double &time_step=1.0);
+            explicit DynamicParticles(const std::string &filename);
+
+            //DynamicParticles(Particles *parts,const double &time_step=1);
+            /*
+            explicit DynamicParticles(
                 const double &rad, const double &time_step,
                 const std::string &base_name, const std::string &token,
                 const size_t &t_offset, const size_t &t_size
                 );
-            DynamicParticles(const double &rad,const double &time_step,const size_t &t_size);
+            DynamicParticles(const double &rad,const double &time_step,const size_t &t_size);*/
             virtual ~DynamicParticles(){return;}
 
             /** access to elements */
@@ -81,8 +86,6 @@ namespace Colloids
             inline size_t getNbTimeSteps() const {return positions.size();};
             BoundingBox getMaxBox() const;
             size_t getMaxSimultaneousParticles() const;
-
-            void push_back(Particles &parts);
 
             /** export to various file formats */
             void save(const std::string &filename,const std::string &base_name,const std::string &token,const size_t &t_offset, const size_t &t_size) const;
@@ -164,10 +167,13 @@ namespace Colloids
                 const std::vector< std::map<size_t, tvmet::Vector<double, N> > > &timeDependant,
                 std::vector< std::map<size_t, tvmet::Vector<double, N> > > &timeAveraged
             ) const;*/
+        private:
+            void fill(FileSerie &files);
+            void link();
 
     };
 
-    /** \brief give a reference to the position of the particle tr at time t */
+    /** \brief give a reference to the position of the particle tr at time t. Complexity log(P) with P the number of particles at time t */
     inline Coord &DynamicParticles::operator()(const size_t &tr, const size_t &t)
     {
         try
@@ -180,7 +186,7 @@ namespace Colloids
         }
     }
 
-    /** \brief give a reference to the position of the particle tr at time t */
+    /** \brief give a constant reference to the position of the particle tr at time t. Complexity log(P) with P the number of particles at time t */
     inline const Coord &DynamicParticles::operator()(const size_t &tr, const size_t &t) const
     {
         try

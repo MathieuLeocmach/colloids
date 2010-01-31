@@ -29,6 +29,67 @@
 using namespace std;
 using namespace Colloids;
 //using namespace tvmet;
+
+/** @brief Constructor from data. Take the ownership of the positions. No linking necessary  */
+DynamicParticles::DynamicParticles(const TrajMap &trajs, boost::ptr_vector<Particles>& positions, const double &rad,const double &time_step) :
+    trajectories(trajs), radius(rad), dt(time_step)
+{
+    this->positions.swap(positions);
+}
+
+/** @brief Constructor from data. Take the ownership of the positions and link them into trajectories.  */
+DynamicParticles::DynamicParticles(boost::ptr_vector<Particles>& positions, const double &rad,const double &time_step) :
+    radius(rad), dt(time_step)
+{
+    this->positions.swap(positions);
+    link();
+}
+
+/** @brief Constructor from files. Load the positions. No linking necessary  */
+DynamicParticles::DynamicParticles(const TrajMap &trajs, FileSerie &files, const double &rad,const double &time_step) :
+    trajectories(trajs), radius(rad), dt(time_step)
+{
+    fill(files);
+}
+
+/** @brief Constructor from files. Load the positions and link them into trajectories.  */
+DynamicParticles::DynamicParticles(boost::ptr_vector<Particles>& positions, const double &rad,const double &time_step) :
+    radius(rad), dt(time_step)
+{
+    fill(files);
+    link();
+}
+
+/** \brief constructor from file */
+DynamicParticles::DynamicParticles(const string &filename)
+{
+    //extract the path from the filename
+    const size_t endfolder = filename.find_last_of("/\\");
+    const string folder = filename.substr(0,endfolder+1);
+    size_t t_offset, t_size;
+
+    ifstream input(filename.c_str(), ios::in);
+    if(!input.good())
+        throw invalid_argument(filename.c_str() " doesn't exist");
+
+    //header
+    input >> radius >> dt;
+    input.get(); //escape the endl
+
+    //data of the file serie containing the positions
+    string base_name,token;
+    getline(input,base_name);
+    getline(input,token);
+    input >> t_offset >> t_size;
+
+    FileSerie files(folder+base_name, token, t_size, t_offset);
+    this->fill(files);
+
+    //construct the TrajIndex from file stream
+    input >> trajectories;
+    trajectories.makeIndex();
+}
+
 /**
     \brief Makes the smallest bounding box enclosing all positions of the trajectory
 */
@@ -62,10 +123,9 @@ BoundingBox DynamicParticles::getMaxBox() const
 /** @brief get the size of the most populated frame  */
 size_t DynamicParticles::getMaxSimultaneousParticles() const
 {
-	size_t N=0;
-	for(boost::ptr_vector<Particles>::const_iterator it=positions.begin();it!=positions.end();++it)
-		N = max(N,it->size());
-	return N;
+    vector<size_t> sizes(positions.size());
+    transform(positions.begin(), positions.end(), sizes.begin(), mem_fun_ref(&Particles::size));
+    return *max_element(sizes.begin(), sizes.end());
 }
 
 /** \brief Force the spatio-temporal indexation of the trajectories */
@@ -106,15 +166,15 @@ size_t DynamicParticles::getMaxSimultaneousParticles() const
   * \param time_step The duration of one time step in your time unit
     \param t_size number of time steps
   */
- DynamicParticles::DynamicParticles(const double &rad,const double &time_step,const size_t &t_size)
+/* DynamicParticles::DynamicParticles(const double &rad,const double &time_step,const size_t &t_size)
 {
     radius = rad;
     dt = time_step;
     positions.resize(t_size,new Particles(0,rad));
-}
+}*/
 
 /** \brief constructor from the first time step */
-DynamicParticles::DynamicParticles(Particles *parts,const double &time_step)
+/*DynamicParticles::DynamicParticles(Particles *parts,const double &time_step)
 {
     positions.resize(1,parts);
     for(size_t p=0;p<parts->size();++p)
@@ -122,35 +182,9 @@ DynamicParticles::DynamicParticles(Particles *parts,const double &time_step)
     dt=time_step;
     radius = parts->radius;
     return;
-}
+}*/
 
-/** \brief constructor from file */
-DynamicParticles::DynamicParticles(const string &filename) : trajectories(filename)
-{
-    radius = trajectories.radius;
-    dt = trajectories.dt;
-    //cout << dt <<"\t"<<radius << endl;
 
-    //reading the positions
-    cout << "Reading position data ... "<<endl;
-    //cout << trajectories.tt << endl;
-
-    vector<size_t> v(1,trajectories.t_offset);
-    boost::progress_display show_progress(trajectories.t_size-trajectories.t_offset);
-    while(v[0]<trajectories.t_size)
-        try
-        {
-            positions.push_back(new Particles(trajectories.tt(v),radius));
-            v[0]++;
-            ++show_progress;
-        }
-        catch(const exception &e)
-        {
-            cerr<<trajectories.tt<<endl;
-            throw;
-        }
-	return;
-}
 
 /**
     \brief constructor from position file serie. Links the positions at each time step into trajectories
@@ -174,13 +208,28 @@ DynamicParticles::DynamicParticles(
     vector<string> tokens(1,token);
     TokenTree tt(tokens,base_name);
 
-    //displacement vector, dummy if no .displ file
-    vector<Coord> displ(t_size, Coord(0));
-    double trash;
-    ifstream displFile((base_name.substr(0,base_name.rfind(token))+".displ").c_str(), ios::in);
-    if(!!displFile)
+     //load all time steps
+    try
     {
-		//get the relative displacements form file
+        vector<size_t> v(1,t_offset);
+        positions.reserve(t_size);
+        while(v[0]<t_offset+t_size)
+            positions.push_back(new Particles(tt(v), radius);
+    }
+    catch(const exception &e)
+    {
+        //If any error in this loop, it must be due to the TokenTree
+        cerr<<tt<<endl;
+        throw;
+    }
+
+    //look for a displacement file
+    ifstream displFile((base_name.substr(0,base_name.rfind(token))+".displ").c_str(), ios::in);
+    if(displFile.good())
+    {
+        vector<Coord> displ(t_size, Coord(0));
+        double trash;
+        //get the relative displacements form file
 		cout<<"Using "<< base_name.substr(0,base_name.rfind(token)) << ".displ as an hint for global displacements between frames"<<endl;
 		for(size_t t=0;t<t_offset;++t)
 			displFile >> trash >>trash;
@@ -190,65 +239,14 @@ DynamicParticles::DynamicParticles(
 
 		//compute objective displacement vector
 		partial_sum(displ.begin(),displ.end(),displ.begin());
-		//largest absolute negative displacement
-		Coord maxd(0.0,3);
-		for(vector<Coord>::const_iterator t=displ.begin();t!=displ.end();++t)
-		{
-			maxd[0] = max(maxd[0],(*t)[0]);
-			maxd[1] = max(maxd[1],(*t)[1]);
-		}
-		for(vector<Coord>::iterator t=displ.begin();t!=displ.end();++t)
-            *t -= maxd;
+
+		//compensate the displacement
+        for(size_t t=0;t<t_size;++t)
+            positions[t] += displ[t-t_offset];
     }
-    else
-		cout<< "Impossible to find "<<base_name.substr(0,base_name.rfind(token)) << ".displ\n"
-		"Supposes there is no global displacement between frames"<<endl;
 
-    //push frames by frame
-    try
-    {
-        vector<size_t> v(1,t_offset);
 
-        size_t nbTraj = 0;
-        double Error=0;
-        double maxError=0;
-        double sumError =0;
-        boost::progress_display show_progress(t_size);
-
-        while(v[0]<t_offset+t_size)
-        {
-			Particles p(tt(v), radius);
-			if(abs(displ[v[0]-t_offset]).max()>0.0)
-				p += displ[v[0]-t_offset];
-
-            push_back(p);
-
-			try{positions.back().getOverallBox();}
-			catch(const exception &e)
-			{
-				cerr<<"At time "<<v[0]<<" after insersion: ";
-				throw;
-			}
-            v[0]++;
-
-            if(v[0]>t_offset+1)
-            {
-                Error = (trajectories.size() - nbTraj)/(double)trajectories.size();
-                sumError+=Error;
-                if(maxError<Error) maxError=Error;
-            }
-            nbTraj = trajectories.size();
-            ++show_progress;
-        }
-        cout<<endl;
-        cout<<"Trajectory creation rate : mean="<<100.0*sumError/(positions.size()-1)<<"%\tmax="<<100.0*maxError<<"%"<<endl;
-        return;
-    }
-    catch(const exception &e)
-    {
-        cerr<<tt<<endl;
-        throw;
-    }
+    return;
 }
 
 /**
@@ -309,29 +307,6 @@ void DynamicParticles::saveAll(const string &filename,const string &base_name,co
         v[0]++;
     }
     cout << "Positions data written" << endl;
-}
-
-/** \brief Links the particles of a new frame to existing trajectories, creating trajectories if necessary */
-void DynamicParticles::push_back(Particles &parts)
-{
-    const size_t maxtime = getNbTimeSteps()-1;
-    const double range = 2.0*radius;
-
-    //if the Particles object is not indexed, use a R*Tree spatial index
-    if(!parts.hasIndex())
-        parts.makeRTreeIndex();
-
-    //get possible followers of each trajectory sorted by euclidian distance squared
-    vector< multimap<double,size_t> > followersByDist(trajectories.size());
-    for(size_t tr = 0;tr<trajectories.size();++tr)
-        if(trajectories[tr].exist(maxtime))
-            followersByDist[tr] = parts.getEuclidianNeighboursBySqDist((*this)(tr,maxtime),range);
-
-    //link the new positions to existing trajectories, or create new trajectories starting at maxtime+1 if needed
-    trajectories.addTimeStep(maxtime,parts.size(),followersByDist);
-
-    //add the frame to the positions
-    positions.push_back(&parts);
 }
 
 /** @brief export Structured Cell Data Format
@@ -1192,4 +1167,49 @@ void DynamicParticles::makeSlidingTimeAverage(
             }
     }
 }
+
+/** @brief load each file into the positions  */
+void DynamicParticles::fill(FileSerie &files)
+{
+    positions.reserve(t_size);
+    for(size_t t=0; t<files.size();++t)
+        positions.push_back(new Particles(files%t, radius);
+}
+
+/** @brief link positions into trajectories  */
+void DynamicParticles::link()
+{
+    //spatially index each unindexed frame by a RTreeIndex. Needed for the linking
+    for(size_t t=0; t<positions.size(); ++t)
+        if(!positions[t].hasIndex())
+            positions[t].makeRTreeIndex();
+
+    //link the positions into trajectories
+    boost::progress_display show_progress(positions.size()-1);
+    double Error=0, maxError=0, sumError=0;
+    TrajMap tm(positions[0].size());
+    boost::ptr_vector<Particles>::const_iterator previous = positions.begin();
+    for(boost::ptr_vector<Particles>::const_iterator parts=positions.begin()+1, parts!=positions.end();++parts)
+    {
+        size_t nbTraj = tm.getNbTraj();
+        vector< multimap<double,size_t> > followersByDist(previous->size());
+        for(size_t p=0;p<previous.size();++p)
+            followersByDist[p] = parts->getEuclidianNeighboursBySqDist((*previous)[p], range);
+
+        trajectories.push_back(followersByDist);
+        previous++;
+
+        Error = (tm.getNbTraj() - nbTraj)/(double)tm.getNbTraj();
+        sumError+=Error;
+        if(maxError<Error) maxError=Error;
+
+        ++show_progress;
+    }
+    cout<<"Trajectory creation rate : mean="<<100.0*sumError/(positions.size()-1)<<"%\tmax="<<100.0*maxError<<"%"<<endl;
+
+    //create the trajIndex from the trajMap
+    trajectories = TrajIndex(tm);
+}
+
+
 
