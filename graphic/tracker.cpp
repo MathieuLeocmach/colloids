@@ -45,9 +45,6 @@ typedef boost::multi_array_types::index_range range;
 /** @brief Tracker Constructor  */
  Tracker::Tracker(const boost::array<size_t,3> &dims, const unsigned fs)
 {
-#if (TRACKER_N_THREADS>1)
-    fftwf_init_threads();
-#endif
 	setFlags(fs);
 	setDimensions(dims);
 }
@@ -85,9 +82,6 @@ void Tracker::setDimensions(const boost::array<size_t,3> &dims)
 	//planning fft.
 	int n[3];
 	copy(dims.begin(),dims.end(),&(n[0]));
-#if (TRACKER_N_THREADS>1)
-    fftwf_plan_with_nthreads(TRACKER_N_THREADS);
-#endif
 	forward_plan = fftwf_plan_dft_r2c(dims.size(), &(n[0]), data, (fftwf_complex *)data, flags);
 	//n[2] = 2*(n[2]/2 +1);
 	backward_plan = fftwf_plan_dft_c2r(dims.size(), &(n[0]), (fftwf_complex *)data, data, flags);

@@ -100,7 +100,7 @@ int main(int ac, char* av[])
         string inputFile,outputPath;
         //double Zratio=1.0,displayRadius,radiusMin, radiusMax, zradiusMin, zradiusMax,threshold;
         double Zratio=1.0,radiusMin, radiusMax, threshold;
-        size_t serie;
+        size_t serie, cores;
 
         // Declare a group of options that will be
         // allowed only on command line
@@ -110,7 +110,10 @@ int main(int ac, char* av[])
             ("modeLIF,L", "Read from a Leica LIF file")
             ("modeSerie,S", "Read from a 2D image files serie")
             ("view", "Display intermediate images")
-            ("quiet","Display only a progression bar")
+            ("quiet", "Display only a progression bar")
+#if (TRACKER_N_THREADS>1)
+            ("cores", po::value<size_t>(&cores)->default_value(TRACKER_N_THREADS), "Number of Cores to use")
+#endif
             ;
 
         // Declare a group of options that will be
@@ -175,6 +178,11 @@ int main(int ac, char* av[])
         if(outputPath.substr(outputPath.size()-1) == "_")
             outputPath.erase(outputPath.end()-1);
 
+        //configure FTTW to use multiple CPU
+#if (TRACKER_N_THREADS>1)
+        fftwf_init_threads();
+        fftwf_plan_with_nthreads(cores);
+#endif
 
         Tracker::loadWisdom(INSTAL_PATH "wisdom.fftw");
 
