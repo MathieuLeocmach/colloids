@@ -41,13 +41,12 @@ int main(int argc, char ** argv)
 
     try
     {
-        DynamicParticles parts(radius,time_step,filename,token,t_offset,t_span);
+    	FileSerie files(filename, token, t_span, t_offset);
+        DynamicParticles parts(files, radius, time_step);
         cout << "total of " << parts.trajectories.size() << " trajectories" << endl;
 
         const string head = filename.substr(0,filename.rfind(token));
-        const string noExt = filename.substr(0,filename.find_last_of("."));
         const string nofolder = filename.substr(filename.find_last_of("/\\")+1);
-        const string folder = filename.substr(0,filename.find_last_of("/\\")+1);
         parts.save(head+".traj",nofolder,token,t_offset,t_span);
 
     }

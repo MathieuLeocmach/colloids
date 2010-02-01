@@ -92,12 +92,12 @@ namespace Colloids
         typedef Frame::value_type Link;
 
         /** \brief associate time t and position p to trajectory tr(left), or t and tr to p (right)*/
-        std::vector< Frame > bm;
+        std::vector<Frame> bm;
 
         public:
             explicit TrajMap(const size_t &firstFrameSize=0);
 
-            void push_back(std::vector< std::multimap<double, size_t> > &followersByDist);
+            void push_back(const std::vector< std::multimap<double, size_t> > &followersByDist, const size_t &frameSize);
             size_t size() const {return bm.size();}
             size_t getNbTraj()const {return bm.empty()?0: 1+bm.back().by<Traj>().rbegin()->first;}
             const Frame& operator[](const size_t &t) const {return bm[t];}

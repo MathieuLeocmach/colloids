@@ -32,23 +32,23 @@ Initial trajectories have the same indicies as initial positions
 */
 TrajMap::TrajMap(const size_t &firstFrameSize)
 {
-    bm.assign(1, Frame());
+    bm.assign(1,Frame());
     for(size_t i=0;i<firstFrameSize;++i)
         bm.back().insert(Link(i,i));
 }
 
 /** @brief Create a new frame by attributing (if possible) a follower to all the trajectories existing in previous frame.
 Create new trajectories in the new frame if needed.
-  * \param frameSize The total number of positions in the new frame
   * \param followersByDist The possible followers of each position in the last frame, sorted by the distance (last posistion, new position)
+  * \param frameSize The total number of positions in the new frame
   * Any distence in the topological meaning is ok : d(a,b)=0 <=> a=b and for all a!=b d(a,b)>0.
   */
-void TrajMap::push_back(vector< multimap<double, size_t> > &followersByDist)
+void Colloids::TrajMap::push_back(const vector< multimap<double, size_t> > &followersByDist, const size_t &frameSize)
 {
     //convert the input into a list of links (pos,tr) sorted by distence between pos and the last position of the trajectory
     multimap<double, Link> potential_links;
     for(Frame::map_by<Coord>::const_iterator p_tr=bm.back().by<Coord>().begin();p_tr!=bm.back().by<Coord>().end();++p_tr)
-        for(FolMap::const_iterator dist_fol=followersByDist[p_tr->second].begin();dist_fol!=followersByDist[p_tr->second].end();++dist_fol)
+        for(FolMap::const_iterator dist_fol=followersByDist[p_tr->first].begin();dist_fol!=followersByDist[p_tr->first].end();++dist_fol)
             potential_links.insert(make_pair(dist_fol->first, Link(dist_fol->second, p_tr->second)));
 
     //remember what was the last existing trajectory
@@ -61,16 +61,13 @@ void TrajMap::push_back(vector< multimap<double, size_t> > &followersByDist)
     for(multimap<double, Link>::const_iterator l=potential_links.begin();l!=potential_links.end();++l)
         bm.back().insert(l->second);
 
-
     //some elements of the new frame may not have found a trajectory to be linked to. Creates a new trajectory for each of them.
-    vector<bool> linked(followersByDist.size(), false);
+    vector<bool> linked(frameSize, false);
     for(Frame::map_by<Coord>::const_iterator p=bm.back().by<Coord>().begin(); p!=bm.back().by<Coord>().end(); ++p)
         linked[p->first]=true;
-
     for(size_t p =0;p<linked.size();++p)
         if(!linked[p])
             bm.back().insert(Link(p, nbTraj++));
-
 }
 
 

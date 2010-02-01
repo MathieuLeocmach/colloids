@@ -107,7 +107,7 @@ DynamicClusters& DynamicClusters::assign(DynamicParticles &dynParts, std::set<si
 						followerByDist[K].insert(make_pair(dist,S));
 				}
             }
-        tm.push_back(followerByDist);
+        tm.push_back(followerByDist, members[t+1].size());
 
         Error = (tm.getNbTraj() - nbTraj)/(double)tm.getNbTraj();
         sumError+=Error;

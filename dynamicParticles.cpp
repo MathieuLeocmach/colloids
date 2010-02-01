@@ -1171,6 +1171,7 @@ void DynamicParticles::link()
 {
 	const double range = this->radius * 2.0;
     //spatially index each unindexed frame by a RTreeIndex. Needed for the linking
+    cout<<"index ... ";
     for(size_t t=0; t<positions.size(); ++t)
         if(!positions[t].hasIndex())
             positions[t].makeRTreeIndex();
@@ -1179,16 +1180,15 @@ void DynamicParticles::link()
     boost::progress_display show_progress(positions.size()-1);
     double Error=0, maxError=0, sumError=0;
     TrajMap tm(positions[0].size());
-    boost::ptr_vector<Particles>::const_iterator previous = positions.begin();
-    for(boost::ptr_vector<Particles>::const_iterator parts=positions.begin()+1; parts!=positions.end();++parts)
+    for(size_t t=0; t<positions.size()-1; ++t)
     {
         size_t nbTraj = tm.getNbTraj();
-        vector< multimap<double,size_t> > followersByDist(previous->size());
-        for(size_t p=0;p<previous->size();++p)
-            followersByDist[p] = parts->getEuclidianNeighboursBySqDist((*previous)[p], range);
+        vector< multimap<double,size_t> > followersByDist(positions[t].size());
 
-        tm.push_back(followersByDist);
-        previous++;
+        for(size_t p=0;p<positions[t].size();++p)
+            followersByDist[p] = positions[t+1].getEuclidianNeighboursBySqDist(positions[t][p], range);
+
+        tm.push_back(followersByDist, positions[t+1].size());
 
         Error = (tm.getNbTraj() - nbTraj)/(double)tm.getNbTraj();
         sumError+=Error;

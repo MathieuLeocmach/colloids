@@ -36,11 +36,22 @@ FileSerie::FileSerie(const std::string &namePattern, const std::string &token, s
     head.resize(pos);
     digits = namePattern.find_first_not_of("0123456789", pos+token.size());
     tail = namePattern.substr(digits);
-    digits -= pos;
+    digits -= pos+token.size();
 
     ostringstream os;
-    os<<head<<token<<"%|0"<<digits<<tail;
-    this->pattern.parse(os.str());
+    os<<head<<token<<"%|0"<<digits<<"|"<<tail;
+    try
+    {
+		this->pattern.parse(os.str());
+    }
+    catch(exception &e)
+    {
+    	cerr<<"head: "<<head<<endl;
+    	cerr<<"digits: "<<digits<<endl;
+    	cerr<<"tail: "<<tail<<endl;
+    	cerr<<"all: "<<os.str()<<endl;
+    	throw;
+    }
 }
 
 
