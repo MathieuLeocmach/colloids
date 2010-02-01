@@ -35,6 +35,7 @@
 #include <deque>
 #include <istream>
 #include <stdexcept>
+#include "index.hpp"
 #include "files_series.hpp"
 
 namespace Colloids
@@ -97,7 +98,7 @@ namespace Colloids
             explicit TrajMap(const size_t &firstFrameSize=0);
 
             void push_back(std::vector< std::multimap<double, size_t> > &followersByDist);
-            size_t size(){return bm.size();}
+            size_t size() const {return bm.size();}
             size_t getNbTraj()const {return bm.empty()?0: 1+bm.back().by<Traj>().rbegin()->first;}
             const Frame& operator[](const size_t &t) const {return bm[t];}
     };

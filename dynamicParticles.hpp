@@ -93,6 +93,7 @@ namespace Colloids
             void exportToPV(const std::string &filename,const std::vector<std::map<size_t,unsigned char> > &labels,const size_t &stepSize=1) const;
             void exportToFLD(const std::string &postfix,const std::vector<std::map<size_t,double> > &labels,const size_t &stepSize=1,const double &threshold=0.0) const;
             void exportToVTK(
+				FileSerie &files,
                 const std::vector< scalarDynamicField > &scalars,
                 const std::vector< vectorDynamicField > &vectors,
                 const size_t &stepSize=1,

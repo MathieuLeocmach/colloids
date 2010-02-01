@@ -53,7 +53,7 @@ DynamicParticles::DynamicParticles(const TrajMap &trajs, FileSerie &files, const
 }
 
 /** @brief Constructor from files. Load the positions and link them into trajectories.  */
-DynamicParticles::DynamicParticles(boost::ptr_vector<Particles>& positions, const double &rad,const double &time_step) :
+DynamicParticles::DynamicParticles(FileSerie &files, const double &rad,const double &time_step) :
     radius(rad), dt(time_step)
 {
     fill(files);
@@ -70,7 +70,7 @@ DynamicParticles::DynamicParticles(const string &filename)
 
     ifstream input(filename.c_str(), ios::in);
     if(!input.good())
-        throw invalid_argument(filename.c_str() " doesn't exist");
+        throw invalid_argument((filename+" doesn't exist").c_str() );
 
     //header
     input >> radius >> dt;
@@ -87,7 +87,7 @@ DynamicParticles::DynamicParticles(const string &filename)
 
     //construct the TrajIndex from file stream
     input >> trajectories;
-    trajectories.makeIndex();
+    trajectories.makeInverse();
 }
 
 /**
@@ -196,7 +196,7 @@ size_t DynamicParticles::getMaxSimultaneousParticles() const
     \param t_offset First time step
     \param t_size number of time steps
 */
-DynamicParticles::DynamicParticles(
+/*DynamicParticles::DynamicParticles(
     const double &rad, const double &time_step,
     const string &base_name, const string &token,
     const size_t &t_offset, const size_t &t_size
@@ -247,7 +247,7 @@ DynamicParticles::DynamicParticles(
 
 
     return;
-}
+}*/
 
 /**
     \brief export the trajectroy data and a relative link to the position files into an ASCII file
@@ -319,7 +319,7 @@ void DynamicParticles::saveAll(const string &filename,const string &base_name,co
 
 	The coordinate files are used
 */
-void DynamicParticles::exportToFLD(const std::string &postfix,const std::vector<std::map<size_t,double> > &labels,const size_t &stepSize,const double &threshold) const
+/*void DynamicParticles::exportToFLD(const std::string &postfix,const std::vector<std::map<size_t,double> > &labels,const size_t &stepSize,const double &threshold) const
 {
 	if(labels.empty())
         throw invalid_argument("DynamicParticles::exportToFLD : empty label");
@@ -414,10 +414,6 @@ void DynamicParticles::exportToFLD(const std::string &postfix,const std::vector<
     	//close label file
     	labelFile.close();
     	//write the reference to the data in the main file
-    	/*fld<<varFormat %1 % labelSerie(v) %1;
-    	fld<<varFormat %2 % labelSerie(v) %0;
-    	for(size_t d=0;d<3;++d)
-			fld<<(coordFormat %(d+1) % labelSerie(v) %d);*/
     	fld<<"variable 1  file=./"<<labelSerie(v)<<"  filetype=ascii  skip=1  offset=1  stride=2"<<endl;
     	fld<<"variable 2  file=./"<<labelSerie(v)<<"  filetype=ascii  skip=1  offset=0  stride=2"<<endl;
     	fld<<"coord    1  file=./"<<positionSerie(v)<<"  filetype=ascii  skip=2  offset=0  stride=3"<<endl;
@@ -428,12 +424,13 @@ void DynamicParticles::exportToFLD(const std::string &postfix,const std::vector<
     	v[0]+=stepSize;
     }
 	fld.close();
-}
+}*/
 
 /** @brief export positions, bonds, N time depemdant scalar fields and M time depemdant vector fields to a VTK file serie (Polydata)
 	Fields are instantaneous, linking position number to values NOT trajectory numbers to values
   */
 void DynamicParticles::exportToVTK(
+	FileSerie &files,
 	const std::vector< scalarDynamicField > &scalars,
 	const std::vector< vectorDynamicField > &vectors,
 	const size_t &stepSize,
@@ -459,9 +456,9 @@ void DynamicParticles::exportToVTK(
 
 
 	//determination of the name patterns
-	const string positionFilesPattern = trajectories.tt.getPattern("_dynamic");
+	/*const string positionFilesPattern = trajectories.tt.getPattern("_dynamic");
 	const string vtkFilesPattern = positionFilesPattern.substr(0,positionFilesPattern.find_last_of("."))+".vtk";
-	TokenTree vtkSerie(trajectories.tt.tokens,vtkFilesPattern);
+	TokenTree vtkSerie(trajectories.tt.tokens,vtkFilesPattern);*/
 
 	//data export
 	size_t avt;
@@ -498,10 +495,10 @@ void DynamicParticles::exportToVTK(
 				/*for(set<size_t>::const_iterator q = ngbList[avt][p].lower_bound(p+1);q!=ngbList[avt][p].end();++q)
 					bonds.push_back(make_pair(p,*q));*/
 
-			positions[avt].exportToVTK((vtkSerie % t).str(),bonds,sc,ve);
+			positions[avt].exportToVTK(files % t,bonds,sc,ve);
 		}
 		else
-			positions[avt].exportToVTK((vtkSerie % t).str(),sc,ve);
+			positions[avt].exportToVTK(files % t,sc,ve);
 	}
 }
 
@@ -924,13 +921,6 @@ void DynamicParticles::exportDynamics(const string &inputPath) const
 
 	return avgVel;
 
-	//change the indices form them to correspond to particle positions
-	/*vectorDynamicField posVel = make_pair("velocities",vector< map<size_t, valarray<double> > >());
-	const size_t halfinterval = avgInterval/2;
-	for(size_t t=0;t<avgVel.second.size();++t)
-		trajectories.trajToPos(t+halfInterval,avgVel.second[t],posVel.second[t]);
-
-	return posVel;*/
 //}*/
 
 /** @brief get the neighbours lost between t_from and t_to by the trajectory tr  */
@@ -1171,14 +1161,15 @@ void DynamicParticles::makeSlidingTimeAverage(
 /** @brief load each file into the positions  */
 void DynamicParticles::fill(FileSerie &files)
 {
-    positions.reserve(t_size);
+    positions.reserve(files.size());
     for(size_t t=0; t<files.size();++t)
-        positions.push_back(new Particles(files%t, radius);
+        positions.push_back(new Particles(files%t, radius));
 }
 
 /** @brief link positions into trajectories  */
 void DynamicParticles::link()
 {
+	const double range = this->radius * 2.0;
     //spatially index each unindexed frame by a RTreeIndex. Needed for the linking
     for(size_t t=0; t<positions.size(); ++t)
         if(!positions[t].hasIndex())
@@ -1189,14 +1180,14 @@ void DynamicParticles::link()
     double Error=0, maxError=0, sumError=0;
     TrajMap tm(positions[0].size());
     boost::ptr_vector<Particles>::const_iterator previous = positions.begin();
-    for(boost::ptr_vector<Particles>::const_iterator parts=positions.begin()+1, parts!=positions.end();++parts)
+    for(boost::ptr_vector<Particles>::const_iterator parts=positions.begin()+1; parts!=positions.end();++parts)
     {
         size_t nbTraj = tm.getNbTraj();
         vector< multimap<double,size_t> > followersByDist(previous->size());
-        for(size_t p=0;p<previous.size();++p)
+        for(size_t p=0;p<previous->size();++p)
             followersByDist[p] = parts->getEuclidianNeighboursBySqDist((*previous)[p], range);
 
-        trajectories.push_back(followersByDist);
+        tm.push_back(followersByDist);
         previous++;
 
         Error = (tm.getNbTraj() - nbTraj)/(double)tm.getNbTraj();

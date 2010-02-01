@@ -25,7 +25,7 @@ using namespace Colloids;
 
 /** @brief Constructor  */
 FileSerie::FileSerie(const std::string &namePattern, const std::string &token, size_t size, size_t offset) :
-    size(size), offset(offset)
+    length(size), offset(offset)
 {
     string head = namePattern, tail;
 	size_t digits=0, pos = namePattern.rfind(token);
@@ -34,8 +34,8 @@ FileSerie::FileSerie(const std::string &namePattern, const std::string &token, s
         throw invalid_argument("Name pattern doesn't contain token");
 
     head.resize(pos);
-    digits = namePattern.find_first_not_of("0123456789", tpos+2);
-    tail = namePattern.substr(tdigits);
+    digits = namePattern.find_first_not_of("0123456789", pos+token.size());
+    tail = namePattern.substr(digits);
     digits -= pos;
 
     ostringstream os;

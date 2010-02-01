@@ -77,7 +77,7 @@ void TrajMap::push_back(vector< multimap<double, size_t> > &followersByDist)
 
 
 /** \brief feed an initialized trajectory with the position indices contained by an input stream */
-istream& operator>> (istream& is, Traj& tr )
+istream& Colloids::operator>> (istream& is, Traj& tr )
 {
     size_t index;
     while(!is.eof())
@@ -89,7 +89,7 @@ istream& operator>> (istream& is, Traj& tr )
 }
 
 /** \brief output a trajectory to an output stream */
-ostream& operator<< (ostream& os, const Traj& tr )
+ostream& Colloids::operator<< (ostream& os, const Traj& tr )
 {
     os << tr.start_time << endl;
     os << tr.steps[0];
@@ -117,13 +117,13 @@ const char* IdTrajError::what() const throw()
 TrajIndex::TrajIndex(const TrajMap &tm)
 {
     for(size_t t=0; t<tm.size();++t)
-        for(TrajMap::Frame::map_by<Traj>::const_iterator tr_p = tm[t].begin(); tr_p.end(); ++tr_p)
-            if(tr_p.first < this->size())
-                (*this)[tr_p->first].push_back(tr_p.second);
+        for(TrajMap::Frame::map_by<Traj>::const_iterator tr_p = tm[t].by<Traj>().begin(); tr_p!=tm[t].by<Traj>().end(); ++tr_p)
+            if(tr_p->first < this->size())
+                (*this)[tr_p->first].push_back(tr_p->second);
             else
             {
-                assert(tr_p.first == this->size()); //the new traj is always the next traj to be constructed
-                this->push_back(Traj(t, tr_p.second);
+                assert(tr_p->first == this->size()); //the new traj is always the next traj to be constructed
+                this->push_back(Traj(t, tr_p->second));
             }
     makeInverse();
 }
@@ -158,15 +158,16 @@ istream & Colloids::operator>>(std::istream& is, TrajIndex& tri)
     is>>start; //sliding the reading in oder to avoid reading final empty line
     while(is.good())
     {
-        input.get(); //escape the endl
+        is.get(); //escape the endl
         Traj tr(start);
 
         getline(is,indexString);
         istringstream indexStream(indexString,istringstream::in);
         indexStream>>tr;
-        push_back(tr);
+        tri.push_back(tr);
         is>>start;
     }
+    return is;
 }
 
 

@@ -73,56 +73,48 @@ DynamicClusters& DynamicClusters::assign(DynamicParticles &dynParts, std::set<si
             }
 
     //initial clusters
-    for(size_t K=0;K<members[0].size();++K)
-        trajectories.push_back(Traj(0,K));
+    TrajMap tm(members[0].size());
+    double Error=0, maxError=0, sumError=0;
 
-    size_t nbTraj = trajectories.size();
-    double Error=0;
-    double maxError=0;
-    double sumError =0;
     //advancing time
     for(size_t t=0;t<parts->getNbTimeSteps()-1;++t)
     {
-        //cout<<"frame "<<t+1<<", "<<members[t+1].size()<<" clusters"<<endl;
+    	size_t nbTraj = tm.getNbTraj();
         //each possible follower S of a given cluster K are ranked by a distence
         // defined from the extend of their intersection with K
-        vector< multimap<double,size_t> > followerByDist(trajectories.size());
-        for(size_t tr=0;tr<trajectories.size();++tr)
-            if(trajectories[tr].exist(t))
-            {
-                size_t K = trajectories[tr][t];
-                for(size_t S=0;S<members[t+1].size();++S)
-                {
-                    vector<size_t> Intersection;
-                    set_intersection(
-                        members[t][K].begin(),members[t][K].end(),
-                        members[t+1][S].begin(),members[t+1][S].end(),
-                        back_inserter(Intersection)
-                        );
+        vector< multimap<double,size_t> > followerByDist(members[t].size());
+        for(size_t K=0; K<members[t].size(); ++K)
+			for(size_t S=0;S<members[t+1].size();++S)
+			{
+				vector<size_t> Intersection;
+				set_intersection(
+					members[t][K].begin(),members[t][K].end(),
+					members[t+1][S].begin(),members[t+1][S].end(),
+					back_inserter(Intersection)
+					);
 
-                    if(!Intersection.empty())
-                    {
-                        vector<size_t> Union;
-                        set_union(
-                            members[t][K].begin(),members[t][K].end(),
-                            members[t+1][S].begin(),members[t+1][S].end(),
-                            back_inserter(Union)
-                            );
+				if(!Intersection.empty())
+				{
+					vector<size_t> Union;
+					set_union(
+						members[t][K].begin(),members[t][K].end(),
+						members[t+1][S].begin(),members[t+1][S].end(),
+						back_inserter(Union)
+						);
 
-                        const double dist = Union.size()/(double)Intersection.size() - 1.0;
-                        if(dist<2)
-                            followerByDist[tr].insert(make_pair(dist,S));
-                    }
-                }
+					const double dist = Union.size()/(double)Intersection.size() - 1.0;
+					if(dist<2)
+						followerByDist[K].insert(make_pair(dist,S));
+				}
             }
-        trajectories.addTimeStep(t,members[t+1].size(),followerByDist);
+        tm.push_back(followerByDist);
 
-        Error = (trajectories.size() - nbTraj)/(double)trajectories.size();
+        Error = (tm.getNbTraj() - nbTraj)/(double)tm.getNbTraj();
         sumError+=Error;
         if(maxError<Error) maxError=Error;
-        nbTraj = trajectories.size();
     }
     cout<<"Trajectory creation rate : mean="<<100.0*sumError/(parts->getNbTimeSteps()-1)<<"%\tmax="<<100.0*maxError<<"%"<<endl;
+    this->trajectories = TrajIndex(tm);
     return *this;
 }
 
