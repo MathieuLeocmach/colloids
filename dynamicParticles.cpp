@@ -431,74 +431,27 @@ void DynamicParticles::saveAll(const string &filename,const string &base_name,co
   */
 void DynamicParticles::exportToVTK(
 	FileSerie &files,
-	const std::vector< scalarDynamicField > &scalars,
-	const std::vector< vectorDynamicField > &vectors,
-	const size_t &stepSize,
-	const boost::ptr_vector< std::vector< std::set<size_t> > > &ngbList
+	const std::vector< ScalarDynamicField > &scalars,
+	const std::vector< VectorDynamicField > &vectors,
+	const size_t &average
 ) const
 {
-	if(scalars.front().second->empty() && vectors.front().second->empty())
-        throw invalid_argument("DynamicParticles::exportToVTK : neither scalar field nor vector field");
-	/*if(scalars.front().second->size() != vectors.front().second->size())
-		throw invalid_argument("DynamicParticles::exportToVTK : incoherent time length between scalar field and vector field");*/
-	size_t maxtime;
-	if(!scalars.front().second->empty() && !vectors.front().second->empty())
-		maxtime = min(scalars.front().second->size(),vectors.front().second->size());
-	else
-		maxtime = max(scalars.front().second->size(),vectors.front().second->size());
-
-    if(stepSize*maxtime>getNbTimeSteps())
-    {
-        cerr<<"stepSize="<<stepSize<<"\tnsteps="<<maxtime<<"\tsize="<<getNbTimeSteps()<<endl;
-        throw invalid_argument("DynamicParticles::exportToVTK : stepSize*nsteps>size()");
-    }
-    const size_t halfInterval = stepSize/2;
-
-
 	//determination of the name patterns
 	/*const string positionFilesPattern = trajectories.tt.getPattern("_dynamic");
 	const string vtkFilesPattern = positionFilesPattern.substr(0,positionFilesPattern.find_last_of("."))+".vtk";
 	TokenTree vtkSerie(trajectories.tt.tokens,vtkFilesPattern);*/
 
 	//data export
-	size_t avt;
-	for(size_t t=0;t<maxtime;t++)
+	for(size_t t=0;t<getNbTimeSteps()-average;t++)
 	{
-		avt = halfInterval+t*stepSize;
-		//convert fields to position dependant
-		vector<scalarField> sc(scalars.size());
-		for(size_t s=0;s<sc.size();++s)
-		{
-			sc[s].first = &scalars[s].first;
-			sc[s].second = new map<size_t, double>();
-			if(!scalars[s].second->empty())
-				trajectories.trajToPos(avt,(*scalars[s].second)[t],*sc[s].second);
-		}
-		vector<vectorField> ve(vectors.size());
-		for(size_t v=0;v<ve.size();++v)
-		{
-			ve[v].first = &vectors[v].first;
-			ve[v].second = new map<size_t, Coord>();
-			if(!vectors[v].second->empty())
-				trajectories.trajToPos(avt,vectors[v].second->at(t),*ve[v].second);
-		}
-		if(avt<ngbList.size())
-		{
-			//conversion of the neigbour list into bonds
-			deque< pair<size_t,size_t> > bonds;
-			for(size_t p=0;p<ngbList[avt].size();++p)
-                transform(
-                    ngbList[avt][p].lower_bound(p+1),ngbList[avt][p].end(),
-                    back_inserter(bonds),
-                    boost::bind(make_pair<size_t,size_t>,p,_1)
-                );
-				/*for(set<size_t>::const_iterator q = ngbList[avt][p].lower_bound(p+1);q!=ngbList[avt][p].end();++q)
-					bonds.push_back(make_pair(p,*q));*/
+		vector<ScalarField> sc;
+		for(size_t s=0; s<scalars.size();++s)
+			sc.push_back(scalars[s][t]);
 
-			positions[avt].exportToVTK(files % t,bonds,sc,ve);
-		}
-		else
-			positions[avt].exportToVTK(files % t,sc,ve);
+		vector<VectorField> vec;
+		for(size_t v=0; v<vectors.size();++v)
+			vec.push_back(vectors[v][t]);
+		positions[t].exportToVTK(files % t,sc, vec);
 	}
 }
 
@@ -953,7 +906,7 @@ set<size_t> DynamicParticles::getLostNgbs(const size_t &tr,const size_t &t_from,
 }
 
 /** @brief get at each time step the number of Lost Neigbours during interval  */
-scalarDynamicField DynamicParticles::getNbLostNgbs(const std::set<size_t> &selection, const size_t &interval) const
+ScalarDynamicField DynamicParticles::getNbLostNgbs(const std::set<size_t> &selection, const size_t &interval) const
 {
 	if(interval<1 || interval>getNbTimeSteps())
 	{
@@ -961,7 +914,7 @@ scalarDynamicField DynamicParticles::getNbLostNgbs(const std::set<size_t> &selec
 		return make_pair("LostNgbs", new vector< map<size_t, double> >());
 	}
 
-	scalarDynamicField res;
+	ScalarDynamicField res;
 	res.first = "LostNgbs";
 	res.second = new vector< map<size_t,double> >(getNbTimeSteps()-interval+1);
 

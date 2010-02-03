@@ -32,10 +32,6 @@
 
 namespace Colloids
 {
-    typedef std::pair< std::string,std::vector< std::map<size_t,double> >* >	scalarDynamicField;
-    typedef std::pair< std::string,std::vector< std::map<size_t, Coord> >* >	vectorDynamicField;
-
-
     /**
         \brief Object representing a N particle system in 3D + time with 0 <= t < maxtime
     */
@@ -94,10 +90,9 @@ namespace Colloids
             void exportToFLD(const std::string &postfix,const std::vector<std::map<size_t,double> > &labels,const size_t &stepSize=1,const double &threshold=0.0) const;
             void exportToVTK(
 				FileSerie &files,
-                const std::vector< scalarDynamicField > &scalars,
-                const std::vector< vectorDynamicField > &vectors,
-                const size_t &stepSize=1,
-                const boost::ptr_vector< std::vector< std::set<size_t> > > &ngbList=boost::ptr_vector< std::vector< std::set<size_t> > >()
+                const std::vector< ScalarDynamicField > &scalars,
+                const std::vector< VectorDynamicField > &vectors,
+                const size_t &stepSize=1
             ) const;
 
             //void exportToDb(const std::string &dbname,const size_t &measurement_id) const;
@@ -138,10 +133,10 @@ namespace Colloids
             void makeDynamics(const std::vector< std::set<size_t> >&sets,std::vector< std::vector<double> > &MSD,std::vector< std::vector<double> > &ISF) const;
             void exportDynamics(const std::string &inputPath) const;
             void exportDynamics(const std::vector< std::set<size_t> >&sets,const std::vector<std::string>&setsNames,const std::string &inputPath) const;
-            vectorDynamicField averageVelocities(const std::set<size_t> &selection,const size_t &displInterval,const size_t &avgInterval) const;
+            VectorDynamicField averageVelocities(const std::set<size_t> &selection,const size_t &displInterval,const size_t &avgInterval) const;
 
             std::set<size_t> getLostNgbs(const size_t &tr,const size_t &t_from,const size_t &t_to) const;
-            scalarDynamicField getNbLostNgbs(const std::set<size_t> &selection, const size_t &interval) const;
+            ScalarDynamicField getNbLostNgbs(const std::set<size_t> &selection, const size_t &interval) const;
 
             //boost::array<double,180> getMeanAngularDistribution(const DynNgbList &selection) const;
 

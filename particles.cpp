@@ -595,7 +595,7 @@ void Particles::exportToFile(const string &filename) const
 */
 void Particles::exportToVTK(
 	const std::string &filename,
-	const std::deque< std::pair<size_t,size_t> > &bonds,
+	const BondList &bonds,
 	const std::vector<scalarField> &scalars,
 	const std::vector<vectorField> &vectors,
 	const std::string &dataName
@@ -619,59 +619,18 @@ void Particles::exportToVTK(
 
 	output << "LINES "<<bonds.size()<<" "<<bonds.size()*3<<endl;
 	for(deque< pair<size_t,size_t> >::const_iterator b= bonds.begin();b!=bonds.end();++b)
-		output<<"2 "<< (*b).first<<" "<<(*b).second<<endl;
+		output<<"2 "<< b->first<<" "<<b->second<<endl;
 
 	output<<"POINT_DATA "<<size()<<endl;
-	for(size_t s=0;s<scalars.size();++s)
-	{
-		output<<"SCALARS "<< *scalars[s].first<<" double\n"
-				"LOOKUP_TABLE default\n";
+	copy(
+		scalars.begin(), scalars.end(),
+		ostream_iterator<scalarField>(output)
+		);
+	copy(
+		vectors.begin(), vectors.end(),
+		ostream_iterator<scalarField>(output)
+		);
 
-		size_t p=0;
-    	for(map<size_t,double>::const_iterator l = scalars[s].second->begin();l!=scalars[s].second->end();++l)
-    	{
-    		while(p<(*l).first)
-    		{
-				output<<0<<endl;
-				p++;
-    		}
-    		p++;
-			output<<(*l).second<<endl;
-    	}
-    	while(p<size())
-    	{
-    		output<<0<<endl;
-			p++;
-		}
-	}
-
-	for(size_t v=0;v<vectors.size();++v)
-	{
-		output<<"VECTORS "<<*vectors[v].first<<" double\n";
-
-		size_t p=0;
-    	for(map<size_t, Coord>::const_iterator l = vectors[v].second->begin();l!=vectors[v].second->end();++l)
-    	{
-    		while(p<(*l).first)
-    		{
-				for(size_t d=0;d<3;++d)
-					output<<0<<" ";
-				output<<endl;
-				p++;
-    		}
-    		p++;
-			for(size_t d=0;d<3;++d)
-				output<<(*l).second[d]<<" ";
-			output<<endl;
-    	}
-    	while(p<size())
-    	{
-    		for(size_t d=0;d<3;++d)
-				output<<0<<" ";
-			output<<endl;
-			p++;
-		}
-	}
 	output.close();
 }
 

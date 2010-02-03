@@ -21,19 +21,21 @@
 #include "../periodic.hpp"
 
 using namespace std;
+using namespace Colloids;
 
 int main(int argc, char ** argv)
 {
 	try
     {
-		if(argc<2) throw invalid_argument("Syntax : bonds coordinateFile [maxBondLength]");
+		if(argc<2) throw invalid_argument("Syntax : coordinateFile [maxBondLength]");
 
 		const string filename(argv[1]);
 		const string inputPath = filename.substr(0,filename.find_last_of("."));
 		const string ext = filename.substr(filename.find_last_of(".")+1);
 		double maxBondLength = 0.0;
 		deque<pair<size_t, size_t> > bonds;
-		IndexedParticles parts(filename,1);
+		Particles parts(filename,1);
+		parts.makeRTreeIndex();
 		if(argc>2)
 			sscanf(argv[2],"%lf",&maxBondLength);
 		else
@@ -48,7 +50,8 @@ int main(int argc, char ** argv)
 				maxBondLength = *min_element(first_peak,g.end());
 			}
 		}
-		bonds = parts.getBonds(maxBondLength);
+		parts.makeNgbList(maxBondLength);
+		bonds = parts.getBonds();
 		ofstream output((inputPath + ".bonds").c_str(), ios::out | ios::trunc);
 		for(deque<pair<size_t, size_t> >::const_iterator b=bonds.begin(); b!= bonds.end();++b)
 			output<<b->first<<" "<<b->second<<endl;

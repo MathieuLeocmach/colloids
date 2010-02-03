@@ -44,15 +44,14 @@
 //#include <tvmet/Vector.h>
 
 #include "index.hpp"
+#include "fields.hpp"
 #include "boo_data.hpp"
 
 namespace Colloids
 {
-    typedef RStarIndex_S::RTree                                                         RTree;
-    typedef std::vector< std::set<size_t> >                                             NgbList;
-    typedef std::deque< std::pair<size_t, size_t> >                                     BondList;
-    typedef std::pair< const std::string*,std::map<size_t, double>* >					scalarField;
-    typedef std::pair< const std::string*,std::map<size_t, Coord>* >	                vectorField;
+    typedef RStarIndex_S::RTree                     RTree;
+    typedef std::vector< std::set<size_t> >         NgbList;
+    typedef std::deque< std::pair<size_t, size_t> >	BondList;
 
     BondList ngb2bonds(const NgbList& ngbList);
 
@@ -181,15 +180,15 @@ namespace Colloids
             void exportToFile(const std::string &filename) const;
             void exportToVTK(
                 const std::string &filename,const BondList &bonds,
-                const std::vector<scalarField> &scalars,	const std::vector<vectorField> &vectors,
+                const std::vector<ScalarField> &scalars,	const std::vector<VectorField> &vectors,
                 const std::string &dataName = "particles"
             ) const;
             void exportToVTK(const std::string &filename,
-                const std::vector<scalarField> &scalars,	const std::vector<vectorField> &vectors,
+                const std::vector<ScalarField> &scalars,	const std::vector<VectorField> &vectors,
                 const std::string &dataName = "particles"
             ) const;
             void exportToVTK(const std::string &filename,
-                const std::vector<scalarField> &scalars,
+                const std::vector<ScalarField> &scalars,
                 const std::string &dataName = "particles"
             ) const;
 
