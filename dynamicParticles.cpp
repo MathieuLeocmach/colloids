@@ -810,71 +810,28 @@ void DynamicParticles::exportDynamics(const string &inputPath) const
     exportDynamics(sets,setsNames,inputPath);
 }
 
-/** @brief averageVelocities
-  *	\param
-  * @todo: document this function
-  */
-/*vectorDynamicField DynamicParticles::averageVelocities(const std::set<size_t> &selection,const size_t &displInterval,const size_t &avgInterval) const
+/** @brief velocities of every particle at time t
+
+	Using centered scheme except at begining and end of trajectory.
+ */
+vector<Coord> DynamicParticles::velocities(const size_t &t) const
 {
-
-	if(displInterval==0 || displInterval>=getNbTimeSteps())
+	vector<Coord> vel(trajectories.inverse[t].size(), Coord(0.0, 3));
+	size_t start, stop;
+	for(size_t p=0; p<trajectories.inverse[t].size(); ++p)
 	{
-		cout<<"\nInvalid displInterval value "<<displInterval<<endl;
-		return make_pair("velocities", vectorDynamicField().second);
+		const Traj &tr = trajectories[trajectories.inverse[t][p]];
+		if(tr.steps.size()>1)
+		{
+			start = max((int)t-1, (int)tr.start_time);
+			stop = min(t+1, tr.last_time());
+			vel[p] = (positions[stop][tr[stop]] - positions[start][tr[start]]) / (double)(stop-start);
+		}
 	}
+	return vel;
+}
 
-	const double num = dt*displInterval/radius;
 
-	//case where the full time range is averaged down to one frame
-	if(avgInterval==getNbTimeSteps())
-	{
-		vectorDynamicField avgVel = make_pair("velocities",new vector< map<size_t, Coord> >(1));
-		for(set<size_t>::const_iterator tr = selection.begin();tr!=selection.end();++tr)
-			avgVel.second->front().insert(
-				avgVel.second->front().end(),
-				make_pair(
-					*tr,
-					getDiff(*tr,0,*tr,getNbTimeSteps()-1)/num
-				)
-			);
-		return avgVel;
-	}
-
-	//get velocity at each position of each trajectory of the selection
-	vector< map<size_t, Coord > > vel(getNbTimeSteps());//-displInterval);
-	for(set<size_t>::const_iterator tr = selection.begin();tr!=selection.end();++tr)
-	{
-		const size_t t_max = min(getNbTimeSteps(),trajectories[*tr].last_time()+1);
-		for(size_t t=max((size_t)0,trajectories[*tr].start_time);
-					t<t_max-displInterval;
-					++t)
-			vel[t].insert(
-				vel[t].end(),
-				make_pair(
-					trajectories[*tr][t],
-					getDiff(*tr,t,*tr,t+displInterval)/num
-				)
-			);
-
-		for(size_t t=t_max-displInterval;t<t_max;++t)
-			vel[t].insert(
-				vel[t].end(),
-				make_pair(
-					trajectories[*tr][t],
-					getDiff(*tr,t-displInterval,*tr,t)/num
-				)
-			);
-	}
-	//time average
-	vectorDynamicField avgVel = make_pair("velocities",new vector< map<size_t, Coord> >());
-	makeSlidingTimeAverage(selection,avgInterval,vel,*avgVel.second);
-
-	if(avgVel.second->empty())
-		avgVel.second->push_back(vel.back());
-
-	return avgVel;
-
-//}*/
 
 /** @brief get the neighbours lost between t_from and t_to by the trajectory tr  */
 set<size_t> DynamicParticles::getLostNgbs(const size_t &tr,const size_t &t_from,const size_t &t_to) const
@@ -905,30 +862,27 @@ set<size_t> DynamicParticles::getLostNgbs(const size_t &tr,const size_t &t_from,
 	return ngb_diff;
 }
 
-/** @brief get at each time step the number of Lost Neigbours during interval  */
-ScalarDynamicField DynamicParticles::getNbLostNgbs(const std::set<size_t> &selection, const size_t &interval) const
+/** @brief Number of lost neighbours of every particle at time t
+
+	Using centered scheme except at begining and end of trajectory.
+ */
+vector<double> DynamicParticles::getNbLostNgbs(const size_t &t) const
 {
-	if(interval<1 || interval>getNbTimeSteps())
+	vector<double> nb(trajectories.inverse[t].size());
+	size_t tr, start, stop;
+	for(size_t p=0; p<trajectories.inverse[t].size(); ++p)
 	{
-		cout<<"\nInvalid interval value "<<interval<<endl;
-		return make_pair("LostNgbs", new vector< map<size_t, double> >());
+		tr = trajectories.inverse[t][p];
+		if(trajectories[tr].steps.size()>1)
+		{
+			start = max((int)t-1, (int)trajectories[tr].start_time);
+			stop = min(t+1, trajectories[tr].last_time());
+			nb[p] = getLostNgbs(tr, start, stop).size();
+		}
 	}
-
-	ScalarDynamicField res;
-	res.first = "LostNgbs";
-	res.second = new vector< map<size_t,double> >(getNbTimeSteps()-interval+1);
-
-	for(set<size_t>::const_iterator tr=selection.begin();tr!=selection.end();++tr)
-		for(size_t t=0;t<res.second->size();++t)
-			res.second->at(t).insert(
-				res.second->at(t).end(),
-				make_pair(
-					*tr,
-					(double)getLostNgbs(*tr,t,t+interval-1).size()
-				)
-			);
-	return res;
+	return nb;
 }
+
 
 /** \brief  Time averaged bond angle distribution */
 /*boost::array<double,180> DynamicParticles::getMeanAngularDistribution(const DynNgbList &selection) const

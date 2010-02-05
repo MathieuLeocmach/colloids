@@ -133,10 +133,10 @@ namespace Colloids
             void makeDynamics(const std::vector< std::set<size_t> >&sets,std::vector< std::vector<double> > &MSD,std::vector< std::vector<double> > &ISF) const;
             void exportDynamics(const std::string &inputPath) const;
             void exportDynamics(const std::vector< std::set<size_t> >&sets,const std::vector<std::string>&setsNames,const std::string &inputPath) const;
-            VectorDynamicField averageVelocities(const std::set<size_t> &selection,const size_t &displInterval,const size_t &avgInterval) const;
+            std::vector<Coord> velocities(const size_t &t) const;
 
             std::set<size_t> getLostNgbs(const size_t &tr,const size_t &t_from,const size_t &t_to) const;
-            ScalarDynamicField getNbLostNgbs(const std::set<size_t> &selection, const size_t &interval) const;
+            std::vector<double> getNbLostNgbs(const size_t &t) const;
 
             //boost::array<double,180> getMeanAngularDistribution(const DynNgbList &selection) const;
 
