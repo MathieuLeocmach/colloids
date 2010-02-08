@@ -90,8 +90,8 @@ namespace Colloids
             void exportToFLD(const std::string &postfix,const std::vector<std::map<size_t,double> > &labels,const size_t &stepSize=1,const double &threshold=0.0) const;
             void exportToVTK(
 				FileSerie &files,
-                const std::vector< ScalarDynamicField > &scalars,
-                const std::vector< VectorDynamicField > &vectors,
+                std::vector< ScalarDynamicField > &scalars,
+                std::vector< VectorDynamicField > &vectors,
                 const size_t &stepSize=1
             ) const;
 

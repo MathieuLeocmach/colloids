@@ -431,8 +431,8 @@ void DynamicParticles::saveAll(const string &filename,const string &base_name,co
   */
 void DynamicParticles::exportToVTK(
 	FileSerie &files,
-	const std::vector< ScalarDynamicField > &scalars,
-	const std::vector< VectorDynamicField > &vectors,
+	std::vector< ScalarDynamicField > &scalars,
+	std::vector< VectorDynamicField > &vectors,
 	const size_t &average
 ) const
 {

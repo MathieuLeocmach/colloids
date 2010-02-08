@@ -596,8 +596,8 @@ void Particles::exportToFile(const string &filename) const
 void Particles::exportToVTK(
 	const std::string &filename,
 	const BondList &bonds,
-	const std::vector<scalarField> &scalars,
-	const std::vector<vectorField> &vectors,
+	const std::vector<ScalarField> &scalars,
+	const std::vector<VectorField> &vectors,
 	const std::string &dataName
 ) const
 {
@@ -624,26 +624,26 @@ void Particles::exportToVTK(
 	output<<"POINT_DATA "<<size()<<endl;
 	copy(
 		scalars.begin(), scalars.end(),
-		ostream_iterator<scalarField>(output)
+		ostream_iterator<ScalarField>(output)
 		);
 	copy(
 		vectors.begin(), vectors.end(),
-		ostream_iterator<scalarField>(output)
+		ostream_iterator<VectorField>(output)
 		);
 
 	output.close();
 }
 
 /** @brief exportToVTK without bonds  */
-void Particles::exportToVTK(const std::string &filename, const std::vector<scalarField> &scalars, const std::vector<vectorField> &vectors, const std::string &dataName) const
+void Particles::exportToVTK(const std::string &filename, const std::vector<ScalarField> &scalars, const std::vector<VectorField> &vectors, const std::string &dataName) const
 {
 	exportToVTK(filename,getBonds(),scalars,vectors,dataName);
 }
 
 /** @brief export only positions and scalar fields to VTK	*/
-void Particles::exportToVTK(const std::string &filename, const std::vector<scalarField> &scalars, const std::string &dataName) const
+void Particles::exportToVTK(const std::string &filename, const std::vector<ScalarField> &scalars, const std::string &dataName) const
 {
-	exportToVTK(filename,scalars,std::vector<vectorField>(),dataName);
+	exportToVTK(filename,scalars,std::vector<VectorField>(),dataName);
 }
 
 

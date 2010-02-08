@@ -38,7 +38,7 @@ namespace Colloids
     {
     	//typedef boost::ptr_vector<const V, boost::view_clone_allocator>::const_iterator const_iterator;
     	std::string name;
-    	boost::ptr_vector<const V, boost::view_clone_allocator> values;
+    	boost::ptr_vector<V, boost::view_clone_allocator> values;
 
     	Field(const std::string &name, const size_t size) : name(name), values(size){};
     	template<class ForwardInterator>
@@ -75,7 +75,7 @@ namespace Colloids
 				averaging(averaging) {};
 
 		void push_back(const Field<V> &frame);
-		Field<V> operator[](const size_t &t) const;
+		Field<V> operator[](const size_t &t);
     };
     typedef DynamicField<double>	ScalarDynamicField;
     typedef DynamicField<Coord>		VectorDynamicField;
@@ -124,7 +124,7 @@ namespace Colloids
 	}
 	/** @brief return a view of the field at frame t in terms of positions, not trajectories  */
 	template<class V>
-	Field<V> DynamicField<V>::operator[](const size_t &t) const
+	Field<V> DynamicField<V>::operator[](const size_t &t)
 	{
 		Field<V> view(name, trajectories.inverse[t].size());
 		for(size_t p=0; p<trajectories.inverse[t].size();++p)
