@@ -37,7 +37,7 @@ namespace Colloids
     {
         public:
 
-            PeriodicParticles(const double &rad) : Particles(rad){return;};
+            PeriodicParticles(const double &rad) : Particles(0, rad){return;};
             PeriodicParticles(const std::vector<Coord> &input,const double &rad) : Particles(input,rad){return;};
             PeriodicParticles(const Particles &input) : Particles(input){return;};
             PeriodicParticles(const std::string &filename,const double &rad) : Particles(filename,rad){return;};
