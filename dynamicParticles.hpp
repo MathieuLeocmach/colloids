@@ -121,6 +121,7 @@ namespace Colloids
             Coord getDrift(const std::set<size_t>&selection,const size_t &t0,const size_t &t1) const;
             void removeDrift();
             double getSD(const std::set<size_t>&selection,const size_t &t0,const size_t &t1) const;
+            std::vector<double> getSD(const size_t &t, const size_t &halfInterval=1) const;
             std::vector<double> getMSD(const std::set<size_t> &selection,const size_t &t0,const size_t &t1,const size_t &t3=0) const;
             std::vector<double> getMSD(const size_t &t0,const size_t &t1,const size_t &t3=0) const;
             std::vector<double> getISF(const std::set<size_t> &selection,const Coord &q,const size_t &t0,const size_t &t1) const;
@@ -133,10 +134,10 @@ namespace Colloids
             void makeDynamics(const std::vector< std::set<size_t> >&sets,std::vector< std::vector<double> > &MSD,std::vector< std::vector<double> > &ISF) const;
             void exportDynamics(const std::string &inputPath) const;
             void exportDynamics(const std::vector< std::set<size_t> >&sets,const std::vector<std::string>&setsNames,const std::string &inputPath) const;
-            std::vector<Coord> velocities(const size_t &t) const;
+            std::vector<Coord> velocities(const size_t &t, const size_t &halfInterval=1) const;
 
             std::set<size_t> getLostNgbs(const size_t &tr,const size_t &t_from,const size_t &t_to) const;
-            std::vector<double> getNbLostNgbs(const size_t &t) const;
+            std::vector<double> getNbLostNgbs(const size_t &t, const size_t &halfInterval=1) const;
 
             //boost::array<double,180> getMeanAngularDistribution(const DynNgbList &selection) const;
 

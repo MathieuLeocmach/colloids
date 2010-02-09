@@ -42,9 +42,11 @@ namespace Colloids
 
     	Field(const std::string &name, const size_t size) : name(name), values(size){};
     	template<class ForwardInterator>
-    	Field(ForwardInterator first, ForwardInterator last,const std::string &name);
+    	Field(ForwardInterator first, ForwardInterator last,const std::string &name="");
     	template<class tableInterator>
     	Field(tableInterator first, tableInterator last, const std::string &name, const size_t &column);
+
+    	const double& operator[](const size_t &p) const {return this->values[p];}
     };
     typedef Field<double>							ScalarField;
     typedef Field<Coord>	                		VectorField;
@@ -61,20 +63,27 @@ namespace Colloids
     template<typename V>
     class DynamicField
     {
-    	std::vector< std::vector<V> > values;
+    	boost::ptr_vector< std::vector<V> > values;
     	std::deque< std::vector<size_t> > divisors;
-    	const TrajIndex &trajectories;
+    	const TrajIndex trajectories;
     	size_t averaging, actual_time;
+    	const size_t size;
 
     	public:
 			std::string name;
 
-			DynamicField(const std::string &name, const TrajIndex &trajectories, const size_t &averaging, const V& defaultValue) :
-				name(name), trajectories(trajectories), divisors(averaging-1),
-				values(trajectories.inverse.size(), std::vector<V>(trajectories.size(), defaultValue)),
+			DynamicField(const TrajIndex &trajectories, const size_t &averaging, const V& defaultValue, const std::string &name="") :
+				name(name), trajectories(trajectories), divisors(averaging/2),
+				values(trajectories.inverse.size()), size(trajectories.inverse.size()),
 				averaging(averaging) {};
+			DynamicField(const TrajIndex &trajectories, boost::ptr_vector< std::vector<V> > &values, const std::string &name="")
+				: trajectories(trajectories), name(name), size(values.size()) {this->values.swap(values);};
+			DynamicField(const DynamicField &d)
+				: name(d.name), trajectories(d.trajectories), divisors(d.divisors),
+				values(d.values), size(d.size),	averaging(d.averaging), actual_time(d.actual_time) {};
 
 		void push_back(const Field<V> &frame);
+		void assign(boost::ptr_vector< std::vector<V> > &values){this->values.swap(values);};
 		Field<V> operator[](const size_t &t);
     };
     typedef DynamicField<double>	ScalarDynamicField;
@@ -101,23 +110,29 @@ namespace Colloids
 	void DynamicField<V>::push_back(const Field<V> &frame)
 	{
 		//averaging on less and less time steps on the upper boundary
-		if(actual_time + averaging < values.size())
-			divisors.push_back(std::vector<size_t>(trajectories.size()));
+		if(actual_time + averaging/2+1 < values.size())
+			divisors.push_back(std::vector<size_t>(trajectories.inverse[actual_time+averaging/2+1].size()));
 		//bin the values at actual time in the next "average interval" time steps (including actual)
-		for(size_t t=actual_time; t<min(actual_time+averaging, values.size()); ++t)
+		for(size_t t=actual_time; t<min(actual_time+averaging/2+1, values.size()); ++t)
 			for(size_t p=0; p<trajectories.inverse[t].size();++p)
 			{
-				values[t][trajectories.inverse[t][p]]=frame[p];
-				divisors[t-actual_time][trajectories.inverse[t][p]]++;
+				const Traj& tr = trajectories[trajectories.inverse[t][p]];
+				if(tr.exist(actual_time))
+				{
+					values[t][tr[actual_time]] = frame[p];
+					divisors[t-actual_time][tr[actual_time]]++;
+				}
 			}
 		//the time step "average interval" ago is totally binned. We divide it unless lower boundary
-		if(actual_time>=averaging)
+		if(actual_time>=averaging/2)
 		{
-			for(std::vector<size_t>::const_iterator tr=trajectories.inverse[actual_time-divisors.size()+1].begin();
-				tr!=trajectories.inverse[actual_time-divisors.size()+1].end();++tr)
-			{
-				values[actual_time-divisors.size()+1][*tr] /= (double)divisors.front()[*tr];
-			}
+			std::transform(
+				values[actual_time-divisors.size()+1].begin(),
+				values[actual_time-divisors.size()+1].end(),
+				divisors.front().begin(),
+				values[actual_time-divisors.size()+1].begin(),
+				std::multiplies<double>()
+				);
 			divisors.pop_front(); //discard the divisors of the time step we just output
 		}
 		actual_time++;
@@ -126,10 +141,7 @@ namespace Colloids
 	template<class V>
 	Field<V> DynamicField<V>::operator[](const size_t &t)
 	{
-		Field<V> view(name, trajectories.inverse[t].size());
-		for(size_t p=0; p<trajectories.inverse[t].size();++p)
-			view.values.push_back(&values[t][trajectories.inverse[t][p]]);
-		return view;
+		return Field<V>(values[t].begin(), values[t].end(), name);
 	}
 
 };

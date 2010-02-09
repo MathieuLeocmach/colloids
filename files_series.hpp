@@ -45,7 +45,7 @@ namespace Colloids
         size_t length, offset;
 
         public:
-            FileSerie(const std::string &filesPattern, const std::string &token, size_t size, size_t offset);
+            FileSerie(const std::string &filesPattern, const std::string &token, size_t size, size_t offset=0);
             std::string operator%(const size_t &step){return (pattern%(step+offset)).str();}
             size_t size(){return length;}
     };

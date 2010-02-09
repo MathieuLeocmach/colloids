@@ -677,27 +677,26 @@ double Particles::getVF() const
      return dot(diff*diff).sum()<Sep*Sep ;
 }*/
 
-/** @brief get q4 and q6 from a cloud file  */
-/*void Particles::getBooFromFile(const string &filename, map<size_t, tvmet::Vector<double, 4> >&qw) const
+/** @brief get q4, q6, w4, w6 from a cloud file  */
+void Particles::loadBoo(const string &filename, boost::multi_array<double,2>&qw) const
 {
 	ifstream cloud(filename.c_str(), ios::in);
 	if(!cloud)
 		throw invalid_argument("no such file as "+filename);
 
-	size_t p=0;
-	tvmet::Vector<double, 4> v;
-    string trash;
+	string trash;
 	//trashing the header
 	cloud >> trash >> trash >> trash >> trash >> trash;
-	while(!cloud.eof())
-	{
-		cloud >> p;
-		for(size_t i=0;i<4;++i)
-			cloud >> v[i];
-		qw.insert(qw.end(),make_pair(p,v));
-	}
+
+	boost::array<size_t, 2> shape = {size(), 4};
+	qw.resize(shape);
+	copy(
+		istream_iterator<double>(cloud), istream_iterator<double>(),
+		qw.origin()
+		);
+
 	cloud.close();
-}*/
+}
 
 /** @brief from a neighbour list to a bond list  */
 BondList Colloids::ngb2bonds(const NgbList& ngbList)
@@ -711,6 +710,22 @@ BondList Colloids::ngb2bonds(const NgbList& ngbList)
             );
 	return bonds;
 }
+
+/** @brief load bonds from file  */
+BondList Colloids::loadBonds(const std::string &filename)
+{
+	BondList bonds;
+	pair<size_t, size_t> b;
+	ifstream f(filename.c_str());
+	while(f.good())
+	{
+		f >> b.first >> b.second;
+		bonds.push_back(b);
+	}
+	return bonds;
+}
+
+
 
 /** @brief Grows recursively a cluster of neighbouring particles
   * \param population The indicies of the particles than can be added to the cluster

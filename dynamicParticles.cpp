@@ -549,6 +549,29 @@ double DynamicParticles::getSD(const set<size_t>&selection,const size_t &t0,cons
     //cout << result << endl;
     return result;
 }
+
+/** @brief get square displacement of all particles at time t
+  *
+  * Using centered scheme except at the begining or the end of the trajectory
+  */
+vector<double> DynamicParticles::getSD(const size_t &t, const size_t &halfInterval) const
+{
+	vector<Coord> vel = velocities(t, halfInterval);
+	vector<double> sd(vel.size());
+	transform(
+		vel.begin(), vel.end(),
+		vel.begin(), sd.begin(),
+		dot
+		);
+	transform(
+		sd.begin(), sd.end(), sd.begin(),
+		bind2nd(multiplies<double>(), halfInterval*2+1)
+		);
+	return sd;
+}
+
+
+
 /** \brief Mean square displacement function of time between t0 and t1 for a selection of trajectories */
 vector<double> DynamicParticles::getMSD(const set<size_t> &selection,const size_t &t0,const size_t &t1,const size_t &t3) const
 {
@@ -814,7 +837,7 @@ void DynamicParticles::exportDynamics(const string &inputPath) const
 
 	Using centered scheme except at begining and end of trajectory.
  */
-vector<Coord> DynamicParticles::velocities(const size_t &t) const
+vector<Coord> DynamicParticles::velocities(const size_t &t, const size_t &halfInterval) const
 {
 	vector<Coord> vel(trajectories.inverse[t].size(), Coord(0.0, 3));
 	size_t start, stop;
@@ -823,8 +846,8 @@ vector<Coord> DynamicParticles::velocities(const size_t &t) const
 		const Traj &tr = trajectories[trajectories.inverse[t][p]];
 		if(tr.steps.size()>1)
 		{
-			start = max((int)t-1, (int)tr.start_time);
-			stop = min(t+1, tr.last_time());
+			start = max((int)(t-halfInterval), (int)tr.start_time);
+			stop = min(t+halfInterval, tr.last_time());
 			vel[p] = (positions[stop][tr[stop]] - positions[start][tr[start]]) / (double)(stop-start);
 		}
 	}
@@ -866,7 +889,7 @@ set<size_t> DynamicParticles::getLostNgbs(const size_t &tr,const size_t &t_from,
 
 	Using centered scheme except at begining and end of trajectory.
  */
-vector<double> DynamicParticles::getNbLostNgbs(const size_t &t) const
+vector<double> DynamicParticles::getNbLostNgbs(const size_t &t, const size_t &halfInterval) const
 {
 	vector<double> nb(trajectories.inverse[t].size());
 	size_t tr, start, stop;
@@ -875,8 +898,8 @@ vector<double> DynamicParticles::getNbLostNgbs(const size_t &t) const
 		tr = trajectories.inverse[t][p];
 		if(trajectories[tr].steps.size()>1)
 		{
-			start = max((int)t-1, (int)trajectories[tr].start_time);
-			stop = min(t+1, trajectories[tr].last_time());
+			start = max((int)(t-halfInterval), (int)trajectories[tr].start_time);
+			stop = min(t+halfInterval, trajectories[tr].last_time());
 			nb[p] = getLostNgbs(tr, start, stop).size();
 		}
 	}

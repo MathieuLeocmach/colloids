@@ -39,7 +39,7 @@
 #include <fstream>
 #include <memory>
 #include <stdexcept>
-//#include <boost/operators.hpp>
+#include <boost/multi_array.hpp>
 #include <boost/bind.hpp>
 //#include <tvmet/Vector.h>
 
@@ -196,10 +196,11 @@ namespace Colloids
             virtual double getNumberDensity() const;
             double getVF() const;
 
-            //void getBooFromFile(const std::string &filename,std::map<size_t, tvmet::Vector<double, 4> >&qw) const;
+            void loadBoo(const std::string &filename, boost::multi_array<double,2>&qw) const;
             //static bool areTooClose(const std::valarray<double> &c, const Coord &d,const double &Sep);
 
     };
+    BondList loadBonds(const std::string &filename);
 
     /**cluster */
     void growCluster(std::set<size_t> &population, std::set<size_t> &cluster, size_t center, const NgbList &ngbs);
