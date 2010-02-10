@@ -46,13 +46,16 @@ int main(int argc, char ** argv)
 
 		//fetch the file name pattern directly in the file.traj
 		string pattern, token;
+		size_t offset, size;
 		{
 			ifstream trajfile(filename.c_str(), ios::in);
 			getline(trajfile, pattern);
 			getline(trajfile, pattern); //pattern is on the 2nd line
 			getline(trajfile, token); //token is on the 3rd line
+			trajfile >> offset >> size;
 			trajfile.close();
 		}
+		FileSerie datSerie(pattern, token, size, offset);
 
 		parts.removeDrift();
 		cout<<"drift removed"<<endl;
@@ -92,10 +95,8 @@ int main(int argc, char ** argv)
 
 		//name pattern of the .cloud files
 		cout<<"Load and average bond orientational order ... ";
-		string booPattern = pattern.substr(0, pattern.find_last_of(".")) +".cloud";
-		string SbooPattern = pattern.substr(0, booPattern.find_last_of(token)) + "_space" + pattern.substr(booPattern.find_last_of(token));
-		FileSerie booSerie(booPattern, token, parts.getNbTimeSteps()),
-				SbooSerie(SbooPattern, token, parts.getNbTimeSteps());
+		FileSerie booSerie = datSerie.changeExt(".cloud"),
+				 SbooSerie = booSerie.addPostfix("_space");
 
 		boost::multi_array<double, 2> qw;
 		vector<ScalarDynamicField> scalars(9, ScalarDynamicField(parts.trajectories, tau, 0));
@@ -117,11 +118,11 @@ int main(int argc, char ** argv)
 		}
 
 		cout<<"Neighbour lists ... ";
-		//name pattern of the .bonds files
-		string bondPattern = pattern.substr(0, pattern.find_last_of(".")) +".bonds";
-		FileSerie bondSerie(bondPattern, token, parts.getNbTimeSteps());
+		FileSerie bondSerie = datSerie.changeExt(".bonds");
 		for(size_t t=0; t<parts.getNbTimeSteps(); ++t)
 			parts.positions[t].makeNgbList(loadBonds(bondSerie%t));
+
+		cout<<"Lost neighbours ... ";
 		boost::ptr_vector< vector<double> > lngb(parts.getNbTimeSteps());
 		for(size_t t=0; t<parts.getNbTimeSteps(); ++t)
 		{
@@ -139,17 +140,12 @@ int main(int argc, char ** argv)
 			vel.push_back(new vector<Coord>(parts.trajectories.size(), Coord(0.0,3)));
 			vel.back() = parts.velocities(t, tau/2);
 		}
-
 		vector<VectorDynamicField> vectors(1, VectorDynamicField(parts.trajectories, vel, "V"));
-		cout<<"done!"<<endl;
 
-		string vtkPattern = pattern.substr(0, pattern.find_last_of(".")) +".vtk";
-		vtkPattern = vtkPattern.substr(0, vtkPattern.find_last_of(token)) + "_dynamic" + vtkPattern.substr(vtkPattern.find_last_of(token));
-		FileSerie vtkSerie(vtkPattern, token, parts.getNbTimeSteps());
-
+		cout<<"export VTK ... ";
+		FileSerie vtkSerie = datSerie.addPostfix("_dynamic", ".vtk");
 		parts.exportToVTK(vtkSerie, scalars, vectors);
-
-		cout<<"VTK exported"<<endl;
+		cout<<endl;
     }
     catch(const exception &e)
     {

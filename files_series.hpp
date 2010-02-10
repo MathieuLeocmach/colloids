@@ -42,12 +42,17 @@ namespace Colloids
     class FileSerie
     {
         boost::format pattern;
+        std::string token;
         size_t length, offset;
 
         public:
             FileSerie(const std::string &filesPattern, const std::string &token, size_t size, size_t offset=0);
             std::string operator%(const size_t &step){return (pattern%(step+offset)).str();}
-            size_t size(){return length;}
+            size_t size() const {return length;}
+            FileSerie changeExt(const std::string &ext) const;
+            FileSerie addPostfix(const std::string &postfix) const;
+            FileSerie addPostfix(const std::string &postfix, const std::string &ext) const;
+            std::string head() const;
     };
 }
 
