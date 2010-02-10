@@ -539,12 +539,9 @@ void Particles::G6Binner::operator()(const size_t &p, const size_t &q)
 	const size_t r = (size_t)(norm2(parts.getDiff(p, q)) * scale);
 	g[r]++;
 
-	std::map<size_t,BooData>::const_iterator plm = boo.find(p), qlm = boo.find(q);
-	if(plm==boo.end() ||qlm==boo.end())
-		throw domain_error("Bond orientational order is not calculated for all concerned particles");
 	double prod[7];
 	for(size_t m=0;m<=6;++m)
-		prod[m] = real(plm->second(6,m) * conj(qlm->second(6,m)));
+		prod[m] = real(boo[p](6,m) * conj(boo[q](6,m)));
 	g6[r] += prod[0];
 	for(size_t m=1; m<=6;++m)
 		g6[r] += 2*prod[m];

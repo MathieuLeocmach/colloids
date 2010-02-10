@@ -74,11 +74,11 @@ namespace Colloids
 
 
             /** \brief constructors and destructor */
-            Particles(void) : std::vector<Coord>(0,Coord(0.0,3)){radius=0;return;};
-            Particles(const std::vector<Coord> &data, const double &r=0.0) : std::vector<Coord>(data){radius=r;};
-            Particles(const size_t &n, const double &d=0.0, const double &r=0.0);
-            Particles(const std::string &filename, const double &r=0.0);
-            Particles(const size_t &Nb, const BoundingBox &b, const std::string &filename, const double &r=0.0);
+            Particles(void) : std::vector<Coord>(0,Coord(0.0,3)){radius=1.0;return;};
+            Particles(const std::vector<Coord> &data, const double &r=1.0) : std::vector<Coord>(data){radius=r;};
+            Particles(const size_t &n, const double &d=0.0, const double &r=1.0);
+            Particles(const std::string &filename, const double &r=1.0);
+            Particles(const size_t &Nb, const BoundingBox &b, const std::string &filename, const double &r=1.0);
             virtual ~Particles(){return;}
 
             void push_back(const Coord &p);
@@ -165,9 +165,9 @@ namespace Colloids
             struct G6Binner : public RdfBinner
             {
                 std::vector<double> g6;
-                const std::map<size_t,BooData> &boo;
+                const std::vector<BooData> &boo;
 
-                G6Binner(const Particles &p, size_t n, const double &nbDiameterCutOff, const std::map<size_t,BooData> &BOO)
+                G6Binner(const Particles &p, size_t n, const double &nbDiameterCutOff, const std::vector<BooData> &BOO)
                 : RdfBinner(p,n,nbDiameterCutOff),boo(BOO)
                 {
                     g6 = std::vector<double>(n,0.0);
