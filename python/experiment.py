@@ -465,3 +465,8 @@ def enum(xp,postfix='',ext='dat',absPath=True):
 def br(sigma, T=310, eta=2.22e-3):
         """Brownian time for a particle of diameter sigma (in meters)"""
         return 3 * const.pi * eta * (sigma**3) / (4 * const.k * T)
+
+def histz(f):
+    """export the density histogram of a .dat file into a .z file"""
+    hist, bins = np.histogram(np.loadtxt(f, delimiter='\t', skiprows=2, usecols=[2]))
+    np.savetxt(f[:-3]+'z', hist/(bins[1]-bins[0]), fmt='%f', delimiter='\t')
