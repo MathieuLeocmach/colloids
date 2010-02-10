@@ -300,26 +300,24 @@ size_t Particles::getNearestNeighbour(const Coord &center, const double &range) 
   */
 NgbList & Particles::makeNgbList(const double &bondLength)
 {
-    this->neighboursList.clear();
-    this->neighboursList.resize(this->size());
+    this->neighboursList.reset(new NgbList(size()));
     const double sep = 2.0*bondLength*radius;
     for(size_t p=0;p<size();++p)
-        neighboursList[p] = getEuclidianNeighbours(p, sep);
+        (*neighboursList)[p] = getEuclidianNeighbours(p, sep);
 
-    return this->neighboursList;
+    return *this->neighboursList;
 }
 
 /** @brief make the neighbour list using a list of bonds  */
 NgbList & Particles::makeNgbList(const BondList &bonds)
 {
-    this->neighboursList.clear();
-    this->neighboursList.resize(this->size());
+    this->neighboursList.reset(new NgbList(size()));
     for(BondList::const_iterator b=bonds.begin(); b!=bonds.end();++b)
     {
-        neighboursList[b->first].insert(neighboursList[b->first].end(), b->second);
-        neighboursList[b->second].insert(neighboursList[b->second].end(), b->first);
+        (*neighboursList)[b->first].insert((*neighboursList)[b->first].end(), b->second);
+        (*neighboursList)[b->second].insert((*neighboursList)[b->second].end(), b->first);
     }
-    return this->neighboursList;
+    return *this->neighboursList;
 }
 
 

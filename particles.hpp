@@ -64,7 +64,7 @@ namespace Colloids
         std::auto_ptr<SpatialIndex> index;
 
         /** \brief A neighbour list */
-        NgbList neighboursList;
+        std::auto_ptr<NgbList> neighboursList;
 
         public:
             /** \brief overall bounding box */
@@ -110,7 +110,7 @@ namespace Colloids
             std::multimap<double,size_t> getEuclidianNeighboursBySqDist(const Coord &center, const double &range) const;
             NgbList & makeNgbList(const double &bondLength);
             NgbList & makeNgbList(const BondList &bonds);
-            const NgbList & getNgbList() const {return this->neighboursList;};
+            const NgbList & getNgbList() const {return *this->neighboursList;};
             BondList getBonds() const {return ngb2bonds(getNgbList());};
 
 
