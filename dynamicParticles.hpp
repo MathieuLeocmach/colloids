@@ -85,7 +85,6 @@ namespace Colloids
 
             /** export to various file formats */
             void save(const std::string &filename,const std::string &base_name,const std::string &token,const size_t &t_offset, const size_t &t_size) const;
-            void saveAll(const std::string &filename,const std::string &base_name,const std::string &token) const;
             void exportToPV(const std::string &filename,const std::vector<std::map<size_t,unsigned char> > &labels,const size_t &stepSize=1) const;
             void exportToFLD(const std::string &postfix,const std::vector<std::map<size_t,double> > &labels,const size_t &stepSize=1,const double &threshold=0.0) const;
             void exportToVTK(

@@ -281,34 +281,6 @@ void DynamicParticles::save(const string &filename,const string &base_name,const
     else cerr << " cannot open the file";
 }
 
-/**
-    \brief export the trajectory data and the position files
-    \param filename The name of the trajectory file
-    \param base_name A relative path to a file of the positions files serie, like "myDynamicParticles/series05_t000.dat"
-    \param token A substring of base_name just before the time step number, like "_t"
-*/
-void DynamicParticles::saveAll(const string &filename,const string &base_name,const string &token) const
-{
-    //save trajectories data
-    save(filename,base_name,token,0,getNbTimeSteps());
-    //extract the path from the filename
-    const size_t endfolder = filename.find_last_of("/\\");
-    const string folder = filename.substr(0,endfolder+1);
-
-    cout << "writting positions data"<<endl;
-    vector<string> tokens(1,token);
-    TokenTree tt(tokens,folder+base_name);
-    cout << tt << endl;
-
-    vector<size_t> v(1,0);
-    while(v[0]<getNbTimeSteps())
-    {
-        positions[v[0]].exportToFile(tt(v));
-        v[0]++;
-    }
-    cout << "Positions data written" << endl;
-}
-
 /** @brief export Structured Cell Data Format
 	\param filenameFLD The main file to export to
 	\param postfix The postfix to append at the end of the labl files
