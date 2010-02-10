@@ -29,6 +29,7 @@
 #include "lifFile.hpp"
 
 using namespace std;
+using namespace Colloids;
 
 /** @brief LifSerieHeader constructor  */
 LifSerieHeader::LifSerieHeader(TiXmlElement *root) : name(root->Attribute("Name")), rootElement(root)
@@ -505,7 +506,7 @@ FilterSettingRecord::FilterSettingRecord(TiXmlElement *element)
   *
   * @todo: document this function
   */
-ostream & operator<<(ostream& out, const LifSerieHeader &s)
+ostream & Colloids::operator<<(ostream& out, const LifSerieHeader &s)
 {
     out<< s.getName() <<":\t";
     const map<string, DimensionData> & dims = s.getDimensionsData();
@@ -531,7 +532,7 @@ ostream & operator<<(ostream& out, const LifSerieHeader &s)
   *
   * @todo: document this function
   */
-ostream & operator<<(ostream& out, const LifHeader &r)
+ostream & Colloids::operator<<(ostream& out, const LifHeader &r)
 {
     out<< r.getName() <<endl;
     for(size_t s=0; s<r.getNbSeries(); ++s)
@@ -543,7 +544,7 @@ ostream & operator<<(ostream& out, const LifHeader &r)
   *
   * @todo: document this function
   */
-ostream & operator<<(ostream& out, const DimensionData &d)
+ostream & Colloids::operator<<(ostream& out, const DimensionData &d)
 {
     out<<d.getName()<<" "<<d.numberOfElements;
     return out;

@@ -29,6 +29,7 @@
 #include "lifTracker.hpp"
 
 using namespace std;
+using namespace Colloids;
 
 /** @brief Constructor from an existant LifFile object  */
 LifTracker::LifTracker(LifSerie &serie, const size_t ch, const unsigned fs)

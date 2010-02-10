@@ -41,7 +41,7 @@
 #include <boost/utility.hpp>
 #include <boost/ptr_container/ptr_vector.hpp>
 
-
+namespace Colloids{
 typedef struct ChannelData;
 typedef struct DimensionData;
 typedef struct ScannerSettingRecord;
@@ -252,5 +252,5 @@ struct FilterSettingRecord
 std::ostream& operator<< (std::ostream& out, const LifSerieHeader &s );
 std::ostream& operator<< (std::ostream& out, const LifHeader &r );
 std::ostream& operator<< (std::ostream& out, const DimensionData &r );
-
+}
 #endif

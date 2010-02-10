@@ -39,7 +39,7 @@ extern "C" {
 #include "../particles.hpp"
 //#include <CImg.h>
 #include <boost/multi_array.hpp>
-
+namespace Colloids{
 /** \brief basic tracker class containing the tracking algorythm*/
 class Tracker
 {
@@ -282,5 +282,5 @@ OutputIterator Tracker::copySpectrum(OutputIterator result) const
 		*result++ = log(1+sqrt(pow(*d++, 2.0) + pow(*d++, 2.0)));
 	return result;
 }
-
+}
 #endif

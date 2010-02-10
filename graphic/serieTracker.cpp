@@ -29,7 +29,7 @@
 
 using namespace std;
 using namespace cimg_library;
-
+using namespace Colloids;
 typedef boost::multi_array_types::index_range range;
 
 /** \brief display the 3D image as it is.
