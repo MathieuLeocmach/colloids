@@ -119,9 +119,9 @@ DynamicClusters& DynamicClusters::assign(DynamicParticles &dynParts, std::set<si
 }
 
 /** @brief label the clusters on the reference DynamicParticles  */
-scalarDynamicField DynamicClusters::getLabels() const
+/*ScalarDynamicField DynamicClusters::getLabels() const
 {
-    scalarDynamicField labels;
+    ScalarDynamicField labels;
     labels.first = "clusters";
     labels.second = new vector< map<size_t,double> > (parts->getNbTimeSteps());
     double label =1;
@@ -140,16 +140,6 @@ scalarDynamicField DynamicClusters::getLabels() const
                         label
                     )
                 );
-                /*for(set<size_t>::const_iterator tr=members[t][(*K)[t]].begin();tr!=members[t][(*K)[t]].end();++tr)
-                    try
-                    {
-                        (*labels.second)[t].insert((*labels.second)[t].end(),make_pair(parts->trajectories[*tr][t],label));
-                    }
-                    catch(const TrajError &e)
-                    {
-                        cerr<<"traj error"<<endl;
-                        throw IdTrajError(e,*tr);
-                    }*/
             }
             catch(const TrajError &e)
             {
@@ -160,7 +150,7 @@ scalarDynamicField DynamicClusters::getLabels() const
         label++;
     }
     return labels;
-}
+}*/
 
 /** @brief bounds a cluster  */
 BoundingBox DynamicClusters::bounds(const std::set<size_t> &cluster,const size_t &time)

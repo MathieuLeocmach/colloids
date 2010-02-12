@@ -56,7 +56,7 @@ namespace Colloids
 
             DynamicClusters& assign(DynamicParticles &dynParts, std::set<size_t> &population);
 
-            scalarDynamicField getLabels() const;
+            ScalarDynamicField getLabels() const;
 
             BoundingBox bounds(const std::set<size_t> &cluster,const size_t &time);
 

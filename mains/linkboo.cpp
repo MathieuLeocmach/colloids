@@ -18,6 +18,7 @@
 **/
 
 #include "../dynamicParticles.hpp"
+#include <boost/progress.hpp>
 
 using namespace std;
 using namespace Colloids;

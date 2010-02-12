@@ -83,16 +83,17 @@ namespace Colloids
     std::ostream& operator<< (std::ostream& os, const Traj& tr );
 
 
-    class TrajMap
+    struct TrajMap
     {
-        typedef boost::bimap<
-                boost::bimaps::tags::tagged<size_t, Coord>,
-                boost::bimaps::tags::tagged<size_t, Traj>
-            > Frame;
-        typedef Frame::value_type Link;
+        public:
+            typedef boost::bimap<
+                    boost::bimaps::tags::tagged<size_t, Coord>,
+                    boost::bimaps::tags::tagged<size_t, Traj>
+                > Frame;
+            typedef Frame::value_type Link;
 
         /** \brief associate time t and position p to trajectory tr(left), or t and tr to p (right)*/
-        std::vector<Frame> bm;
+        private : std::vector<Frame> bm;
 
         public:
             explicit TrajMap(const size_t &firstFrameSize=0);

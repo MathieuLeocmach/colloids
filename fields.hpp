@@ -94,7 +94,7 @@ namespace Colloids
 
     /**	\brief	create a view of the content of an existing container */
     template<class V> template<class ForwardInterator>
-	Field<V>::Field<V>(ForwardInterator first, ForwardInterator last,const std::string &name) : name(name), values(distance(first, last))
+	Field<V>::Field(ForwardInterator first, ForwardInterator last,const std::string &name) : name(name), values(distance(first, last))
 	{
 		while(first!=last)
 			values.push_back(&((*first++)));
@@ -102,7 +102,7 @@ namespace Colloids
 
     /**	\brief	constructor from a table containing some columns and one field per column */
     template<class V> template<class tableInterator>
-	Field<V>::Field<V>(tableInterator first, tableInterator last, const std::string &name, const size_t &column) : name(name), values(distance(first, last))
+	Field<V>::Field(tableInterator first, tableInterator last, const std::string &name, const size_t &column) : name(name), values(distance(first, last))
 	{
 		while(first!=last)
 			values.push_back(&((*first++)[column]));
