@@ -1,5 +1,5 @@
 /**
-    Copyright 2008,2009 Mathieu Leocmach
+    Copyright 2008,2009,2010 Mathieu Leocmach
 
     This file is part of Colloids.
 
@@ -35,6 +35,7 @@ int main(int argc, char ** argv)
     const string filename(argv[1]);
     const string inputPath = filename.substr(0,filename.find_last_of("."));
     const string ext = filename.substr(filename.find_last_of(".")+1);
+    const string path = filename.substr(0, filename.find_last_of("/\\")+1);
 
     //const double shell = 1.3;
 
@@ -42,7 +43,7 @@ int main(int argc, char ** argv)
     {
 		DynamicParticles parts(filename);
 		const size_t stop = parts.getNbTimeSteps()-1;
-		cout << parts.trajectories.size() << " particles in "<<stop+1<<" time steps"<<endl;
+		cout << parts.trajectories.size() << " particles in "<<stop+1<<" time steps ... ";
 
 		//fetch the file name pattern directly in the file.traj
 		string pattern, token;
@@ -55,14 +56,15 @@ int main(int argc, char ** argv)
 			trajfile >> offset >> size;
 			trajfile.close();
 		}
-		FileSerie datSerie(pattern, token, size, offset);
+		FileSerie datSerie(path+pattern, token, size, offset);
 
+		cout<<"remove drift ... ";
 		parts.removeDrift();
-		cout<<"drift removed"<<endl;
 
 		size_t tau;
 		if(argc<3)
 		{
+			cout<<"isf to find relaxation time ... ";
 			//Dynamics calculation and export
 			vector<double> msd;
 			vector< vector<double> > isf;
@@ -87,10 +89,11 @@ int main(int argc, char ** argv)
 				tau = parts.getNbTimeSteps();
 			else
 				tau = parts.getNbTimeSteps() - (upper_bound(isf.back().rbegin(),isf.back().rend(),exp(-1.0))-isf.back().rbegin());
-			cout<<"relaxation time is "<<tau<<" steps, ie "<<tau*parts.dt<<"s"<<endl;
 		}
 		else
 			sscanf(argv[2],"%u",&tau);
+
+		cout<<"relaxation time is "<<tau<<" steps, ie "<<tau*parts.dt<<"s"<<endl;
 		//const size_t halfInterval = tau/2;
 
 		//name pattern of the .cloud files
@@ -108,9 +111,11 @@ int main(int argc, char ** argv)
 			//read raw boo from file
 			parts.positions[t].loadBoo(booSerie%t, qw);
 			//bin into the average
+			cout<<"t="<<t<<" bin raw ... ";
 			for(size_t i=0; i<qw.begin()->size(); ++i)
 				scalars[i].push_back(ScalarField(qw.begin(), qw.end(), "", i));
 			//same for coarse-grained boo
+			cout<<" bin cg ... ";
 			parts.positions[t].loadBoo(SbooSerie%t, qw);
 			//bin into the average
 			for(size_t i=0; i<qw.begin()->size(); ++i)
