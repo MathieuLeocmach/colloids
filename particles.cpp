@@ -131,7 +131,8 @@ Particles& Particles::operator+=(const Coord &v)
     for(iterator p=begin(); p!=end(); ++p)
         *p += v;
 
-    (*index)+=v;
+    if(hasIndex())
+		(*index)+=v;
     return *this;
 }
 
