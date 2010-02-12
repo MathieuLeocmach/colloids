@@ -58,8 +58,9 @@ FileSerie::FileSerie(const std::string &namePattern, const std::string &token, s
 FileSerie FileSerie::changeExt(const std::string &ext) const
 {
 	boost::format fmt = this->pattern;
+	fmt.clear();
 	string pat = (fmt % 0).str();
-	pat = pat.substr(0, pat.find_last_of(".")) + ext;
+	pat = pat.substr(0, pat.rfind(".")) + ext;
 	return FileSerie(pat, this->token, this->size(), this->offset);
 }
 
@@ -67,8 +68,9 @@ FileSerie FileSerie::changeExt(const std::string &ext) const
 FileSerie FileSerie::addPostfix(const std::string &postfix) const
 {
 	boost::format fmt = this->pattern;
+	fmt.clear();
 	string pat = (fmt % 0).str();
-	pat.insert(pat.find_last_of(this->token), postfix);
+	pat.insert(pat.rfind(this->token), postfix);
 	return FileSerie(pat, this->token, this->size(), this->offset);
 }
 
@@ -76,9 +78,10 @@ FileSerie FileSerie::addPostfix(const std::string &postfix) const
 FileSerie FileSerie::addPostfix(const std::string &postfix, const std::string &ext) const
 {
 	boost::format fmt = this->pattern;
+	fmt.clear();
 	string pat = (fmt % 0).str();
-	pat.insert(pat.find_last_of(this->token), postfix);
-	pat = pat.substr(0, pat.find_last_of(".")) + ext;
+	pat.insert(pat.rfind(this->token), postfix);
+	pat = pat.substr(0, pat.rfind(".")) + ext;
 	return FileSerie(pat, this->token, this->size(), this->offset);
 }
 
@@ -86,8 +89,9 @@ FileSerie FileSerie::addPostfix(const std::string &postfix, const std::string &e
 string FileSerie::head() const
 {
 	boost::format fmt = this->pattern;
+	fmt.clear();
 	string pat = (fmt % 0).str();
-	pat.erase(pat.find_last_of(this->token));
+	pat.erase(pat.rfind(this->token));
 	return pat;
 }
 
