@@ -451,8 +451,28 @@ set<size_t> DynamicParticles::getEnclosed(const BoundingBox &b) const
 /** \brief index of trajectories spanning from t0 to t1 */
 set<size_t> DynamicParticles::getSpanning(const Interval &in) const
 {
-    if(!this->hasIndex()) throw logic_error("Set a spatio-temporal index before doing spatio-temporal queries !");
-    return (*(this->index))(in);
+    if(this->hasIndex())
+		return (*(this->index))(in);
+	else
+	{
+		set<size_t> a, b, c;
+    	copy(
+			trajectories.inverse[in.first].begin(),
+			trajectories.inverse[in.first].end(),
+			inserter(a, a.end())
+			);
+		copy(
+			trajectories.inverse[in.second].begin(),
+			trajectories.inverse[in.second].end(),
+			inserter(b, b.end())
+			);
+		set_intersection(
+			a.begin(), a.end(),
+			b.begin(), b.end(),
+			inserter(c, c.end())
+			);
+		return c;
+	}
 }
 
 /**
@@ -482,6 +502,16 @@ Coord DynamicParticles::getDrift(const set<size_t>&selection,const size_t &t0,co
     drift/=(double)selection.size();
     return drift;
 }
+/** @brief getDrift. With or without indexing  */
+Coord DynamicParticles::getDrift(const size_t &t0,const size_t &t1) const
+{
+	if(hasIndex())
+		return getDrift(getSpanningInside(Interval(t0,t0+1), 2.0*radius),t0,t0+1);
+	else
+		return getDrift(getSpanning(Interval(t0,t0+1)), t0, t0+1);
+
+}
+
 
 /** \brief remove the overall drift between each time step */
 void DynamicParticles::removeDrift()
@@ -490,7 +520,7 @@ void DynamicParticles::removeDrift()
     Coord maxNegativeDrift(0.0,3);
     for(size_t t0=0;t0+1<getNbTimeSteps();++t0)
     {
-        drifts[t0+1] = drifts[t0] - getDrift(getSpanningInside(Interval(t0,t0+1), 2.0*radius),t0,t0+1);
+        drifts[t0+1] = drifts[t0] - getDrift(t0, t0+1);
         for(size_t i=0;i<3;++i)
             if(drifts[t0+1][i] < maxNegativeDrift[i])
                 maxNegativeDrift[i] = drifts[t0+1][i];
@@ -504,7 +534,7 @@ void DynamicParticles::removeDrift()
     }
 
 	//STindex is now completely wrong and has to be made anew
-	this->index = 0;
+	this->index.reset();
 }
 
 /**    \brief Sum of the square displacement of particles referenced in selection between t0 and t1 */

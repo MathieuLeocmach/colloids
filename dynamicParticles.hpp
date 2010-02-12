@@ -57,7 +57,7 @@ namespace Colloids
             double radius;
 
             /** \brief Spatio-temporal index */
-            SpatioTemporalIndex *index;
+            std::auto_ptr<SpatioTemporalIndex> index;
 
             /** constructors */
             explicit DynamicParticles(const TrajMap &trajs, boost::ptr_vector<Particles>& positions, const double &rad=1.0,const double &time_step=1.0);
@@ -105,8 +105,8 @@ namespace Colloids
             //pv getPV(const size_t &t0,const size_t &nsteps,const size_t &stepSize=1);
 
             /** spatio-temporal indexation related **/
-            bool hasIndex() const {return !!index;};
-            void setIndex(SpatioTemporalIndex *I) {index = I;}
+            bool hasIndex() const {return index.get();};
+            void setIndex(SpatioTemporalIndex *I) {index.reset(I);}
             template <class ParentSTIndex>
             void sliceIndex(bool force = false);
 
@@ -118,6 +118,7 @@ namespace Colloids
             /** geometry and dynamics related **/
             virtual Coord getDiff(const size_t &tr_from,const size_t &t_from,const size_t &tr_to,const size_t &t_to) const;
             Coord getDrift(const std::set<size_t>&selection,const size_t &t0,const size_t &t1) const;
+            Coord getDrift(const size_t &t0,const size_t &t1) const;
             void removeDrift();
             double getSD(const std::set<size_t>&selection,const size_t &t0,const size_t &t1) const;
             std::vector<double> getSD(const size_t &t, const size_t &halfInterval=1) const;
