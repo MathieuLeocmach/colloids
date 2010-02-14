@@ -125,7 +125,7 @@ namespace Colloids
     class RStarIndex_S : public SpatialIndex
     {
         public:
-            typedef RStarTree<size_t, 3, 2, 16,double> 	RTree;
+            typedef RStarTree<size_t, 3, 4, 32, double> 	RTree;
             RTree tree;
 
         /** \brief Visitor gathering particles indices */
