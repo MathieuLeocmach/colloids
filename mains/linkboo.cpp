@@ -28,8 +28,8 @@ struct cloud_exporter : public unary_function<const BooData&, string>
 	string operator()(const BooData &boo)
 	{
 		boost::array<double, 4> qw;
-		boo.getInvarients(4, qw[0], qw[1]);
-		boo.getInvarients(6, qw[2], qw[3]);
+		boo.getInvarients(4, qw[0], qw[2]);
+		boo.getInvarients(6, qw[1], qw[3]);
 		ostringstream os;
 		copy(qw.begin(), qw.end(), ostream_iterator<double>(os, "\t"));
 		return os.str();
@@ -92,7 +92,7 @@ int main(int argc, char ** argv)
 		ofstream rdfFile((datSerie.head()+".rdf").c_str(), ios::out | ios::trunc);
 		rdfFile << "#r\tg(r)"<<endl;
 		for(size_t r=0; r<total_g.size(); ++r)
-			rdfFile<< r/delta_t <<"\t"<< total_g[r]<<endl;
+			rdfFile<< r/200.0*15.0 <<"\t"<< total_g[r]<<endl;
 
 		//get bondlength and radius from the first minimum of g(r)
 		//the loop is here only to get rid of possible multiple centers at small r
