@@ -136,20 +136,7 @@ Particles& Particles::operator+=(const Coord &v)
     return *this;
 }
 
-/** \brief get the difference vector between a position and one of the particles */
-Coord Particles::getDiff(const Coord &from,const size_t &to) const
-{
-    Coord diff(3);
-    diff = at(to)-from;
-    return diff;
-}
-/** \brief get the difference vector between two particles */
-Coord Particles::getDiff(const size_t &from,const size_t &to) const
-{
-    Coord diff(3);
-    diff = at(to)-at(from);
-    return diff;
-}
+
 /**
     \brief get the angle between two vectors joining origin on one hand and respectively a and b on the other hand
     \return An angle in radian between 0 and Pi
@@ -188,13 +175,6 @@ void Particles::makeRTreeIndex()
         boxes.push_back(bounds(*p));
 
     setIndex(new RStarIndex_S(boxes));
-}
-
-/** @brief get the indices of the particles enclosed by a query box  */
-set<size_t> Particles::getEnclosed(const BoundingBox &b) const
-{
-    if(!this->hasIndex()) throw logic_error("Set a spatial index before doing spatial queries !");
-    return (*index)(b);
 }
 
 /** @brief getOverallBox  */
@@ -369,21 +349,21 @@ BooData Particles::getCgBOO(const std::vector<BooData> &BOO, const size_t &cente
 /**
     \brief get the bond orientational order for all particles
 */
-void Particles::getBOOs(std::vector<BooData> &BOO) const
+void Particles::getBOOs(const set<size_t> &selection, std::vector<BooData> &BOO) const
 {
     BOO.resize(size());
-    for(size_t p=0;p<size();++p)
-        BOO[p] = getBOO(p);
+    for(set<size_t>::const_iterator p=selection.begin();p!=selection.end();++p)
+        BOO[*p] = getBOO(*p);
 }
 
 /**
     \brief get the coarse grained bond orientational order for all particles
 */
-void Particles::getCgBOOs(const std::vector<BooData> &BOO, std::vector<BooData> &cgBOO) const
+void Particles::getCgBOOs(const set<size_t> &selection, const std::vector<BooData> &BOO, std::vector<BooData> &cgBOO) const
 {
     cgBOO.resize(size());
-    for(size_t p=0;p<size();++p)
-        cgBOO[p] = getCgBOO(BOO, p);
+    for(set<size_t>::const_iterator p=selection.begin();p!=selection.end();++p)
+        cgBOO[*p] = getCgBOO(BOO, *p);
 }
 
 /** @brief export qlm in binary  */
@@ -684,7 +664,7 @@ void Particles::loadBoo(const string &filename, boost::multi_array<double,2>&qw)
 	//trashing the header
 	cloud >> trash >> trash >> trash >> trash >> trash;
 
-	boost::array<size_t, 2> shape = {size(), 4};
+	boost::array<size_t, 2> shape = {{size(), 4}};
 	qw.resize(shape);
 	copy(
 		istream_iterator<double>(cloud), istream_iterator<double>(),

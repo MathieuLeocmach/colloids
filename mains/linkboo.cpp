@@ -120,10 +120,14 @@ int main(int argc, char ** argv)
 				bondFile<<b->first<<" "<<b->second<<endl;
 			bondFile.close();
 
+			//select the particles further than the bond length from the boundaries
+			set<size_t> inside = positions[t].getInside(bondLength),
+                secondInside = positions[t].getInside(2.0*bondLength);
+
 			//calculate and export qlm
 			vector<BooData> qlm, qlm_cg;
-			positions[t].getBOOs(qlm);
-			positions[t].getCgBOOs(qlm, qlm_cg);
+			positions[t].getBOOs(inside, qlm);
+			positions[t].getCgBOOs(secondInside, qlm, qlm_cg);
 			ofstream qlmFile((qlmSerie%t).c_str(), ios::out | ios::trunc);
 			copy(
 				qlm_cg.begin(), qlm_cg.end(),

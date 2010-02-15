@@ -100,10 +100,10 @@ namespace Colloids
             bool hasIndex() const {return !!index.get();};
             void setIndex(SpatialIndex *I){index.reset(I);};
             void makeRTreeIndex();
-            virtual std::set<size_t> getEnclosed(const BoundingBox &b) const;
             BoundingBox getOverallBox() const;
 
             /** Spatial query and neighbours. Depends on both geometry and spatial index */
+            virtual std::set<size_t> getEnclosed(const BoundingBox &b) const;
             std::set<size_t> getEuclidianNeighbours(const Coord &center, const double &range) const;
             std::set<size_t> getEuclidianNeighbours(const size_t &center, const double &range) const;
             size_t getNearestNeighbour(const Coord &center, const double &range=1.0) const;
@@ -112,14 +112,15 @@ namespace Colloids
             NgbList & makeNgbList(const BondList &bonds);
             const NgbList & getNgbList() const {return *this->neighboursList;};
             BondList getBonds() const {return ngb2bonds(getNgbList());};
+            virtual std::set<size_t> getInside(const double &margin) const;
 
 
             /**Bond Orientational Order related */
             BooData sphHarm_OneBond(const size_t &center, const size_t &neighbour) const;
             BooData getBOO(const size_t &center) const;
             BooData getCgBOO(const std::vector<BooData> &BOO, const size_t &center) const;
-            void getBOOs(std::vector<BooData> &BOO) const;
-            void getCgBOOs(const std::vector<BooData> &BOO, std::vector<BooData> &cgBOO) const;
+            void getBOOs(const std::set<size_t> &selection, std::vector<BooData> &BOO) const;
+            void getCgBOOs(const std::set<size_t> &selection, const std::vector<BooData> &BOO, std::vector<BooData> &cgBOO) const;
             void exportQlm(const std::vector<BooData> &BOO, const std::string &outputPath) const;
             void exportQ6m(const std::vector<BooData> &BOO, const std::string &outputPath) const;
             void load_q6m(const std::string &filename, std::vector<BooData> &BOO) const;
@@ -206,6 +207,38 @@ namespace Colloids
     void growCluster(std::set<size_t> &population, std::set<size_t> &cluster, size_t center, const NgbList &ngbs);
     void segregate(std::set<size_t> &population, std::vector< std::set<size_t> > &clusters, const NgbList &ngbs);
     void segregateAll(std::vector< std::set<size_t> > &clusters, const Particles &parts);
+
+    /**Inline functions, for performance*/
+
+    /** \brief get the difference vector between a position and one of the particles */
+    inline Coord Particles::getDiff(const Coord &from,const size_t &to) const
+    {
+        Coord diff(3);
+        diff = at(to)-from;
+        return diff;
+    }
+
+    /** \brief get the difference vector between two particles */
+    inline Coord Particles::getDiff(const size_t &from,const size_t &to) const
+    {
+        Coord diff(3);
+        diff = at(to)-at(from);
+        return diff;
+    }
+
+    /** @brief get the indices of the particles enclosed by a query box  */
+    inline std::set<size_t> Particles::getEnclosed(const BoundingBox &b) const
+    {
+        if(!this->hasIndex()) throw std::logic_error("Set a spatial index before doing spatial queries !");
+        return (*index)(b);
+    }
+
+    /** @brief get the indices of the particles inside a reduction of the maximum bounding box  */
+    inline std::set<size_t> Particles::getInside(const double &margin) const
+    {
+        if(!this->hasIndex()) throw std::logic_error("Set a spatial index before doing spatial queries !");
+        return this->index->getInside(margin);
+    }
 
 };
 #endif
