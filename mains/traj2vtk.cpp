@@ -43,7 +43,18 @@ int main(int argc, char ** argv)
     {
 		DynamicParticles parts(filename);
 		const size_t stop = parts.getNbTimeSteps()-1;
-		cout << parts.trajectories.size() << " particles in "<<stop+1<<" time steps ... ";
+		cout << parts.trajectories.size() << " particles in "<<stop+1<<" time steps"<<endl;
+		transform(
+			parts.positions.begin(), parts.positions.end(),
+			ostream_iterator<size_t>(cout, "\t"),
+			mem_fun_ref(&Particles::size)
+			);
+		cout<<endl;
+		transform(
+			parts.trajectories.inverse.begin(), parts.trajectories.inverse.end(),
+			ostream_iterator<size_t>(cout, "\t"),
+			mem_fun_ref(&vector<size_t>::size)
+			);
 
 		//fetch the file name pattern directly in the file.traj
 		string pattern, token;
@@ -131,7 +142,7 @@ int main(int argc, char ** argv)
 		boost::ptr_vector< vector<double> > lngb(parts.getNbTimeSteps());
 		for(size_t t=0; t<parts.getNbTimeSteps(); ++t)
 		{
-			lngb.push_back(new vector<double>(parts.trajectories.size()));
+			lngb.push_back(new vector<double>(parts.positions[t].size()));
 			lngb.back() = parts.getNbLostNgbs(t, tau/2);
 		}
 		scalars.back().assign(lngb);

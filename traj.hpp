@@ -102,18 +102,19 @@ namespace Colloids
             size_t size() const {return bm.size();}
             size_t getNbTraj()const {return bm.empty()?0: 1+bm.back().by<Traj>().rbegin()->first;}
             const Frame& operator[](const size_t &t) const {return bm[t];}
+            std::vector<size_t> getFrameSizes() const;
     };
 
     class TrajIndex : public std::deque<Traj>
     {
         public:
-            std::vector< std::vector<size_t> >inverse;
+            boost::ptr_vector< std::vector<size_t> >inverse;
 
             TrajIndex():std::deque<Traj>(){return;};
             TrajIndex(const TrajMap &tm);
 
             size_t & getTraj(const size_t &t,const size_t &p);
-            void makeInverse();
+            void makeInverse(const std::vector<size_t> &frameSizes);
             size_t getMaxTime() const;
 
             template<typename T>

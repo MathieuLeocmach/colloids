@@ -87,7 +87,12 @@ DynamicParticles::DynamicParticles(const string &filename)
 
     //construct the TrajIndex from file stream
     input >> trajectories;
-    trajectories.makeInverse();
+    vector<size_t> frameSizes(positions.size());
+    transform(
+		positions.begin(), positions.end(),
+		frameSizes.begin(), mem_fun_ref(&Particles::size)
+		);
+    trajectories.makeInverse(frameSizes);
 }
 
 /**
@@ -404,8 +409,7 @@ void DynamicParticles::save(const string &filename,const string &base_name,const
 void DynamicParticles::exportToVTK(
 	FileSerie &files,
 	std::vector< ScalarDynamicField > &scalars,
-	std::vector< VectorDynamicField > &vectors,
-	const size_t &average
+	std::vector< VectorDynamicField > &vectors
 ) const
 {
 	//determination of the name patterns
@@ -414,7 +418,7 @@ void DynamicParticles::exportToVTK(
 	TokenTree vtkSerie(trajectories.tt.tokens,vtkFilesPattern);*/
 
 	//data export
-	for(size_t t=0;t<getNbTimeSteps()-average;t++)
+	for(size_t t=0;t<getNbTimeSteps();t++)
 	{
 		vector<ScalarField> sc;
 		for(size_t s=0; s<scalars.size();++s)
@@ -509,7 +513,6 @@ Coord DynamicParticles::getDrift(const size_t &t0,const size_t &t1) const
 		return getDrift(getSpanningInside(Interval(t0,t0+1), 2.0*radius),t0,t0+1);
 	else
 		return getDrift(getSpanning(Interval(t0,t0+1)), t0, t0+1);
-
 }
 
 
@@ -863,21 +866,15 @@ set<size_t> DynamicParticles::getLostNgbs(const size_t &tr,const size_t &t_from,
 {
 	//convert the position index of the neighbours in time t_from to trajectory index
 	set<size_t> ngb_from, ngb_to, ngb_diff;
-	const size_t p_from = trajectories[tr][t_from];
-	transform(
-		positions[t_from].getNgbList()[p_from].begin(),
-		positions[t_from].getNgbList()[p_from].end(),
-		inserter(ngb_from, ngb_from.end()),
-		TrajIndex::Inverser(t_from, trajectories)
-		);
+	const set<size_t>& n_from = positions[t_from].getNgbList()[trajectories[tr][t_from]];
+	for(set<size_t>::const_iterator p=n_from.begin(); p!=n_from.end(); ++p)
+		ngb_from.insert(ngb_from.end(), trajectories.inverse[t_from][*p]);
+
 	//same for t_to
-	const size_t p_to = trajectories[tr][t_to];
-	transform(
-		positions[t_to].getNgbList()[p_to].begin(),
-		positions[t_to].getNgbList()[p_to].end(),
-		inserter(ngb_to,ngb_to.end()),
-		TrajIndex::Inverser(t_to,trajectories)
-		);
+	const set<size_t>& n_to = positions[t_to].getNgbList()[trajectories[tr][t_to]];
+	for(set<size_t>::const_iterator p=n_to.begin(); p!=n_to.end(); ++p)
+		ngb_to.insert(ngb_to.end(), trajectories.inverse[t_to][*p]);
+
 	//make the difference
 	set_difference(
 		ngb_from.begin(),ngb_from.end(),

@@ -90,8 +90,7 @@ namespace Colloids
             void exportToVTK(
 				FileSerie &files,
                 std::vector< ScalarDynamicField > &scalars,
-                std::vector< VectorDynamicField > &vectors,
-                const size_t &stepSize=1
+                std::vector< VectorDynamicField > &vectors
             ) const;
 
             //void exportToDb(const std::string &dbname,const size_t &measurement_id) const;

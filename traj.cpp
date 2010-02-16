@@ -70,6 +70,17 @@ void Colloids::TrajMap::push_back(const vector< multimap<double, size_t> > &foll
             bm.back().insert(Link(p, nbTraj++));
 }
 
+/** @brief get the size of each Frame  */
+vector<size_t> TrajMap::getFrameSizes() const
+{
+	vector<size_t> frameSizes(bm.size());
+    std::transform(
+		bm.begin(), bm.end(),
+		frameSizes.begin(), mem_fun_ref(&Frame::size)
+		);
+	return frameSizes;
+}
+
 
 
 
@@ -122,7 +133,7 @@ TrajIndex::TrajIndex(const TrajMap &tm)
                 assert(tr_p->first == this->size()); //the new traj is always the next traj to be constructed
                 this->push_back(Traj(t, tr_p->second));
             }
-    makeInverse();
+    makeInverse(tm.getFrameSizes());
 }
 
 
@@ -137,11 +148,13 @@ size_t TrajIndex::getMaxTime() const
     return max;
 }
 
-/** @brief make/reset the inverse index
-  */
-void TrajIndex::makeInverse()
+/** @brief make/reset the inverse index  */
+void TrajIndex::makeInverse(const std::vector<size_t> &frameSizes)
 {
-    inverse.assign(getMaxTime()+1,vector<size_t>(size()));
+    inverse.resize(0);
+    inverse.reserve(frameSizes.size());
+    for(size_t t=0; t<frameSizes.size(); ++t)
+		inverse.push_back(new vector<size_t>(frameSizes[t]));
     for(size_t tr=0;tr<size();++tr)
         for(size_t t = (*this)[tr].start_time;t<=(*this)[tr].last_time();++t)
             inverse[t][(*this)[tr][t]]=tr;
