@@ -662,7 +662,7 @@ void Particles::loadBoo(const string &filename, boost::multi_array<double,2>&qw)
 
 	string trash;
 	//trashing the header
-	cloud >> trash >> trash >> trash >> trash >> trash;
+	getline(cloud, trash);
 
 	boost::array<size_t, 2> shape = {{size(), 4}};
 	qw.resize(shape);
