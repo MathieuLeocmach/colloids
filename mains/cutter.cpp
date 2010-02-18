@@ -29,7 +29,7 @@ int main(int argc, char ** argv)
     if(argc<4)
     {
         cout << "Syntax : cutter [path]filename radius minSep" << endl;
-        cout << "OR : cutter [path]filename token radius t_offset t_span minSep" << endl;
+        cout << "OR : cutter [path]filename token radius t_span t_offset minSep" << endl;
         cout << " minSep is in diameter unit" << endl;
         return EXIT_FAILURE;
     }
@@ -46,20 +46,17 @@ int main(int argc, char ** argv)
             cout<<"file serie"<<endl;
             const string token(argv[2]);
             sscanf(argv[3],"%lf",&radius);
-            size_t t_offset,t_span;
+            size_t t_span, t_offset;
+			sscanf(argv[5],"%u",&t_span);
             sscanf(argv[4],"%u",&t_offset);
-            sscanf(argv[5],"%u",&t_span);
             sscanf(argv[6],"%lf",&minSep);
             const double sep = 2.0*radius*minSep;
 
-            vector<string> tokens(1,token);
-            TokenTree tt(tokens,filename);
-            vector<size_t> v(1,t_offset);
+            FileSerie datSerie(filename, token, t_span, t_offset);
             boost::progress_display show_progress(t_span);
-            while(v[0]<t_offset+t_span)
+            for(size_t t=0; t<t_span; ++t)
             {
-                Particles(tt(v)).cut(sep).exportToFile(tt(v));
-                v[0]++;
+                Particles(datSerie%t).cut(sep).exportToFile(datSerie%t);
                 ++show_progress;
             }
         }
@@ -68,7 +65,7 @@ int main(int argc, char ** argv)
             if(argc<4)
             {
                 cout << "Syntax : cutter [path]filename radius minSep" << endl;
-                cout << "OR : cutter [path]filename token radius time_step t_offset t_span minSep" << endl;
+                cout << "OR : cutter [path]filename token radius t_span t_offset minSep" << endl;
                 cout << " minSep is in diameter unit" << endl;
                 return EXIT_FAILURE;
             }

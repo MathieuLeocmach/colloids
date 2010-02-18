@@ -21,6 +21,7 @@
 #include "../periodic.hpp"
 
 using namespace std;
+using namespace Colloids;
 
 int main(int argc, char ** argv)
 {
@@ -57,36 +58,32 @@ int main(int argc, char ** argv)
 			b.edges[d].first=0.0;
 			sscanf(argv[6+d],"%lf",&b.edges[d].second);
 		}
-		PeriodicParticles Centers(Nb,b,radius,filename);
+		PeriodicParticles Centers(Nb,b,filename,radius);
 		cout << "With periodic boundary conditions"<<endl;
 #else
-		IndexedParticles Centers(filename,radius);
+		Particles Centers(filename,radius);
 #endif
 		cout << Centers.size() << " particles ... ";
+		Centers.makeRTreeIndex();
 
 		//read q6m
-		map<size_t,BooData> allBoo;
-		Centers.load_q6m(inputPath+".q6m",allBoo);
+		vector<BooData> allBoo;
+		Centers.load_qlm(inputPath+".qlm", allBoo);
 
 		//create binner
-		IndexedParticles::G6Binner binner(Centers,Nbins,nbDiameterCutOff,allBoo);
+		Particles::G6Binner binner(Centers,Nbins,nbDiameterCutOff,allBoo);
 
 		//select particles and bin them
 		set<size_t> inside = Centers.selectInside(2.0*radius*(nbDiameterCutOff+2));
 		binner << inside;
 
-		//get g6(r)
-		deque< vector<double> > a;
-		/*a.push_back(binner.g);
-		a.push_back(binner.g6);*/
-
-
 		binner.normalize(inside.size());
 		cout << " done !" << endl;
-		a.push_back(binner.g6);
-		a.push_back(binner.g);
-		saveTable(a.begin(),a.end(),inputPath + ".g6","r\tg6(r)\tg(r)",nbDiameterCutOff/Nbins);
-		//saveRDF(binner.g6,inputPath + ".g6",((double)Nbins)/nbDiameterCutOff);
+		ofstream rdfFile((inputPath+".g6").c_str(), ios::out | ios::trunc);
+		rdfFile << "#r\tg6(r)\tg(r)"<<endl;
+		for(size_t r=0; r<Nbins; ++r)
+			rdfFile<< r/(double)Nbins*nbDiameterCutOff <<"\t"<< binner.g6[r] <<"\t"<< binner.g[r] <<"\n";
+
     }
     catch(const std::exception &e)
     {

@@ -50,7 +50,7 @@ int main(int argc, char ** argv)
 				first_peak = max_element(g.begin(),g.end());
 				first_min = distance(g.begin(), min_element(first_peak,g.end()));
 			}
-			while(g[first_min]==0.0)
+			while(g[first_min]==0.0);
 		}
 		parts.makeNgbList(maxBondLength);
 		bonds = parts.getBonds();
