@@ -1,12 +1,13 @@
 #include "../dynamicParticles.hpp"
 
 using namespace std;
+using namespace Colloids;
 
 int main(int argc, char ** argv)
 {
     if(argc<2)
     {
-        cout << "Syntax : MSD [path]filename start1 stop1 av1 [start2 stop2 av2 [...]]" << endl;
+        cout << "Syntax : MSD [path]filename.traj start1 stop1 av1 [start2 stop2 av2 [...]]" << endl;
         return EXIT_FAILURE;
     }
 
