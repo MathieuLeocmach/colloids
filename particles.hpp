@@ -125,6 +125,7 @@ namespace Colloids
             void exportQlm(const std::vector<BooData> &BOO, const std::string &outputPath) const;
             void exportQ6m(const std::vector<BooData> &BOO, const std::string &outputPath) const;
             void load_q6m(const std::string &filename, std::vector<BooData> &BOO) const;
+            void load_qlm(const std::string &filename, std::vector<BooData> &BOO) const;
 
             /**Bond angle distribution related  */
             boost::array<double,180> getAngularDistribution(const size_t &numPt) const;

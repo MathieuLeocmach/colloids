@@ -438,6 +438,23 @@ void Particles::load_q6m(const string &filename, vector<BooData> &BOO) const
 	f.close();
 }
 
+/** @brief BooData from ASCII file  */
+void Particles::load_qlm(const std::string &filename, std::vector<BooData> &BOO) const
+{
+	BOO.resize(size());
+	ifstream f(filename.c_str(), ios::in);
+	if(!f.good())
+		throw invalid_argument("no such file as "+filename);
+
+	copy(
+		istream_iterator<BooData>(f),
+		istream_iterator<BooData>(),
+		BOO.begin()
+		);
+}
+
+
+
 /** \brief Get the bond angle distribution around one particle given the list of the particles it is bounded with    */
 boost::array<double,180> Particles::getAngularDistribution(const size_t &numPt) const
 {
@@ -554,7 +571,10 @@ void Particles::G6Binner::normalize(const size_t &n)
     g6[0]=0.0;
     const double norm = 13.0/(4.0*M_PI);
     for(size_t r=1;r<g.size();++r)
-        g6[r] /= norm * g[r];
+		if(1.0+g[r]*g[r] == 1.0)
+			g6[r]=0;
+		else
+			g6[r] /= norm * g[r];
 	RdfBinner::normalize(n);
 }
 
