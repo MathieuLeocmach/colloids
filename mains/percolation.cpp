@@ -20,6 +20,7 @@
 #include "../dynamicClusters.hpp"
 
 using namespace std;
+using namespace Colloids;
 
 int main(int argc, char ** argv)
 {
