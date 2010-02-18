@@ -24,7 +24,6 @@
 
 #include "dynamicParticles.hpp"
 #include "files_series.hpp"
-#include "saveTable.hpp"
 
 using namespace std;
 using namespace Colloids;
@@ -435,7 +434,7 @@ void DynamicParticles::exportToVTK(
 /**
     \brief get the index of the trajectories spanning from t0 to t1 and enclosed inside a given bounding box
 */
-set<size_t> DynamicParticles::getSpanning_Enclosed(const TimeBox &b) const
+set<size_t> DynamicParticles::selectSpanning_Enclosed(const TimeBox &b) const
 {
     if(!this->hasIndex()) throw logic_error("Set a spatio-temporal index before doing spatio-temporal queries !");
     return (*(this->index))(b);
@@ -446,14 +445,14 @@ set<size_t> DynamicParticles::getSpanning_Enclosed(const TimeBox &b) const
     \param b search range
     \return list of the index
 */
-set<size_t> DynamicParticles::getEnclosed(const BoundingBox &b) const
+set<size_t> DynamicParticles::selectEnclosed(const BoundingBox &b) const
 {
     if(!this->hasIndex()) throw logic_error("Set a spatio-temporal index before doing spatio-temporal queries !");
     return (*(this->index))(b);
 }
 
 /** \brief index of trajectories spanning from t0 to t1 */
-set<size_t> DynamicParticles::getSpanning(const Interval &in) const
+set<size_t> DynamicParticles::selectSpanning(const Interval &in) const
 {
     if(this->hasIndex())
 		return (*(this->index))(in);
@@ -482,7 +481,7 @@ set<size_t> DynamicParticles::getSpanning(const Interval &in) const
 /**
     \brief get the index of the trajectories enclosed inside a reduction of the minimum bounding box
 */
-set<size_t> DynamicParticles::getSpanningInside(const Interval &in,const double &margin) const
+set<size_t> DynamicParticles::selectSpanningInside(const Interval &in,const double &margin) const
 {
     if(!this->hasIndex()) throw logic_error("Set a spatio-temporal index before doing spatio-temporal queries !");
     return this->index->getSpanningInside(in, margin);
@@ -510,9 +509,9 @@ Coord DynamicParticles::getDrift(const set<size_t>&selection,const size_t &t0,co
 Coord DynamicParticles::getDrift(const size_t &t0,const size_t &t1) const
 {
 	if(hasIndex())
-		return getDrift(getSpanningInside(Interval(t0,t0+1), 2.0*radius),t0,t0+1);
+		return getDrift(selectSpanningInside(Interval(t0,t0+1), 2.0*radius),t0,t0+1);
 	else
-		return getDrift(getSpanning(Interval(t0,t0+1)), t0, t0+1);
+		return getDrift(selectSpanning(Interval(t0,t0+1)), t0, t0+1);
 }
 
 
@@ -612,7 +611,7 @@ vector<double> DynamicParticles::getMSD(const set<size_t> &selection,const size_
 /** \brief Mean square displacement function of time between t0 and t1 */
 vector<double> DynamicParticles::getMSD(const size_t &t0,const size_t &t1,const size_t &t3) const
 {
-    return getMSD(getSpanning(Interval(t0,t1+t3)),t0,t1,t3);
+    return getMSD(selectSpanning(Interval(t0,t1+t3)),t0,t1,t3);
 }
 
 /** \brief Intermediate scatering function of time between t0 and t1 for a selection of trajectories */
@@ -658,7 +657,7 @@ vector<double> DynamicParticles::getISF(const set<size_t> &selection,const Coord
 /** \brief Intermediate scatering function of time between t0 and t1 */
 vector<double> DynamicParticles::getISF(const Coord &q,const size_t &t0,const size_t &t1) const
 {
-    return getISF(getSpanning(Interval(t0,t1)),q,t0,t1);
+    return getISF(selectSpanning(Interval(t0,t1)),q,t0,t1);
 }
 
 /**
@@ -736,13 +735,13 @@ vector<double> DynamicParticles::getSelfISF(const set<size_t> &selection,const C
 /** \brief Self part of intermediate scatering function of time between t0 and t1 */
 vector<double> DynamicParticles::getSelfISF(const Coord &q,const size_t &t0,const size_t &t1,const size_t &t3) const
 {
-    return getSelfISF(getSpanning(Interval(t0,t1+t3)),q,t0,t1,t3);
+    return getSelfISF(selectSpanning(Interval(t0,t1+t3)),q,t0,t1,t3);
 }
 
 /** \brief Get Self ISF averaged over the three axis */
 vector<double> DynamicParticles::getSelfISF(const size_t &t0,const size_t &t1,const size_t &t3) const
 {
-	set<size_t> sp = getSpanning(Interval(t0,t1+t3));
+	set<size_t> sp = selectSpanning(Interval(t0,t1+t3));
 	vector< vector<double> >ISF(4,vector<double>(t1-t0+1));
 	vector< Coord > q(3, Coord(0.0,3));
     for(size_t d=0;d<3;++d)
@@ -790,7 +789,7 @@ void DynamicParticles::makeDynamics(const std::vector< std::set<size_t> >&sets,s
 /** @brief make MSD and Self ISF (along x,y,z + average) for the set of all spanning trajectories */
 void DynamicParticles::makeDynamics(vector<double> &MSD,vector< vector<double> > &ISF) const
 {
-	vector< set<size_t> > sets(1, getSpanning(Interval(0, getNbTimeSteps()-1)));
+	vector< set<size_t> > sets(1, selectSpanning(Interval(0, getNbTimeSteps()-1)));
 	vector< vector<double> > MSDs;
 	makeDynamics(sets,MSDs,ISF);
 	MSD.swap(MSDs.front());
@@ -799,7 +798,7 @@ void DynamicParticles::makeDynamics(vector<double> &MSD,vector< vector<double> >
 /** @brief make MSD and Self ISF (average only) for the set of all spanning trajectories */
 void DynamicParticles::makeDynamics(vector<double> &MSD,vector<double> &ISF) const
 {
-	vector< set<size_t> > sets(1, getSpanning(Interval(0, getNbTimeSteps()-1)));
+	vector< set<size_t> > sets(1, selectSpanning(Interval(0, getNbTimeSteps()-1)));
 	vector< vector<double> > MSDs, ISFs;
 	makeDynamics(sets,MSDs,ISFs);
 	MSD.swap(MSDs.front());
@@ -815,25 +814,39 @@ void DynamicParticles::exportDynamics(const std::vector< std::set<size_t> >&sets
     vector< vector<double> > ISF;
     makeDynamics(sets,MSD,ISF);
 
-    ostringstream headMSD,headISF;
     string xyz[3] = {"x","y","z"};
+    ofstream msd_f((inputPath + ".msd").c_str());
+    ofstream isf_f((inputPath + ".isf").c_str());
+    msd_f << "#t";
+    isf_f << "#t";
 
     for(size_t s=0;s<sets.size();++s)
     {
-        headMSD <<"\t"<<setsNames[s];
+        msd_f <<"\t"<<setsNames[s];
         for(size_t d=0;d<3;++d)
-			headISF<<"\t"<<setsNames[s]<<"_"<<xyz[d];
-		headISF<<"\t"<<setsNames[s]<<"_av";
+			isf_f<<"\t"<<setsNames[s]<<"_"<<xyz[d];
+		isf_f<<"\t"<<setsNames[s]<<"_av";
     }
 
-    saveTable(MSD.begin(),MSD.end(),inputPath + ".msd","t"+headMSD.str(),dt);
-    saveTable(ISF.begin(),ISF.end(),inputPath + ".isf","t"+headISF.str(),dt);
+	for(size_t t=0; t<MSD.front().size(); ++t)
+	{
+		msd_f << t*dt;
+		isf_f << t*dt;
+		for(size_t s=0;s<sets.size();++s)
+		{
+			msd_f << "\t"<< MSD[s][t];
+			for(size_t d=0; d<4; ++d)
+				isf_f<<"\t"<< ISF[4*s+d][t];
+		}
+		msd_f<<"\n";
+		isf_f<<"\n";
+	}
 }
 
 /** @brief make and export MSD and Self ISF  */
 void DynamicParticles::exportDynamics(const string &inputPath) const
 {
-    vector< set<size_t> > sets(1, getSpanning(Interval(0, getNbTimeSteps()-1)));
+    vector< set<size_t> > sets(1, selectSpanning(Interval(0, getNbTimeSteps()-1)));
     vector<string> setsNames(1,"");
     exportDynamics(sets,setsNames,inputPath);
 }

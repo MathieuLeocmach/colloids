@@ -194,7 +194,7 @@ BoundingBox Particles::getOverallBox() const
 */
 set<size_t> Particles::getEuclidianNeighbours(const Coord &center, const double &range) const
 {
-    set<size_t> NormOneNeighbours = getEnclosed(bounds(center,range));
+    set<size_t> NormOneNeighbours = selectEnclosed(bounds(center,range));
     set<size_t> NormTwoNeighbours;
     Coord diff(3);
     double rSq = range*range;
@@ -211,7 +211,7 @@ set<size_t> Particles::getEuclidianNeighbours(const Coord &center, const double 
 */
 set<size_t> Particles::getEuclidianNeighbours(const size_t &center, const double &range) const
 {
-    set<size_t> NormOneNeighbours = getEnclosed(bounds((*this)[center],range));
+    set<size_t> NormOneNeighbours = selectEnclosed(bounds((*this)[center],range));
     NormOneNeighbours.erase(center);
     set<size_t> NormTwoNeighbours;
     Coord diff(3);
@@ -229,7 +229,7 @@ set<size_t> Particles::getEuclidianNeighbours(const size_t &center, const double
 */
 multimap<double,size_t> Particles::getEuclidianNeighboursBySqDist(const Coord &center, const double &range) const
 {
-    set<size_t> NormOneNeighbours = getEnclosed(bounds(center,range));
+    set<size_t> NormOneNeighbours = selectEnclosed(bounds(center,range));
     multimap<double,size_t> NormTwoNeighbours;
     Coord diff(3);
     double rSq = range*range, distSq;

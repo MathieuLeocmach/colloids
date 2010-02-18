@@ -70,7 +70,7 @@ int main(int argc, char ** argv)
 		DynamicNeigbourList ngbList = parts.getNgbList(range);
 		vector< map<size_t,valarray<double> > > qw(parts.getNbTimeSteps()),Sqw(parts.getNbTimeSteps()),Tqw,STqw;
 		//identify trajectories spanning the whole time steps
-		set<size_t> insideTr = parts.getSpanning(0,stop), secondInsideTr=insideTr;
+		set<size_t> insideTr = parts.selectSpanning(0,stop), secondInsideTr=insideTr;
 
 		clock_t interT =0;
 
@@ -153,8 +153,8 @@ int main(int argc, char ** argv)
 		}
 		/*cout<<interT/(double)CLOCKS_PER_SEC<<"s to get insides by insersection"<<endl;
 		boost::timer STindexT;
-		set<size_t> a = parts.getSpanningInside(0,stop,1.3*2.0*parts.radius);
-		set<size_t> b = parts.getSpanningInside(0,stop,2.0*1.3*2.0*parts.radius);
+		set<size_t> a = parts.selectSpanningInside(0,stop,1.3*2.0*parts.radius);
+		set<size_t> b = parts.selectSpanningInside(0,stop,2.0*1.3*2.0*parts.radius);
 		cout<<STindexT.elapsed()<<"s to get insides by STindex"<<endl;
 		if(equal(a.begin(),a.end(),insideTr.begin()))
 			cout <<"insides are equal"<<endl;

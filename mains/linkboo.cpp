@@ -121,8 +121,8 @@ int main(int argc, char ** argv)
 			bondFile.close();
 
 			//select the particles further than the bond length from the boundaries
-			set<size_t> inside = positions[t].getInside(bondLength),
-                secondInside = positions[t].getInside(2.0*bondLength);
+			set<size_t> inside = positions[t].selectInside(bondLength),
+                secondInside = positions[t].selectInside(2.0*bondLength);
 
 			//calculate and export qlm
 			vector<BooData> qlm, qlm_cg;

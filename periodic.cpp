@@ -62,7 +62,7 @@ double PeriodicParticles::getNumberDensity() const
     \return list of all the particles
      Dummy function in the case of periodic boundary condition.
 */
-set<size_t> PeriodicParticles::getInside(const double &margin) const
+set<size_t> PeriodicParticles::selectInside(const double &margin) const
 {
     set<size_t> inside;
     for(size_t i=0;i<size();++i)
@@ -75,11 +75,11 @@ set<size_t> PeriodicParticles::getInside(const double &margin) const
     \param b search range
     \return list of the index
 */
-set<size_t> PeriodicParticles::getEnclosed(const BoundingBox &b) const
+set<size_t> PeriodicParticles::selectEnclosed(const BoundingBox &b) const
 {
     //case where the query doesn't get across the boundaries
     if(bb.encloses(b))
-        return Particles::getEnclosed(b);
+        return Particles::selectEnclosed(b);
 
     // case where the periodicity has to be taken into account
     BoundingBox queryBox = b;
@@ -102,7 +102,7 @@ set<size_t> PeriodicParticles::getEnclosed(const BoundingBox &b) const
                 }
                 //if ever the box contains no particle, the query on the R*Tree return an empty result in constant time (immediately)
                 //so no special precaution to discard in advance irrealistic translations of the query box.
-                newParts = Particles::getEnclosed(queryBox);
+                newParts = Particles::selectEnclosed(queryBox);
                 //the new set of particles is added
                 total.insert(newParts.begin(),newParts.end());
             }

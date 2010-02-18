@@ -109,10 +109,10 @@ namespace Colloids
             template <class ParentSTIndex>
             void sliceIndex(bool force = false);
 
-            std::set<size_t> getSpanning_Enclosed(const TimeBox &b) const;
-            std::set<size_t> getEnclosed(const BoundingBox &b) const;
-            std::set<size_t> getSpanning(const Interval &in) const;
-            std::set<size_t> getSpanningInside(const Interval &in, const double &margin) const;
+            std::set<size_t> selectSpanning_Enclosed(const TimeBox &b) const;
+            std::set<size_t> selectEnclosed(const BoundingBox &b) const;
+            std::set<size_t> selectSpanning(const Interval &in) const;
+            std::set<size_t> selectSpanningInside(const Interval &in, const double &margin) const;
 
             /** geometry and dynamics related **/
             virtual Coord getDiff(const size_t &tr_from,const size_t &t_from,const size_t &tr_to,const size_t &t_to) const;

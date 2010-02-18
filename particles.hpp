@@ -103,7 +103,7 @@ namespace Colloids
             BoundingBox getOverallBox() const;
 
             /** Spatial query and neighbours. Depends on both geometry and spatial index */
-            virtual std::set<size_t> getEnclosed(const BoundingBox &b) const;
+            virtual std::set<size_t> selectEnclosed(const BoundingBox &b) const;
             std::set<size_t> getEuclidianNeighbours(const Coord &center, const double &range) const;
             std::set<size_t> getEuclidianNeighbours(const size_t &center, const double &range) const;
             size_t getNearestNeighbour(const Coord &center, const double &range=1.0) const;
@@ -112,7 +112,7 @@ namespace Colloids
             NgbList & makeNgbList(const BondList &bonds);
             const NgbList & getNgbList() const {return *this->neighboursList;};
             BondList getBonds() const {return ngb2bonds(getNgbList());};
-            virtual std::set<size_t> getInside(const double &margin) const;
+            virtual std::set<size_t> selectInside(const double &margin) const;
 
 
             /**Bond Orientational Order related */
@@ -227,14 +227,14 @@ namespace Colloids
     }
 
     /** @brief get the indices of the particles enclosed by a query box  */
-    inline std::set<size_t> Particles::getEnclosed(const BoundingBox &b) const
+    inline std::set<size_t> Particles::selectEnclosed(const BoundingBox &b) const
     {
         if(!this->hasIndex()) throw std::logic_error("Set a spatial index before doing spatial queries !");
         return (*index)(b);
     }
 
     /** @brief get the indices of the particles inside a reduction of the maximum bounding box  */
-    inline std::set<size_t> Particles::getInside(const double &margin) const
+    inline std::set<size_t> Particles::selectInside(const double &margin) const
     {
         if(!this->hasIndex()) throw std::logic_error("Set a spatial index before doing spatial queries !");
         return this->index->getInside(margin);
