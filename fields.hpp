@@ -36,7 +36,6 @@ namespace Colloids
     template<typename V>
     struct Field
     {
-    	//typedef boost::ptr_vector<const V, boost::view_clone_allocator>::const_iterator const_iterator;
     	std::string name;
     	boost::ptr_vector<V, boost::view_clone_allocator> values;
 
@@ -78,7 +77,7 @@ namespace Colloids
 			{
 				for(size_t t=0; t<ti.inverse.size(); ++t)
 					this->values.push_back(new std::vector<V>(ti.inverse[t].size(), defaultValue));
-				for(size_t t=0; t<2*(averaging/2)+1; ++t)
+				for(size_t t=0; t<(averaging/2)+1; ++t)
 					divisors.push_back(std::vector<size_t>(ti.inverse[t].size(), 0));
 			};
 			DynamicField(const TrajIndex &ti, boost::ptr_vector< std::vector<V> > &values, const std::string &name="")
@@ -114,64 +113,51 @@ namespace Colloids
 	template<class V>
 	void DynamicField<V>::push_back(const Field<V> &frame)
 	{
-		/*std::cout<<"actual_time="<<actual_time;
-		std::cout<<" divisors.size()="<<divisors.size();
-		std::cout<<" frame.size()="<<frame.size();
-		std::cout<<" values[actual_time].size()="<<values[actual_time].size()<<std::endl;*/
-
-		//bin the values at actual time in the next "average interval" time steps (including actual)
-		for(size_t t=actual_time; t<min(actual_time+2*(averaging/2)+1, values.size()); ++t)
+		if(averaging/2 ==0)
+			copy(frame.values.begin(), frame.values.end(), values[actual_time].begin());
+		else
 		{
-			std::cout<<"t="<<t<<" ";
-			for(size_t p=0; p<trajectories.inverse[t].size();++p)
+			//bin the values at actual time in the next "average interval" time steps (including actual)
+			const size_t t0 = std::max(actual_time,averaging/2)-averaging/2;
+			for(size_t t=t0; t<std::min(actual_time+(averaging/2)+1, values.size()); ++t)
 			{
-				//std::cout<<p;
-				const Traj& tr = trajectories[trajectories.inverse[t][p]];
-				//std::cout<<" ";
-				/*if(p=4370)
+				for(size_t p=0; p<trajectories.inverse[t].size();++p)
 				{
-					std::cout<<"p="<<p;
-					std::cout<<" tr="<<trajectories.inverse[t][p];
-					std::cout<<" t-actual_time="<<t-actual_time;
-					std::cout<<" divisors[t-actual_time].size="<<divisors[t-actual_time].size();
-					std::cout<<" divisors[t-actual_time][p]="<<divisors[t-actual_time][p];
-				}*/
-				if(tr.exist(actual_time))
-				{
-					//std::cout<<"v";
-					values[t][p] += frame[tr[actual_time]];
-					//std::cout<<"d";
-					divisors[t-actual_time][p]++;
-					//std::cout<<"|";
+					const Traj& tr = trajectories[trajectories.inverse[t][p]];
+					if(tr.exist(actual_time))
+					{
+						values[t][p] += frame[tr[actual_time]];
+						divisors[t-t0][p]++;
+					}
 				}
 			}
+
+			//the time step "average interval" ago is totally binned. We divide it.
+			if(actual_time >= averaging/2)
+			{
+				size_t front = actual_time - averaging/2;
+				do
+				{
+					for(size_t p=0; p<values[front].size(); ++p)
+						values[front][p] /= (double)divisors.front()[p];
+
+					divisors.pop_front(); //discard the divisors of the time step we just output
+					front++;
+				}
+				//if at the end, we divide the remaining times
+				while(actual_time+1 == values.size() && front<values.size());
+			}
+
+			//averaging on less and less time steps on the upper boundary
+			if(actual_time + averaging/2 < values.size())
+				divisors.push_back(std::vector<size_t>(trajectories.inverse[actual_time+averaging/2].size()));
 		}
-		//the time step "average interval" ago is totally binned. We divide it unless lower boundary
-		while((actual_time >= 2*(averaging/2)) && (actual_time+divisors.size() >= values.size()))
-		{
-			std::cout<<"pop "<<actual_time-divisors.size()+1<<" ";
-			std::transform(
-				values[actual_time-divisors.size()+1].begin(),
-				values[actual_time-divisors.size()+1].end(),
-				divisors.front().begin(),
-				values[actual_time-divisors.size()+1].begin(),
-				std::multiplies<double>()
-				);
-			divisors.pop_front(); //discard the divisors of the time step we just output
-		}
-		//averaging on less and less time steps on the upper boundary
-		if(actual_time + divisors.size() < values.size())
-		{
-			std::cout<<"push ";
-			divisors.push_back(std::vector<size_t>(trajectories.inverse[actual_time+divisors.size()].size()));
-		}
-		std::cout<<"next time ";
 		actual_time++;
 
 	}
 	/** @brief return a view of the field at frame t in terms of positions, not trajectories  */
 	template<class V>
-	Field<V> DynamicField<V>::operator[](const size_t &t)
+	inline Field<V> DynamicField<V>::operator[](const size_t &t)
 	{
 		return Field<V>(values[t].begin(), values[t].end(), name);
 	}
