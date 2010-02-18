@@ -99,7 +99,7 @@ istream& Colloids::operator>> (istream& is, Traj& tr )
 /** \brief output a trajectory to an output stream */
 ostream& Colloids::operator<< (ostream& os, const Traj& tr )
 {
-    os << tr.start_time << endl;
+    os << tr.start_time << "\n";
     os << tr.steps[0];
     for(size_t i=1;i<tr.steps.size();++i)
         os << "\t" << tr.steps[i];

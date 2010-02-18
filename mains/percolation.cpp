@@ -76,7 +76,7 @@ int main(int argc, char ** argv)
                 output << t*parts.dt;
                 for(size_t d=0;d<3;++d)
                     output<<"\t"<<largest[d] /dims[d];
-                output<<endl;
+                output<<"\n";
             }
             output.close();
 

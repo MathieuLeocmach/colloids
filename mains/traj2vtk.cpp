@@ -83,7 +83,7 @@ int main(int argc, char ** argv)
 			ofstream msd_f((inputPath + ".msd").c_str());
 			msd_f << "#t\tMSD"<<endl;
 			for(size_t t=0; t<msd.size(); ++t)
-				msd_f << t*parts.dt<<"\t"<< msd[t]<<endl;
+				msd_f << t*parts.dt<<"\t"<< msd[t]<<"\n";
 
 			ofstream isf_f((inputPath + ".isf").c_str());
 			isf_f << "#t\tx\ty\tz\tav"<<endl;
@@ -92,14 +92,14 @@ int main(int argc, char ** argv)
 				isf_f << t*parts.dt;
 				for(size_t d=0; d<4; ++d)
 					isf_f<<"\t"<< isf[t][d];
-				isf_f<<endl;
+				isf_f<<"\n";
 			}
 
 			//Find relaxation time
 			if(isf.back().back() > exp(-1.0))
-				tau = parts.getNbTimeSteps();
+				tau = parts.getNbTimeSteps()-1;
 			else
-				tau = parts.getNbTimeSteps() - (upper_bound(isf.back().rbegin(),isf.back().rend(),exp(-1.0))-isf.back().rbegin());
+				tau = parts.getNbTimeSteps()-1 - (upper_bound(isf.back().rbegin(),isf.back().rend(),exp(-1.0))-isf.back().rbegin());
 		}
 		else
 			sscanf(argv[2],"%u",&tau);
@@ -122,11 +122,9 @@ int main(int argc, char ** argv)
 			//read raw boo from file
 			parts.positions[t].loadBoo(booSerie%t, qw);
 			//bin into the average
-			cout<<"t="<<t<<" bin raw ... ";
 			for(size_t i=0; i<qw.begin()->size(); ++i)
 				scalars[i].push_back(ScalarField(qw.begin(), qw.end(), "", i));
 			//same for coarse-grained boo
-			cout<<" bin cg ... ";
 			parts.positions[t].loadBoo(SbooSerie%t, qw);
 			//bin into the average
 			for(size_t i=0; i<qw.begin()->size(); ++i)
@@ -143,7 +141,7 @@ int main(int argc, char ** argv)
 		for(size_t t=0; t<parts.getNbTimeSteps(); ++t)
 		{
 			lngb.push_back(new vector<double>(parts.positions[t].size()));
-			lngb.back() = parts.getNbLostNgbs(t, tau/2);
+			lngb.back() = parts.getNbLostNgbs(t, (tau+1)/2);
 		}
 		scalars.back().assign(lngb);
 		scalars.back().name= "lostNgb";
@@ -154,7 +152,7 @@ int main(int argc, char ** argv)
 		for(size_t t=0; t<parts.getNbTimeSteps(); ++t)
 		{
 			vel.push_back(new vector<Coord>(parts.trajectories.size(), Coord(0.0,3)));
-			vel.back() = parts.velocities(t, tau/2);
+			vel.back() = parts.velocities(t, (tau+1)/2);
 		}
 		vector<VectorDynamicField> vectors(1, VectorDynamicField(parts.trajectories, vel, "V"));
 

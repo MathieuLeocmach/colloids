@@ -49,7 +49,7 @@ ostream & Colloids::operator<<(std::ostream &os, const VectorField &v)
 	{
 		for(size_t d=0;d<3;++d)
 			os<<v.values[p][d]<<" ";
-		os<<endl;
+		os<<"\n";
 	}
 	return os;
 }

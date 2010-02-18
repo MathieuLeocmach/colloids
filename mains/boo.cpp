@@ -51,10 +51,19 @@ int main(int argc, char ** argv)
 
         if(ext.compare("traj")==0)
         {
-
             DynamicParticles parts(filename);
             const size_t stop = parts.getNbTimeSteps()-1;
             cout << parts.trajectories.size() << " particles in "<<stop+1<<" time steps"<<endl;
+
+            //fetch the file name pattern directly in the file.traj
+            string pattern, token;
+            {
+				ifstream trajfile(filename.c_str(), ios::in);
+				getline(trajfile, pattern);
+				getline(trajfile, pattern); //pattern is on the 2nd line
+				getline(trajfile, token); //token is on the 3rd line
+				trajfile.close();
+            }
 
             parts.removeDrift();
             cout<<"drift removed"<<endl;
@@ -63,43 +72,89 @@ int main(int argc, char ** argv)
             if(argc<3)
             {
             	//Dynamics calculation and export
-				vector< vector<double> > MSD(1);
-				vector< vector<double> > ISF;
-				parts.makeDynamics(MSD.front(),ISF);
-				saveTable(MSD.begin(),MSD.end(),inputPath + ".msd","t\tMSD",parts.dt);
-				saveTable(ISF.begin(),ISF.end(),inputPath + ".isf","t\tx\ty\tz\tav",parts.dt);
+				vector<double> msd;
+				vector< vector<double> > isf;
+				parts.makeDynamics(msd, isf);
+				ofstream msd_f((inputPath + ".msd").c_str());
+				msd_f << "#t\tMSD"<<endl;
+				for(size_t t=0; t<msd.size(); ++t)
+					msd_f << t*parts.dt<<"\t"<< msd[t]<<"\n";
+
+				ofstream isf_f((inputPath + ".isf").c_str());
+				isf_f << "#t\tx\ty\tz\tav"<<endl;
+				for(size_t t=0; t<msd.size(); ++t)
+				{
+					isf_f << t*parts.dt;
+					for(size_t d=0; d<4; ++d)
+						isf_f<<"\t"<< isf[t][d];
+					isf_f<<"\n";
+				}
 
 				//Find relaxation time
-				if(ISF.back().back() > exp(-1.0))
+				if(isf.back().back() > exp(-1.0))
 					tau = parts.getNbTimeSteps();
 				else
-					tau = parts.getNbTimeSteps() - (upper_bound(ISF.back().rbegin(),ISF.back().rend(),exp(-1.0))-ISF.back().rbegin());
+					tau = parts.getNbTimeSteps() - (upper_bound(isf.back().rbegin(),isf.back().rend(),exp(-1.0))-isf.back().rbegin());
 				cout<<"relaxation time is "<<tau<<" steps, ie "<<tau*parts.dt<<"s"<<endl;
             }
             else
 				sscanf(argv[2],"%u",&tau);
             //const size_t halfInterval = tau/2;
 
-            vector< map<size_t,valarray<double> > > qw,Sqw,Tqw,STqw;
-            cout<<"get raw Boo from files"<<endl;
-            set<size_t> inside = parts.getBooFromFile("",qw);
-            cout<<"get coarse grained Boo from files"<<endl;
-            set<size_t> secondInside = parts.getBooFromFile("_space",Sqw);
+            //name pattern of the .cloud files
+            cout<<"Load and average bond orientational order ... ";
+            string booPattern = pattern.substr(0, pattern.find_last_of(".")) +".cloud";
+            string SbooPattern = pattern.substr(0, booPattern.find_last_of(token)) + "_space" + pattern.substr(booPattern.find_last_of(token));
+            FileSerie booSerie(booPattern, token, parts.getNbTimeSteps()),
+					SbooSerie(SbooPattern, token, parts.getNbTimeSteps());
 
-            cout<<"Neighbour lists ";
-            const double range = 1.3;
-			DynamicNeigbourList ngbList = parts.getNgbList(range);
-			cout<<"and lost neighbours"<<endl;
-			vector<scalarDynamicField> scalars(9);
-            scalars[8] = parts.getNbLostNgbs(inside,ngbList,tau);
+            boost::multi_array<double, 2> qw;
+            vector<ScalarDynamicField> scalars(9, ScalarDynamicField(parts.trajectories, tau, 0));
+            scalars.reserve(9);
+			for(size_t i=0;i<8;++i)
+				scalars[i].name = string(i/4?"cg":"")+string((i/2)%2?"W":"Q")+string(i%2?"6":"4");
+            for(size_t t=0; t<parts.getNbTimeSteps(); ++t)
+            {
+            	//read raw boo from file
+            	parts.positions[t].loadBoo(booSerie%t, qw);
+            	//bin into the average
+            	for(size_t i=0; i<qw.begin()->size(); ++i)
+					scalars[i].push_back(ScalarField(qw.begin(), qw.end(), "", i));
+				//same for coarse-grained boo
+				parts.positions[t].loadBoo(SbooSerie%t, qw);
+            	//bin into the average
+            	for(size_t i=0; i<qw.begin()->size(); ++i)
+					scalars[i+4].push_back(ScalarField(qw.begin(), qw.end(), "", i));
+            }
 
-            cout<<"Time averaging over Tau="<<parts.dt*tau<<" s ... ";
-            parts.makeSlidingTimeAverage(inside,tau,qw,Tqw);
-            parts.makeSlidingTimeAverage(secondInside,tau,Sqw,STqw);
-            vectorDynamicField vel = parts.averageVelocities(inside,1,tau);
+            cout<<"Neighbour lists ... ";
+            //name pattern of the .bonds files
+            string bondPattern = pattern.substr(0, pattern.find_last_of(".")) +".bonds";
+            FileSerie bondSerie(bondPattern, token, parts.getNbTimeSteps());
+            for(size_t t=0; t<parts.getNbTimeSteps(); ++t)
+            	parts.positions[t].makeNgbList(loadBonds(bondSerie%t));
+			boost::ptr_vector< vector<double> > lngb(parts.getNbTimeSteps());
+            for(size_t t=0; t<parts.getNbTimeSteps(); ++t)
+            {
+            	lngb.push_back(new vector<double>(parts.trajectories.size()));
+            	lngb.back() = parts.getNbLostNgbs(t, tau/2);
+            }
+			scalars.back().assign(lngb);
+			scalars.back().name= "lostNgb";
+
+
+            cout<<"Velocities ... ";
+            boost::ptr_vector< vector<Coord> > vel(parts.getNbTimeSteps());
+            for(size_t t=0; t<parts.getNbTimeSteps(); ++t)
+            {
+            	vel.push_back(new vector<Coord>(parts.trajectories.size(), Coord(0.0,3)));
+            	vel.back() = parts.velocities(t, tau/2);
+            }
+
+            vector<VectorDynamicField> vectors(1, VectorDynamicField(parts.trajectories, vel, "V"));
             cout<<"done!"<<endl;
 
-            ofstream cloudT((inputPath + "_time.cloud").c_str(), ios::out | ios::trunc);
+            /*ofstream cloudT((inputPath + "_time.cloud").c_str(), ios::out | ios::trunc);
             cloudT << "#tr\tt\tQ4\tQ6\tW4\tW6"<<endl;
             for(vector< map<size_t,valarray<double> > >::const_iterator t=Tqw.begin();t!=Tqw.end();++t)
                 for(map<size_t,valarray<double> >::const_iterator tr=t->begin();tr!=t->end();++tr)
@@ -133,32 +188,12 @@ int main(int argc, char ** argv)
 					cloudST<<endl;
                 }
             }
-            cloudST.close();
+            cloudST.close();*/
+            string vtkPattern = pattern.substr(0, pattern.find_last_of(".")) +".vtk";
+            vtkPattern = vtkPattern.substr(0, vtkPattern.find_last_of(token)) + "_dynamic" + vtkPattern.substr(vtkPattern.find_last_of(token));
+            FileSerie vtkSerie(vtkPattern, token, parts.getNbTimeSteps());
 
-            //make 4 scalarDynamicfields out of boo data
-            //vector<scalarDynamicField> scalars(8);
-            //string[8] fields_names = {"Q4","Q6","W4","W6"};
-            for(size_t i=0;i<8;++i)
-            {
-				scalars[i].first = string(i<4?"":"cg")+string((i%4<2)?"Q":"W")+string((i%2)?"6":"4");
-				/*fields_names[i];
-				scalars[i+4].first = "cg"+fields_names[i];*/
-				scalars[i].second = new vector< map<size_t,double> >(Tqw.size());
-            }
-            for(size_t t=0;t<Tqw.size();++t)
-            {
-                for(map<size_t,valarray<double> >::const_iterator tr=Tqw[t].begin();tr!=Tqw[t].end();++tr)
-                	for(size_t i=0;i<tr->second.size();++i)
-						scalars[i].second->at(t).insert(scalars[i].second->at(t).end(),make_pair(tr->first,tr->second[i]));
-				for(map<size_t,valarray<double> >::const_iterator tr=STqw[t].begin();tr!=STqw[t].end();++tr)
-                	for(size_t i=0;i<tr->second.size();++i)
-						scalars[i+4].second->at(t).insert(scalars[i+4].second->at(t).end(),make_pair(tr->first,tr->second[i]));
-            }
-
-			//make 1 vector field out of velocity data
-			vector<vectorDynamicField> vectors(1,vel);
-
-		    parts.exportToVTK(scalars,vectors);
+		    parts.exportToVTK(vtkSerie, scalars, vectors);
 
 		    cout<<"VTK exported"<<endl;
 
@@ -192,7 +227,7 @@ int main(int argc, char ** argv)
 			parts.getNgbList(shell,ngbList);
 			ofstream ngb_file((inputPath + ".ngb").c_str(), ios::out | ios::trunc);
 			for(vector< set<size_t> >::const_iterator it =ngbList.begin();it!=ngbList.end();++it)
-				ngb_file<<it->size()-1<<endl;
+				ngb_file<<it->size()-1<<"\n";
 			ngb_file.close();
 
             //cout<<"get bond orientational order data for each usefull particles ... ";
@@ -213,19 +248,13 @@ int main(int argc, char ** argv)
 
             parts.exportQ6m(SallBoo,inputPath+".q6m");
 
-            /*vector< set<size_t> > remarkableSets(3);
-            vector< string > remarkableSetsNames(3);
-            remarkableSetsNames[0] = "all";
-            remarkableSetsNames[1] = "q6>0.5";
-            remarkableSetsNames[2] = "Sq6>0.3";
-            const double q6threshold=0.5, Sq6threshold=0.3;*/
             valarray<double> vboo(0.0,4);
 
             //cout<<"Export data ... ";
             ofstream cloud((inputPath + ".cloud").c_str(), ios::out | ios::trunc);
             if(!cloud)
                 throw invalid_argument("No such file as "+inputPath + ".cloud");
-            cloud << "#p\tQ4\tQ6\tW4\tW6"<<endl;
+            cloud << "#p\tQ4\tQ6\tW4\tW6"<<"\n";
             for(map<size_t,BooData>::const_iterator p=allBoo.begin();p!=allBoo.end();++p)
             {
                 cloud<<p->first;
@@ -233,14 +262,14 @@ int main(int argc, char ** argv)
                 (*p).second.getInvarients(6,vboo[1],vboo[3]);
                 for(size_t i=0;i<vboo.size();++i)
 					cloud<<"\t"<<vboo[i];
-                cloud<<endl;
+                cloud<<"\n";
                 //remarkableSets[0].insert(remarkableSets[0].end(),(*p).first);
                 //if(val_q6 >q6threshold)
                 //    remarkableSets[1].insert(remarkableSets[1].end(),(*p).first);
             }
             cloud.close();
             ofstream Scloud((inputPath + "_space.cloud").c_str(), ios::out | ios::trunc);
-            Scloud << "#p\tQ4\tQ6\tW4\tW6"<<endl;
+            Scloud << "#p\tQ4\tQ6\tW4\tW6"<<"\n";
             for(map<size_t,BooData>::const_iterator p=SallBoo.begin();p!=SallBoo.end();++p)
             {
                 Scloud<<p->first;
@@ -248,7 +277,7 @@ int main(int argc, char ** argv)
                 (*p).second.getInvarients(6,vboo[1],vboo[3]);
                 for(size_t i=0;i<vboo.size();++i)
 					Scloud<<"\t"<<vboo[i];
-                Scloud<<endl;
+                Scloud<<"\n";
                 //if(val_q6 >Sq6threshold)
                     //remarkableSets[2].insert(remarkableSets[2].end(),(*p).first);
             }

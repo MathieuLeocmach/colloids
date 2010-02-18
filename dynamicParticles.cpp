@@ -279,7 +279,7 @@ void DynamicParticles::save(const string &filename,const string &base_name,const
 
         //trajectory data
         for(deque<Traj>::const_iterator tr=trajectories.begin();tr!=trajectories.end();++tr)
-            output << *tr << endl;
+            output << *tr << "\n";
 
         output.close();
     }
@@ -864,6 +864,8 @@ vector<Coord> DynamicParticles::velocities(const size_t &t, const size_t &halfIn
 /** @brief get the neighbours lost between t_from and t_to by the trajectory tr  */
 set<size_t> DynamicParticles::getLostNgbs(const size_t &tr,const size_t &t_from,const size_t &t_to) const
 {
+	if(t_from==t_to)
+		return set<size_t>();
 	//convert the position index of the neighbours in time t_from to trajectory index
 	set<size_t> ngb_from, ngb_to, ngb_diff;
 	const set<size_t>& n_from = positions[t_from].getNgbList()[trajectories[tr][t_from]];

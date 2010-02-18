@@ -89,14 +89,14 @@ int main(int argc, char ** argv)
      if(output)
      {
        //header line
-       output << header << endl;
+       output << header << "\n";
 
        for(size_t l=0;l<g.size();++l)
        {
             output << g[l][0];
             for(size_t c=1;c<g[l].size();++c)
                 output<< "\t"<<g[l][c];
-            output << endl;
+            output << "\n";
        }
        output.close();
      }

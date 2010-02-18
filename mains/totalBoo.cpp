@@ -99,7 +99,7 @@ int main(int argc, char ** argv)
 				qw[t].insert(qw[t].end(),make_pair(*p,vboo));
 				for(size_t i=0;i<vboo.size();++i)
 					cloud<<"\t"<<vboo[i];
-                cloud<<endl;
+                cloud<<"\n";
 			}
 			cloud.close();
 			//disabled to save disk space
@@ -117,7 +117,7 @@ int main(int argc, char ** argv)
 				Sqw[t].insert(Sqw[t].end(),make_pair(*p,vboo));
 				for(size_t i=0;i<vboo.size();++i)
 					Scloud<<"\t"<<vboo[i];
-                Scloud<<endl;
+                Scloud<<"\n";
 			}
 			cloud.close();
 			parts.positions[t].exportQ6m(boo,(base_tt% (t+parts.trajectories.t_offset)).str()+".q6m");
@@ -180,7 +180,7 @@ int main(int argc, char ** argv)
 				cloudT<<t-Tqw.begin()<<"\t"<<(*tr).first;
 				for(size_t i=0;i<tr->second.size();++i)
 					cloudT<<"\t"<<tr->second[i];
-				cloudT<<endl;
+				cloudT<<"\n";
 			}
 		cloudT.close();
 
@@ -203,7 +203,7 @@ int main(int argc, char ** argv)
 					(size_t)scalars[8].second->at(ti)[tr->first]:
 					(size_t)scalars[8].second->back()[tr->first]
 					);
-				cloudST<<endl;
+				cloudST<<"\n";
 			}
 		}
 		cloudST.close();

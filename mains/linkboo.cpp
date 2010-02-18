@@ -92,7 +92,7 @@ int main(int argc, char ** argv)
 		ofstream rdfFile((datSerie.head()+".rdf").c_str(), ios::out | ios::trunc);
 		rdfFile << "#r\tg(r)"<<endl;
 		for(size_t r=0; r<total_g.size(); ++r)
-			rdfFile<< r/200.0*15.0 <<"\t"<< total_g[r]<<endl;
+			rdfFile<< r/200.0*15.0 <<"\t"<< total_g[r]<<"\n";
 
 		//get bondlength and radius from the first minimum of g(r)
 		//the loop is here only to get rid of possible multiple centers at small r
@@ -117,7 +117,7 @@ int main(int argc, char ** argv)
 			BondList bonds = positions[t].getBonds();
 			ofstream bondFile((bondSerie%t).c_str(), ios::out | ios::trunc);
 			for(deque<pair<size_t, size_t> >::const_iterator b=bonds.begin(); b!= bonds.end();++b)
-				bondFile<<b->first<<" "<<b->second<<endl;
+				bondFile<<b->first<<" "<<b->second<<"\n";
 			bondFile.close();
 
 			//select the particles further than the bond length from the boundaries

@@ -18,6 +18,7 @@
 **/
 
 #include "particles.hpp"
+//#include <boost/progress.hpp>
 
 using namespace std;
 using namespace Colloids;
@@ -393,7 +394,7 @@ void Particles::exportQ6m(const std::vector<BooData> &BOO, const std::string &ou
     {
     	for(size_t m=0;m<=6;++m)
 			q6m <<"\t"<<(*p)(6,m);
-		q6m<<endl;
+		q6m<<"\n";
     }
     q6m.close();
 }
@@ -554,7 +555,7 @@ void Particles::exportToFile(const string &filename) const
       {
         for(size_t i=0;i<3;++i)
           output << (*p)[i] << "\t";
-        output << endl;
+        output << "\n";
       }
       output.close();
     }
@@ -590,12 +591,12 @@ void Particles::exportToVTK(
 	{
 		for(size_t d=0;d<3;++d)
 			output<<(*p)[d]<<" ";
-		output<<endl;
+		output<<"\n";
 	}
 
 	output << "LINES "<<bonds.size()<<" "<<bonds.size()*3<<endl;
 	for(deque< pair<size_t,size_t> >::const_iterator b= bonds.begin();b!=bonds.end();++b)
-		output<<"2 "<< b->first<<" "<<b->second<<endl;
+		output<<"2 "<< b->first<<" "<<b->second<<"\n";
 
 	output<<"POINT_DATA "<<size()<<endl;
 	copy(

@@ -55,7 +55,7 @@ void saveTable(InputIterator first, InputIterator last,const std::string &filena
 			output << "\t" << (*it)[r];
 			++it;
          }
-         output << std::endl;
+         output << "\n";
        }
        output.close();
      }

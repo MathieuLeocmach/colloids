@@ -77,7 +77,7 @@ int main(int argc, char ** argv)
 		output<<"#r\tg"<<endl;
 		const double scale = Nbins/nbDiameterCutOff;
 		for(size_t r=0;r<g.size();++r)
-            output<< r/scale <<"\t"<< g[r] << endl;
+            output<< r/scale <<"\t"<< g[r] << "\n";
     }
     catch(const std::exception &e)
     {
