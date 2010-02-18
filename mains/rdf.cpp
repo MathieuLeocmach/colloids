@@ -60,7 +60,7 @@ int main(int argc, char ** argv)
 			b.edges[d].first=0.0;
 			sscanf(argv[6+d],"%lf",&b.edges[d].second);
 		}
-		PeriodicParticles Centers(Nb,b,radius,filename);
+		PeriodicParticles Centers(Nb,b,filename,radius);
 		cout << "With periodic boundary conditions"<<endl;
 	#else
 		Particles Centers(filename,radius);

@@ -60,7 +60,7 @@ int main(int argc, char ** argv)
 			b.edges[d].first=0.0;
 			sscanf(argv[4+d],"%lf",&b.edges[d].second);
 		}
-		PeriodicParticles parts(Nb,b,radius,filename);
+		PeriodicParticles parts(Nb,b,filename,radius);
 #else
 		Particles parts(filename, radius);
 #endif
