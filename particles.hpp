@@ -94,6 +94,7 @@ namespace Colloids
             virtual Coord getDiff(const Coord &from,const size_t &to) const;
             virtual Coord getDiff(const size_t &from,const size_t &to) const;
             virtual double getAngle(const size_t &origin,const size_t &a,const size_t &b) const;
+            virtual std::set<size_t> selectInside_noindex(const double &margin) const;
 
             /** Index related   */
             static BoundingBox bounds(const Coord &center,const double &r=0.0);

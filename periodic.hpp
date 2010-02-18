@@ -51,6 +51,7 @@ namespace Colloids
             double getNumberDensity() const;
             std::set<size_t> selectInside(const double &margin) const;
             std::set<size_t> selectEnclosed(const BoundingBox &b) const;
+            std::set<size_t> selectInside_noindex(const double &margin) const{return this->selectInside(margin);};
             //set<size_t> getEuclidianNeighbours(const valarray<double> &center, const double &range) const;
     };
 

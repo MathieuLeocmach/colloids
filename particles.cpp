@@ -150,6 +150,27 @@ double Particles::getAngle(const size_t &origin,const size_t &a,const size_t &b)
     return acos(dot(va,vb)/sqrt(dot(va,va)*dot(vb,vb)));
 }
 
+/** @brief Gives the indices of the particles inside a reduction of the total bonding box. Not using spatial index, thus slower.  */
+set<size_t> Particles::selectInside_noindex(const double &margin) const
+{
+	Coord upper(0.0,3), lower = this->front();
+	for(const_iterator p=begin(); p!=end(); ++p)
+		for(size_t d=0; d<3; ++d)
+		{
+			upper[d] = max(upper[d], (*p)[d]);
+			lower[d] = min(lower[d], (*p)[d]);
+		}
+	upper -= margin;
+	lower += margin;
+	set<size_t> ret;
+	for(size_t p=0; p<size(); ++p)
+		if( ((*this)[p]<=upper).min() && (lower<=(*this)[p]).min() )
+			ret.insert(ret.end(), p);
+	return ret;
+}
+
+
+
 /**
     \brief Makes the bounding box centered on a particle
     \param r radius of the box

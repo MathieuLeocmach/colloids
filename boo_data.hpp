@@ -84,5 +84,18 @@ namespace Colloids
 
             double getQ5() const;
     };
+
+    struct cloud_exporter : public std::unary_function<const BooData&, std::string>
+	{
+		std::string operator()(const BooData &boo)
+		{
+			boost::array<double, 4> qw;
+			boo.getInvarients(4, qw[0], qw[2]);
+			boo.getInvarients(6, qw[1], qw[3]);
+			std::ostringstream os;
+			std::copy(qw.begin(), qw.end(), std::ostream_iterator<double>(os, "\t"));
+			return os.str();
+		}
+	};
 };
 #endif

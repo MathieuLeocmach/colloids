@@ -23,19 +23,6 @@
 using namespace std;
 using namespace Colloids;
 
-struct cloud_exporter : public unary_function<const BooData&, string>
-{
-	string operator()(const BooData &boo)
-	{
-		boost::array<double, 4> qw;
-		boo.getInvarients(4, qw[0], qw[2]);
-		boo.getInvarients(6, qw[1], qw[3]);
-		ostringstream os;
-		copy(qw.begin(), qw.end(), ostream_iterator<double>(os, "\t"));
-		return os.str();
-	}
-};
-
 int main(int argc, char ** argv)
 {
 	try
@@ -145,7 +132,7 @@ int main(int argc, char ** argv)
 			cloudFile.close();
 
 			ofstream cloud_cgFile((cgCloudSerie%t).c_str(), ios::out | ios::trunc);
-			cloudFile<<"#Q4\tQ6\tW4\tW6"<<endl;
+			cloud_cgFile<<"#Q4\tQ6\tW4\tW6"<<endl;
 			transform(
 				qlm_cg.begin(), qlm_cg.end(),
 				ostream_iterator<string>(cloud_cgFile,"\n"),
