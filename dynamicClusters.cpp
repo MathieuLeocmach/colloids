@@ -22,19 +22,68 @@
 #include <boost/bind.hpp>
 
 using namespace std;
+using namespace Colloids;
+
+/** @brief Grows recursively a cluster of neighbouring particles
+  * \param population The indicies of the particles than can be added to the cluster
+  * \param cluster Collecting the indicies of the particles belonging to the cluster
+  * \param center The particle we are presently looking at
+  * \param ngbList The List of each particle's neighbours
+  */
+void Colloids::growCluster(std::set<size_t> &population, std::set<size_t> &cluster, size_t center, const NgbList &ngbs)
+{
+    for(set<size_t>::const_iterator n=ngbs[center].begin();n!=ngbs[center].end();++n)
+    {
+        //are we able to use this particle ?
+        set<size_t>::iterator toBeRemoved = population.find(*n);
+        if(toBeRemoved != population.end())
+        {
+            cluster.insert(cluster.end(),*n);
+            //this particle will be used now so it must be removed from the population
+            // to prevent infinite recursion
+            population.erase(toBeRemoved);
+            //recursion
+            growCluster(population,cluster,*n,ngbs);
+        }
+    }
+}
+
+/** @brief Segregate a population of particles into clusters of recursively neighbouring particles
+  * \param population The indicies of the particles than can be added to the clusters
+  * \param clusters The list of clusters with the indicies of the particles belonging to each (output)
+  * \param ngbList The List of each particle's neighbours
+  */
+void Colloids::segregate(std::set<size_t> &population, std::vector< std::set<size_t> > &clusters, const NgbList &ngbs)
+{
+    size_t center = 0;
+    while(!population.empty())
+    {
+        center = *population.begin();
+        clusters.push_back(set<size_t>());
+        clusters.back().insert(center);
+        population.erase(population.begin());
+        growCluster(population,clusters.back(),center,ngbs);
+    }
+}
+
+/** @brief Segregate all particles into clusters of recursively neighbouring particles */
+void Colloids::segregateAll(std::vector< std::set<size_t> > &clusters, const Particles& parts)
+{
+    set<size_t> all;
+    for(size_t p=0;p<parts.size();++p)
+        all.insert(all.end(),p);
+    segregate(all, clusters, parts.getNgbList());
+}
 
 /** @brief segregate at each time step a population of trajectories into clusters of recursively neighbouring particles
   * \param dynParts The DynamicParticles the clusters are made of
   * \param population The indicies of the trajectories than can be added to the clusters
-  * \param range The maximum separation between two particles be be considered in the same cluster (in diameter unit)
+  * \param ngbList The list of the neighbours each particle of each time step.
   * The cluster k of time step t0+1 is the cluster having the maximum common particles with cluster k of time t0.
-  * This version computes the neighbour list of each particle of each time step.
   */
-DynamicClusters::DynamicClusters(DynamicParticles &dynParts, std::set<size_t> &population, const double &range)
+DynamicClusters::DynamicClusters(DynamicParticles &dynParts, std::set<size_t> &population)
 {
-    boost::ptr_vector< vector< set<size_t> > > ngbList;
-    ngbList=dynParts.getNgbList(range);
-    assign(dynParts,population,ngbList);
+    assign(dynParts,population);
     return;
 }
 
@@ -44,38 +93,26 @@ DynamicClusters::DynamicClusters(DynamicParticles &dynParts, std::set<size_t> &p
   * \param ngbList The list of the neighbours each particle of each time step.
   * The cluster k of time step t0+1 is the cluster having the maximum common particles with cluster k of time t0.
   */
-DynamicClusters::DynamicClusters(DynamicParticles &dynParts, std::set<size_t> &population, const boost::ptr_vector< std::vector< std::set<size_t> > > &ngbList)
-{
-    assign(dynParts,population,ngbList);
-    return;
-}
-
-/** @brief segregate at each time step a population of trajectories into clusters of recursively neighbouring particles
-  * \param dynParts The DynamicParticles the clusters are made of
-  * \param population The indicies of the trajectories than can be added to the clusters
-  * \param ngbList The list of the neighbours each particle of each time step.
-  * The cluster k of time step t0+1 is the cluster having the maximum common particles with cluster k of time t0.
-  */
-DynamicClusters& DynamicClusters::assign(DynamicParticles &dynParts, std::set<size_t> &population, const boost::ptr_vector< std::vector< std::set<size_t> > > &ngbList)
+DynamicClusters& DynamicClusters::assign(DynamicParticles &dynParts, std::set<size_t> &population)
 {
     parts = &dynParts;
 
     // retreive the unsorted cluster list at each time step
-    vector< deque< set<size_t> > > unsorted_clusters(parts->getNbTimeSteps());
+    vector< vector< set<size_t> > > unsorted_clusters(parts->getNbTimeSteps());
     for(size_t t=0;t<parts->getNbTimeSteps();++t)
     {
         set<size_t> popul_t;
         for(set<size_t>::const_iterator tr=population.begin();tr!=population.end();++tr)
-        if(parts->trajectories[*tr].exist(t))
-            popul_t.insert(popul_t.end(),parts->trajectories[*tr][t]);
+			if(parts->trajectories[*tr].exist(t))
+				popul_t.insert(popul_t.end(),parts->trajectories[*tr][t]);
 
-        parts->positions[t].segregate(popul_t, unsorted_clusters[t],ngbList[t]);
+        segregate(popul_t, unsorted_clusters[t], parts->positions[t].getNgbList());
     }
 
     //translate in terms of trajectories, removing single particle clusters
     members.resize(parts->getNbTimeSteps());
     for(size_t t=0;t<parts->getNbTimeSteps();++t)
-        for(deque< set<size_t> >::const_iterator k=unsorted_clusters[t].begin();k!=unsorted_clusters[t].end();++k)
+        for(vector< set<size_t> >::const_iterator k=unsorted_clusters[t].begin();k!=unsorted_clusters[t].end();++k)
             if((*k).size()>1)
             {
                 members[t].push_back(set<size_t>());
@@ -87,63 +124,77 @@ DynamicClusters& DynamicClusters::assign(DynamicParticles &dynParts, std::set<si
             }
 
     //initial clusters
-    for(size_t K=0;K<members[0].size();++K)
-        trajectories.push_back(Traj(0,K));
+    TrajMap tm(members[0].size());
+    double Error=0, maxError=0, sumError=0;
 
-    size_t nbTraj = trajectories.size();
-    double Error=0;
-    double maxError=0;
-    double sumError =0;
     //advancing time
     for(size_t t=0;t<parts->getNbTimeSteps()-1;++t)
     {
-        //cout<<"frame "<<t+1<<", "<<members[t+1].size()<<" clusters"<<endl;
+    	size_t nbTraj = tm.getNbTraj();
         //each possible follower S of a given cluster K are ranked by a distence
         // defined from the extend of their intersection with K
-        vector< multimap<double,size_t> > followerByDist(trajectories.size());
-        for(size_t tr=0;tr<trajectories.size();++tr)
-            if(trajectories[tr].exist(t))
-            {
-                size_t K = trajectories[tr][t];
-                for(size_t S=0;S<members[t+1].size();++S)
-                {
-                    vector<size_t> Intersection;
-                    set_intersection(
-                        members[t][K].begin(),members[t][K].end(),
-                        members[t+1][S].begin(),members[t+1][S].end(),
-                        back_inserter(Intersection)
-                        );
+        vector< multimap<double,size_t> > followerByDist(members[t].size());
+        for(size_t K=0; K<members[t].size(); ++K)
+			for(size_t S=0;S<members[t+1].size();++S)
+			{
+				vector<size_t> Intersection;
+				set_intersection(
+					members[t][K].begin(),members[t][K].end(),
+					members[t+1][S].begin(),members[t+1][S].end(),
+					back_inserter(Intersection)
+					);
 
-                    if(!Intersection.empty())
-                    {
-                        vector<size_t> Union;
-                        set_union(
-                            members[t][K].begin(),members[t][K].end(),
-                            members[t+1][S].begin(),members[t+1][S].end(),
-                            back_inserter(Union)
-                            );
+				if(!Intersection.empty())
+				{
+					vector<size_t> Union;
+					set_union(
+						members[t][K].begin(),members[t][K].end(),
+						members[t+1][S].begin(),members[t+1][S].end(),
+						back_inserter(Union)
+						);
 
-                        const double dist = Union.size()/(double)Intersection.size() - 1.0;
-                        if(dist<2)
-                            followerByDist[tr].insert(make_pair(dist,S));
-                    }
-                }
+					const double dist = Union.size()/(double)Intersection.size() - 1.0;
+					if(dist<2)
+						followerByDist[K].insert(make_pair(dist,S));
+				}
             }
-        trajectories.addTimeStep(t,members[t+1].size(),followerByDist);
+        tm.push_back(followerByDist, members[t+1].size());
 
-        Error = (trajectories.size() - nbTraj)/(double)trajectories.size();
+        Error = (tm.getNbTraj() - nbTraj)/(double)tm.getNbTraj();
         sumError+=Error;
         if(maxError<Error) maxError=Error;
-        nbTraj = trajectories.size();
     }
-    cout<<"Trajectory creation rate : mean="<<100.0*sumError/(parts->getNbTimeSteps()-1)<<"%\tmax="<<100.0*maxError<<"%"<<endl;
+    //cout<<"Trajectory creation rate : mean="<<100.0*sumError/(parts->getNbTimeSteps()-1)<<"%\tmax="<<100.0*maxError<<"%"<<endl;
+    this->trajectories = TrajIndex(tm);
     return *this;
 }
 
-/** @brief label the clusters on the reference DynamicParticles  */
-scalarDynamicField DynamicClusters::getLabels() const
+/** @brief save cluster information into a file serie  */
+void DynamicClusters::save(FileSerie &serie) const
 {
-    scalarDynamicField labels;
+	for(size_t t=0; t<trajectories.inverse.size(); ++t)
+	{
+		ofstream output((serie%t).c_str(), ios::out | ios::trunc);
+		output<<trajectories.inverse[t].size()<<"\n";
+		for(size_t K=0; K<trajectories.inverse[t].size(); ++K)
+		{
+			output<<trajectories.inverse[t][K]<<"\t"<<members[t][K].size()<<"\t";
+			transform(
+				members[t][K].begin(), members[t][K].end(),
+				ostream_iterator<size_t>(output, "\t"),
+				TrajIndex::Converter(t, parts->trajectories)
+				);
+			output<<"\n";
+		}
+	}
+}
+
+
+
+/** @brief label the clusters on the reference DynamicParticles  */
+/*ScalarDynamicField DynamicClusters::getLabels() const
+{
+    ScalarDynamicField labels;
     labels.first = "clusters";
     labels.second = new vector< map<size_t,double> > (parts->getNbTimeSteps());
     double label =1;
@@ -162,16 +213,6 @@ scalarDynamicField DynamicClusters::getLabels() const
                         label
                     )
                 );
-                /*for(set<size_t>::const_iterator tr=members[t][(*K)[t]].begin();tr!=members[t][(*K)[t]].end();++tr)
-                    try
-                    {
-                        (*labels.second)[t].insert((*labels.second)[t].end(),make_pair(parts->trajectories[*tr][t],label));
-                    }
-                    catch(const TrajError &e)
-                    {
-                        cerr<<"traj error"<<endl;
-                        throw IdTrajError(e,*tr);
-                    }*/
             }
             catch(const TrajError &e)
             {
@@ -182,7 +223,7 @@ scalarDynamicField DynamicClusters::getLabels() const
         label++;
     }
     return labels;
-}
+}*/
 
 /** @brief bounds a cluster  */
 BoundingBox DynamicClusters::bounds(const std::set<size_t> &cluster,const size_t &time)

@@ -22,6 +22,7 @@
 #include "../files_series.hpp"
 
 using namespace std;
+using namespace Colloids;
 
 int main(int argc, char ** argv)
 {
@@ -41,24 +42,28 @@ int main(int argc, char ** argv)
 		size_t Nbins;
 		sscanf(argv[3],"%u",&Nbins);
 		sscanf(argv[4],"%lf",&range);
+		cout<<"Nbins="<<Nbins<<endl;
+		cout<<"range="<<range<<endl;
 
 		vector<double> gTot(Nbins,0.0);
-		vector<string> tokens(1,token);
-		TokenTree tt(tokens,filename);
+		FileSerie datSerie(filename, token, 1);
 		size_t t=0;
 
 		try
 		{
 			while(true)
 			{
-				IndexedParticles parts((tt%t++).str(),1.0);
+				Particles parts(datSerie%(t++), 1.0);
+				parts.makeRTreeIndex();
 				vector<double> g = parts.getRdf(Nbins,range);
 				transform(g.begin(),g.end(),gTot.begin(),gTot.begin(),plus<double>());
 			}
 		}
 		catch(invalid_argument &e){};
-		transform(gTot.begin(),gTot.end(),gTot.begin(),bind2nd(divides<double>(),(double)t));
-		saveRDF(gTot,inputPath + "_total.rdf",Nbins/range);
+		ofstream rdfFile((datSerie.head()+".rdf").c_str(), ios::out | ios::trunc);
+		rdfFile << "#r\tg(r)"<<endl;
+		for(size_t r=0; r<gTot.size(); ++r)
+			rdfFile<< r/(double)Nbins*range <<"\t"<< gTot[r]/t <<"\n";
 		vector<double>::iterator firstPeak = max_element(gTot.begin(),gTot.end());
 		vector<double>::iterator firstMin = min_element(firstPeak,gTot.end());
 		cout<<(firstPeak-gTot.begin())*range/Nbins<<"\t"<<2.0*(firstPeak-gTot.begin())/(double)(firstMin-gTot.begin())<<endl;

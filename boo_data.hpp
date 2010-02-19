@@ -19,7 +19,6 @@
  * \file boo.hpp
  * \brief Defines class for bond orientational order data
  * \author Mathieu Leocmach
- * \version 0.1
  * \date 13 February 2009
  *
  *
@@ -31,53 +30,72 @@
 #include <complex>
 #include <string>
 #include <boost/array.hpp>
+#include "index.hpp"
+//#include <tvmet/Vector.h>
 
-/** \brief Bond-Orientational-Order data
- *  Coordinates qlm of the local symmetry on the pair spherical harmonics base Ylm(theta,phi)
- *   0 <= l <=6 (pair)
- *  -l <= m <=l
- *  conjugate of Ylm is (-1)^m * Yl(-m) so only positive m coefficients are kept in memory
-*/
-class BooData : public std::valarray< std::complex<double> >
+namespace Colloids
 {
-    static size_t w3j_l_offset[4],w3j_m1_offset[7];
-    public:
-        /** the non redundant wigner 3j coefficients for l=0,2,4,6 */
-        static double w3j[30];
-        static double &getW3j(const size_t &l, const int &m1, const int &m2);
+    //typedef tvmet::Vector<double, 3>            Coord;
 
-        /** \brief default constructor */
-        BooData() : std::valarray< std::complex <double> >(std::complex <double>(0.0,0.0),16){return;};
-        explicit BooData(const std::valarray<double> &rij);
-        explicit BooData(const std::string &str);
-        explicit BooData(const double* buff);
+    /** \brief Bond-Orientational-Order data
+     *  Coordinates qlm of the local symmetry on the pair spherical harmonics base Ylm(theta,phi)
+     *   0 <= l <=6 (pair)
+     *  -l <= m <=l
+     *  conjugate of Ylm is (-1)^m * Yl(-m) so only positive m coefficients are kept in memory
+    */
+    class BooData : public std::valarray< std::complex<double> >
+    {
+        static size_t w3j_l_offset[4],w3j_m1_offset[7];
+        public:
+            /** the non redundant wigner 3j coefficients for l=0,2,4,6 */
+            static double w3j[30];
+            static double &getW3j(const size_t &l, const int &m1, const int &m2);
 
-        std::complex<double> &operator()(const size_t &l, const size_t &m);
-        const std::complex<double> operator()(const size_t &l, const int &m) const;
-        double getSumNorm(const size_t &l) const;
+            /** \brief default constructor */
+            BooData() : std::valarray< std::complex <double> >(std::complex <double>(0.0,0.0),16){return;};
+            explicit BooData(const Coord &rij);
+            explicit BooData(const std::string &str);
+            explicit BooData(const double* buff);
 
-        double getQl(const size_t &l) const;
-        std::complex<double> getWl(const size_t &l) const;
-        void getInvarients(const size_t &l, double &Q, std::complex<double> &W) const;
-        void getInvarients(const size_t &l, double &Q, double &w) const;
+            std::complex<double> &operator()(const size_t &l, const size_t &m);
+            const std::complex<double> operator()(const size_t &l, const int &m) const;
+            double getSumNorm(const size_t &l) const;
 
-        std::string toString() const;
-        char* toBinary(double *output) const;
-} ;
+            double getQl(const size_t &l) const;
+            std::complex<double> getWl(const size_t &l) const;
+            void getInvarients(const size_t &l, double &Q, std::complex<double> &W) const;
+            void getInvarients(const size_t &l, double &Q, double &w) const;
 
-std::ostream& operator<< (std::ostream& out, const BooData &boo );
-std::istream& operator>> (std::istream& in, BooData &boo );
+            std::string toString() const;
+            char* toBinary(double *output) const;
+    } ;
 
-/**   \brief five-fold bond orientational order */
-class BooFive : public std::valarray< std::complex<double> >
-{
-    public:
-        BooFive() : std::valarray< std::complex <double> >(std::complex <double>(0.0,0.0),6){return;};
-        explicit BooFive(const std::valarray<double> &rij);
+    std::ostream& operator<< (std::ostream& out, const BooData &boo );
+    std::istream& operator>> (std::istream& in, BooData &boo );
 
-        double getSumNorm() const;
+    /**   \brief five-fold bond orientational order */
+    class BooFive : public std::valarray< std::complex<double> >
+    {
+        public:
+            BooFive() : std::valarray< std::complex <double> >(std::complex <double>(0.0,0.0),6){return;};
+            explicit BooFive(const std::valarray<double> &rij);
 
-        double getQ5() const;
+            double getSumNorm() const;
+
+            double getQ5() const;
+    };
+
+    struct cloud_exporter : public std::unary_function<const BooData&, std::string>
+	{
+		std::string operator()(const BooData &boo)
+		{
+			boost::array<double, 4> qw;
+			boo.getInvarients(4, qw[0], qw[2]);
+			boo.getInvarients(6, qw[1], qw[3]);
+			std::ostringstream os;
+			std::copy(qw.begin(), qw.end(), std::ostream_iterator<double>(os, "\t"));
+			return os.str();
+		}
+	};
 };
-
 #endif

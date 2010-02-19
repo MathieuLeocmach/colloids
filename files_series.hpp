@@ -37,40 +37,23 @@
 #include <vector>
 #include <boost/format.hpp>
 
-class TokenTree
+namespace Colloids
 {
-    public:
-        size_t nbdigit,level;
-        std::vector<std::string> tokens;
-        TokenTree *prefix, *postfix;
-        std::string value;
-        boost::format formatPattern;
+    class FileSerie
+    {
+        boost::format pattern;
+        std::string token;
+        size_t length, offset;
 
-        TokenTree(){return;};
-        TokenTree(const TokenTree &source);
-        TokenTree(const std::vector<std::string> &toks,const std::string &pattern,const size_t &lev=0);
-        //~TokenTree();
-
-        const std::string& token() const;
-        std::string operator()(std::vector<size_t> &v) const;
-        std::string getDigits(std::vector<size_t> &v) const;
-        std::string getPrefix() const;
-        std::string getNoIndexName() const;
-        std::string getNoIndexNameNoExt() const;
-        std::string getPath() const;
-        std::string getPattern(const std::string &s="") const;
-        std::string getPatternNoPath() const;
-
-        std::string getDigitsFormat() const;
-        std::string getFormatPattern() const;
-        boost::format &operator%(size_t n);
-};
-
-std::ostream& operator<< (std::ostream& out, const TokenTree &t );
-
-inline const std::string& TokenTree::token() const
-{
-    return tokens[level];
+        public:
+            FileSerie(const std::string &filesPattern, const std::string &token, size_t size, size_t offset=0);
+            std::string operator%(const size_t &step){return (pattern%(step+offset)).str();}
+            size_t size() const {return length;}
+            FileSerie changeExt(const std::string &ext) const;
+            FileSerie addPostfix(const std::string &postfix) const;
+            FileSerie addPostfix(const std::string &postfix, const std::string &ext) const;
+            std::string head() const;
+    };
 }
 
 #endif

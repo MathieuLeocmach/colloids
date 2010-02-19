@@ -31,6 +31,8 @@
 //double wigner3j( int l, int m1, int m2, int m3);
 
 using namespace std;
+using namespace Colloids;
+//using namespace tvmet;
 
 double BooData::w3j[30] = {
     //l=0
@@ -80,13 +82,13 @@ double & BooData::getW3j(const size_t &l, const int &m1, const int &m2)
 
 
 /** \brief constructor from one bond */
-BooData::BooData(const valarray<double> &rij): valarray< complex <double> >(complex <double>(0.0,0.0),16)
+BooData::BooData(const Coord &rij): valarray< complex <double> >(complex <double>(0.0,0.0),16)
 {
-    valarray<double> diff(0.0,3);
+    Coord diff(3);
 	double theta, phi;
 
 	// conversion to polar coordinates (physical convention, not mathematical)
-    diff=rij/sqrt((rij*rij).sum());
+    diff = normalize(rij);
     theta = acos(diff[2]);
 	if(diff[0]==0.0)
 	{
@@ -235,31 +237,24 @@ BooData::BooData(const double* buff) : std::valarray< std::complex <double> >(st
 }
 
 /** \brief output to a stream */
-ostream& operator<< (ostream& out, const BooData &boo )
+ostream& Colloids::operator<< (ostream& out, const BooData &boo )
 {
-    for(size_t l = 0; l <= 6; l+=2)
-    {
-        out<<"l="<<l;
-        for(int m = -(int)l; m <= (int)l; m++)
-            out << "\t" << boo(l,m);
-        out <<endl;
-    }
+	for(size_t i=0;i<16;++i)
+        out << boo[i].real() <<"\t"<< boo[i].imag() <<"\t";
+
     return out;
 }
 
 /** \brief input from a stream */
-istream& operator>> (istream& in, BooData &boo )
+istream& Colloids::operator>> (istream& in, BooData &boo )
 {
-    string trash;
-    for(size_t l = 0; l <= 6; l+=2)
-    {
-        in>>trash;
-        for(size_t m=1; m <= l; m++)
-            in >> trash;
-        for(size_t m = 0; m <= l; m++)
-            in >> boo(l,m);
-    }
-    return in;
+	double re, im;
+	for(size_t i=0;i<16;++i)
+	{
+        in >> re >> im;
+        boo[i] = complex<double>(re, im);
+	}
+	return in;
 }
 
 /** \brief constructor from one bond */

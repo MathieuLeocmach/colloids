@@ -39,6 +39,7 @@
 #endif
 
 using namespace std;
+using namespace Colloids;
 //using namespace cimg_library;
 typedef boost::multi_array_types::index_range range;
 

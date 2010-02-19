@@ -332,10 +332,10 @@ public:
 
 		return visitor;
 	}
-
-	void operator+=(const std::valarray<grain> &v)
+    template<typename Coordinates>
+	void operator+=(const Coordinates &v)
 	{
-		Modif(TranslateBoundingBox<BoundedItem>(&v));
+		Modif(TranslateBoundingBox<BoundedItem, Coordinates>(&v));
 	}
 
 

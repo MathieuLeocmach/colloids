@@ -1,12 +1,13 @@
 #include "../dynamicParticles.hpp"
 
 using namespace std;
+using namespace Colloids;
 
 int main(int argc, char ** argv)
 {
     if(argc<2)
     {
-        cout << "Syntax : MSD [path]filename start1 stop1 av1 [start2 stop2 av2 [...]]" << endl;
+        cout << "Syntax : MSD [path]filename.traj start1 stop1 av1 [start2 stop2 av2 [...]]" << endl;
         return EXIT_FAILURE;
     }
 
@@ -38,7 +39,7 @@ int main(int argc, char ** argv)
         	ofstream output((name % start %stop %av).str().c_str(), std::ios::out | std::ios::trunc);
         	output <<"#t\tMSD"<<endl;
         	for(size_t t=0;t<MSD.size();++t)
-				output <<t*parts.dt<<"\t"<<MSD[t]<<endl;
+				output <<t*parts.dt<<"\t"<<MSD[t]<<"\n";
         	output.close();
         }
 	}

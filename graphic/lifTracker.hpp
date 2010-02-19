@@ -29,7 +29,7 @@
 
 #include "tracker.hpp"
 #include "lifFile.hpp"
-
+namespace Colloids{
 /** \brief glue between Tracker and LifFile
 Can be used as a stadard InputIterator
 */
@@ -60,5 +60,5 @@ class LifTracker : public TrackerIterator
 		std::streampos tellg(){return serie->tellg();}
 
 };
-
+}
 #endif

@@ -30,7 +30,6 @@
 #ifndef particles_H
 #define particles_H
 
-#include "RStarTree/RStarTree.h"
 #include <algorithm>
 #include <deque>
 #include <valarray>
@@ -38,79 +37,206 @@
 #include <iostream>
 #include <sstream>
 #include <fstream>
+#include <memory>
 #include <stdexcept>
-#include <boost/ptr_container/ptr_container.hpp>
-#include <boost/operators.hpp>
+#include <boost/multi_array.hpp>
+#include <boost/bind.hpp>
+//#include <tvmet/Vector.h>
 
-typedef RStarTree<size_t, 3, 2, 16,double> 											RTree;
+#include "index.hpp"
+#include "fields.hpp"
+#include "boo_data.hpp"
 
-typedef RTree::BoundingBox			                								BoundingBox;
-
-typedef std::pair< const std::string*,std::map<size_t,double>* >					scalarField;
-typedef std::pair< const std::string*,std::map<size_t, std::valarray<double> >* >	vectorField;
-
-/**
-    \brief defines a set of particles
-    Reading and writing from files and data
-*/
-class Particles : public std::deque< std::valarray<double> >
+namespace Colloids
 {
-    public:
-        /** \brief overall bounding box */
-        BoundingBox bb;
-        /** \brief (mean) radius of all the particles */
-        double radius;
-        //std::deque<unsigned char> labels;
+    typedef RStarIndex_S::RTree                     RTree;
+    typedef std::vector< std::set<size_t> >         NgbList;
+    typedef std::deque< std::pair<size_t, size_t> >	BondList;
 
-        /** \brief constructor from data */
-        Particles(void) : std::deque< std::valarray<double> >(0,std::valarray<double>(0.0,3)){return;};
-        Particles(const std::deque< std::valarray<double> > &data) : std::deque< std::valarray<double> >(data){return;};
-        Particles(const size_t &n, const double &d);
-        Particles(const std::string &filename);
-        Particles(const size_t &Nb, const BoundingBox &b, const std::string &filename);
-        virtual ~Particles(){return;}
+    BondList ngb2bonds(const NgbList& ngbList);
 
-        Particles& operator*=(const std::valarray<double> &v);
-        Particles& operator*=(const double &mul);
-        virtual Particles& operator+=(const std::valarray<double> &v);
+    /**
+        \brief defines a set of particles having the same radius
+    */
+    class Particles : public std::vector<Coord>
+    {
+        /** \brief A spatial index of the particles */
+        std::auto_ptr<SpatialIndex> index;
 
-        static BoundingBox bounds(const std::valarray<double> &center,const double &r=0.0);
+        /** \brief A neighbour list */
+        std::auto_ptr<NgbList> neighboursList;
 
-        virtual std::valarray<double> getDiff(const std::valarray<double> &from,const size_t &to) const;
-        virtual std::valarray<double> getDiff(const size_t &from,const size_t &to) const;
+        public:
+            /** \brief overall bounding box */
+            BoundingBox bb;
+            /** \brief (mean) radius of all the particles */
+            double radius;
 
-        double getAngle(const size_t &origin,const size_t &a,const size_t &b) const;
-        virtual std::deque< std::pair<size_t,size_t> > getBonds(const double &bondLength) const;
 
-        void exportToFile(const std::string &filename) const;
-        void exportToVTK(
-			const std::string &filename,const std::deque< std::pair<size_t,size_t> > &bonds,
-			const std::vector<scalarField> &scalars,	const std::vector<vectorField> &vectors,
-			const std::string &dataName = "particles"
-		) const;
-        void exportToVTK(const std::string &filename,
-			const std::vector<scalarField> &scalars,	const std::vector<vectorField> &vectors,
-			const std::string &dataName = "particles"
-		) const;
-		void exportToVTK(const std::string &filename,
-			const std::vector<scalarField> &scalars,
-			const std::string &dataName = "particles"
-		) const;
+            /** \brief constructors and destructor */
+            Particles(void) : std::vector<Coord>(0,Coord(0.0,3)){radius=1.0;return;};
+            Particles(const std::vector<Coord> &data, const double &r=1.0) : std::vector<Coord>(data){radius=r;};
+            Particles(const size_t &n, const double &d=0.0, const double &r=1.0);
+            Particles(const std::string &filename, const double &r=1.0);
+            Particles(const size_t &Nb, const BoundingBox &b, const std::string &filename, const double &r=1.0);
+            virtual ~Particles(){return;}
 
-        //void exportToDb(const string &filename,const size_t &measurement_id,const size_t &time_step) const;
-        double getMinDim() const;
-        virtual double getNumberDensity() const;
-        double getVF() const;
+            void push_back(const Coord &p);
 
-        void getBooFromFile(const std::string &filename,std::map< size_t,std::valarray<double> >&qw) const;
+            Particles cut(const double &sep);
 
-        //std::deque<unsigned char>& makeLabels(unsigned char &labelingFunction(const size_t&,Particles&));
-        //std::deque<unsigned char>& makeLabels(unsigned char &labelingFunction(iterator));
+            /** Geometric transforms    */
+            Particles& operator*=(const Coord &v);
+            Particles& operator*=(const double &mul);
+            virtual Particles& operator+=(const Coord &v);
 
-        static bool areTooClose(const std::valarray<double> &c, const std::valarray<double> &d,const double &Sep);
+            /** Geometry related */
+            virtual Coord getDiff(const Coord &from,const size_t &to) const;
+            virtual Coord getDiff(const size_t &from,const size_t &to) const;
+            virtual double getAngle(const size_t &origin,const size_t &a,const size_t &b) const;
+            virtual std::set<size_t> selectInside_noindex(const double &margin) const;
+
+            /** Index related   */
+            static BoundingBox bounds(const Coord &center,const double &r=0.0);
+            bool hasIndex() const {return !!index.get();};
+            void setIndex(SpatialIndex *I){index.reset(I);};
+            void makeRTreeIndex();
+            BoundingBox getOverallBox() const;
+
+            /** Spatial query and neighbours. Depends on both geometry and spatial index */
+            virtual std::set<size_t> selectEnclosed(const BoundingBox &b) const;
+            std::set<size_t> getEuclidianNeighbours(const Coord &center, const double &range) const;
+            std::set<size_t> getEuclidianNeighbours(const size_t &center, const double &range) const;
+            size_t getNearestNeighbour(const Coord &center, const double &range=1.0) const;
+            std::multimap<double,size_t> getEuclidianNeighboursBySqDist(const Coord &center, const double &range) const;
+            NgbList & makeNgbList(const double &bondLength);
+            NgbList & makeNgbList(const BondList &bonds);
+            const NgbList & getNgbList() const {return *this->neighboursList;};
+            BondList getBonds() const {return ngb2bonds(getNgbList());};
+            virtual std::set<size_t> selectInside(const double &margin) const;
+
+
+            /**Bond Orientational Order related */
+            BooData sphHarm_OneBond(const size_t &center, const size_t &neighbour) const;
+            BooData getBOO(const size_t &center) const;
+            BooData getCgBOO(const std::vector<BooData> &BOO, const size_t &center) const;
+            void getBOOs(const std::set<size_t> &selection, std::vector<BooData> &BOO) const;
+            void getCgBOOs(const std::set<size_t> &selection, const std::vector<BooData> &BOO, std::vector<BooData> &cgBOO) const;
+            void exportQlm(const std::vector<BooData> &BOO, const std::string &outputPath) const;
+            void exportQ6m(const std::vector<BooData> &BOO, const std::string &outputPath) const;
+            void load_q6m(const std::string &filename, std::vector<BooData> &BOO) const;
+            void load_qlm(const std::string &filename, std::vector<BooData> &BOO) const;
+
+            /**Bond angle distribution related  */
+            boost::array<double,180> getAngularDistribution(const size_t &numPt) const;
+            boost::array<double,180> getMeanAngularDistribution(const NgbList &selection) const;
+
+            /** histograms*/
+            struct Binner : public std::binary_function<const size_t &,const size_t &,void>
+            {
+                const Particles & parts;
+                size_t count;
+                double cutoff;
+
+                Binner(const Particles &p, const double &nbDiameterCutOff) : parts(p)
+                {
+                    count = 0;
+                    cutoff = 2.0 * parts.radius * nbDiameterCutOff;
+                };
+                virtual ~Binner(void);
+                virtual void operator()(const size_t &p, const size_t &q){};
+                void operator<<(const std::set<size_t> &selection);
+            };
+
+            struct RdfBinner : public Binner
+            {
+                std::vector<double> g;
+                double scale;
+
+                RdfBinner(const Particles &p, size_t n, const double &nbDiameterCutOff) : Binner(p,nbDiameterCutOff)
+                {
+                    g = std::vector<double>(n,0.0);
+                    scale = n / cutoff;
+                };
+                void operator()(const size_t &p, const size_t &q);
+                void normalize(const size_t &n);
+            };
+
+            std::vector<double> getRdf(const std::set<size_t> &selection, const size_t &n, const double &nbDiameterCutOff) const;
+            std::vector<double> getRdf(const size_t &n, const double &nbDiameterCutOff) const;
+
+            struct G6Binner : public RdfBinner
+            {
+                std::vector<double> g6;
+                const std::vector<BooData> &boo;
+
+                G6Binner(const Particles &p, size_t n, const double &nbDiameterCutOff, const std::vector<BooData> &BOO)
+                : RdfBinner(p,n,nbDiameterCutOff),boo(BOO)
+                {
+                    g6 = std::vector<double>(n,0.0);
+                };
+                void operator()(const size_t &p, const size_t &q);
+                void normalize(const size_t &n);
+            };
+
+            /** file outputs */
+            void exportToFile(const std::string &filename) const;
+            void exportToVTK(
+                const std::string &filename,const BondList &bonds,
+                const std::vector<ScalarField> &scalars,	const std::vector<VectorField> &vectors,
+                const std::string &dataName = "particles"
+            ) const;
+            void exportToVTK(const std::string &filename,
+                const std::vector<ScalarField> &scalars,	const std::vector<VectorField> &vectors,
+                const std::string &dataName = "particles"
+            ) const;
+            void exportToVTK(const std::string &filename,
+                const std::vector<ScalarField> &scalars,
+                const std::string &dataName = "particles"
+            ) const;
+
+            double getMinDim() const;
+            virtual double getNumberDensity() const;
+            double getVF() const;
+
+            void loadBoo(const std::string &filename, boost::multi_array<double,2>&qw) const;
+            //static bool areTooClose(const std::valarray<double> &c, const Coord &d,const double &Sep);
+
+    };
+    BondList loadBonds(const std::string &filename);
+
+    /**Inline functions, for performance*/
+
+    /** \brief get the difference vector between a position and one of the particles */
+    inline Coord Particles::getDiff(const Coord &from,const size_t &to) const
+    {
+        Coord diff(3);
+        diff = at(to)-from;
+        return diff;
+    }
+
+    /** \brief get the difference vector between two particles */
+    inline Coord Particles::getDiff(const size_t &from,const size_t &to) const
+    {
+        Coord diff(3);
+        diff = at(to)-at(from);
+        return diff;
+    }
+
+    /** @brief get the indices of the particles enclosed by a query box  */
+    inline std::set<size_t> Particles::selectEnclosed(const BoundingBox &b) const
+    {
+        if(!this->hasIndex()) throw std::logic_error("Set a spatial index before doing spatial queries !");
+        return (*index)(b);
+    }
+
+    /** @brief get the indices of the particles inside a reduction of the maximum bounding box  */
+    inline std::set<size_t> Particles::selectInside(const double &margin) const
+    {
+        if(!this->hasIndex()) throw std::logic_error("Set a spatial index before doing spatial queries !");
+        return this->index->getInside(margin);
+    }
 
 };
-
-std::valarray<double> cross_prod(const std::valarray<double> &u,const std::valarray<double> &v);
 #endif
 

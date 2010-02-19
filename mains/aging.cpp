@@ -59,7 +59,7 @@ int main(int argc, char ** argv)
         	ofstream output((name % start %stop %av).str().c_str(), std::ios::out | std::ios::trunc);
         	output <<"#t\tISF"<<endl;
         	for(size_t t=0;t<ISF.size();++t)
-				output <<t*parts.dt<<"\t"<<ISF[t]<<endl;
+				output <<t*parts.dt<<"\t"<<ISF[t]<<"\n";
         	output.close();
         }
 	}

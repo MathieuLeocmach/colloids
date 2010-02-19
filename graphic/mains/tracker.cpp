@@ -52,6 +52,7 @@
 
 namespace po = boost::program_options;
 using namespace std;
+using namespace Colloids;
 
 #ifndef INSTAL_PATH
 #define INSTAL_PATH "c:/bin/"
@@ -197,7 +198,7 @@ int main(int ac, char* av[])
                 vm["zsize"].as<size_t>(),
                 vm["tsize"].as<size_t>()
             };
-            SerieTracker track(inputFile, xyzt, vm["channel"].as<size_t>(), Zratio);
+            SerieTracker track(inputFile, xyzt, Zratio, vm["channel"].as<size_t>());
             cout << "tracker ok"<<endl;
             Tracker::saveWisdom(INSTAL_PATH "wisdom.fftw");
             track.setView(!!vm.count("view"));

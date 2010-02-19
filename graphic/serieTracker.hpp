@@ -28,7 +28,7 @@
 
 #include "tracker.hpp"
 #include <boost/format.hpp>
-
+namespace Colloids{
 /** \brief glue between Tracker and image files
     Can be used as a stadard InputIterator
 */
@@ -61,5 +61,5 @@ class SerieTracker : public TrackerIterator
         SerieTracker(const size_t end_step) {time_step = end_step;};
 
 };
-
+}
 #endif

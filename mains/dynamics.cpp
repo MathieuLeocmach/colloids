@@ -20,22 +20,23 @@
 #include "../dynamicParticles.hpp"
 
 using namespace std;
+using namespace Colloids;
 
 int main(int argc, char ** argv)
 {
     if(argc<3)
     {
-        cout << "compute both Mean Square displacement and Self fIntermediate scattering function"<<endl;
+        cout << "compute both Mean Square displacement and Self Intermediate scattering function for maximum averaging."<<endl;
         cout << "Syntax : dynamic [path]filename mode" << endl;
-        cout<<"\tmode=0\t No drift removal (default)"<<endl;
-        cout<<"\tmode=1\t Drift removed"<<endl;
+        cout<<"\tmode=0\t No drift removal"<<endl;
+        cout<<"\tmode=1\t Drift removed (default)"<<endl;
         cout<<"\tmode=2\t 0 then 1"<<endl;
         return EXIT_FAILURE;
     }
 
     const string filename(argv[1]);
     const string inputPath = filename.substr(0,filename.find_last_of("."));
-    size_t mode =0;
+    size_t mode =1;
     if(argc>2)
         sscanf(argv[2],"%u",&mode);
 

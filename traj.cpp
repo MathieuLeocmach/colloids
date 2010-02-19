@@ -21,9 +21,71 @@
 #include <boost/tokenizer.hpp>
 
 using namespace std;
+using namespace Colloids;
+
+
+typedef multimap<double, size_t>   FolMap;
+
+/** @brief Constructor from the number of particles in the first frame
+
+Initial trajectories have the same indicies as initial positions
+*/
+TrajMap::TrajMap(const size_t &firstFrameSize)
+{
+    bm.assign(1,Frame());
+    for(size_t i=0;i<firstFrameSize;++i)
+        bm.back().insert(Link(i,i));
+}
+
+/** @brief Create a new frame by attributing (if possible) a follower to all the trajectories existing in previous frame.
+Create new trajectories in the new frame if needed.
+  * \param followersByDist The possible followers of each position in the last frame, sorted by the distance (last posistion, new position)
+  * \param frameSize The total number of positions in the new frame
+  * Any distence in the topological meaning is ok : d(a,b)=0 <=> a=b and for all a!=b d(a,b)>0.
+  */
+void Colloids::TrajMap::push_back(const vector< multimap<double, size_t> > &followersByDist, const size_t &frameSize)
+{
+    //convert the input into a list of links (pos,tr) sorted by distence between pos and the last position of the trajectory
+    multimap<double, Link> potential_links;
+    for(Frame::map_by<Coord>::const_iterator p_tr=bm.back().by<Coord>().begin();p_tr!=bm.back().by<Coord>().end();++p_tr)
+        for(FolMap::const_iterator dist_fol=followersByDist[p_tr->first].begin();dist_fol!=followersByDist[p_tr->first].end();++dist_fol)
+            potential_links.insert(make_pair(dist_fol->first, Link(dist_fol->second, p_tr->second)));
+
+    //remember what was the last existing trajectory
+    size_t nbTraj = getNbTraj();
+    //create the new frame
+    bm.push_back(Frame());
+
+    //insert the links into the new frame, statring by the shortest link
+    //The links pointing to the same trajectory or to the same object as an already inserted link are automatically ignored
+    for(multimap<double, Link>::const_iterator l=potential_links.begin();l!=potential_links.end();++l)
+        bm.back().insert(l->second);
+
+    //some elements of the new frame may not have found a trajectory to be linked to. Creates a new trajectory for each of them.
+    vector<bool> linked(frameSize, false);
+    for(Frame::map_by<Coord>::const_iterator p=bm.back().by<Coord>().begin(); p!=bm.back().by<Coord>().end(); ++p)
+        linked[p->first]=true;
+    for(size_t p =0;p<linked.size();++p)
+        if(!linked[p])
+            bm.back().insert(Link(p, nbTraj++));
+}
+
+/** @brief get the size of each Frame  */
+vector<size_t> TrajMap::getFrameSizes() const
+{
+	vector<size_t> frameSizes(bm.size());
+    std::transform(
+		bm.begin(), bm.end(),
+		frameSizes.begin(), mem_fun_ref(&Frame::size)
+		);
+	return frameSizes;
+}
+
+
+
 
 /** \brief feed an initialized trajectory with the position indices contained by an input stream */
-istream& operator>> (istream& is, Traj& tr )
+istream& Colloids::operator>> (istream& is, Traj& tr )
 {
     size_t index;
     while(!is.eof())
@@ -35,9 +97,9 @@ istream& operator>> (istream& is, Traj& tr )
 }
 
 /** \brief output a trajectory to an output stream */
-ostream& operator<< (ostream& os, const Traj& tr )
+ostream& Colloids::operator<< (ostream& os, const Traj& tr )
 {
-    os << tr.start_time << endl;
+    os << tr.start_time << "\n";
     os << tr.steps[0];
     for(size_t i=1;i<tr.steps.size();++i)
         os << "\t" << tr.steps[i];
@@ -59,52 +121,22 @@ const char* IdTrajError::what() const throw()
     return os.str().c_str();
 }
 
-/** \brief constructor from file */
-TrajIndex::TrajIndex(const string &filename)
+/** @brief Constructor from a TrajMap  */
+TrajIndex::TrajIndex(const TrajMap &tm)
 {
-    //extract the path from the filename
-    const size_t endfolder = filename.find_last_of("/\\");
-    const string folder = filename.substr(0,endfolder+1);
-
-    ifstream input(filename.c_str(), ios::in);
-    if(input)
-    {
-        //header
-        input >> radius >> dt;
-        input.get(); //escape the endl
-
-        //data of the file serie containing the positions
-        string base_name,token;
-        getline(input,base_name);
-        getline(input,token);
-        vector<string> tokens(1,token);
-        tt = TokenTree(tokens,folder+base_name);
-        //cout << tt <<endl;
-
-        input >> t_offset >> t_size;
-
-        size_t start;
-        string indexString;
-        input>>start; //sliding the reading in oder to avoid reading final empty line
-        while(!input.eof())
-        {
-            input.get(); //escape the endl
-            Traj tr(start);
-
-            getline(input,indexString);
-            istringstream indexStream(indexString,istringstream::in);
-            indexStream>>tr;
-            push_back(tr);
-            input>>start;
-        }
-        input.close();
-        makeInverse();
-    }
-    else
-        throw invalid_argument("No such file as "+filename);
-
-	return;
+    for(size_t t=0; t<tm.size();++t)
+        for(TrajMap::Frame::map_by<Traj>::const_iterator tr_p = tm[t].by<Traj>().begin(); tr_p!=tm[t].by<Traj>().end(); ++tr_p)
+            if(tr_p->first < this->size())
+                (*this)[tr_p->first].push_back(tr_p->second);
+            else
+            {
+                assert(tr_p->first == this->size()); //the new traj is always the next traj to be constructed
+                this->push_back(Traj(t, tr_p->second));
+            }
+    makeInverse(tm.getFrameSizes());
 }
+
+
 
 /** @brief get the latest time spaned by a trajectory  */
 size_t TrajIndex::getMaxTime() const
@@ -116,125 +148,36 @@ size_t TrajIndex::getMaxTime() const
     return max;
 }
 
-/** @brief make/reset the inverse index
-  */
-void TrajIndex::makeInverse()
+/** @brief make/reset the inverse index  */
+void TrajIndex::makeInverse(const std::vector<size_t> &frameSizes)
 {
-    inverse.assign(getMaxTime()+1,vector<size_t>(size()));
+    inverse.resize(0);
+    inverse.reserve(frameSizes.size());
+    for(size_t t=0; t<frameSizes.size(); ++t)
+		inverse.push_back(new vector<size_t>(frameSizes[t]));
     for(size_t tr=0;tr<size();++tr)
         for(size_t t = (*this)[tr].start_time;t<=(*this)[tr].last_time();++t)
             inverse[t][(*this)[tr][t]]=tr;
 }
 
-
-/** @brief Interrupt or attribute a follower to all the trajectories existing at lastTime. Create new trajectories at lastTime+1 if needed.
-  * \param lastTime The time step to grow from
-  * \param frameSize The total number of elements existing at lastTime+1
-  * \param followersByDist The possible followers of each trajectory, sorted by their distence to the last position of the trajectory
-  * Any distence in the topological meaning is ok : d(a,b)=0 <=> a=b and for all a!=b d(a,b)>0.
-  */
-void TrajIndex::addTimeStep(const size_t &lastTime, const size_t &frameSize, std::vector< std::multimap<double, size_t> > &followersByDist)
+/** @brief fill the TrajIndex with the content of a file stream  */
+istream & Colloids::operator>>(std::istream& is, TrajIndex& tri)
 {
-    //First we treat the simple cases : the trajectories not sharing their nearest possible follower
-    const size_t notLinked = size();
-    vector<size_t> linkedTo(frameSize,notLinked);
-    vector<bool> conflict(size(),false), linked(frameSize,false);
-    size_t nN;
-    for(size_t tr=0;tr<size();++tr)
-        if(at(tr).exist(lastTime) && !followersByDist[tr].empty())
-        {
-            nN = (*followersByDist[tr].begin()).second;
-            if(linkedTo[nN]==notLinked)
-                linkedTo[nN]=tr;
-            else
-            {
-                conflict[tr]=true;
-                conflict[linkedTo[nN]]=true;
-            }
-        }
-    //simple and difficult cases told appart
-    //now adding the non conflicting particles to the non conflicting trajectories
-    for(size_t p = 0;p<frameSize;++p)
-        if(linkedTo[p]!=notLinked && !conflict[linkedTo[p]])
-        {
-            at(linkedTo[p]).push_back(p);
-            linked[p]=true;
-        }
-
-    //clean up followersByDist :
-    // - Removing the follower ranking for the used trajectories
-    // - Removing the new frame elements that where linked to a trajectory
-    for(size_t tr=0;tr<size();++tr)
+    size_t start;
+    string indexString;
+    is>>start; //sliding the reading in oder to avoid reading final empty line
+    while(is.good())
     {
-        if(!conflict[tr])
-            followersByDist[tr].clear();
-        else
-        {
-            deque< multimap<double, size_t>::iterator > toBeRemoved;
-            for(multimap<double, size_t>::iterator f=followersByDist[tr].begin();f!=followersByDist[tr].end();++f)
-                if(linked[(*f).second])
-                    toBeRemoved.push_back(f);
-            for(deque< multimap<double, size_t>::iterator >::iterator r=toBeRemoved.begin();r!=toBeRemoved.end();++r)
-                followersByDist[tr].erase(*r);
-        }
+        is.get(); //escape the endl
+        Traj tr(start);
+
+        getline(is,indexString);
+        istringstream indexStream(indexString,istringstream::in);
+        indexStream>>tr;
+        tri.push_back(tr);
+        is>>start;
     }
-    //difficult case : two or more trajectories have the same nearest possible follower
-
-    //index of difficult trajectories sorted by square distance to their nearest follower
-    multimap<double,size_t> difficultTraj;
-    for(size_t tr = 0;tr<size();++tr)
-        if(!followersByDist[tr].empty())
-            difficultTraj.insert(make_pair((*followersByDist[tr].begin()).first,tr));
-
-    //cout << difficultTraj.size() << " difficult cases ... ";
-
-    //link the difficult trajectories one by one, updating the difficult followers
-    for(multimap<double,size_t>::iterator tr= difficultTraj.begin();tr!=difficultTraj.end();++tr)
-        if(!followersByDist[(*tr).second].empty())
-        {
-            //index of the particle closest to the trajectory's last position
-            size_t p = (*followersByDist[(*tr).second].begin()).second;
-            //link the particle to the trajectory
-            at((*tr).second).push_back(p);
-            linked[p]=true;
-
-            //remove p as possible followers of any (difficult) trajectory
-            multimap<double,size_t>::iterator nexttr = tr;
-            nexttr++;
-            deque< multimap<double,size_t>::iterator > had_p_asFollower;
-            while(nexttr!=difficultTraj.end())
-            {
-                for(multimap<double,size_t>::iterator placeOfp = followersByDist[(*nexttr).second].begin();placeOfp!=followersByDist[(*nexttr).second].end();++placeOfp)
-                    if((*placeOfp).second==p)
-                    {
-                        followersByDist[(*nexttr).second].erase(placeOfp);
-                        had_p_asFollower.push_back(nexttr);
-                        break;
-                    }
-                nexttr++;
-            }
-
-            //re-insert in the ranking all the modified trajectories
-            multimap<double,size_t> fol;
-            for(deque<multimap<double,size_t>::iterator>::iterator f=had_p_asFollower.begin();f!=had_p_asFollower.end();++f)
-            {
-                const size_t actualTraj = (*(*f)).second;
-                fol = followersByDist[actualTraj];
-                difficultTraj.erase(*f);
-                //re-insert if the follower list is not empty
-                if(!fol.empty())
-                    difficultTraj.insert(make_pair((*fol.begin()).first,actualTraj));
-            }
-        }
-
-    //some elements of the new frame may not have found a trajectory to be linked to. Creates new a new trajectory for each of them.
-    size_t nbnew=0;
-    for(size_t p =0;p<frameSize;++p)
-        if(!linked[p])
-        {
-            push_back(Traj(lastTime+1,p));
-            nbnew++;
-        }
-    //cout << nbnew << " new trajectories" << endl;
+    return is;
 }
+
 
