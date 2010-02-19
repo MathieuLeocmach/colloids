@@ -34,12 +34,10 @@ int main(int argc, char ** argv)
 		}
 
 		const string filename(argv[1]), token(argv[2]);
-		double delta_t;
-		size_t span, offset=0;
-		sscanf(argv[3],"%lf",&delta_t);
-		sscanf(argv[4],"%u",&span);
-		if(argc>5)
-			sscanf(argv[5],"%u",&offset);
+		const double delta_t = atof(argv[3]);
+		const size_t span = atoi(argv[4]);
+		const size_t offset = (argc>5)?atoi(argv[5]):0;
+
 		cout<<filename.substr(filename.find_last_of("/\\")+1)<<endl;
 
 		//create the needed file series
@@ -49,7 +47,7 @@ int main(int argc, char ** argv)
 				cloudSerie = datSerie.changeExt(".cloud"),
 				cgCloudSerie = datSerie.addPostfix("_space", ".cloud");
 
-		cout<<"load ...";
+		cout<<"load ..."<<endl;
 		//load all files in memory with default radius of 1.0
 		//by the way, check file existence
 		boost::ptr_vector<Particles> positions(span);
@@ -57,12 +55,13 @@ int main(int argc, char ** argv)
 			positions.push_back(new Particles(datSerie%t));
 
 		//spatially index each frame
-		cout<<"index ...";
+		cout<<"index ..."<<endl;
 		for_each(positions.begin(), positions.end(), mem_fun_ref(&Particles::makeRTreeIndex));
 
 		//get averaged g(r)
-		cout<<"g(r) in "<<(datSerie.head()+".rdf")<<" ...";
+		cout<<"g(r) in "<<(datSerie.head()+".rdf")<<endl;
 		vector<double> total_g(200, 0.0), g;
+		boost::progress_display show_pr(span);
 		for(size_t t=0; t<span; ++t)
 		{
 			g = positions[t].getRdf(200,15.0);
@@ -71,6 +70,7 @@ int main(int argc, char ** argv)
 				total_g.begin(), total_g.begin(),
 				plus<double>()
 				);
+			++show_pr;
 		}
 		transform(
 			total_g.begin(), total_g.end(), total_g.begin(),
@@ -93,7 +93,7 @@ int main(int argc, char ** argv)
 		}
 		while(total_g[first_min]==0.0);
 		const double bondLength = first_min/200.0*15.0, radius = bondLength / 1.3;
-		cout<<"radius="<<radius<<" ...";
+		cout<<"radius="<<radius<<endl;
 
 		//treat each file
 		boost::progress_display show_progress(span);
