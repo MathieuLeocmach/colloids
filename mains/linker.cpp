@@ -35,7 +35,7 @@ int main(int argc, char ** argv)
     const double radius = atof(argv[3]),
 			time_step= atof(argv[4]);
     const size_t t_span = atoi(argv[5]),
-		t_offset = (argc<7):0:atoi(argv[6]);
+		t_offset = (argc<7)?0:atoi(argv[6]);
 
     try
     {
