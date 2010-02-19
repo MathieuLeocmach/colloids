@@ -31,6 +31,10 @@
 namespace Colloids
 {
 
+    void growCluster(std::set<size_t> &population, std::set<size_t> &cluster, size_t center, const NgbList &ngbs);
+    void segregate(std::set<size_t> &population, std::vector< std::set<size_t> > &clusters, const NgbList &ngbs);
+    void segregateAll(std::vector< std::set<size_t> > &clusters, const Particles &parts);
+
     /**
         \brief Object representing clusters evolving in time
     */
@@ -55,6 +59,8 @@ namespace Colloids
             DynamicClusters(DynamicParticles &dynParts, std::set<size_t> &population);
 
             DynamicClusters& assign(DynamicParticles &dynParts, std::set<size_t> &population);
+
+            void save(FileSerie &serie) const;
 
             ScalarDynamicField getLabels() const;
 

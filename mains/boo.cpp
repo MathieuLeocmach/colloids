@@ -83,8 +83,6 @@ int main(int argc, char ** argv)
 			parts.makeNgbList(bonds);
 			inside = parts.selectInside_noindex(1.3*radius);
 			secondInside = parts.selectInside_noindex(2.0*1.3*radius);
-			cout<<"\tinside is "<<inside.size()<<" particles"<<endl;
-			cout<<"second inside is "<<secondInside.size()<<" particles"<<endl;
 		}
 
 		//calculate and export qlm

@@ -24,6 +24,57 @@
 using namespace std;
 using namespace Colloids;
 
+/** @brief Grows recursively a cluster of neighbouring particles
+  * \param population The indicies of the particles than can be added to the cluster
+  * \param cluster Collecting the indicies of the particles belonging to the cluster
+  * \param center The particle we are presently looking at
+  * \param ngbList The List of each particle's neighbours
+  */
+void Colloids::growCluster(std::set<size_t> &population, std::set<size_t> &cluster, size_t center, const NgbList &ngbs)
+{
+    for(set<size_t>::const_iterator n=ngbs[center].begin();n!=ngbs[center].end();++n)
+    {
+        //are we able to use this particle ?
+        set<size_t>::iterator toBeRemoved = population.find(*n);
+        if(toBeRemoved != population.end())
+        {
+            cluster.insert(cluster.end(),*n);
+            //this particle will be used now so it must be removed from the population
+            // to prevent infinite recursion
+            population.erase(toBeRemoved);
+            //recursion
+            growCluster(population,cluster,*n,ngbs);
+        }
+    }
+}
+
+/** @brief Segregate a population of particles into clusters of recursively neighbouring particles
+  * \param population The indicies of the particles than can be added to the clusters
+  * \param clusters The list of clusters with the indicies of the particles belonging to each (output)
+  * \param ngbList The List of each particle's neighbours
+  */
+void Colloids::segregate(std::set<size_t> &population, std::vector< std::set<size_t> > &clusters, const NgbList &ngbs)
+{
+    size_t center = 0;
+    while(!population.empty())
+    {
+        center = *population.begin();
+        clusters.push_back(set<size_t>());
+        clusters.back().insert(center);
+        population.erase(population.begin());
+        growCluster(population,clusters.back(),center,ngbs);
+    }
+}
+
+/** @brief Segregate all particles into clusters of recursively neighbouring particles */
+void Colloids::segregateAll(std::vector< std::set<size_t> > &clusters, const Particles& parts)
+{
+    set<size_t> all;
+    for(size_t p=0;p<parts.size();++p)
+        all.insert(all.end(),p);
+    segregate(all, clusters, parts.getNgbList());
+}
+
 /** @brief segregate at each time step a population of trajectories into clusters of recursively neighbouring particles
   * \param dynParts The DynamicParticles the clusters are made of
   * \param population The indicies of the trajectories than can be added to the clusters
@@ -52,8 +103,8 @@ DynamicClusters& DynamicClusters::assign(DynamicParticles &dynParts, std::set<si
     {
         set<size_t> popul_t;
         for(set<size_t>::const_iterator tr=population.begin();tr!=population.end();++tr)
-        if(parts->trajectories[*tr].exist(t))
-            popul_t.insert(popul_t.end(),parts->trajectories[*tr][t]);
+			if(parts->trajectories[*tr].exist(t))
+				popul_t.insert(popul_t.end(),parts->trajectories[*tr][t]);
 
         segregate(popul_t, unsorted_clusters[t], parts->positions[t].getNgbList());
     }
@@ -113,10 +164,32 @@ DynamicClusters& DynamicClusters::assign(DynamicParticles &dynParts, std::set<si
         sumError+=Error;
         if(maxError<Error) maxError=Error;
     }
-    cout<<"Trajectory creation rate : mean="<<100.0*sumError/(parts->getNbTimeSteps()-1)<<"%\tmax="<<100.0*maxError<<"%"<<endl;
+    //cout<<"Trajectory creation rate : mean="<<100.0*sumError/(parts->getNbTimeSteps()-1)<<"%\tmax="<<100.0*maxError<<"%"<<endl;
     this->trajectories = TrajIndex(tm);
     return *this;
 }
+
+/** @brief save cluster information into a file serie  */
+void DynamicClusters::save(FileSerie &serie) const
+{
+	for(size_t t=0; t<trajectories.inverse.size(); ++t)
+	{
+		ofstream output((serie%t).c_str(), ios::out | ios::trunc);
+		output<<trajectories.inverse[t].size()<<"\n";
+		for(size_t K=0; K<trajectories.inverse[t].size(); ++K)
+		{
+			output<<trajectories.inverse[t][K]<<"\t"<<members[t][K].size()<<"\t";
+			transform(
+				members[t][K].begin(), members[t][K].end(),
+				ostream_iterator<size_t>(output, "\t"),
+				TrajIndex::Converter(t, parts->trajectories)
+				);
+			output<<"\n";
+		}
+	}
+}
+
+
 
 /** @brief label the clusters on the reference DynamicParticles  */
 /*ScalarDynamicField DynamicClusters::getLabels() const

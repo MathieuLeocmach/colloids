@@ -205,11 +205,6 @@ namespace Colloids
     };
     BondList loadBonds(const std::string &filename);
 
-    /**cluster */
-    void growCluster(std::set<size_t> &population, std::set<size_t> &cluster, size_t center, const NgbList &ngbs);
-    void segregate(std::set<size_t> &population, std::vector< std::set<size_t> > &clusters, const NgbList &ngbs);
-    void segregateAll(std::vector< std::set<size_t> > &clusters, const Particles &parts);
-
     /**Inline functions, for performance*/
 
     /** \brief get the difference vector between a position and one of the particles */
