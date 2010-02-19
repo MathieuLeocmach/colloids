@@ -220,7 +220,7 @@ class Experiment:
                               )
     def get_intervals(self, step=10, average=10):
         """get a few typical intervals"""
-        return [(t,self.offset+self.size-(average+1), average) \
+        return [(t,self.offset+self.size-average, average) \
                      for t in self.get_range()[:-50:step]]
 
     def auto_ageing(self, step=10, average=10):
@@ -281,7 +281,8 @@ class Experiment:
                         sg6 - grey_dilation(sg6,size=[3])
                         )>0.9999, 1, 0)
                 )
-        maxima = [m for m in maxima if g6[m]>0]
+        #keep only positive maxima further than the largest maxima
+        maxima = [m for m in maxima[g6.argmax():] if g6[m]>0]
         envelope = np.column_stack((r[maxima],g6[maxima]))
         np.savetxt(
             os.path.join(self.path,self.head + '_total_env.g6'),
