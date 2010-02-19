@@ -24,9 +24,9 @@ int main(int argc, char ** argv)
         boost::format name (inputPath+"_%1%from_%2%to_%3%av.msd");
         for(size_t i=0;i<nbSub;++i)
         {
-        	sscanf(argv[3*i+2],"%u",&start);
-        	sscanf(argv[3*i+3],"%u",&stop);
-        	sscanf(argv[3*i+4],"%u",&av);
+        	start = atoi(argv[3*i+2]);
+        	stop = atoi(argv[3*i+3]);
+        	av = atoi(argv[3*i+4]);
         	if(start+1>parts.getNbTimeSteps() || stop+av+1>parts.getNbTimeSteps())
 				throw invalid_argument
 				(

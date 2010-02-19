@@ -45,11 +45,10 @@ int main(int argc, char ** argv)
         {
             cout<<"file serie"<<endl;
             const string token(argv[2]);
-            sscanf(argv[3],"%lf",&radius);
-            size_t t_span, t_offset;
-			sscanf(argv[5],"%u",&t_span);
-            sscanf(argv[4],"%u",&t_offset);
-            sscanf(argv[6],"%lf",&minSep);
+            radius = atof(argv[3]);
+            const size_t t_span = atoi(argv[4]),
+					t_offset = atoi(argv[5]);
+            minsep = atof(argv[6]);
             const double sep = 2.0*radius*minSep;
 
             FileSerie datSerie(filename, token, t_span, t_offset);
@@ -69,8 +68,8 @@ int main(int argc, char ** argv)
                 cout << " minSep is in diameter unit" << endl;
                 return EXIT_FAILURE;
             }
-            sscanf(argv[2],"%lf",&radius);
-            sscanf(argv[3],"%lf",&minSep);
+            radius = atof(argv[2]);
+            minsep = atof(argv[3]);
 
             const double sep = 2.0*radius*minSep;
             Particles(filename).cut(sep).exportToFile(filename);

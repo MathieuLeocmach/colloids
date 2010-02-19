@@ -49,16 +49,14 @@ int main(int argc, char ** argv)
 		const string head = filename.substr(0,filename.rfind("_t"));
 		const string neck = filename.substr(head.size(), inputPath.size()-head.size());
 
-		double radius;
-		sscanf(argv[2],"%lf",&radius);
+		const double radius = atof(argv[2]);
 #ifdef use_periodic
-		size_t Nb;
-		sscanf(argv[3],"%u",&Nb);
+		const size_t Nb = atoi(argv[3]);
 		BoundingBox b;
 		for(size_t d=0;d<3;++d)
 		{
 			b.edges[d].first=0.0;
-			sscanf(argv[4+d],"%lf",&b.edges[d].second);
+			b.edges[d].second = atof(argv[4+d]);
 		}
 		PeriodicParticles parts(Nb,b,filename,radius);
 #else

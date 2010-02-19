@@ -41,22 +41,19 @@ int main(int argc, char ** argv)
 
 		const string filename(argv[1]);
 		const string inputPath = filename.substr(0,filename.find_last_of("."));
-		double radius,nbDiameterCutOff;
-		sscanf(argv[2],"%lf",&radius);
-		size_t Nbins;
-		sscanf(argv[3],"%u",&Nbins);
-		sscanf(argv[4],"%lf",&nbDiameterCutOff);
+		const double radius = atof(argv[2]),
+				nbDiameterCutOff = atof(argv[4]);
+		const size_t Nbins = atoi(argv[3]);
 
 		//construct the particle container out of the datafile
 #ifdef use_periodic
 		if(argc<9) throw er;
-		size_t Nb;
-		sscanf(argv[5],"%u",&Nb);
+		const size_t Nb = atoi(argv[5]);
 		BoundingBox b;
 		for(size_t d=0;d<3;++d)
 		{
 			b.edges[d].first=0.0;
-			sscanf(argv[6+d],"%lf",&b.edges[d].second);
+			b.edges[d].second = atof(argv[6+d]);
 		}
 		PeriodicParticles Centers(Nb,b,filename,radius);
 		cout << "With periodic boundary conditions"<<endl;

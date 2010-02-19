@@ -102,7 +102,7 @@ int main(int argc, char ** argv)
 				tau = parts.getNbTimeSteps()-1 - (upper_bound(isf.back().rbegin(),isf.back().rend(),exp(-1.0))-isf.back().rbegin());
 		}
 		else
-			sscanf(argv[2],"%u",&tau);
+			tau = atoi(argv[2]);
 
 		cout<<"relaxation time is "<<tau<<" steps, ie "<<tau*parts.dt<<"s"<<endl;
 		//const size_t halfInterval = tau/2;

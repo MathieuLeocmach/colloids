@@ -25,19 +25,17 @@ using namespace Colloids;
 
 int main(int argc, char ** argv)
 {
-    if(argc<7)
+    if(argc<6)
     {
-        cout << "Syntax : linker [path]filename token radius time_step t_offset t_span " << endl;
+        cout << "Syntax : linker [path]filename token radius time_step t_span t_offset(0)" << endl;
         return EXIT_FAILURE;
     }
 
     const string filename(argv[1]), token(argv[2]);
-    double radius,time_step;
-    sscanf(argv[3],"%lf",&radius);
-    sscanf(argv[4],"%lf",&time_step);
-    size_t t_offset,t_span;
-    sscanf(argv[5],"%u",&t_offset);
-    sscanf(argv[6],"%u",&t_span);
+    const double radius = atof(argv[3]),
+			time_step= atof(argv[4]);
+    const size_t t_span = atoi(argv[5]),
+		t_offset = (argc<7):0:atoi(argv[6]);
 
     try
     {

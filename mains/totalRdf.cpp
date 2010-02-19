@@ -38,10 +38,8 @@ int main(int argc, char ** argv)
 
 		const string filename(argv[1]), token(argv[2]);
 		const string inputPath = filename.substr(0,filename.rfind(token));
-		double range;
-		size_t Nbins;
-		sscanf(argv[3],"%u",&Nbins);
-		sscanf(argv[4],"%lf",&range);
+		const double range = atof(argv[4]);
+		const size_t Nbins = atoi(argv[3]);
 		cout<<"Nbins="<<Nbins<<endl;
 		cout<<"range="<<range<<endl;
 

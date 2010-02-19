@@ -46,7 +46,7 @@ int main(int argc, char ** argv)
 		DynamicParticles parts(filename);
 		//cout << parts.trajectories.size() << " particles"<<endl;
 		radius = parts.radius;
-		sscanf(argv[2],"%lf",&range);
+		range = atof(argv[2]);
 
 		//fetch the file name pattern directly in the file.traj
 		string pattern, token;

@@ -36,9 +36,7 @@ int main(int argc, char ** argv)
 
     const string filename(argv[1]);
     const string inputPath = filename.substr(0,filename.find_last_of("."));
-    size_t mode =1;
-    if(argc>2)
-        sscanf(argv[2],"%u",&mode);
+    const size_t mode = (argc>2)?atoi(argv[2]):1;
 
     try
     {

@@ -37,7 +37,7 @@ int main(int argc, char ** argv)
 		Particles parts(filename,1);
 		parts.makeRTreeIndex();
 		if(argc>2)
-			sscanf(argv[2],"%lf",&maxBondLength);
+			maxBondLength = atof(argv[2]);
 		else
 		{
 			vector<double> g = parts.getRdf(200,15.0);
