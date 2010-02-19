@@ -220,7 +220,7 @@ class Experiment:
                               )
     def get_intervals(self, step=10, average=10):
         """get a few typical intervals"""
-        return [(t,self.offset+self.size-(average+1), average) \
+        return [(t,self.offset+self.size-average, average) \
                      for t in self.get_range()[:-50:step]]
 
     def auto_ageing(self, step=10, average=10):
@@ -281,7 +281,8 @@ class Experiment:
                         sg6 - grey_dilation(sg6,size=[3])
                         )>0.9999, 1, 0)
                 )
-        maxima = [m for m in maxima if g6[m]>0]
+        #keep only positive maxima further than the largest maxima
+        maxima = [m for m in maxima[g6.argmax():] if g6[m]>0]
         envelope = np.column_stack((r[maxima],g6[maxima]))
         np.savetxt(
             os.path.join(self.path,self.head + '_total_env.g6'),
@@ -465,3 +466,8 @@ def enum(xp,postfix='',ext='dat',absPath=True):
 def br(sigma, T=310, eta=2.22e-3):
         """Brownian time for a particle of diameter sigma (in meters)"""
         return 3 * const.pi * eta * (sigma**3) / (4 * const.k * T)
+
+def histz(f):
+    """export the density histogram of a .dat file into a .z file"""
+    hist, bins = np.histogram(np.loadtxt(f, delimiter='\t', skiprows=2, usecols=[2]))
+    np.savetxt(f[:-3]+'z', hist/(bins[1]-bins[0]), fmt='%f', delimiter='\t')

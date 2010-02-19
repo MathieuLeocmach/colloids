@@ -34,6 +34,10 @@
 #include "tracker.hpp"
 #include "../particles.hpp"
 
+#ifndef TRACKER_N_THREADS
+#define TRACKER_N_THREADS 1
+#endif
+
 using namespace std;
 using namespace Colloids;
 //using namespace cimg_library;
