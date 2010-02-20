@@ -72,14 +72,11 @@ int main(int argc, char ** argv)
 				);
 			++show_pr;
 		}
-		transform(
-			total_g.begin(), total_g.end(), total_g.begin(),
-			bind2nd(divides<double>(), span)
-			);
 		ofstream rdfFile((datSerie.head()+".rdf").c_str(), ios::out | ios::trunc);
 		rdfFile << "#r\tg(r)"<<endl;
 		for(size_t r=0; r<total_g.size(); ++r)
-			rdfFile<< r/200.0*15.0 <<"\t"<< total_g[r]<<"\n";
+			rdfFile<< r/200.0*15.0 <<"\t"<< total_g[r]/span <<"\n";
+        rdfFile.close();
 
 		//get bondlength and radius from the first minimum of g(r)
 		//the loop is here only to get rid of possible multiple centers at small r
