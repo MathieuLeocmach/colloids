@@ -193,7 +193,7 @@ void Particles::makeRTreeIndex()
 {
     vector<BoundingBox> boxes;
     boxes.reserve(this->size());
-    for(iterator p = this->begin(); p!=this->end();++p)
+    for(const_iterator p = this->begin(); p!=this->end();++p)
         boxes.push_back(bounds(*p));
 
     setIndex(new RStarIndex_S(boxes));
@@ -557,12 +557,10 @@ void Particles::G6Binner::operator()(const size_t &p, const size_t &q)
 	const size_t r = (size_t)(norm2(parts.getDiff(p, q)) * scale);
 	g[r]++;
 
-	double prod[7];
+	boost::array<double, 7> prod;
 	for(size_t m=0;m<=6;++m)
-		prod[m] = real(boo[p](6,m) * conj(boo[q](6,m)));
-	g6[r] += prod[0];
-	for(size_t m=1; m<=6;++m)
-		g6[r] += 2*prod[m];
+		prod[m] = norm(boo[p](6,m));
+	g6[r] += prod[0] + 2.0*accumulate(prod.begin()+1, prod.end(), 0);
 };
 
 /**	\brief Normalize the histogram. Do not bin afterward */
