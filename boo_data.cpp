@@ -104,12 +104,6 @@ BooData::BooData(const Coord &rij): valarray< complex <double> >(complex <double
     return;
 }
 
-/** \brief access to members */
-complex<double> & BooData::operator()(const size_t &l, const size_t &m)
-{
-    return (*this)[m + l*l/4];
-}
-
 /** \brief return the qlm values */
 const complex<double> BooData::operator()(const size_t &l, const int &m) const
 {
@@ -184,14 +178,6 @@ void BooData::getInvarients(const size_t &l, double &Q, std::complex<double> &W)
     W *= 12.0;*/
 
     if( sumQl != 0) W /= pow(sumQl,1.5);
-}
-
-/** @brief get both Ql and Wl(real part)  */
-void BooData::getInvarients(const size_t &l, double &Q, double &w) const
-{
-    complex<double> W(0.0,0.0);
-    getInvarients(l,Q,W);
-    w=W.real();
 }
 
 /** @brief Export the inner data to a String

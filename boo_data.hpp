@@ -57,14 +57,20 @@ namespace Colloids
             explicit BooData(const std::string &str);
             explicit BooData(const double* buff);
 
-            std::complex<double> &operator()(const size_t &l, const size_t &m);
+            /** \brief access to members */
+            std::complex<double> &operator()(const size_t &l, const size_t &m){return (*this)[m + l*l/4];};
             const std::complex<double> operator()(const size_t &l, const int &m) const;
             double getSumNorm(const size_t &l) const;
 
             double getQl(const size_t &l) const;
             std::complex<double> getWl(const size_t &l) const;
             void getInvarients(const size_t &l, double &Q, std::complex<double> &W) const;
-            void getInvarients(const size_t &l, double &Q, double &w) const;
+            void getInvarients(const size_t &l, double &Q, double &w) const
+            {
+                std::complex<double> W(0.0,0.0);
+                getInvarients(l,Q,W);
+                w=W.real();
+            }
 
             std::string toString() const;
             char* toBinary(double *output) const;
