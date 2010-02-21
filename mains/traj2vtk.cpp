@@ -74,13 +74,14 @@ int main(int argc, char ** argv)
 			for(size_t t=0; t<msd.size(); ++t)
 				msd_f << t*parts.dt<<"\t"<< msd[t]<<"\n";
 
+			msd_f.close();
 			ofstream isf_f((inputPath + ".isf").c_str());
 			isf_f << "#t\tx\ty\tz\tav"<<endl;
-			for(size_t t=0; t<msd.size(); ++t)
+			for(size_t t=0; t<isf.front().size(); ++t)
 			{
 				isf_f << t*parts.dt;
 				for(size_t d=0; d<4; ++d)
-					isf_f<<"\t"<< isf[t][d];
+					isf_f<<"\t"<< isf[d][t];
 				isf_f<<"\n";
 			}
 			isf_f.close();

@@ -149,8 +149,8 @@ namespace Colloids
 			}
 
 			//averaging on less and less time steps on the upper boundary
-			if(actual_time + averaging/2 < values.size())
-				divisors.push_back(std::vector<size_t>(trajectories.inverse[actual_time+averaging/2].size()));
+			if(1+actual_time + averaging/2 < values.size())
+				divisors.push_back(std::vector<size_t>(trajectories.inverse[1+actual_time+averaging/2].size()));
 		}
 		actual_time++;
 
