@@ -60,13 +60,16 @@ double BooData::w3j[30] = {
 size_t BooData::w3j_l_offset[4] = {0,1,5,14};
 size_t BooData::w3j_m1_offset[7] = {0,1,2,4,6,9,12};
 
+size_t BooData::i2l[16] = {0, 2, 2, 2, 4, 4, 4, 4, 4, 6, 6, 6, 6, 6, 6, 6};
+size_t BooData::i2m[16] = {0, 0, 1, 2, 0, 1, 2, 3, 4, 0, 1, 2, 3, 4, 5, 6};
+
 /** @brief get the value of the Wigner 3j symbol ((l,l,l),(m1,m2,-m1-m2))
  *  l even
  *  -l<=m1,m2,m1+m2<=l
 */
 double & BooData::getW3j(const size_t &l, const int &m1, const int &m2)
 {
-    boost::array<int,3> m = {abs(m1), abs(m2), abs(m1+m2)};
+    boost::array<int,3> m = {{abs(m1), abs(m2), abs(m1+m2)}};
     sort(m.begin(),m.end());
     //comment the tests: never saw these exeptions.
     /*if(l/2>3) throw invalid_argument("l is too big");
@@ -77,7 +80,7 @@ double & BooData::getW3j(const size_t &l, const int &m1, const int &m2)
 
 
 /** \brief constructor from one bond */
-BooData::BooData(const Coord &rij): valarray< complex <double> >(complex <double>(0.0,0.0),16)
+BooData::BooData(const Coord &rij): valarray< complex <double> >(16)
 {
     Coord diff(3);
 	double theta, phi;
@@ -93,9 +96,8 @@ BooData::BooData(const Coord &rij): valarray< complex <double> >(complex <double
 	else phi = atan( diff[1] / diff[0]) + (diff[0] > 0.0 ? 0.0 :M_PI);
 
 	//fill in with spherical harmonics
-	for(size_t l = 0; l <= 6; l+=2)
-        for(size_t m = 0; m <= l; m++)
-            (*this)(l,m) = boost::math::spherical_harmonic(l, m, theta, phi);
+	for(int i=0; i<16; ++i)
+        (*this)[i] = boost::math::spherical_harmonic(i2l[i], i2m[i], theta, phi);
     return;
 }
 
@@ -105,20 +107,19 @@ const complex<double> BooData::operator()(const size_t &l, const int &m) const
     if(m>=0)
         return (*this)[m + l*l/4];
     if((-m)%2 == 0)
-        return conj((*this)[-m + l*l/4]);
+        return conj((*this)[l*l/4 -m]);
     else
-        return -conj((*this)[-m + l*l/4]);
-    //return (*this)[m+l + (l-1)*l/2];
+        return -conj((*this)[l*l/4-m]);
 }
 
 /** \brief sum over m for a given l of the norms */
 double BooData::getSumNorm(const size_t &l) const
 {
-    double sum=0.0;
+    double sum = 0.0;
     for(size_t m = 1; m <= l; m++)
         sum += norm((*this)(l,m));
     sum *= 2.0;
-    sum += norm((*this)(l,0));
+    sum += norm((*this)(l, 0u));
     return sum;
 }
 /** \brief Steindhardt order parameter Ql */
@@ -129,7 +130,7 @@ double BooData::getQl(const size_t &l) const
 /** \brief Steindhardt order parameter Wl */
 complex<double> BooData::getWl(const size_t &l) const
 {
-    double sumQl = getSumNorm(l);
+    const double sumQl = getSumNorm(l);
     complex<double> sumWl(0.0,0.0);
 
     //m1,m2,m3 are in [-l,l] and m1+m2+m3=0
@@ -146,7 +147,7 @@ complex<double> BooData::getWl(const size_t &l) const
     //There are 6 possible permutations in a triplet and 2 possible signs => 12
     sumWl *= 12.0;
 
-    if( sumQl != 0) sumWl /= sqrt( sumQl * sumQl * sumQl);
+    if( 1.0 + sumQl != 1.0) sumWl /= pow(sumQl, 1.5);
     return sumWl;
 }
 
@@ -172,7 +173,7 @@ void BooData::getInvarients(const size_t &l, double &Q, std::complex<double> &W)
     //There are 6 possible permutations in a triplet and 2 possible signs => 12
     W *= 12.0;*/
 
-    if( sumQl != 0) W /= pow(sumQl,1.5);
+    if(1.0 + sumQl != 1.0) W /= pow(sumQl,1.5);
 }
 
 /** @brief Export the inner data to a String

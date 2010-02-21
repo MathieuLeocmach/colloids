@@ -50,6 +50,7 @@ namespace Colloids
             /** the non redundant wigner 3j coefficients for l=0,2,4,6 */
             static double w3j[30];
             static double &getW3j(const size_t &l, const int &m1, const int &m2);
+            static size_t i2l[16], i2m[16];
 
             /** \brief default constructor */
             BooData() : std::valarray< std::complex <double> >(std::complex <double>(0.0,0.0),16){return;};
