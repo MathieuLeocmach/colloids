@@ -66,18 +66,13 @@ size_t BooData::w3j_m1_offset[7] = {0,1,2,4,6,9,12};
 */
 double & BooData::getW3j(const size_t &l, const int &m1, const int &m2)
 {
-    vector<int> m;
-    m.push_back(abs(m1));
-    m.push_back(abs(m2));
-    m.push_back(abs(m1+m2));
+    boost::array<int,3> m = {abs(m1), abs(m2), abs(m1+m2)};
     sort(m.begin(),m.end());
-    if(l/2>3) throw invalid_argument("l is too big");
+    //comment the tests: never saw these exeptions.
+    /*if(l/2>3) throw invalid_argument("l is too big");
     if(m.back()>6) throw invalid_argument("m.back() is too big");
-    if(w3j_l_offset[l/2] + w3j_m1_offset[m.back()]+m.front()>29) throw invalid_argument("total too long");
+    if(w3j_l_offset[l/2] + w3j_m1_offset[m.back()]+m.front()>29) throw invalid_argument("total too long");*/
     return w3j[w3j_l_offset[l/2] + w3j_m1_offset[m.back()]+m.front()];
-
-    /*sort(m.begin(),m.end(),boost::bind(less<int>,boost::bind(abs<int>,_1),boost::bind(abs<int>,_2)));
-    return BooData::w3j[w3j_l[l/2] + m1*(l-m1+2)];*/
 }
 
 
@@ -90,9 +85,9 @@ BooData::BooData(const Coord &rij): valarray< complex <double> >(complex <double
 	// conversion to polar coordinates (physical convention, not mathematical)
     diff = normalize(rij);
     theta = acos(diff[2]);
-	if(diff[0]==0.0)
+	if(1.0+diff[0]*diff[0]==1.0)
 	{
-	    if(diff[1]==0.0) phi=0.0;
+	    if(1.0+diff[1]*diff[1]==1.0) phi=0.0;
 	    else phi = M_PI / 2.0 * (diff[1] > 0.0 ? 1.0 : -1.0);
 	}
 	else phi = atan( diff[1] / diff[0]) + (diff[0] > 0.0 ? 0.0 :M_PI);
