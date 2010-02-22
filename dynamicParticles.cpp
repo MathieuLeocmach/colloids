@@ -1157,7 +1157,8 @@ void DynamicParticles::link()
 {
 	const double range = this->radius * 2.0;
     //spatially index each unindexed frame by a RTreeIndex. Needed for the linking
-    cout<<"index ... ";
+    cout<<"index"<<endl;
+    #pragma omp parallel for schedule(runtime)
     for(size_t t=0; t<positions.size(); ++t)
         if(!positions[t].hasIndex())
             positions[t].makeRTreeIndex();
