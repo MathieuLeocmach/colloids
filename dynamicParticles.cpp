@@ -1129,7 +1129,7 @@ void DynamicParticles::link()
         size_t nbTraj = tm.getNbTraj();
         vector< multimap<double,size_t> > followersByDist(positions[t].size());
 
-        #pragma omp parallel for schedule(runtime) shared(positions, t, range, followersByDist)
+        #pragma omp parallel for schedule(runtime) shared(t, range, followersByDist)
         for(int p=0;p<(int)positions[t].size();++p)
             followersByDist[p] = positions[t+1].getEuclidianNeighboursBySqDist(positions[t][p], range);
 
