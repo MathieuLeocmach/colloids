@@ -121,7 +121,8 @@ namespace Colloids
 			const size_t t0 = std::max(actual_time,averaging/2)-averaging/2;
 			for(size_t t=t0; t<std::min(actual_time+(averaging/2)+1, values.size()); ++t)
 			{
-				for(size_t p=0; p<trajectories.inverse[t].size();++p)
+				#pragma omp parallel for schedule(runtime) shared(frame, t)
+				for(int p=0; p<(int)trajectories.inverse[t].size();++p)
 				{
 					const Traj& tr = trajectories[trajectories.inverse[t][p]];
 					if(tr.exist(actual_time))
@@ -138,7 +139,8 @@ namespace Colloids
 				size_t front = actual_time - averaging/2;
 				do
 				{
-					for(size_t p=0; p<values[front].size(); ++p)
+					#pragma omp parallel for schedule(runtime) shared(front)
+					for(int p=0; p<(int)values[front].size(); ++p)
 						values[front][p] /= (double)divisors.front()[p];
 
 					divisors.pop_front(); //discard the divisors of the time step we just output
