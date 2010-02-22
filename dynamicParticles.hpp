@@ -61,7 +61,7 @@ namespace Colloids
 
             /** constructors */
             explicit DynamicParticles(const TrajMap &trajs, boost::ptr_vector<Particles>& positions, const double &rad=1.0,const double &time_step=1.0);
-            explicit DynamicParticles(boost::ptr_vector<Particles>& positions, const double &rad=1.0,const double &time_step=1.0);
+            explicit DynamicParticles(boost::ptr_vector<Particles>& positions, const double &rad=1.0,const double &time_step=1.0, const std::string &displFile="", const size_t &offset=0);
             explicit DynamicParticles(const TrajMap &trajs, FileSerie &files, const double &rad=1.0,const double &time_step=1.0);
             explicit DynamicParticles(FileSerie &files, const double &rad=1.0, const double &time_step=1.0);
             explicit DynamicParticles(const std::string &filename);
@@ -119,6 +119,7 @@ namespace Colloids
             Coord getDrift(const std::set<size_t>&selection,const size_t &t0,const size_t &t1) const;
             Coord getDrift(const size_t &t0,const size_t &t1) const;
             void removeDrift();
+            void removeDrift(const std::string &displFile, const size_t &t_offset=0);
             double getSD(const std::set<size_t>&selection,const size_t &t0,const size_t &t1) const;
             std::vector<double> getSD(const size_t &t, const size_t &halfInterval=1) const;
             std::vector<double> getMSD(const std::set<size_t> &selection,const size_t &t0,const size_t &t1,const size_t &t3=0) const;

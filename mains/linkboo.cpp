@@ -145,7 +145,7 @@ int main(int argc, char ** argv)
 		}
 
 		//link and save trajectories
-		DynamicParticles(positions, radius, delta_t).save(
+		DynamicParticles(positions, radius, delta_t, datSerie.head()+".displ", offset).save(
 			datSerie.head()+".traj", filename.substr(filename.find_last_of("/\\")+1), token, offset, span
 			);
 	}

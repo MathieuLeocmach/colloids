@@ -37,10 +37,11 @@ DynamicParticles::DynamicParticles(const TrajMap &trajs, boost::ptr_vector<Parti
 }
 
 /** @brief Constructor from data. Take the ownership of the positions and link them into trajectories.  */
-DynamicParticles::DynamicParticles(boost::ptr_vector<Particles>& positions, const double &rad,const double &time_step) :
+DynamicParticles::DynamicParticles(boost::ptr_vector<Particles>& positions, const double &rad,const double &time_step, const string &displFile, const size_t &offset) :
     radius(rad), dt(time_step)
 {
     this->positions.swap(positions);
+    removeDrift(displFile, offset);
     link();
 }
 
@@ -56,6 +57,7 @@ DynamicParticles::DynamicParticles(FileSerie &files, const double &rad,const dou
     radius(rad), dt(time_step)
 {
     fill(files);
+    removeDrift(files.head()+".displ", files.get_offset());
     link();
 }
 
@@ -538,6 +540,46 @@ void DynamicParticles::removeDrift()
 	//STindex is now completely wrong and has to be made anew
 	this->index.reset();
 }
+
+/** @brief remove drift indicated in displFile  */
+void DynamicParticles::removeDrift(const std::string &displFile, const size_t &t_offset)
+{
+	vector<Coord> displ(getNbTimeSteps(),Coord(0.0,3));
+	double trash;
+    ifstream f(displFile.c_str(), ios::in);
+    if(f.good())
+    {
+		//get the relative displacements form file
+		cout<<"Using "<< displFile << " as an hint for global displacements between frames"<<endl;
+		for(size_t t=0;t<t_offset;++t)
+			f >> trash >>trash;
+		for(size_t t=0;t+t_offset<getNbTimeSteps();++t)
+			f >> displ[t][0] >> displ[t][1]; //only 2D displacements
+		f.close();
+
+		//compute objective displacement vector
+		partial_sum(displ.begin(),displ.end(),displ.begin());
+		//largest absolute negative displacement
+		valarray<double> maxd(0.0,3);
+		for(int t=0;t<(int)displ.size();++t)
+		{
+			maxd[0] = max(maxd[0],displ[t][0]);
+			maxd[1] = max(maxd[1],displ[t][1]);
+		}
+		transform(
+			displ.begin(),displ.end(),displ.begin(),
+			bind2nd(minus< valarray<double> >(),maxd)
+			);
+		for(int t=0;t<(int)displ.size();++t)
+			positions[t] += displ[t];
+    }
+    else
+		cout<<"impossible to find "<<displFile<<endl;
+
+
+}
+
+
 
 /**    \brief Sum of the square displacement of particles referenced in selection between t0 and t1 */
 double DynamicParticles::getSD(const set<size_t>&selection,const size_t &t0,const size_t &t1) const
