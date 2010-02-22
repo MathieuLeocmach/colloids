@@ -139,6 +139,8 @@ int main(int argc, char ** argv)
 
 			//update radius
 			positions[t].radius = radius;
+			//remove neigbour list from memory (can be heavy)
+			positions[t].delNgbList();
 			++show_progress;
 		}
 

@@ -112,6 +112,7 @@ namespace Colloids
             NgbList & makeNgbList(const double &bondLength);
             NgbList & makeNgbList(const BondList &bonds);
             const NgbList & getNgbList() const {return *this->neighboursList;};
+            void delNgbList(){neighboursList.reset();};
             BondList getBonds() const {return ngb2bonds(getNgbList());};
             virtual std::set<size_t> selectInside(const double &margin) const;
 
