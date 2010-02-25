@@ -630,7 +630,7 @@ vector<double> DynamicParticles::getMSD(const set<size_t> &selection,const size_
     if(t3==0)
     {
     	#pragma omp parallel for schedule(runtime) shared(sumSD, nbSD, t0, t1, t3, selection)
-		for(int start=t0;start<(int)t1;++start)
+		for(size_t start=t0;start<t1;++start)
 			for(size_t stop=start+1;stop<=t1;++stop)
 			{
 				sumSD[stop-start] += getSD(selection,start,stop);
@@ -642,7 +642,7 @@ vector<double> DynamicParticles::getMSD(const set<size_t> &selection,const size_
     else
     {
     	#pragma omp parallel for schedule(runtime) shared(sumSD, t3, nb_selection)
-    	for(int Dt=1;Dt<(int)sumSD.size();++Dt)
+    	for(size_t Dt=1;Dt<sumSD.size();++Dt)
     	{
 			for(size_t start=0;start<t3;++start)
 				sumSD[Dt] += getSD(selection,start,start+Dt);
@@ -670,7 +670,7 @@ vector<double> DynamicParticles::getISF(const set<size_t> &selection,const Coord
     valarray<double> A(0.0,t1-t0+1),B(0.0,t1-t0+1);
     double innerProd;
     #pragma omp parallel for schedule(runtime) shared(t0, t1, selection) private(innerProd)
-    for(int t=t0;t<=(int)t1;++t)
+    for(size_t t=t0;t<=t1;++t)
     {
         for(set<size_t>::iterator tr=selection.begin();tr!=selection.end();++tr)
         {
@@ -736,8 +736,7 @@ vector<double> DynamicParticles::getSelfISF(const set<size_t> &selection,const C
     vector< vector<double> > A(t1+t3-t0+1,vector<double>(nb_selection,0.0)),B=A;
     double innerProd;
     size_t p;
-    #pragma omp parallel for schedule(runtime) shared(A, B, t0, t1, t3, selection) private(innerProd, p)
-    for(int t=0;t+t0<=(int)(t1+t3);++t)
+    for(size_t t=0;t+t0<=t1+t3;++t)
     {
         p=0;
         for(set<size_t>::iterator tr=selection.begin();tr!=selection.end();++tr)
@@ -754,8 +753,7 @@ vector<double> DynamicParticles::getSelfISF(const set<size_t> &selection,const C
     {
 		vector<double> nb_per_interval(sumISF.size(),0.0);
 		nb_per_interval[0]=1.0;
-		#pragma omp parallel for schedule(runtime) shared(A, B, sumISF, t0, t1, nb_selection, nb_per_interval)
-		for(int start=t0;start<(int)t1;++start)
+		for(size_t start=t0;start<t1;++start)
 			for(size_t stop=start+1;stop<=t1;++stop)
 			{
 				for(size_t p=0;p<nb_selection;++p)
@@ -767,8 +765,7 @@ vector<double> DynamicParticles::getSelfISF(const set<size_t> &selection,const C
     }
     else
     {
-    	#pragma omp parallel for schedule(runtime) shared(A, B, sumISF, t0, t1, t3, nb_selection)
-    	for(int Dt=1;Dt<(int)sumISF.size();++Dt)
+    	for(size_t Dt=1;Dt<sumISF.size();++Dt)
     	{
 			for(size_t start=0;start<t3;++start)
 				for(size_t p=0;p<nb_selection;++p)
