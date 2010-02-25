@@ -517,13 +517,6 @@ void Particles::Binner::operator<<(const std::set<size_t> &selection)
     }
 }
 
-/**	\brief Bin a couple of particles into the histogram. */
-void Particles::RdfBinner::operator()(const size_t &p, const size_t &q)
-{
-	g[(size_t)(norm2(parts.getDiff(p,q)) * scale)]++;
-	count++;
-};
-
 /**	\brief Normalize the histogram. Do not bin afterward */
 void Particles::RdfBinner::normalize(const size_t &n)
 {

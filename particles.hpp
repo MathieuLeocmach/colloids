@@ -191,7 +191,11 @@ namespace Colloids
                     g = std::vector<double>(n,0.0);
                     scale = n / cutoff;
                 };
-                void operator()(const size_t &p, const size_t &q);
+                void operator()(const size_t &p, const size_t &q)
+                {
+					g[(size_t)(norm2(parts.getDiff(p,q)) * scale)]++;
+					count++;
+				};
                 void normalize(const size_t &n);
             };
 
