@@ -543,19 +543,6 @@ std::vector<double> Particles::getRdf(const size_t &n, const double &nbDiameterC
 	return getRdf(index->getInside(2.0*radius*nbDiameterCutOff), n, nbDiameterCutOff);
 }
 
-/**	\brief Bin a couple of particles into the g and g6 histogram. */
-void Particles::G6Binner::operator()(const size_t &p, const size_t &q)
-{
-	count++;
-	const size_t r = (size_t)(norm2(parts.getDiff(p, q)) * scale);
-	g[r]++;
-
-	boost::array<double, 7> prod;
-	for(size_t m=0;m<=6;++m)
-		prod[m] = norm(boo[p](6,m));
-	g6[r] += prod[0] + 2.0*accumulate(prod.begin()+1, prod.end(), 0.0);
-};
-
 /**	\brief Normalize the histogram. Do not bin afterward */
 void Particles::G6Binner::normalize(const size_t &n)
 {

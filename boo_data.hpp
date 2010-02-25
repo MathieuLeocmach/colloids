@@ -63,6 +63,8 @@ namespace Colloids
             std::complex<double> &operator()(const size_t &l, const size_t &m){return (*this)[m + l*l/4];};
             const std::complex<double> operator()(const size_t &l, const int &m) const;
             double getSumNorm(const size_t &l) const;
+            std::valarray<std::complex<double> > getL(const size_t &l) const
+            {return std::valarray<std::complex<double> >::operator[](std::slice(l*l/4,l+1,1));}
 
             double getQl(const size_t &l) const;
             std::complex<double> getWl(const size_t &l) const;
