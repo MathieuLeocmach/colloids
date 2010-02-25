@@ -64,7 +64,6 @@ int main(int argc, char ** argv)
 		cout<<"g(r) in "<<(datSerie.head()+".rdf")<<endl;
 		vector<double> total_g(200, 0.0);
 		boost::progress_display show_pr(span);
-		#pragma omp parallel for shared(positions, show_pr) schedule(runtime) reduction(+:total_g)
 		for(int t=0; t<(int)span; ++t)
 		{
 			vector<double> g = positions[t].getRdf(200,15.0);
@@ -95,9 +94,7 @@ int main(int argc, char ** argv)
 		//treat each file
 		cout<<"neighbourlist and BOO at each time step"<<endl;
 		boost::progress_display show_progress(span);
-		#pragma omp parallel shared(positions, bondLength, show_progress)
-		{
-		#pragma omp for schedule(runtime) nowait
+		#pragma omp parallel for schedule(runtime) shared(positions, bondLength, show_progress)
 		for(int t=0; t<(int)span; ++t)
 		{
 			//create neighbour list and export bonds
@@ -150,13 +147,11 @@ int main(int argc, char ** argv)
 		}
 
 		//link and save trajectories
-		#pragma omp single
-		{
 		DynamicParticles(positions, radius, delta_t, datSerie.head()+".displ", offset).save(
 			datSerie.head()+".traj", filename.substr(filename.find_last_of("/\\")+1), token, offset, span
 			);
-		}
-		}
+		
+		
 	}
     catch(const exception &e)
     {
