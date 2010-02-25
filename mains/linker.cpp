@@ -25,7 +25,7 @@ using namespace Colloids;
 
 int main(int argc, char ** argv)
 {
-    if(argc<6)
+    if(argc<5)
     {
         cout << "Syntax : linker [path]filename token radius time_step t_span t_offset(0)" << endl;
         return EXIT_FAILURE;
