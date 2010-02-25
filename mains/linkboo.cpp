@@ -56,20 +56,20 @@ int main(int argc, char ** argv)
 
 		//spatially index each frame
 		cout<<"index ..."<<endl;
-		for_each(positions.begin(), positions.end(), mem_fun_ref(&Particles::makeRTreeIndex));
+		#pragma omp parallel for shared(positions) schedule(runtime)
+		for(int t=0; t<(int)span; ++t)
+			positions[t].makeRTreeIndex();
 
 		//get averaged g(r)
 		cout<<"g(r) in "<<(datSerie.head()+".rdf")<<endl;
-		vector<double> total_g(200, 0.0), g;
+		vector<double> total_g(200, 0.0);
 		boost::progress_display show_pr(span);
-		for(size_t t=0; t<span; ++t)
+		#pragma omp parallel for shared(positions, show_pr) schedule(runtime) reduction(+:total_g)
+		for(int t=0; t<(int)span; ++t)
 		{
-			g = positions[t].getRdf(200,15.0);
-			transform(
-				g.begin(), g.end(),
-				total_g.begin(), total_g.begin(),
-				plus<double>()
-				);
+			vector<double> g = positions[t].getRdf(200,15.0);
+			for(int r=0; r<g.size(); ++r)
+				total_g[r] += g[r];
 			++show_pr;
 		}
 		ofstream rdfFile((datSerie.head()+".rdf").c_str(), ios::out | ios::trunc);
@@ -93,8 +93,12 @@ int main(int argc, char ** argv)
 		cout<<"radius="<<radius<<endl;
 
 		//treat each file
+		cout<<"neighbourlist and BOO at each time step"<<endl;
 		boost::progress_display show_progress(span);
-		for(size_t t=0; t<span; ++t)
+		#pragma omp parallel shared(positions, bondLength, show_progress)
+		{
+		#pragma omp for schedule(runtime) nowait
+		for(int t=0; t<(int)span; ++t)
 		{
 			//create neighbour list and export bonds
 			positions[t].makeNgbList(bondLength);
@@ -117,6 +121,7 @@ int main(int argc, char ** argv)
 				qlm_cg.begin(), qlm_cg.end(),
 				ostream_iterator<BooData>(qlmFile,"\n")
 				);
+			
 
 			//calculate and export invarients
 			ofstream cloudFile((cloudSerie%t).c_str(), ios::out | ios::trunc);
@@ -145,9 +150,13 @@ int main(int argc, char ** argv)
 		}
 
 		//link and save trajectories
+		#pragma omp single
+		{
 		DynamicParticles(positions, radius, delta_t, datSerie.head()+".displ", offset).save(
 			datSerie.head()+".traj", filename.substr(filename.find_last_of("/\\")+1), token, offset, span
 			);
+		}
+		}
 	}
     catch(const exception &e)
     {
