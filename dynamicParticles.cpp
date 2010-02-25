@@ -17,13 +17,17 @@
     along with Colloids.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
-#include <ctime>
-#include <numeric>
+#include "dynamicParticles.hpp"
+#include "files_series.hpp"
+
 #include <boost/progress.hpp>
 #include <boost/bind.hpp>
 
-#include "dynamicParticles.hpp"
-#include "files_series.hpp"
+#include <ctime>
+#include <numeric>
+
+
+
 
 using namespace std;
 using namespace Colloids;

@@ -24,9 +24,9 @@
  * Needs boost library
  */
 
-#include "boo_data.hpp"
 #include <boost/math/special_functions/spherical_harmonic.hpp>
 #include <boost/bind.hpp>
+#include "boo_data.hpp"
 
 //double wigner3j( int l, int m1, int m2, int m3);
 

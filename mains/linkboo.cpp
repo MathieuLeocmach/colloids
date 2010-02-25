@@ -99,7 +99,7 @@ int main(int argc, char ** argv)
 		{
 			//create neighbour list and export bonds
 			positions[t].makeNgbList(bondLength);
-			BondList bonds = positions[t].getBonds();
+			BondSet bonds = positions[t].getBonds();
 			ofstream bondFile((bondSerie%t).c_str(), ios::out | ios::trunc);
 			for(deque<pair<size_t, size_t> >::const_iterator b=bonds.begin(); b!= bonds.end();++b)
 				bondFile<<b->first<<" "<<b->second<<"\n";
@@ -118,7 +118,7 @@ int main(int argc, char ** argv)
 				qlm_cg.begin(), qlm_cg.end(),
 				ostream_iterator<BooData>(qlmFile,"\n")
 				);
-			
+
 
 			//calculate and export invarients
 			ofstream cloudFile((cloudSerie%t).c_str(), ios::out | ios::trunc);
@@ -150,8 +150,6 @@ int main(int argc, char ** argv)
 		DynamicParticles(positions, radius, delta_t, datSerie.head()+".displ", offset).save(
 			datSerie.head()+".traj", filename.substr(filename.find_last_of("/\\")+1), token, offset, span
 			);
-		
-		
 	}
     catch(const exception &e)
     {

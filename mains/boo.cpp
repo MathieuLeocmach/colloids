@@ -64,7 +64,7 @@ int main(int argc, char ** argv)
 #endif
 		//select interesting particles and load (or make) bonds
 		set<size_t> inside, secondInside;
-		BondList bonds = loadBonds(inputPath+".bonds");
+		BondSet bonds = loadBonds(inputPath+".bonds");
 		if(bonds.empty())
 		{
 			parts.makeRTreeIndex();

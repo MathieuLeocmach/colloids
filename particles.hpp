@@ -30,6 +30,13 @@
 #ifndef particles_H
 #define particles_H
 
+#include "index.hpp"
+#include "fields.hpp"
+#include "boo_data.hpp"
+
+#include <boost/multi_array.hpp>
+#include <boost/bind.hpp>
+
 #include <algorithm>
 #include <deque>
 #include <valarray>
@@ -39,21 +46,46 @@
 #include <fstream>
 #include <memory>
 #include <stdexcept>
-#include <boost/multi_array.hpp>
-#include <boost/bind.hpp>
+
 //#include <tvmet/Vector.h>
 
-#include "index.hpp"
-#include "fields.hpp"
-#include "boo_data.hpp"
+
 
 namespace Colloids
 {
     typedef RStarIndex_S::RTree                     RTree;
     typedef std::vector< std::set<size_t> >         NgbList;
-    typedef std::deque< std::pair<size_t, size_t> >	BondList;
 
-    BondList ngb2bonds(const NgbList& ngbList);
+    struct Bond : private std::pair<size_t, size_t>
+	{
+		explicit Bond(const size_t &x, const size_t &y){this->assign(x,y);}
+		Bond(std::pair<size_t, size_t> p){this->assign(p.first, p.second);};
+		Bond(){first=static_cast<size_t>(-2); second=static_cast<size_t>(-1);}
+
+		void assign(const size_t &x, const size_t &y)
+		{
+			if(x<y)
+			{
+				this->first=x;
+				this->second=y;
+			}
+			else
+			{
+				this->first=y;
+				this->second=x;
+			}
+		};
+		const size_t& low() const {return this->first;}
+		const size_t& high() const {return this->second;}
+		bool operator<(const Bond &rhs) const
+		{
+			return (this->first < rhs.first) || (this->first == rhs.first && this->second < rhs.second);
+		}
+	};
+
+    typedef std::set<Bond>	BondSet;
+
+    BondSet ngb2bonds(const NgbList& ngbList);
 
     /**
         \brief defines a set of particles having the same radius
@@ -110,10 +142,10 @@ namespace Colloids
             size_t getNearestNeighbour(const Coord &center, const double &range=1.0) const;
             std::multimap<double,size_t> getEuclidianNeighboursBySqDist(const Coord &center, const double &range) const;
             NgbList & makeNgbList(const double &bondLength);
-            NgbList & makeNgbList(const BondList &bonds);
+            NgbList & makeNgbList(const BondSet &bonds);
             const NgbList & getNgbList() const {return *this->neighboursList;};
             void delNgbList(){neighboursList.reset();};
-            BondList getBonds() const {return ngb2bonds(getNgbList());};
+            BondSet getBonds() const {return ngb2bonds(getNgbList());};
             virtual std::set<size_t> selectInside(const double &margin) const;
 
 
@@ -183,7 +215,7 @@ namespace Colloids
             /** file outputs */
             void exportToFile(const std::string &filename) const;
             void exportToVTK(
-                const std::string &filename,const BondList &bonds,
+                const std::string &filename,const BondSet &bonds,
                 const std::vector<ScalarField> &scalars,	const std::vector<VectorField> &vectors,
                 const std::string &dataName = "particles"
             ) const;
@@ -204,7 +236,19 @@ namespace Colloids
             //static bool areTooClose(const std::valarray<double> &c, const Coord &d,const double &Sep);
 
     };
-    BondList loadBonds(const std::string &filename);
+    BondSet loadBonds(const std::string &filename);
+    inline std::ostream & operator<<(std::ostream& out, const Bond& b)
+    {
+    	out<<b.low()<<" "<<b.high();
+    	return out;
+    }
+    inline std::istream & operator>>(std::istream& in, Bond& b)
+    {
+    	size_t x,y;
+    	in>>x>>y;
+    	b = Bond(x,y);
+    	return in;
+    }
 
     /**Inline functions, for performance*/
 

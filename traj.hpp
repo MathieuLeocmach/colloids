@@ -28,15 +28,17 @@
 #ifndef traj_H
 #define traj_H
 
+#include "index.hpp"
+#include "files_series.hpp"
+
 #include <boost/bimap.hpp>
 #include <boost/format.hpp>
+
 #include <map>
 #include <vector>
 #include <deque>
 #include <istream>
 #include <stdexcept>
-#include "index.hpp"
-#include "files_series.hpp"
 
 namespace Colloids
 {

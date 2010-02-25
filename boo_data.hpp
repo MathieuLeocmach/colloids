@@ -26,11 +26,12 @@
 #ifndef boo_H
 #define boo_H
 
+#include "index.hpp"
+
 #include <valarray>
 #include <complex>
 #include <string>
 #include <boost/array.hpp>
-#include "index.hpp"
 //#include <tvmet/Vector.h>
 
 namespace Colloids

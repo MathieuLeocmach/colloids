@@ -312,13 +312,13 @@ NgbList & Particles::makeNgbList(const double &bondLength)
 }
 
 /** @brief make the neighbour list using a list of bonds  */
-NgbList & Particles::makeNgbList(const BondList &bonds)
+NgbList & Particles::makeNgbList(const BondSet &bonds)
 {
     this->neighboursList.reset(new NgbList(size()));
-    for(BondList::const_iterator b=bonds.begin(); b!=bonds.end();++b)
+    for(BondSet::const_iterator b=bonds.begin(); b!=bonds.end();++b)
     {
-        (*neighboursList)[b->first].insert((*neighboursList)[b->first].end(), b->second);
-        (*neighboursList)[b->second].insert((*neighboursList)[b->second].end(), b->first);
+        (*neighboursList)[b->low()].insert((*neighboursList)[b->low()].end(), b->high());
+        (*neighboursList)[b->high()].insert((*neighboursList)[b->high()].end(), b->low());
     }
     return *this->neighboursList;
 }
@@ -560,7 +560,7 @@ void Particles::G6Binner::operator()(const size_t &p, const size_t &q)
 	boost::array<double, 7> prod;
 	for(size_t m=0;m<=6;++m)
 		prod[m] = norm(boo[p](6,m));
-	g6[r] += prod[0] + 2.0*accumulate(prod.begin()+1, prod.end(), 0);
+	g6[r] += prod[0] + 2.0*accumulate(prod.begin()+1, prod.end(), 0.0);
 };
 
 /**	\brief Normalize the histogram. Do not bin afterward */
@@ -611,7 +611,7 @@ void Particles::exportToFile(const string &filename) const
 */
 void Particles::exportToVTK(
 	const std::string &filename,
-	const BondList &bonds,
+	const BondSet &bonds,
 	const std::vector<ScalarField> &scalars,
 	const std::vector<VectorField> &vectors,
 	const std::string &dataName
@@ -634,8 +634,8 @@ void Particles::exportToVTK(
 	}
 
 	output << "LINES "<<bonds.size()<<" "<<bonds.size()*3<<endl;
-	for(deque< pair<size_t,size_t> >::const_iterator b= bonds.begin();b!=bonds.end();++b)
-		output<<"2 "<< b->first<<" "<<b->second<<"\n";
+	for(BondSet::const_iterator b= bonds.begin();b!=bonds.end();++b)
+		output<<"2 "<< *b <<"\n";
 
 	output<<"POINT_DATA "<<size()<<endl;
 	copy(
@@ -715,29 +715,25 @@ void Particles::loadBoo(const string &filename, boost::multi_array<double,2>&qw)
 }
 
 /** @brief from a neighbour list to a bond list  */
-BondList Colloids::ngb2bonds(const NgbList& ngbList)
+BondSet Colloids::ngb2bonds(const NgbList& ngbList)
 {
-    BondList bonds;
+    BondSet bonds;
 	for(size_t p=0;p<ngbList.size();++p)
-		transform(
-            ngbList[p].lower_bound(p+1), ngbList[p].end(),
-            back_inserter(bonds),
-            boost::bind(make_pair<size_t,size_t>,p,_1)
-            );
+		for(set<size_t>::const_iterator q=ngbList[p].lower_bound(p+1); q!=ngbList[p].end();++q)
+			bonds.insert(bonds.end(), Bond(p,*q));
 	return bonds;
 }
 
 /** @brief load bonds from file  */
-BondList Colloids::loadBonds(const std::string &filename)
+BondSet Colloids::loadBonds(const std::string &filename)
 {
-	BondList bonds;
+	BondSet bonds;
 	pair<size_t, size_t> b;
 	ifstream f(filename.c_str());
-	while(f.good())
-	{
-		f >> b.first >> b.second;
-		bonds.push_back(b);
-	}
+	copy(
+		istream_iterator<Bond>(f), istream_iterator<Bond>(),
+		inserter(bonds, bonds.end())
+		);
 	return bonds;
 }
 

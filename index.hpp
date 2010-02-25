@@ -26,15 +26,15 @@
 #ifndef index_H
 #define index_H
 
+#include "RStarTree/RStarTree.h"
+
+#include <boost/ptr_container/ptr_container.hpp>
+
 #include <vector>
 #include <valarray>
 #include <set>
 #include <map>
 #include <algorithm>
-//#include <tvmet/Vector.h>
-#include <boost/ptr_container/ptr_container.hpp>
-
-#include "RStarTree/RStarTree.h"
 
 //define by a macro all the constructors
 #define INDEX_CONSTRUCTOR(Index, BoundingItem)\
@@ -62,6 +62,12 @@ namespace Colloids
     inline double dot(const Coord &x, const Coord &y){return (x*y).sum();}
     inline double norm2(const Coord &x){return sqrt(dot(x,x));}
     inline Coord normalize(Coord c){return c/=norm2(c);}
+    inline std::istream& operator>>(std::istream& in, Coord &c)
+    {
+    	for(int i=0; i<c.size();++i)
+			in>>c[i];
+		return in;
+    }
 
 
     typedef RStarBoundingBox<3,double>          BoundingBox;

@@ -86,9 +86,9 @@ namespace Colloids
 				: name(d.name), trajectories(d.trajectories), divisors(d.divisors),
 				values(d.values), averaging(d.averaging), actual_time(d.actual_time) {};
 
-		void push_back(const Field<V> &frame);
-		void assign(boost::ptr_vector< std::vector<V> > &values){this->values.swap(values);};
-		Field<V> operator[](const size_t &t);
+			void push_back(const Field<V> &frame);
+			void assign(boost::ptr_vector< std::vector<V> > &values){this->values.swap(values);};
+			Field<V> operator[](const size_t &t);
     };
     typedef DynamicField<double>	ScalarDynamicField;
     typedef DynamicField<Coord>		VectorDynamicField;

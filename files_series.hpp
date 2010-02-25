@@ -30,12 +30,13 @@
 #ifndef file_series_H
 #define file_series_H
 
+#include <boost/format.hpp>
+
 #include <iostream>
 #include <sstream>
 #include <fstream>
 #include <string>
 #include <vector>
-#include <boost/format.hpp>
 
 namespace Colloids
 {

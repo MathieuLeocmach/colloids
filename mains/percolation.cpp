@@ -72,7 +72,7 @@ int main(int argc, char ** argv)
 		//neighbour list at each time
 		for(size_t t=0; t<parts.getNbTimeSteps();++t)
 		{
-			BondList bonds = loadBonds(bondSerie%t);
+			BondSet bonds = loadBonds(bondSerie%t);
 			if(bonds.empty())
 			{
 				parts.positions[t].makeRTreeIndex();
