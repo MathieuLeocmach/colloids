@@ -61,22 +61,37 @@ int main(int argc, char ** argv)
 			positions[t].makeRTreeIndex();
 
 		//get averaged g(r)
-		cout<<"g(r) in "<<(datSerie.head()+".rdf")<<endl;
 		vector<double> total_g(200, 0.0);
-		boost::progress_display show_pr(span);
-		for(int t=0; t<(int)span; ++t)
 		{
-			vector<double> g = positions[t].getRdf(200,15.0);
-			for(int r=0; r<g.size(); ++r)
-				total_g[r] += g[r];
-			++show_pr;
+			ifstream in((datSerie.head()+".rdf").c_str());
+			if(in.good())
+			{
+				cout<<"load "<<datSerie.head()+".rdf"<<endl;
+				string skipheader;
+				getline(in, skipheader);
+				for(size_t r=0; r<total_g.size(); ++r)
+					in >> total_g[r] >> total_g[r];
+			}
+			else
+			{
+				cout<<"calculate rdf and save it to "<<datSerie.head()+".rdf"<<endl;
+				boost::progress_display show_pr(span);
+				boost::progress_timer ti;
+				#pragma omp parallel for shared(positions, total_g)
+				for(int t=0; t<(int)span; ++t)
+				{
+					vector<double> g = positions[t].getRdf(200,15.0);
+					for(int r=0; r<g.size(); ++r)
+						total_g[r] += g[r];
+					++show_pr;
+				}
+				ofstream rdfFile((datSerie.head()+".rdf").c_str(), ios::out | ios::trunc);
+				rdfFile << "#r\tg(r)"<<endl;
+				for(size_t r=0; r<total_g.size(); ++r)
+					rdfFile<< r/200.0*15.0 <<"\t"<< total_g[r]/span <<"\n";
+				rdfFile.close();
+			}
 		}
-		ofstream rdfFile((datSerie.head()+".rdf").c_str(), ios::out | ios::trunc);
-		rdfFile << "#r\tg(r)"<<endl;
-		for(size_t r=0; r<total_g.size(); ++r)
-			rdfFile<< r/200.0*15.0 <<"\t"<< total_g[r]/span <<"\n";
-        rdfFile.close();
-
 		//get bondlength and radius from the first minimum of g(r)
 		//the loop is here only to get rid of possible multiple centers at small r
 		vector<double>::iterator first_peak = total_g.begin();
@@ -91,6 +106,7 @@ int main(int argc, char ** argv)
 		const double bondLength = first_min/200.0*15.0, radius = bondLength / 1.3;
 		cout<<"radius="<<radius<<endl;
 
+
 		//treat each file
 		cout<<"neighbourlist and BOO at each time step"<<endl;
 		boost::progress_display show_progress(span);
@@ -101,8 +117,7 @@ int main(int argc, char ** argv)
 			positions[t].makeNgbList(bondLength);
 			BondSet bonds = positions[t].getBonds();
 			ofstream bondFile((bondSerie%t).c_str(), ios::out | ios::trunc);
-			for(deque<pair<size_t, size_t> >::const_iterator b=bonds.begin(); b!= bonds.end();++b)
-				bondFile<<b->first<<" "<<b->second<<"\n";
+			copy(bonds.begin(), bonds.end(), ostream_iterator<Bond>(bondFile, "\n"));
 			bondFile.close();
 
 			//select the particles further than the bond length from the boundaries
