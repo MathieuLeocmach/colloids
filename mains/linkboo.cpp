@@ -162,8 +162,11 @@ int main(int argc, char ** argv)
 		}
 
 		//link and save trajectories
-		DynamicParticles(positions, radius, delta_t, datSerie.head()+".displ", offset).save(
-			datSerie.head()+".traj", filename.substr(filename.find_last_of("/\\")+1), token, offset, span
+		DynamicParticles parts(positions, radius, delta_t, datSerie.head()+".displ", offset);
+		parts.save(
+			datSerie.head()+".traj",
+			filename.substr(filename.find_last_of("/\\")+1),
+			token, offset, span
 			);
 	}
     catch(const exception &e)

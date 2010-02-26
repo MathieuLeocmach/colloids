@@ -24,7 +24,7 @@
 using namespace std;
 using namespace Colloids;
 
-void export_lostNgb(const TrajIndex& trajectories, const size_t& tau, FileSerie &bondSerie, FileSerie &lngbSerie)
+void export_cummulative_lostNgb(const TrajIndex& trajectories, const size_t& tau, FileSerie &bondSerie, FileSerie &lngbSerie)
 {
 	cout<<"Lost Bonds"<<endl;
 	const size_t size = trajectories.inverse.size();
@@ -87,6 +87,41 @@ void export_lostNgb(const TrajIndex& trajectories, const size_t& tau, FileSerie 
 			if(trajectories[b->low()].exist(t0))
 				lngb[trajectories[b->low()][t0]]++;
 			if(trajectories[b->high()].exist(t0))
+				lngb[trajectories[b->high()][t0]]++;
+		}
+		ofstream f((lngbSerie%t0).c_str(), ios::out | ios::trunc);
+		copy(
+			lngb.begin(), lngb.end(),
+			ostream_iterator<size_t>(f,"\n")
+			);
+		f.close();
+	}
+}
+
+void export_lostNgb(const TrajIndex& trajectories, const size_t& tau, FileSerie &bondSerie, FileSerie &lngbSerie)
+{
+	const size_t size = trajectories.inverse.size();
+	for(size_t t0=0; t0<size; ++t0)
+	{
+		//what are the bonds lost between t-tau/2 and t+tau/2 ?
+		const size_t start = max(tau/2, t0)-tau/2,
+					stop = min(size-1, t0+tau/2);
+		BondSet delta;
+		const BondSet startBonds = loadBonds(bondSerie%start),
+					stopBonds = loadBonds(bondSerie%stop);
+		set_difference(
+			stopBonds.begin(), stopBonds.end(),
+			startBonds.begin(), startBonds.end(),
+			inserter(delta, delta.end())
+			);
+		cout<<delta.size()<<"bonds lost between "<<start<<" and "<<stop<<endl;
+
+		vector<size_t> lngb(trajectories.inverse[t0].size(),0.0);
+		for(BondSet::const_iterator b=delta.begin(); b!=delta.end(); ++b)
+		{
+			if(trajectories[b->low()].span(start, stop))
+				lngb[trajectories[b->low()][t0]]++;
+			if(trajectories[b->high()].span(start, stop))
 				lngb[trajectories[b->high()][t0]]++;
 		}
 		ofstream f((lngbSerie%t0).c_str(), ios::out | ios::trunc);

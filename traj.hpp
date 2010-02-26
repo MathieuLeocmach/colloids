@@ -179,14 +179,18 @@ namespace Colloids
     /** \brief access to the particle index at a given time step */
     inline size_t& Traj::operator[](const size_t &t) throw (TrajError)
     {
+        #ifndef NDEBUG
         if (!exist(t)) throw TrajError(t,start_time,last_time());
+        #endif
         return steps[t-start_time];
     }
 
     /** \brief access to the particle index at a given time step */
     inline const size_t& Traj::operator[](const size_t &t) const throw (TrajError)
     {
+        #ifndef NDEBUG
         if (!exist(t)) throw TrajError(t,start_time,last_time());
+        #endif
         return steps[t-start_time];
     }
 
