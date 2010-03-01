@@ -275,14 +275,18 @@ namespace Colloids
     /** @brief get the indices of the particles enclosed by a query box  */
     inline std::set<size_t> Particles::selectEnclosed(const BoundingBox &b) const
     {
+        #ifndef NDEBUG
         if(!this->hasIndex()) throw std::logic_error("Set a spatial index before doing spatial queries !");
+        #endif
         return (*index)(b);
     }
 
     /** @brief get the indices of the particles inside a reduction of the maximum bounding box  */
     inline std::set<size_t> Particles::selectInside(const double &margin) const
     {
+        #ifndef NDEBUG
         if(!this->hasIndex()) throw std::logic_error("Set a spatial index before doing spatial queries !");
+        #endif
         return this->index->getInside(margin);
     }
 
