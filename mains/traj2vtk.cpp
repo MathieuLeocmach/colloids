@@ -24,6 +24,20 @@
 using namespace std;
 using namespace Colloids;
 
+/** \brief translate positions BondSet into trajectories Bondset*/
+void pos2traj(const BondSet &pos, BondSet &traj, const vector<size_t> &correspondence)
+{
+    for(BondSet::const_iterator b=pos.begin(); b!=pos.end();++b)
+        traj.insert(traj.end(), Bond(correspondence[b->low()], correspondence[b->high()]));
+}
+
+/** \brief translate positions Neighbourlist into trajectories Neighbourlist*/
+void pos2traj(const set<size_t> &pos, set<size_t> &traj, const vector<size_t> &correspondence)
+{
+    for(set<size_t>::const_iterator n=pos.begin(); n!=pos.end();++n)
+        traj.insert(traj.end(), correspondence[*n]);
+}
+
 void export_cummulative_lostNgb(const TrajIndex& trajectories, const size_t& tau, FileSerie &bondSerie, FileSerie &lngbSerie)
 {
 	cout<<"Lost Bonds"<<endl;
@@ -40,11 +54,7 @@ void export_cummulative_lostNgb(const TrajIndex& trajectories, const size_t& tau
 		{
 			btr0.swap(btr1);
 			btr1.clear();
-			BondSet bfr = loadBonds(bondSerie%(t+1));
-			//translate into trajectories
-			const vector<size_t> &to_traj = trajectories.inverse[t+1];
-			for(BondSet::const_iterator b=bfr.begin(); b!=bfr.end();++b)
-				btr1.insert(btr1.end(), Bond(to_traj[b->low()], to_traj[b->high()]));
+			pos2traj(loadBonds(bondSerie%(t+1)), btr1, trajectories.inverse[t+1]);
 			//what are the bonds that disapear between t and t+1 ?
 			set_difference(
 				btr0.begin(), btr0.end(),
@@ -101,20 +111,22 @@ void export_cummulative_lostNgb(const TrajIndex& trajectories, const size_t& tau
 void export_lostNgb(const TrajIndex& trajectories, const size_t& tau, FileSerie &bondSerie, FileSerie &lngbSerie)
 {
 	const size_t size = trajectories.inverse.size();
-	for(size_t t0=0; t0<size; ++t0)
+	#pragma omp parallel for shared (trajectories, tau, bondSerie, lngbSerie, size)
+	for(ssize_t t0=0; t0<size; ++t0)
 	{
 		//what are the bonds lost between t-tau/2 and t+tau/2 ?
-		const size_t start = max(tau/2, t0)-tau/2,
-					stop = min(size-1, t0+tau/2);
-		BondSet delta;
-		const BondSet startBonds = loadBonds(bondSerie%start),
-					stopBonds = loadBonds(bondSerie%stop);
+		const size_t start = max(tau/2, (size_t)t0)-tau/2,
+					stop = min(size-1, (size_t)t0+tau/2);
+		BondSet delta, startBonds, stopBonds;
+        pos2traj(loadBonds(bondSerie%start), startBonds, trajectories.inverse[start]);
+        pos2traj(loadBonds(bondSerie%stop), stopBonds, trajectories.inverse[stop]);
+
 		set_difference(
 			stopBonds.begin(), stopBonds.end(),
 			startBonds.begin(), startBonds.end(),
 			inserter(delta, delta.end())
 			);
-		cout<<delta.size()<<"bonds lost between "<<start<<" and "<<stop<<endl;
+		//cout<<delta.size()<<"bonds lost between "<<start<<" and "<<stop<<endl;
 
 		vector<size_t> lngb(trajectories.inverse[t0].size(),0.0);
 		for(BondSet::const_iterator b=delta.begin(); b!=delta.end(); ++b)
@@ -124,6 +136,46 @@ void export_lostNgb(const TrajIndex& trajectories, const size_t& tau, FileSerie 
 			if(trajectories[b->high()].span(start, stop))
 				lngb[trajectories[b->high()][t0]]++;
 		}
+		ofstream f((lngbSerie%t0).c_str(), ios::out | ios::trunc);
+		copy(
+			lngb.begin(), lngb.end(),
+			ostream_iterator<size_t>(f,"\n")
+			);
+		f.close();
+	}
+}
+
+void export_exact_lostNgb(DynamicParticles &parts, const size_t &tau, FileSerie &lngbSerie)
+{
+    const size_t size = parts.getNbTimeSteps();
+    //spatial indexing
+    #pragma omp parallel for shared(parts) schedule(runtime)
+    for(ssize_t t=0; t<(ssize_t)size; ++t)
+        parts.positions[t].makeRTreeIndex();
+
+    for(size_t t0=0; t0<size; ++t0)
+	{
+	    vector<size_t> lngb(parts.trajectories.inverse[t0].size(),0.0);
+	    #pragma omp parallel for shared(parts, lngb, t0) schedule(runtime)
+	    for(size_t p=0;p<parts.trajectories.inverse[t0].size(); ++p)
+	    {
+	        const Traj &tr = parts.trajectories[parts.trajectories.inverse[t0][p]];
+	        const size_t start = max(tr.start_time+tau/2, (size_t)t0)-tau/2,
+					stop = min(tr.last_time(), (size_t)t0+tau/2);
+            if(start!=stop)
+            {
+                set<size_t> start_ngb, stop_ngb, lost;
+                pos2traj(parts.positions[start].getEuclidianNeighbours(tr[start], 1.3*parts.radius), start_ngb, parts.trajectories.inverse[start]);
+                pos2traj(parts.positions[stop].getEuclidianNeighbours(tr[stop], 1.3*parts.radius), stop_ngb, parts.trajectories.inverse[stop]);
+
+                set_difference(
+                    stop_ngb.begin(), stop_ngb.end(),
+                    start_ngb.begin(), start_ngb.end(),
+                    inserter(lost, lost.end())
+                    );
+                lngb[p] = lost.size();
+            }
+	    }
 		ofstream f((lngbSerie%t0).c_str(), ios::out | ios::trunc);
 		copy(
 			lngb.begin(), lngb.end(),
@@ -175,6 +227,8 @@ void export_timeBoo(const TrajIndex& trajectories, const size_t& tau, FileSerie 
 		f.close();
 	}
 }
+
+
 
 int errorMessage()
 {
@@ -299,7 +353,8 @@ int main(int argc, char ** argv)
 		else
 		{
 			cout<<"calculate"<<endl;
-			export_lostNgb(parts.trajectories, tau, bondSerie, lngbSerie);
+			//export_lostNgb(parts.trajectories, tau, bondSerie, lngbSerie);
+			export_exact_lostNgb(parts, tau, lngbSerie);
 		}
 
 

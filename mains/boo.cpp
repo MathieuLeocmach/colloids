@@ -21,6 +21,7 @@
 #include "../periodic.hpp"
 //#include "../pv.hpp"
 #include "../dynamicParticles.hpp"
+#include <boost/progress.hpp>
 
 using namespace std;
 using namespace Colloids;
@@ -85,8 +86,11 @@ int main(int argc, char ** argv)
 
 		//calculate and export qlm
 		vector<BooData> qlm, qlm_cg;
+{
+boost::progress_timer ti;
 		parts.getBOOs(inside, qlm);
 		parts.getCgBOOs(secondInside, qlm, qlm_cg);
+}
 		ofstream qlmFile((inputPath+".qlm").c_str(), ios::out | ios::trunc);
 		copy(
 			qlm_cg.begin(), qlm_cg.end(),
