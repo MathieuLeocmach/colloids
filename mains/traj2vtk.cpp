@@ -223,6 +223,11 @@ void export_lostNgb_bonds(DynamicParticles &parts, const size_t &tau, FileSerie 
 			);
 		f.close();
 	}
+	//free memory
+	#pragma omp parallel for shared(parts) schedule(runtime)
+    for(ssize_t t=0; t<(ssize_t)size; ++t)
+        parts.positions[t].delNgbList();
+
 }
 
 void export_timeBoo(const TrajIndex& trajectories, const size_t& tau, FileSerie &timeBooSerie, const string &prefix="")
