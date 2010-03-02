@@ -38,7 +38,7 @@ void pos2traj(const set<size_t> &pos, set<size_t> &traj, const vector<size_t> &c
         traj.insert(traj.end(), correspondence[*n]);
 }
 
-void export_cummulative_lostNgb(const TrajIndex& trajectories, const size_t& tau, FileSerie &bondSerie, FileSerie &lngbSerie)
+void export_lostNgb_cummulative_bonds(const TrajIndex& trajectories, const size_t& tau, FileSerie &bondSerie, FileSerie &lngbSerie)
 {
 	cout<<"Lost Bonds"<<endl;
 	const size_t size = trajectories.inverse.size();
@@ -108,7 +108,7 @@ void export_cummulative_lostNgb(const TrajIndex& trajectories, const size_t& tau
 	}
 }
 
-void export_lostNgb(const TrajIndex& trajectories, const size_t& tau, FileSerie &bondSerie, FileSerie &lngbSerie)
+void export_lostNgb_bonds_noshort(const TrajIndex& trajectories, const size_t& tau, FileSerie &bondSerie, FileSerie &lngbSerie)
 {
 	const size_t size = trajectories.inverse.size();
 	#pragma omp parallel for shared (trajectories, tau, bondSerie, lngbSerie)
@@ -145,7 +145,7 @@ void export_lostNgb(const TrajIndex& trajectories, const size_t& tau, FileSerie 
 	}
 }
 
-void export_exact_lostNgb(DynamicParticles &parts, const size_t &tau, FileSerie &lngbSerie)
+void export_lostNgb_index(DynamicParticles &parts, const size_t &tau, FileSerie &lngbSerie)
 {
     const size_t size = parts.getNbTimeSteps();
     //spatial indexing
@@ -167,6 +167,46 @@ void export_exact_lostNgb(DynamicParticles &parts, const size_t &tau, FileSerie 
                 set<size_t> start_ngb, stop_ngb, lost;
                 pos2traj(parts.positions[start].getEuclidianNeighbours(tr[start], 2.0*1.3*parts.radius), start_ngb, parts.trajectories.inverse[start]);
                 pos2traj(parts.positions[stop].getEuclidianNeighbours(tr[stop], 2.0*1.3*parts.radius), stop_ngb, parts.trajectories.inverse[stop]);
+
+                set_difference(
+                    stop_ngb.begin(), stop_ngb.end(),
+                    start_ngb.begin(), start_ngb.end(),
+                    inserter(lost, lost.end())
+                    );
+                lngb[p] = lost.size();
+            }
+	    }
+		ofstream f((lngbSerie%t0).c_str(), ios::out | ios::trunc);
+		copy(
+			lngb.begin(), lngb.end(),
+			ostream_iterator<size_t>(f,"\n")
+			);
+		f.close();
+	}
+}
+
+void export_lostNgb_bonds(DynamicParticles &parts, const size_t &tau, FileSerie &bondSerie, FileSerie &lngbSerie)
+{
+    const size_t size = parts.getNbTimeSteps();
+    //loading neighbour list
+    #pragma omp parallel for shared(parts) schedule(runtime)
+    for(ssize_t t=0; t<(ssize_t)size; ++t)
+        parts.positions[t].makeNgbList(loadBonds(bondSerie%t));
+
+    for(size_t t0=0; t0<size; ++t0)
+	{
+	    vector<size_t> lngb(parts.trajectories.inverse[t0].size(),0.0);
+	    #pragma omp parallel for shared(parts, lngb, t0) schedule(runtime)
+	    for(size_t p=0;p<parts.trajectories.inverse[t0].size(); ++p)
+	    {
+	        const Traj &tr = parts.trajectories[parts.trajectories.inverse[t0][p]];
+	        const size_t start = max(tr.start_time+tau/2, (size_t)t0)-tau/2,
+					stop = min(tr.last_time(), (size_t)t0+tau/2);
+            if(start!=stop)
+            {
+                set<size_t> start_ngb, stop_ngb, lost;
+                pos2traj(parts.positions[start].getNgbList()[tr[start]], start_ngb, parts.trajectories.inverse[start]);
+                pos2traj(parts.positions[stop].getNgbList()[tr[stop]], stop_ngb, parts.trajectories.inverse[stop]);
 
                 set_difference(
                     stop_ngb.begin(), stop_ngb.end(),
@@ -378,7 +418,7 @@ int main(int argc, char ** argv)
 		{
 			cout<<"calculate"<<endl;
 			//export_lostNgb(parts.trajectories, tau, bondSerie, lngbSerie);
-			export_exact_lostNgb(parts, tau, lngbSerie);
+			export_lostNgb_bonds(parts, tau, bondSerie, lngbSerie);
 		}
 
 
