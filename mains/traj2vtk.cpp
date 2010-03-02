@@ -111,7 +111,7 @@ void export_cummulative_lostNgb(const TrajIndex& trajectories, const size_t& tau
 void export_lostNgb(const TrajIndex& trajectories, const size_t& tau, FileSerie &bondSerie, FileSerie &lngbSerie)
 {
 	const size_t size = trajectories.inverse.size();
-	#pragma omp parallel for shared (trajectories, tau, bondSerie, lngbSerie, size)
+	#pragma omp parallel for shared (trajectories, tau, bondSerie, lngbSerie)
 	for(ssize_t t0=0; t0<size; ++t0)
 	{
 		//what are the bonds lost between t-tau/2 and t+tau/2 ?
@@ -165,8 +165,8 @@ void export_exact_lostNgb(DynamicParticles &parts, const size_t &tau, FileSerie 
             if(start!=stop)
             {
                 set<size_t> start_ngb, stop_ngb, lost;
-                pos2traj(parts.positions[start].getEuclidianNeighbours(tr[start], 1.3*parts.radius), start_ngb, parts.trajectories.inverse[start]);
-                pos2traj(parts.positions[stop].getEuclidianNeighbours(tr[stop], 1.3*parts.radius), stop_ngb, parts.trajectories.inverse[stop]);
+                pos2traj(parts.positions[start].getEuclidianNeighbours(tr[start], 2.0*1.3*parts.radius), start_ngb, parts.trajectories.inverse[start]);
+                pos2traj(parts.positions[stop].getEuclidianNeighbours(tr[stop], 2.0*1.3*parts.radius), stop_ngb, parts.trajectories.inverse[stop]);
 
                 set_difference(
                     stop_ngb.begin(), stop_ngb.end(),

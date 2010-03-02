@@ -645,9 +645,9 @@ vector<double> DynamicParticles::getMSD(const set<size_t> &selection,const size_
     }
     else
     {
-    	#pragma omp parallel for schedule(runtime) shared(sumSD, t3, nb_selection)
     	for(size_t Dt=1;Dt<sumSD.size();++Dt)
     	{
+    	    #pragma omp parallel for schedule(runtime) shared(sumSD, t3, Dt)
 			for(size_t start=0;start<t3;++start)
 				sumSD[Dt] += getSD(selection,start,start+Dt);
 			sumSD[Dt] /= t3 * nb_selection;
@@ -1179,8 +1179,8 @@ void DynamicParticles::link()
         size_t nbTraj = tm.getNbTraj();
         vector< multimap<double,size_t> > followersByDist(positions[t].size());
 
-        #pragma omp parallel for schedule(runtime) shared(t, range, followersByDist)
-        for(int p=0;p<(int)positions[t].size();++p)
+        #pragma omp parallel for schedule(runtime) shared(t, followersByDist)
+        for(ssize_t p=0;p<(ssize_t)positions[t].size();++p)
             followersByDist[p] = positions[t+1].getEuclidianNeighboursBySqDist(positions[t][p], range);
 
         tm.push_back(followersByDist, positions[t+1].size());
