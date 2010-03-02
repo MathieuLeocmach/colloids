@@ -228,6 +228,28 @@ void export_timeBoo(const TrajIndex& trajectories, const size_t& tau, FileSerie 
 	}
 }
 
+void export_volume(const TrajIndex& trajectories, const size_t& tau, FileSerie &volSerie, FileSerie &timeVolSerie)
+{
+	const size_t size = trajectories.inverse.size();
+	ScalarDynamicField volume(trajectories, tau, 0, "Volume");
+	for(size_t t=0; t<size; ++t)
+	{
+		vector<double> vol(trajectories.inverse[t].size());
+		ifstream f((volSerie%t).c_str(), ios::in);
+		copy(
+			istream_iterator<double>(f), istream_iterator<double>(),
+			vol.begin()
+			);
+		volume.push_back(ScalarField(vol.begin(), vol.end()));
+	}
+	//export
+	for(size_t t=0; t<size; ++t)
+	{
+		ofstream f((timeVolSerie%t).c_str(), ios::out | ios::trunc);
+		f<<volume[t];
+		f.close();
+	}
+}
 
 
 int errorMessage()
@@ -270,6 +292,8 @@ int main(int argc, char ** argv)
 			timeBooSerie = datSerie.changeExt(".boo"),
 			timecgBooSerie = datSerie.addPostfix("_space",".boo"),
 			lngbSerie = datSerie.changeExt(".lngb"),
+			volSerie = datSerie.changeExt(".vol"),
+			timeVolSerie = volSerie.addPostfix("_time"),
 			vtkSerie = datSerie.addPostfix("_dynamic", ".vtk");
 
 		cout<<"remove drift ... ";
@@ -375,6 +399,21 @@ int main(int argc, char ** argv)
 			cout<<"calculate"<<endl;
 			export_timeBoo(parts.trajectories, tau, timecgBooSerie, "cg");
 		}
+		cout<<"Voronoi cell volume ... ";
+		bool haveVolume = ifstream((timeVolSerie%0).c_str()).good() && ifstream((timeVolSerie%(size-1)).c_str()).good();
+		if(haveVolume)
+			cout<<"have already been calculated"<<endl;
+		else
+		{
+			haveVolume = ifstream((volSerie%0).c_str()).good() && ifstream((volSerie%(size-1)).c_str()).good();
+			if(haveVolume)
+			{
+				cout<<"calculate"<<endl;
+				export_volume(parts.trajectories, tau, volSerie, timeVolSerie);
+			}
+			else
+				cout<<"are not present"<<endl;
+		}
 
 		cout<<"export VTK"<<endl;
 		for(size_t t=0; t<size; ++t)
@@ -397,6 +436,21 @@ int main(int argc, char ** argv)
 				in.close();
 			}
 
+			//load volumes
+			vector<double> volumes(parts.positions[t].size());
+			if(haveVolume)
+			{
+				ifstream in((timeVolSerie%t).c_str());
+				string trash;
+				getline(in, trash);
+				getline(in, trash);
+				copy(
+					istream_iterator<double>(in), istream_iterator<double>(),
+					volumes.begin()
+					);
+				in.close();
+			}
+
 			//load velocities
 			vector<Coord> vel(parts.positions[t].size(), Coord(3));
 			{
@@ -408,7 +462,7 @@ int main(int argc, char ** argv)
 				in.close();
 			}
 
-			vector<ScalarField> scalars(9, ScalarField(lngb.begin(), lngb.end(), "lostNgb"));
+			vector<ScalarField> scalars(haveVolume?10:9, ScalarField(lngb.begin(), lngb.end(), "lostNgb"));
 			for(int i=0;i<8;++i)
 			{
 				boost::multi_array<double, 2> &data = (i/4)?cg_qw:qw;
@@ -418,6 +472,8 @@ int main(int argc, char ** argv)
 					i%4
 					);
 			}
+			if(haveVolume)
+				scalars.back() = ScalarField(volumes.begin(), volumes.end(), "Volume");
 
 			vector<VectorField> vectors(1, VectorField(vel.begin(), vel.end(), "V"));
 
