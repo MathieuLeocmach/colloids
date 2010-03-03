@@ -24,168 +24,7 @@
 using namespace std;
 using namespace Colloids;
 
-/** \brief translate positions BondSet into trajectories Bondset*/
-void pos2traj(const BondSet &pos, BondSet &traj, const vector<size_t> &correspondence)
-{
-    for(BondSet::const_iterator b=pos.begin(); b!=pos.end();++b)
-        traj.insert(traj.end(), Bond(correspondence[b->low()], correspondence[b->high()]));
-}
-
-/** \brief translate positions Neighbourlist into trajectories Neighbourlist*/
-void pos2traj(const set<size_t> &pos, set<size_t> &traj, const vector<size_t> &correspondence)
-{
-    for(set<size_t>::const_iterator n=pos.begin(); n!=pos.end();++n)
-        traj.insert(traj.end(), correspondence[*n]);
-}
-
-void export_lostNgb_cummulative_bonds(const TrajIndex& trajectories, const size_t& tau, FileSerie &bondSerie, FileSerie &lngbSerie)
-{
-	cout<<"Lost Bonds"<<endl;
-	const size_t size = trajectories.inverse.size();
-	//most of the bonds should be the same between consecutive time steps
-	//the relevant information is contained into the difference
-	//this should be much lighter in memory
-	std::vector<BondSet> addedBonds(size-1), lostBonds(size-1);
-	{
-		//rely on the equality between position indicies and trajectory indices at t=0
-		BondSet btr0, btr1 = loadBonds(bondSerie%0);
-		boost::progress_display show_progress(size-1);
-		for(size_t t=0; t<size-1; ++t)
-		{
-			btr0.swap(btr1);
-			btr1.clear();
-			pos2traj(loadBonds(bondSerie%(t+1)), btr1, trajectories.inverse[t+1]);
-			//what are the bonds that disapear between t and t+1 ?
-			set_difference(
-				btr0.begin(), btr0.end(),
-				btr1.begin(), btr1.end(),
-				inserter(lostBonds[t], lostBonds[t].end())
-				);
-			cout<<lostBonds[t].size()<<"bonds lost between "<<t<<" and "<<t+1<<endl;
-			//what are the bonds that apear between t and t+1 ?
-			set_difference(
-				btr1.begin(), btr1.end(),
-				btr0.begin(), btr0.end(),
-				inserter(addedBonds[t], addedBonds[t].end())
-				);
-			cout<<addedBonds[t].size()<<"bonds gained between "<<t<<" and "<<t+1<<endl;
-			++show_progress;
-		}
-	}
-	cout<<"Lost neighbours"<<endl;
-	for(size_t t0=0; t0<size; ++t0)
-	{
-		//what are the bonds really lost between t-tau/2 and t+tau/2 ?
-		//lost and not regained during this interval
-		BondSet delta;
-		for(size_t t=max(tau/2, t0)-tau/2; t<min(size-1, t0+tau/2); ++t)
-		{
-			delta.insert(lostBonds[t].begin(), lostBonds[t].end());
-			BondSet dif;
-			set_difference(
-				delta.begin(), delta.end(),
-				addedBonds[t].begin(), addedBonds[t].end(),
-				inserter(dif,dif.end())
-				);
-			delta.swap(dif);
-		}
-		cout<<delta.size()<<"bonds lost between "<<max(tau/2, t0)-tau/2<<" and "<<min(size-1, t0+tau/2)<<endl;
-		//bining lost neighbours
-		vector<size_t> lngb(trajectories.inverse[t0].size(),0.0);
-		for(BondSet::const_iterator b=delta.begin(); b!=delta.end(); ++b)
-		{
-			if(trajectories[b->low()].exist(t0))
-				lngb[trajectories[b->low()][t0]]++;
-			if(trajectories[b->high()].exist(t0))
-				lngb[trajectories[b->high()][t0]]++;
-		}
-		ofstream f((lngbSerie%t0).c_str(), ios::out | ios::trunc);
-		copy(
-			lngb.begin(), lngb.end(),
-			ostream_iterator<size_t>(f,"\n")
-			);
-		f.close();
-	}
-}
-
-void export_lostNgb_bonds_noshort(const TrajIndex& trajectories, const size_t& tau, FileSerie &bondSerie, FileSerie &lngbSerie)
-{
-	const size_t size = trajectories.inverse.size();
-	#pragma omp parallel for shared (trajectories, tau, bondSerie, lngbSerie)
-	for(ssize_t t0=0; t0<size; ++t0)
-	{
-		//what are the bonds lost between t-tau/2 and t+tau/2 ?
-		const size_t start = max(tau/2, (size_t)t0)-tau/2,
-					stop = min(size-1, (size_t)t0+tau/2);
-		BondSet delta, startBonds, stopBonds;
-        pos2traj(loadBonds(bondSerie%start), startBonds, trajectories.inverse[start]);
-        pos2traj(loadBonds(bondSerie%stop), stopBonds, trajectories.inverse[stop]);
-
-		set_difference(
-			stopBonds.begin(), stopBonds.end(),
-			startBonds.begin(), startBonds.end(),
-			inserter(delta, delta.end())
-			);
-		//cout<<delta.size()<<"bonds lost between "<<start<<" and "<<stop<<endl;
-
-		vector<size_t> lngb(trajectories.inverse[t0].size(),0.0);
-		for(BondSet::const_iterator b=delta.begin(); b!=delta.end(); ++b)
-		{
-			if(trajectories[b->low()].span(start, stop))
-				lngb[trajectories[b->low()][t0]]++;
-			if(trajectories[b->high()].span(start, stop))
-				lngb[trajectories[b->high()][t0]]++;
-		}
-		ofstream f((lngbSerie%t0).c_str(), ios::out | ios::trunc);
-		copy(
-			lngb.begin(), lngb.end(),
-			ostream_iterator<size_t>(f,"\n")
-			);
-		f.close();
-	}
-}
-
-void export_lostNgb_index(DynamicParticles &parts, const size_t &tau, FileSerie &lngbSerie)
-{
-    const size_t size = parts.getNbTimeSteps();
-    //spatial indexing
-    #pragma omp parallel for shared(parts) schedule(runtime)
-    for(ssize_t t=0; t<(ssize_t)size; ++t)
-        parts.positions[t].makeRTreeIndex();
-
-    for(size_t t0=0; t0<size; ++t0)
-	{
-	    vector<size_t> lngb(parts.trajectories.inverse[t0].size(),0.0);
-	    #pragma omp parallel for shared(parts, lngb, t0) schedule(runtime)
-	    for(size_t p=0;p<parts.trajectories.inverse[t0].size(); ++p)
-	    {
-	        const Traj &tr = parts.trajectories[parts.trajectories.inverse[t0][p]];
-	        const size_t start = max(tr.start_time+tau/2, (size_t)t0)-tau/2,
-					stop = min(tr.last_time(), (size_t)t0+tau/2);
-            if(start!=stop)
-            {
-                set<size_t> start_ngb, stop_ngb, lost;
-                pos2traj(parts.positions[start].getEuclidianNeighbours(tr[start], 2.0*1.3*parts.radius), start_ngb, parts.trajectories.inverse[start]);
-                pos2traj(parts.positions[stop].getEuclidianNeighbours(tr[stop], 2.0*1.3*parts.radius), stop_ngb, parts.trajectories.inverse[stop]);
-
-                set_difference(
-                    stop_ngb.begin(), stop_ngb.end(),
-                    start_ngb.begin(), start_ngb.end(),
-                    inserter(lost, lost.end())
-                    );
-                lngb[p] = lost.size();
-            }
-	    }
-		ofstream f((lngbSerie%t0).c_str(), ios::out | ios::trunc);
-		copy(
-			lngb.begin(), lngb.end(),
-			ostream_iterator<size_t>(f,"\n")
-			);
-		f.close();
-	}
-}
-
-void export_lostNgb_bonds(const TrajIndex &trajectories, const size_t &tau, FileSerie &bondSerie, FileSerie &lngbSerie)
+void export_lostNgb(const TrajIndex &trajectories, const size_t &tau, FileSerie &bondSerie, FileSerie &lngbSerie)
 {
     const size_t size = trajectories.inverse.size();
     typedef vector<size_t>	Ngbs;
@@ -202,7 +41,7 @@ void export_lostNgb_bonds(const TrajIndex &trajectories, const size_t &tau, File
 		for(size_t p=0; p<trajectories.inverse[t].size();++p)
 			dyn[t].push_back(new Ngbs());
 	}
-		
+
 
 	for(size_t t=0; t<size;++t)
 	{
@@ -452,8 +291,7 @@ int main(int argc, char ** argv)
 		else
 		{
 			cout<<"calculate"<<endl;
-			//export_lostNgb(parts.trajectories, tau, bondSerie, lngbSerie);
-			export_lostNgb_bonds(parts.trajectories, tau, bondSerie, lngbSerie);
+			export_lostNgb(parts.trajectories, tau, bondSerie, lngbSerie);
 		}
 
 
