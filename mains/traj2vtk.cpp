@@ -142,10 +142,11 @@ void export_timeBoo(const TrajIndex& trajectories, const size_t& tau, FileSerie 
 	}
 }
 
-void export_volume(const TrajIndex& trajectories, const size_t& tau, FileSerie &volSerie, FileSerie &timeVolSerie)
+void export_phi(const TrajIndex& trajectories, const double &radius, const size_t& tau, FileSerie &volSerie, FileSerie &phiSerie)
 {
 	const size_t size = trajectories.inverse.size();
-	ScalarDynamicField volume(trajectories, tau, 0, "Volume");
+	const double unitVolume = 4/3*pow(radius, 3.0)*M_PI;
+	ScalarDynamicField phi(trajectories, tau, 0, "phi");
 	for(size_t t=0; t<size; ++t)
 	{
 		vector<double> vol(trajectories.inverse[t].size());
@@ -154,13 +155,16 @@ void export_volume(const TrajIndex& trajectories, const size_t& tau, FileSerie &
 			istream_iterator<double>(f), istream_iterator<double>(),
 			vol.begin()
 			);
-		volume.push_back(ScalarField(vol.begin(), vol.end()));
+		for(size_t p=0; p<vol.size(); ++p)
+			if(1.0 + vol[p]*vol[p] > 1.0)
+				vol[p] = unitVolume / vol[p];
+		phi.push_back(ScalarField(vol.begin(), vol.end()));
 	}
 	//export
 	for(size_t t=0; t<size; ++t)
 	{
-		ofstream f((timeVolSerie%t).c_str(), ios::out | ios::trunc);
-		f<<volume[t];
+		ofstream f((phiSerie%t).c_str(), ios::out | ios::trunc);
+		f<<phi[t];
 		f.close();
 	}
 }
@@ -207,7 +211,7 @@ int main(int argc, char ** argv)
 			timecgBooSerie = datSerie.addPostfix("_space",".boo"),
 			lngbSerie = datSerie.changeExt(".lngb"),
 			volSerie = datSerie.changeExt(".vol"),
-			timeVolSerie = volSerie.addPostfix("_time"),
+			phiSerie = datSerie.changeExt(".phi"),
 			vtkSerie = datSerie.addPostfix("_dynamic", ".vtk");
 
 		cout<<"remove drift ... ";
@@ -312,8 +316,8 @@ int main(int argc, char ** argv)
 			cout<<"calculate"<<endl;
 			export_timeBoo(parts.trajectories, tau, timecgBooSerie, "cg");
 		}
-		cout<<"Voronoi cell volume ... ";
-		bool haveVolume = ifstream((timeVolSerie%0).c_str()).good() && ifstream((timeVolSerie%(size-1)).c_str()).good();
+		cout<<"Voronoi cell volume fraction ... ";
+		bool haveVolume = ifstream((phiSerie%0).c_str()).good() && ifstream((phiSerie%(size-1)).c_str()).good();
 		if(haveVolume)
 			cout<<"have already been calculated"<<endl;
 		else
@@ -322,10 +326,10 @@ int main(int argc, char ** argv)
 			if(haveVolume)
 			{
 				cout<<"calculate"<<endl;
-				export_volume(parts.trajectories, tau, volSerie, timeVolSerie);
+				export_phi(parts.trajectories, parts.radius, tau, volSerie, phiSerie);
 			}
 			else
-				cout<<"are not present"<<endl;
+				cout<<"voronoi cell volume files are not present"<<endl;
 		}
 
 		cout<<"export VTK"<<endl;
@@ -350,16 +354,16 @@ int main(int argc, char ** argv)
 			}
 
 			//load volumes
-			vector<double> volumes(parts.positions[t].size());
+			vector<double> phi(parts.positions[t].size());
 			if(haveVolume)
 			{
-				ifstream in((timeVolSerie%t).c_str());
+				ifstream in((phiSerie%t).c_str());
 				string trash;
 				getline(in, trash);
 				getline(in, trash);
 				copy(
 					istream_iterator<double>(in), istream_iterator<double>(),
-					volumes.begin()
+					phi.begin()
 					);
 				in.close();
 			}
@@ -386,9 +390,9 @@ int main(int argc, char ** argv)
 					);
 			}
 			if(haveVolume)
-				scalars.back() = ScalarField(volumes.begin(), volumes.end(), "Volume");
+				scalars.back() = ScalarField(phi.begin(), phi.end(), "phi");
 
-			vector<VectorField> vectors(1, VectorField(vel.begin(), vel.end(), "V"));
+			vector<VectorField> vectors(1, VectorField(vel.begin(), vel.end(), "velocity"));
 
 			parts.positions[t].exportToVTK(vtkSerie%t, bonds, scalars, vectors);
 		}
