@@ -185,33 +185,64 @@ void export_lostNgb_index(DynamicParticles &parts, const size_t &tau, FileSerie 
 	}
 }
 
-void export_lostNgb_bonds(DynamicParticles &parts, const size_t &tau, FileSerie &bondSerie, FileSerie &lngbSerie)
+void export_lostNgb_bonds(const TrajIndex &trajectories, const size_t &tau, FileSerie &bondSerie, FileSerie &lngbSerie)
 {
-    const size_t size = parts.getNbTimeSteps();
-    //loading neighbour list
-    #pragma omp parallel for shared(parts) schedule(runtime)
-    for(ssize_t t=0; t<(ssize_t)size; ++t)
-        parts.positions[t].makeNgbList(loadBonds(bondSerie%t));
+    const size_t size = trajectories.inverse.size();
+    typedef vector<size_t>	Ngbs;
+    typedef vector<Ngbs> NgbFrame;
+    typedef vector<NgbFrame> DynNgbs;
+    typedef list<size_t> ListNgb;
+    typedef vector<ListNgb> ListNgbFrame;
+
+    //what are the trajectories neighbouring the position p at time t
+    DynNgbs dyn(size);
+    for(size_t t=0; t<size;++t)
+		dyn[t].assign(trajectories.inverse[t].size(), Ngbs());
+
+	for(size_t t=0; t<size;++t)
+	{
+		//Easily filled, disordered but easy to sort container. Bad memory perf. But it's just one frame.
+		ListNgbFrame easy(dyn[t].size());
+		//load bonds from file and bin their ends to neighbour list
+		size_t a, b;
+		ifstream f((bondSerie%t).c_str());
+		while(f.good())
+		{
+			f>>a>>b;
+			easy[a].push_back(trajectories.inverse[t][b]);
+			easy[b].push_back(trajectories.inverse[t][a]);
+		}
+		f.close();
+		//sort each neighbour list
+		#pragma omp parallel for schedule(dynamic)
+		for(size_t p=0;p<easy.size();++p)
+			easy[p].sort();
+		//ensure uniqueness (could be asserted, but anyway...)
+		#pragma omp parallel for schedule(dynamic)
+		for(size_t p=0;p<easy.size();++p)
+			easy[p].unique();
+		//fill in the memory-efficient container
+		#pragma omp parallel for schedule(dynamic)
+		for(size_t p=0;p<easy.size();++p)
+			dyn[t][p].assign(easy[p].begin(), easy[p].end());
+    }
 
     for(size_t t0=0; t0<size; ++t0)
 	{
-	    vector<size_t> lngb(parts.trajectories.inverse[t0].size(),0.0);
+	    vector<size_t> lngb(trajectories.inverse[t0].size(),0);
 	    #pragma omp parallel for shared(parts, lngb, t0) schedule(runtime)
-	    for(size_t p=0;p<parts.trajectories.inverse[t0].size(); ++p)
+	    for(size_t p=0;p<trajectories.inverse[t0].size(); ++p)
 	    {
-	        const Traj &tr = parts.trajectories[parts.trajectories.inverse[t0][p]];
+	        const Traj &tr = trajectories[trajectories.inverse[t0][p]];
 	        const size_t start = max(tr.start_time+tau/2, (size_t)t0)-tau/2,
 					stop = min(tr.last_time(), (size_t)t0+tau/2);
             if(start!=stop)
             {
-                set<size_t> start_ngb, stop_ngb, lost;
-                pos2traj(parts.positions[start].getNgbList()[tr[start]], start_ngb, parts.trajectories.inverse[start]);
-                pos2traj(parts.positions[stop].getNgbList()[tr[stop]], stop_ngb, parts.trajectories.inverse[stop]);
-
+                ListNgb lost;
                 set_difference(
-                    stop_ngb.begin(), stop_ngb.end(),
-                    start_ngb.begin(), start_ngb.end(),
-                    inserter(lost, lost.end())
+                    dyn[stop][tr[stop]].begin(), dyn[stop][tr[stop]].end(),
+                    dyn[start][tr[start]].begin(), dyn[start][tr[start]].end(),
+                    back_inserter(lost)
                     );
                 lngb[p] = lost.size();
             }
@@ -223,11 +254,6 @@ void export_lostNgb_bonds(DynamicParticles &parts, const size_t &tau, FileSerie 
 			);
 		f.close();
 	}
-	//free memory
-	#pragma omp parallel for shared(parts) schedule(runtime)
-    for(ssize_t t=0; t<(ssize_t)size; ++t)
-        parts.positions[t].delNgbList();
-
 }
 
 void export_timeBoo(const TrajIndex& trajectories, const size_t& tau, FileSerie &timeBooSerie, const string &prefix="")
@@ -423,7 +449,7 @@ int main(int argc, char ** argv)
 		{
 			cout<<"calculate"<<endl;
 			//export_lostNgb(parts.trajectories, tau, bondSerie, lngbSerie);
-			export_lostNgb_bonds(parts, tau, bondSerie, lngbSerie);
+			export_lostNgb_bonds(parts.trajectories, tau, bondSerie, lngbSerie);
 		}
 
 
