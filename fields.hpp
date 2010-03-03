@@ -125,7 +125,7 @@ namespace Colloids
 				for(int p=0; p<(int)trajectories.inverse[t].size();++p)
 				{
 					const Traj& tr = trajectories[trajectories.inverse[t][p]];
-					if(tr.exist(actual_time))
+					if(tr.exist(actual_time) && 1.0+pow(frame[tr[actual_time]],2.0) != 1.0)
 					{
 						values[t][p] += frame[tr[actual_time]];
 						divisors[t-t0][p]++;
@@ -141,7 +141,7 @@ namespace Colloids
 				{
 					#pragma omp parallel for schedule(runtime) shared(front)
 					for(int p=0; p<(int)values[front].size(); ++p)
-						values[front][p] /= (double)divisors.front()[p];
+						values[front][p] /= (double)max((size_t)1,divisors.front()[p]);
 
 					divisors.pop_front(); //discard the divisors of the time step we just output
 					front++;
