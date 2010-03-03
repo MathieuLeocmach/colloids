@@ -527,7 +527,7 @@ void DynamicParticles::removeDrift()
     vector<Coord> relative_drifts(positions.size(), Coord(0.0,3)),
             drifts(positions.size(), Coord(0.0,3));
 
-    #pragma omp parallel for shared(relative_drifts)
+    //#pragma omp parallel for shared(relative_drifts)
     for(ssize_t t=1;t<(ssize_t)getNbTimeSteps();++t)
         relative_drifts[t] = - getDrift(t-1, t);
 
@@ -537,15 +537,15 @@ void DynamicParticles::removeDrift()
         );
 
     Coord maxNegativeDrift(0.0,3);
-    #pragma omp parallel for shared(drifts, maxNegativeDrift)
+    //#pragma omp parallel for shared(drifts, maxNegativeDrift)
     for(ssize_t t=1;t<(ssize_t)getNbTimeSteps();++t)
         for(size_t i=0;i<3;++i)
             if(drifts[t][i] < maxNegativeDrift[i])
                 maxNegativeDrift[i] = drifts[t][i];
 
     //the smallest value for origin coordinates is set to 0
-    #pragma omp parallel for shared(drifts, maxNegativeDrift)
-    for(ssize_t t0=0;t0<(ssize_t)getNbTimeSteps();++t0)
+    //#pragma omp parallel for shared(drifts, maxNegativeDrift)
+    for(ssize_t t0=0;t0<(ssize_t)positions.size();++t0)
     {
         Coord dr(3);
         dr = drifts[t0] - maxNegativeDrift;

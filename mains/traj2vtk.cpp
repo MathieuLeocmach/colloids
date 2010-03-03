@@ -189,15 +189,20 @@ void export_lostNgb_bonds(const TrajIndex &trajectories, const size_t &tau, File
 {
     const size_t size = trajectories.inverse.size();
     typedef vector<size_t>	Ngbs;
-    typedef vector<Ngbs> NgbFrame;
-    typedef vector<NgbFrame> DynNgbs;
+    typedef boost::ptr_vector<Ngbs> NgbFrame;
+    typedef boost::ptr_vector<NgbFrame> DynNgbs;
     typedef list<size_t> ListNgb;
     typedef vector<ListNgb> ListNgbFrame;
 
     //what are the trajectories neighbouring the position p at time t
     DynNgbs dyn(size);
     for(size_t t=0; t<size;++t)
-		dyn[t].assign(trajectories.inverse[t].size(), Ngbs());
+	{
+		dyn.push_back(new NgbFrame(trajectories.inverse[t].size()));
+		for(size_t p=0; p<trajectories.inverse[t].size();++p)
+			dyn[t].push_back(new Ngbs());
+	}
+		
 
 	for(size_t t=0; t<size;++t)
 	{
@@ -213,24 +218,23 @@ void export_lostNgb_bonds(const TrajIndex &trajectories, const size_t &tau, File
 			easy[b].push_back(trajectories.inverse[t][a]);
 		}
 		f.close();
-		//sort each neighbour list
-		#pragma omp parallel for schedule(dynamic)
+
+		#pragma omp parallel for shared(easy, dyn) schedule(dynamic)
 		for(size_t p=0;p<easy.size();++p)
+		{
+			//sort each neighbour list
 			easy[p].sort();
-		//ensure uniqueness (could be asserted, but anyway...)
-		#pragma omp parallel for schedule(dynamic)
-		for(size_t p=0;p<easy.size();++p)
+			//ensure uniqueness (could be asserted, but anyway...)
 			easy[p].unique();
-		//fill in the memory-efficient container
-		#pragma omp parallel for schedule(dynamic)
-		for(size_t p=0;p<easy.size();++p)
+			//fill in the memory-efficient container
 			dyn[t][p].assign(easy[p].begin(), easy[p].end());
+		}
     }
 
     for(size_t t0=0; t0<size; ++t0)
 	{
 	    vector<size_t> lngb(trajectories.inverse[t0].size(),0);
-	    #pragma omp parallel for shared(parts, lngb, t0) schedule(runtime)
+	    #pragma omp parallel for shared(trajectories, lngb, t0) schedule(dynamic)
 	    for(size_t p=0;p<trajectories.inverse[t0].size(); ++p)
 	    {
 	        const Traj &tr = trajectories[trajectories.inverse[t0][p]];
