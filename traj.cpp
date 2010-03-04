@@ -148,6 +148,18 @@ size_t TrajIndex::getMaxTime() const
     return max;
 }
 
+/** @brief count the number of trajectories in each time step  */
+vector<size_t> TrajIndex::getFrameSizes(const size_t &length) const
+{
+	vector<size_t> frameSizes(length?length:(getMaxTime()+1), 0);
+	for(const_iterator tr=begin(); tr!=end(); ++tr)
+		for(size_t t=tr->start_time; t<=tr->last_time();++t)
+			frameSizes[t]++;
+	return frameSizes;
+}
+
+
+
 /** @brief make/reset the inverse index  */
 void TrajIndex::makeInverse(const std::vector<size_t> &frameSizes)
 {

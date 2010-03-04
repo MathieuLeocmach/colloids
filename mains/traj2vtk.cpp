@@ -189,21 +189,26 @@ int main(int argc, char ** argv)
 
     try
     {
-		DynamicParticles parts(filename);
-		const size_t stop = parts.getNbTimeSteps()-1;
-		cout << parts.trajectories.size() << " particles in "<<stop+1<<" time steps"<<endl;
-
-		//fetch the file name pattern directly in the file.traj
+    	//construct the trajectory index anyway
+    	TrajIndex trajectories;
+    	double radius, dt;
 		string pattern, token;
-		size_t offset, size;
+		size_t offset, size, tau;
 		{
 			ifstream trajfile(filename.c_str(), ios::in);
-			getline(trajfile, pattern);
+			if(!trajfile.good())
+				throw invalid_argument((filename+" doesn't exist").c_str() );
+			trajfile >> radius >> dt;
+			trajfile.get(); //escape the endl
 			getline(trajfile, pattern); //pattern is on the 2nd line
 			getline(trajfile, token); //token is on the 3rd line
 			trajfile >> offset >> size;
+			trajfile >> trajectories;
 			trajfile.close();
+			trajectories.makeInverse(trajectories.getFrameSizes(size));
 		}
+		cout << trajectories.size() << " particles in "<<size<<" time steps"<<endl;
+		//File series
 		FileSerie datSerie(path+pattern, token, size, offset),
 			velSerie = datSerie.changeExt(".vel"),
 			bondSerie = datSerie.changeExt(".bonds"),
@@ -214,41 +219,29 @@ int main(int argc, char ** argv)
 			phiSerie = datSerie.changeExt(".phi"),
 			vtkSerie = datSerie.addPostfix("_dynamic", ".vtk");
 
-		cout<<"remove drift ... ";
-		parts.removeDrift();
-
-		size_t tau;
-		if(argc<3)
+		const bool hasVel = ifstream((velSerie%0).c_str()).good() && ifstream((velSerie%(size-1)).c_str()).good(),
+			hasISF = ifstream((inputPath + ".isf").c_str()).good();
+		if((argc<3 && !hasISF) || !hasVel)
 		{
-			cout<<"isf to find relaxation time ... ";
-			vector< vector<double> > isf(4,vector<double>(size));
-			ifstream in((inputPath + ".isf").c_str());
-			if(in.good())
-			{
-				cout<<"read from file ... "<<endl;
-				string s;
-				getline(in, s);
-				for(size_t t=0; t<isf.front().size(); ++t)
-				{
-					in >> s;
-					for(size_t d=0; d<4; ++d)
-						in >> isf[d][t];
-				}
-				in.close();
-			}
-			else
-			{
-				cout<<"calculate ... "<<endl;
-				//Dynamics calculation and export
-				vector<double> msd;
+			cout<<"load positions";
+			DynamicParticles parts(filename);
+			cout<<"remove drift ... ";
+			parts.removeDrift();
 
+			if(argc<3 && !hasISF)
+			{
+				cout<<"calculate ISF"<<endl;
+				//Dynamics calculation and export
+				vector< vector<double> > isf(4,vector<double>(size));
+				vector<double> msd;
 				parts.makeDynamics(msd, isf);
+
 				ofstream msd_f((inputPath + ".msd").c_str());
 				msd_f << "#t\tMSD"<<endl;
 				for(size_t t=0; t<msd.size(); ++t)
 					msd_f << t*parts.dt<<"\t"<< msd[t]<<"\n";
-
 				msd_f.close();
+
 				ofstream isf_f((inputPath + ".isf").c_str(), ios::out | ios::trunc);
 				isf_f << "#t\tx\ty\tz\tav"<<endl;
 				for(size_t t=0; t<isf.front().size(); ++t)
@@ -260,34 +253,48 @@ int main(int argc, char ** argv)
 				}
 				isf_f.close();
 			}
+
+			if(!hasVel)
+			{
+				cout<<"calculate velocities"<<endl;
+				#pragma omp parallel for schedule(runtime) shared(parts, tau, velSerie)
+				for(ssize_t t=0; t<parts.getNbTimeSteps(); ++t)
+				{
+					vector<Coord> vel = parts.velocities(t, (tau+1)/2);
+					ofstream v_f((velSerie%t).c_str(), ios::out | ios::trunc);
+					v_f << VectorField(vel.begin(), vel.end(), "V");
+					v_f.close();
+				}
+			}
+		} //no more positions in memory
+
+
+		if(argc<3)
+		{
+			cout<<"load isf to find relaxation time ... ";
+			vector< vector<double> > isf(4,vector<double>(size));
+			ifstream in((inputPath + ".isf").c_str());
+			cout<<"read from file ... "<<endl;
+			string s;
+			getline(in, s);
+			for(size_t t=0; t<isf.front().size(); ++t)
+			{
+				in >> s;
+				for(size_t d=0; d<4; ++d)
+					in >> isf[d][t];
+			}
+			in.close();
+
 			//Find relaxation time
 			if(isf.back().back() > exp(-1.0))
-				tau = parts.getNbTimeSteps()-1;
+				tau = isf.back().size()-1;
 			else
-				tau = parts.getNbTimeSteps()-1 - (upper_bound(isf.back().rbegin(),isf.back().rend(),exp(-1.0))-isf.back().rbegin());
+				tau = isf.back().size()-1 - (upper_bound(isf.back().rbegin(),isf.back().rend(),exp(-1.0))-isf.back().rbegin());
 		}
 		else
 			tau = atoi(argv[2]);
 
-		cout<<"relaxation time is "<<tau<<" steps, ie "<<tau*parts.dt<<"s"<<endl;
-
-
-
-		cout<<"Velocities ... ";
-		if(ifstream((velSerie%0).c_str()).good() && ifstream((velSerie%(size-1)).c_str()).good())
-			cout<<"have already been calculated"<<endl;
-		else
-		{
-			cout<<"calculate"<<endl;
-			#pragma omp parallel for schedule(runtime) shared(parts, tau, velSerie)
-			for(ssize_t t=0; t<parts.getNbTimeSteps(); ++t)
-			{
-				vector<Coord> vel = parts.velocities(t, (tau+1)/2);
-				ofstream v_f((velSerie%t).c_str(), ios::out | ios::trunc);
-				v_f << VectorField(vel.begin(), vel.end(), "V");
-				v_f.close();
-			}
-		}
+		cout<<"relaxation time is "<<tau<<" steps, ie "<<tau*dt<<"s"<<endl;
 
 		cout<<"Lost Neighbours ..."<<endl;
 		if(ifstream((lngbSerie%0).c_str()).good() && ifstream((lngbSerie%(size-1)).c_str()).good())
@@ -295,9 +302,8 @@ int main(int argc, char ** argv)
 		else
 		{
 			cout<<"calculate"<<endl;
-			export_lostNgb(parts.trajectories, tau, bondSerie, lngbSerie);
+			export_lostNgb(trajectories, tau, bondSerie, lngbSerie);
 		}
-
 
 		cout<<"Time averaged bond orientational order ... ";
 		if(ifstream((timeBooSerie%0).c_str()).good() && ifstream((timeBooSerie%(size-1)).c_str()).good())
@@ -305,7 +311,7 @@ int main(int argc, char ** argv)
 		else
 		{
 			cout<<"calculate"<<endl;
-			export_timeBoo(parts.trajectories, tau, timeBooSerie);
+			export_timeBoo(trajectories, tau, timeBooSerie);
 		}
 
 		cout<<"Time averaged coarse grained bond orientational order ... ";
@@ -314,7 +320,7 @@ int main(int argc, char ** argv)
 		else
 		{
 			cout<<"calculate"<<endl;
-			export_timeBoo(parts.trajectories, tau, timecgBooSerie, "cg");
+			export_timeBoo(trajectories, tau, timecgBooSerie, "cg");
 		}
 		cout<<"Voronoi cell volume fraction ... ";
 		bool haveVolume = ifstream((phiSerie%0).c_str()).good() && ifstream((phiSerie%(size-1)).c_str()).good();
@@ -326,24 +332,27 @@ int main(int argc, char ** argv)
 			if(haveVolume)
 			{
 				cout<<"calculate"<<endl;
-				export_phi(parts.trajectories, parts.radius, tau, volSerie, phiSerie);
+				export_phi(trajectories, radius, tau, volSerie, phiSerie);
 			}
 			else
 				cout<<"voronoi cell volume files are not present"<<endl;
 		}
 
 		cout<<"export VTK"<<endl;
+		boost::progress_display show_progress(size);
 		for(size_t t=0; t<size; ++t)
 		{
+			//load positions
+			Particles parts(datSerie%t);
 			//load bonds
 			BondSet bonds = loadBonds(bondSerie%t);
 			//load boo
 			boost::multi_array<double, 2> qw, cg_qw;
-			parts.positions[t].loadBoo(timeBooSerie%t, qw);
-			parts.positions[t].loadBoo(timecgBooSerie%t, cg_qw);
+			parts.loadBoo(timeBooSerie%t, qw);
+			parts.loadBoo(timecgBooSerie%t, cg_qw);
 
 			//load lost neighbours
-			vector<double> lngb(parts.positions[t].size());
+			vector<double> lngb(parts.size());
 			{
 				ifstream in((lngbSerie%t).c_str());
 				copy(
@@ -354,7 +363,7 @@ int main(int argc, char ** argv)
 			}
 
 			//load volumes
-			vector<double> phi(parts.positions[t].size());
+			vector<double> phi(parts.size());
 			if(haveVolume)
 			{
 				ifstream in((phiSerie%t).c_str());
@@ -369,7 +378,7 @@ int main(int argc, char ** argv)
 			}
 
 			//load velocities
-			vector<Coord> vel(parts.positions[t].size(), Coord(3));
+			vector<Coord> vel(parts.size(), Coord(3));
 			{
 				ifstream in((velSerie%t).c_str());
 				string trash;
@@ -394,9 +403,9 @@ int main(int argc, char ** argv)
 
 			vector<VectorField> vectors(1, VectorField(vel.begin(), vel.end(), "velocity"));
 
-			parts.positions[t].exportToVTK(vtkSerie%t, bonds, scalars, vectors);
+			parts.exportToVTK(vtkSerie%t, bonds, scalars, vectors);
+			++show_progress;
 		}
-		cout<<endl;
     }
     catch(const exception &e)
     {

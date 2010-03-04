@@ -118,6 +118,7 @@ namespace Colloids
             size_t & getTraj(const size_t &t,const size_t &p);
             void makeInverse(const std::vector<size_t> &frameSizes);
             size_t getMaxTime() const;
+            std::vector<size_t> getFrameSizes(const size_t &length=0) const;
 
             template<typename T>
             std::map<size_t,T>& trajToPos(const size_t &t,const std::map<size_t,T> &mappedByTraj, std::map<size_t,T> &mappedByPos) const;
