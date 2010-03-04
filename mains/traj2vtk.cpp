@@ -169,6 +169,29 @@ void export_phi(const TrajIndex& trajectories, const double &radius, const size_
 	}
 }
 
+size_t loadTau(const string &filename, const size_t &size)
+{
+	cout<<"load isf to find relaxation time ... ";
+	vector< vector<double> > isf(4,vector<double>(size));
+	ifstream in(filename.c_str());
+	cout<<"read from file ... "<<endl;
+	string s;
+	getline(in, s);
+	for(size_t t=0; t<isf.front().size(); ++t)
+	{
+		in >> s;
+		for(size_t d=0; d<4; ++d)
+			in >> isf[d][t];
+	}
+	in.close();
+
+	//Find relaxation time
+	if(isf.back().back() > exp(-1.0))
+		return size-1;
+	else
+		return size-1 - (upper_bound(isf.back().rbegin(),isf.back().rend(),exp(-1.0))-isf.back().rbegin());
+}
+
 
 int errorMessage()
 {
@@ -223,7 +246,7 @@ int main(int argc, char ** argv)
 			hasISF = ifstream((inputPath + ".isf").c_str()).good();
 		if((argc<3 && !hasISF) || !hasVel)
 		{
-			cout<<"load positions";
+			cout<<"load positions"<<endl;
 			DynamicParticles parts(filename);
 			cout<<"remove drift ... ";
 			parts.removeDrift();
@@ -256,6 +279,10 @@ int main(int argc, char ** argv)
 
 			if(!hasVel)
 			{
+				if(argc<3)
+					tau = loadTau(inputPath + ".isf", size);
+				else
+					tau = atoi(argv[2]);
 				cout<<"calculate velocities"<<endl;
 				#pragma omp parallel for schedule(runtime) shared(parts, tau, velSerie)
 				for(ssize_t t=0; t<parts.getNbTimeSteps(); ++t)
@@ -268,32 +295,13 @@ int main(int argc, char ** argv)
 			}
 		} //no more positions in memory
 
-
-		if(argc<3)
+		if(hasVel)
 		{
-			cout<<"load isf to find relaxation time ... ";
-			vector< vector<double> > isf(4,vector<double>(size));
-			ifstream in((inputPath + ".isf").c_str());
-			cout<<"read from file ... "<<endl;
-			string s;
-			getline(in, s);
-			for(size_t t=0; t<isf.front().size(); ++t)
-			{
-				in >> s;
-				for(size_t d=0; d<4; ++d)
-					in >> isf[d][t];
-			}
-			in.close();
-
-			//Find relaxation time
-			if(isf.back().back() > exp(-1.0))
-				tau = isf.back().size()-1;
+			if(argc<3)
+				tau = loadTau(inputPath + ".isf", size);
 			else
-				tau = isf.back().size()-1 - (upper_bound(isf.back().rbegin(),isf.back().rend(),exp(-1.0))-isf.back().rbegin());
+				tau = atoi(argv[2]);
 		}
-		else
-			tau = atoi(argv[2]);
-
 		cout<<"relaxation time is "<<tau<<" steps, ie "<<tau*dt<<"s"<<endl;
 
 		cout<<"Lost Neighbours ..."<<endl;
