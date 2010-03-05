@@ -145,7 +145,7 @@ namespace Colloids
 				{
 					#pragma omp parallel for schedule(runtime) shared(front)
 					for(int p=0; p<(int)values[front].size(); ++p)
-						values[front][p] /= (double)max((size_t)1,divisors.front()[p]);
+						values[front][p] /= (double)std::max((size_t)1,divisors.front()[p]);
 
 					divisors.pop_front(); //discard the divisors of the time step we just output
 					front++;

@@ -64,7 +64,7 @@ namespace Colloids
     inline Coord normalize(Coord c){return c/=norm2(c);}
     inline std::istream& operator>>(std::istream& in, Coord &c)
     {
-    	for(int i=0; i<c.size();++i)
+    	for(size_t i=0; i<c.size();++i)
 			in>>c[i];
 		return in;
     }
