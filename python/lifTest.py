@@ -22,7 +22,7 @@ from os.path import splitext,isfile
 import lif
 import Image
 
-#reader = lif.LifReader("D:\Users\ishizaka\Documents\dataMathieu\Tsuru11dm_phi=52.53_J36.lif")
+#reader = lif.Reader("D:\Users\ishizaka\Documents\dataMathieu\Tsuru11dm_phi=52.53_J36.lif")
 if len(sys.argv) >1:
     filename = sys.argv[1]
     if not isfile(filename):
@@ -36,7 +36,7 @@ else:
         else:
             print "%s is not an existing file" % filename
 
-reader = lif.LifReader(filename)
+reader = lif.Reader(filename)
 
 #export of the XML header
 fHeader = open(splitext(filename)[0]+"_header.xml","w")

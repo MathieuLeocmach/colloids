@@ -62,7 +62,7 @@ def getDispl(a):
     return displ
 
 #aquire initial data
-reader = lif.LifReader("D:\Users\ishizaka\Documents\dataMathieu\Tsuru11dm_phi=52.53_J36.lif")
+reader = lif.Reader("D:\Users\ishizaka\Documents\dataMathieu\Tsuru11dm_phi=52.53_J36.lif")
 serie = reader.getSeries()[3]
 size2D = tuple(serie.getNumberOfElements()[:2])
 a0 = np.fromstring(serie.get2DString(T=0),np.ubyte).reshape(size2D[1],size2D[0])

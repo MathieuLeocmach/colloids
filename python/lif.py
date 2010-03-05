@@ -30,7 +30,7 @@ dimName = {1: "X",
             8: "TSlices",}
 channelTag = ["Gray","Red","Green","Blue"]
 
-class LifHeader:
+class Header:
     """The XML header of a Leica LIF files"""
 
     def __init__(self,xmlHeaderFileName, quick=True):
@@ -77,13 +77,13 @@ stripping time stamps and non ascii characters
             for i,s in enumerate(
                 self.xmlHeader.documentElement.getElementsByTagName('Element')[1:]
                 ):
-                self.__seriesHeaders.append(LifSerieHeader(s))
+                self.__seriesHeaders.append(SerieHeader(s))
         return self.__seriesHeaders
 
     def chooseSerieIndex(self):
         st ="Experiment: %s\n" % self.getName()
         for i,s in enumerate(self.getSeriesHeaders()):
-            #s = LifSerie(serie)
+            #s = Serie(serie)
             st += "(%i) %s: %i channels and %i dimensions\n" % (
                 i,s.getName(),len(s.getChannels()),len(s.getDimensions())
                 )                                     
@@ -115,7 +115,7 @@ stripping time stamps and non ascii characters
     def __iter__(self):
         return iter(self.getSeriesHeaders())
 
-class LifSerieHeader:
+class SerieHeader:
     """The part of the XML header of a Leica LIF files concerning a given serie"""
     def __init__(self, serieElement):
         self.root = serieElement
@@ -262,7 +262,7 @@ class LifSerieHeader:
         return self.__nbPixelsPerSlice
 
 
-class LifReader(LifHeader):
+class Reader(Header):
     """Reads Leica LIF files"""
     
     def __init__(self, lifFile, quick=True):
@@ -319,7 +319,7 @@ class LifReader(LifHeader):
     def getSeries(self):
         if not hasattr(self, '__series'):
             self.__series = [
-                LifSerie(s.root,self.f,self.offsets[i]) \
+                Serie(s.root,self.f,self.offsets[i]) \
                 for i,s in enumerate(self.getSeriesHeaders())
                 ]
         return self.__series
@@ -333,7 +333,7 @@ class LifReader(LifHeader):
 import numpy as np
 from numpy.fft import rfft2, irfft2
 
-class LifSerie(LifSerieHeader):
+class Serie(SerieHeader):
     """One on the datasets in a lif file"""
 
     def __init__(self, serieElement, f, offset):

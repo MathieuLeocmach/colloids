@@ -32,7 +32,7 @@ else:
         else:
             print '"%s" is not an existing file' % filename
 
-reader = lif.LifReader(filename)
+reader = lif.Reader(filename)
 for serie in reader.getSeries():
     if serie.getNbFrames() > 1:
         displ = serie.getDisplacements2D()
