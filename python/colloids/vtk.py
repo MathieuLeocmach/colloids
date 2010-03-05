@@ -82,4 +82,14 @@ class Polydata:
                     v.tofile(f, sep=' ', format = '%f')
                     f.write('\n')
 
+    def coarseGrainField(self, field):
+        """coarse grain the field by averaging the value at p over the neighbourhood of p"""
+        cg = np.copy(field)
+        cg[self.bonds[:,0]] += field[self.bonds[:,1]]
+        cg[self.bonds[:,1]] += field[self.bonds[:,0]]
+        div = np.ones_like(field)
+        div[:self.bonds[:,0].max()+1] += np.bincount(self.bonds[:,0])
+        div[:self.bonds[:,1].max()+1] += np.bincount(self.bonds[:,1])
+        return cg/div
+
 
