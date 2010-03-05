@@ -71,12 +71,12 @@ namespace Colloids
     	public:
 			std::string name;
 
-			DynamicField(const TrajIndex &ti, const size_t &averaging, const V& defaultValue, const std::string &name="") :
+			DynamicField(const TrajIndex &ti, const size_t &averaging, const std::string &name="") :
 				name(name), trajectories(ti), actual_time(0),
 				values(ti.inverse.size()), averaging(averaging)
 			{
 				for(size_t t=0; t<ti.inverse.size(); ++t)
-					this->values.push_back(new std::vector<V>(ti.inverse[t].size(), defaultValue));
+					this->values.push_back(new std::vector<V>(ti.inverse[t].size(), getNull()));
 				for(size_t t=0; t<(averaging/2)+1; ++t)
 					divisors.push_back(std::vector<size_t>(ti.inverse[t].size(), 0));
 			};
@@ -89,6 +89,10 @@ namespace Colloids
 			void push_back(const Field<V> &frame);
 			void assign(boost::ptr_vector< std::vector<V> > &values){this->values.swap(values);};
 			Field<V> operator[](const size_t &t);
+
+		private:
+			static V getNull();
+			static bool isNull(const V& v);
     };
     typedef DynamicField<double>	ScalarDynamicField;
     typedef DynamicField<Coord>		VectorDynamicField;
@@ -125,7 +129,7 @@ namespace Colloids
 				for(int p=0; p<(int)trajectories.inverse[t].size();++p)
 				{
 					const Traj& tr = trajectories[trajectories.inverse[t][p]];
-					if(tr.exist(actual_time) && 1.0+pow(frame[tr[actual_time]],2.0) != 1.0)
+					if(tr.exist(actual_time) && !isNull(frame[tr[actual_time]]))
 					{
 						values[t][p] += frame[tr[actual_time]];
 						divisors[t-t0][p]++;
@@ -162,6 +166,36 @@ namespace Colloids
 	inline Field<V> DynamicField<V>::operator[](const size_t &t)
 	{
 		return Field<V>(values[t].begin(), values[t].end(), name);
+	}
+
+	/**	Speciallized inline functions for calculation */
+
+	/** @brief return true if the value is zero or very close to zero*/
+	template<>
+	inline bool Colloids::ScalarDynamicField::isNull(const double& v)
+	{
+		return 1.0+v*v == 1.0;
+	}
+
+	/** @brief return null value (0.0) */
+	template<>
+	inline double Colloids::ScalarDynamicField::getNull()
+	{
+		return 0.0;
+	}
+
+	/** @brief return true if the value is zero or very close to zero*/
+	template<>
+	inline bool Colloids::VectorDynamicField::isNull(const Coord& v)
+	{
+		return 1.0+(v*v).max() == 1.0;
+	}
+
+	/** @brief return null value (0.0) */
+	template<>
+	inline Coord Colloids::VectorDynamicField::getNull()
+	{
+		return Coord(0.0, 3);
 	}
 
 };

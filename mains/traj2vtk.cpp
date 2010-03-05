@@ -146,7 +146,7 @@ void export_phi(const TrajIndex& trajectories, const double &radius, const size_
 {
 	const size_t size = trajectories.inverse.size();
 	const double unitVolume = 4/3*pow(radius, 3.0)*M_PI;
-	ScalarDynamicField phi(trajectories, tau, 0, "phi");
+	ScalarDynamicField phi(trajectories, tau, "phi");
 	for(size_t t=0; t<size; ++t)
 	{
 		vector<double> vol(trajectories.inverse[t].size());
