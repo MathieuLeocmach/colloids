@@ -635,15 +635,19 @@ Particles Tracker::getSubPixel()
 	for(size_t d=0;d<3;++d)
 	{
         centers.bb.edges[d].first  = 0;
-		centers.bb.edges[d].second = centersMap.shape()[d]-1;
+		centers.bb.edges[d].second = centersMap.shape()[d];
 	}
 	//centers.reserve(positions.size());
 	copy(positions.begin(), positions.end(), back_inserter(centers));
 
 	if(fortran_order)
+	{
 		//If the image was filled in row major ordering of the dimensions, the coordinates are given as z,y,x by the tracker.
 		//Here we convert to the human-readable x,y,z coordinates
 		for_each(centers.begin(), centers.end(), revert<valarray<double> >());
+		//don't forget the bounding box
+		swap(centers.bb.edges[0].second, centers.bb.edges[2].second);
+	}
     if(!quiet) cout << "done!" << endl;
     if(view)
     {
@@ -682,8 +686,8 @@ void TrackerIterator::close()
 void TrackerIterator::setIsotropicBandPass(double radiusMin, double radiusMax)
 {
     boost::array<double,3>
-        radiiMin = {radiusMin/getZXratio(), radiusMin, radiusMin},
-        radiiMax = {radiusMax/getZXratio(), radiusMax, radiusMax};
+        radiiMin = {{radiusMin/getZXratio(), radiusMin, radiusMin}},
+        radiiMax = {{radiusMax/getZXratio(), radiusMax, radiusMax}};
     this->tracker->makeBandPassMask(radiiMin, radiiMax);
 }
 
@@ -691,8 +695,8 @@ void TrackerIterator::setIsotropicBandPass(double radiusMin, double radiusMax)
 void TrackerIterator::setAnisotropicBandPass(double radiusMin, double radiusMax, double zRadiusMin, double zRadiusMax)
 {
     boost::array<double,3>
-        radiiMin = {zRadiusMin, radiusMin, radiusMin},
-        radiiMax = {zRadiusMax, radiusMax, radiusMax};
+        radiiMin = {{zRadiusMin, radiusMin, radiusMin}},
+        radiiMax = {{zRadiusMax, radiusMax, radiusMax}};
     this->tracker->makeBandPassMask(radiiMin, radiiMax);
 }
 
