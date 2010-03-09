@@ -218,6 +218,7 @@ namespace Colloids
 
             /** file outputs */
             void exportToFile(const std::string &filename) const;
+            std::ostream & toVTKstream(std::ostream &out, const std::string &dataName = "particles") const;
             void exportToVTK(
                 const std::string &filename,const BondSet &bonds,
                 const std::vector<ScalarField> &scalars,	const std::vector<VectorField> &vectors,
@@ -241,6 +242,7 @@ namespace Colloids
 
     };
     BondSet loadBonds(const std::string &filename);
+    std::ostream &toVTKstream(std::ostream &out, const BondSet &bonds);
     inline std::ostream & operator<<(std::ostream& out, const Bond& b)
     {
     	out<<b.low()<<" "<<b.high();

@@ -582,6 +582,25 @@ void Particles::exportToFile(const string &filename) const
 		throw invalid_argument("Cannot write on "+filename);
 }
 
+/** @brief export the coordinates to a stream in vtk format (including header)  */
+std::ostream & Particles::toVTKstream(std::ostream &out, const std::string &dataName) const
+{
+	out<<"# vtk DataFile Version 3.0\n"
+			<<dataName<<"\n"
+			"ASCII\n"
+			"DATASET POLYDATA\n"
+			"POINTS "<<size()<<" double\n";
+	for(const_iterator p=begin();p!=end();++p)
+	{
+		for(size_t d=0;d<3;++d)
+			out<<(*p)[d]<<" ";
+		out<<"\n";
+	}
+	return out;
+}
+
+
+
 /** @brief Most general export to VTK Polydata format
 	\param filename Name of the file to export to
 	\param bonds The explicit unoriented bonds between particles
@@ -601,21 +620,9 @@ void Particles::exportToVTK(
     if(!output)
 		throw invalid_argument("Cannot write on "+filename);
 
-	output<<"# vtk DataFile Version 3.0\n"
-			<<dataName<<"\n"
-			"ASCII\n"
-			"DATASET POLYDATA\n"
-			"POINTS "<<size()<<" double\n";
-	for(const_iterator p=begin();p!=end();++p)
-	{
-		for(size_t d=0;d<3;++d)
-			output<<(*p)[d]<<" ";
-		output<<"\n";
-	}
+	toVTKstream(output, dataName);
 
-	output << "LINES "<<bonds.size()<<" "<<bonds.size()*3<<endl;
-	for(BondSet::const_iterator b= bonds.begin();b!=bonds.end();++b)
-		output<<"2 "<< *b <<"\n";
+	Colloids::toVTKstream(output, bonds);
 
 	output<<"POINT_DATA "<<size()<<endl;
 	copy(
@@ -626,7 +633,6 @@ void Particles::exportToVTK(
 		vectors.begin(), vectors.end(),
 		ostream_iterator<VectorField>(output)
 		);
-
 	output.close();
 }
 
@@ -715,6 +721,14 @@ BondSet Colloids::loadBonds(const std::string &filename)
 		inserter(bonds, bonds.end())
 		);
 	return bonds;
+}
+
+/** @brief export a bondset to a stream in VTK format (heavier than saveBond)  */
+ostream & Colloids::toVTKstream(std::ostream &out, const BondSet &bonds)
+{
+	out << "LINES "<<bonds.size()<<" "<<bonds.size()*3<<endl;
+	for(BondSet::const_iterator b= bonds.begin();b!=bonds.end();++b)
+		out<<"2 "<< *b <<"\n";
 }
 
 
