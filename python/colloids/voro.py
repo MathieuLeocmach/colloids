@@ -29,17 +29,18 @@ def saveVoroFormat(fname, a):
 def volume(fname):
     """Use voro++ to output to disk the volume of the voronoi cell of each particle in file.vol"""
     outName = splitext(fname)[0]
-    with open(fname) as f:
-        f.readline()
-        bb = [float(x)-5 for x in f.readline()[:-1].split()]
-        with open(outName, 'w') as out:
-            for i, p in enumerate(f):
-                out.write('%i %s' % (i, p))
-
+    dat = np.loadtxt(fname, skiprows=2)
+    size = len(dat)
+    bb = np.column_stack([dat.min(axis=0)-0.1, dat.max(axis=0)+0.1])
+    np.savetxt(
+        outName,
+        np.column_stack((np.arange(size), dat)),
+        fmt='%d %g %g %g'
+        )
     subprocess.check_call(
         shlex.split(
-            'voro++ -c "%i %v" '+('10 5 %g 5 %g 5 %g' % tuple(bb))
-        )+[outName]
+            'voro++ -c "%i %v" '+('10 %g %g %g %g %g %g' % tuple(bb.ravel()))
+            )+[outName]
         )
     vol = np.sort(
             np.loadtxt(
@@ -79,18 +80,18 @@ def faces(fname):
 def cgVolume(fname):
     """Use voro++ to output to disk the volume of the voronoi cell of each particle in file.vol"""
     outName = '_space_t'.join(splitext(fname)[0].split('_t'))
-    with open(fname) as f:
-        f.readline()
-        bb = [float(x)-5 for x in f.readline()[:-1].split()]
-        with open(outName, 'w') as out:
-            for i, p in enumerate(f):
-                out.write('%i %s' % (i, p))
-            size = i+1
-
+    dat = np.loadtxt(fname, skiprows=2)
+    size = len(dat)
+    bb = np.column_stack([dat.min(axis=0)-0.1, dat.max(axis=0)+0.1])
+    np.savetxt(
+        outName,
+        np.column_stack((np.arange(size), dat)),
+        fmt='%d %g %g %g'
+        )
     subprocess.check_call(
         shlex.split(
-            'voro++ -c "%i %v %n" '+('10 5 %g 5 %g 5 %g' % tuple(bb))
-        )+[outName]
+            'voro++ -c "%i %v %n" '+('10 %g %g %g %g %g %g' % tuple(bb.ravel()))
+            )+[outName]
         )
     vol = np.zeros(size)
     nbNgb = np.zeros(size, dtype=int)
@@ -107,6 +108,6 @@ def cgVolume(fname):
                 nbNgb[i] += 1
             for n in ngb:
                 vol[n] += v
-    vol /= nbNgb
+    vol[np.nonzero(vol*nbNgb)] /= nbNgb[np.nonzero(vol*nbNgb)]
     np.savetxt(outName+'.vol', vol, fmt='%g')
     os.remove(outName)

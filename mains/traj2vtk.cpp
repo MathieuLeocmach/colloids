@@ -72,7 +72,7 @@ void export_lostNgb(const TrajIndex &trajectories, const size_t &tau, FileSerie 
 
     for(size_t t0=0; t0<size; ++t0)
 	{
-	    vector<size_t> lngb(trajectories.inverse[t0].size(),0);
+	    vector<double> lngb(trajectories.inverse[t0].size(),0);
 	    #pragma omp parallel for shared(trajectories, lngb, t0) schedule(dynamic)
 	    for(size_t p=0;p<trajectories.inverse[t0].size(); ++p)
 	    {
@@ -87,13 +87,13 @@ void export_lostNgb(const TrajIndex &trajectories, const size_t &tau, FileSerie 
                     dyn[start][tr[start]].begin(), dyn[start][tr[start]].end(),
                     back_inserter(lost)
                     );
-                lngb[p] = lost.size();
+                lngb[p] = lost.size() * (1+tau*2)/(double)(stop-start);
             }
 	    }
 		ofstream f((lngbSerie%t0).c_str(), ios::out | ios::trunc);
 		copy(
 			lngb.begin(), lngb.end(),
-			ostream_iterator<size_t>(f,"\n")
+			ostream_iterator<double>(f,"\n")
 			);
 		f.close();
 	}
@@ -235,11 +235,11 @@ int main(int argc, char ** argv)
 		FileSerie datSerie(path+pattern, token, size, offset),
 			velSerie = datSerie.changeExt(".vel"),
 			bondSerie = datSerie.changeExt(".bonds"),
-			timeBooSerie = datSerie.changeExt(".boo"),
-			timecgBooSerie = datSerie.addPostfix("_space",".boo"),
+			//timeBooSerie = datSerie.changeExt(".boo"),
+			timecgBooSerie = datSerie.addPostfix("_space", ".boo"),
 			lngbSerie = datSerie.changeExt(".lngb"),
-			volSerie = datSerie.changeExt(".vol"),
-			phiSerie = datSerie.changeExt(".phi"),
+			volSerie = datSerie.addPostfix("_space", ".vol"),
+			phiSerie = datSerie.addPostfix("_space", ".phi"),
 			vtkSerie = datSerie.addPostfix("_dynamic", ".vtk");
 
 		const bool hasVel = ifstream((velSerie%0).c_str()).good() && ifstream((velSerie%(size-1)).c_str()).good(),
@@ -313,14 +313,14 @@ int main(int argc, char ** argv)
 			export_lostNgb(trajectories, tau, bondSerie, lngbSerie);
 		}
 
-		cout<<"Time averaged bond orientational order ... ";
+		/*cout<<"Time averaged bond orientational order ... ";
 		if(ifstream((timeBooSerie%0).c_str()).good() && ifstream((timeBooSerie%(size-1)).c_str()).good())
 			cout<<"have already been calculated"<<endl;
 		else
 		{
 			cout<<"calculate"<<endl;
 			export_timeBoo(trajectories, tau, timeBooSerie);
-		}
+		}*/
 
 		cout<<"Time averaged coarse grained bond orientational order ... ";
 		if(ifstream((timecgBooSerie%0).c_str()).good() && ifstream((timecgBooSerie%(size-1)).c_str()).good())
@@ -355,8 +355,7 @@ int main(int argc, char ** argv)
 			//load bonds
 			BondSet bonds = loadBonds(bondSerie%t);
 			//load boo
-			boost::multi_array<double, 2> qw, cg_qw;
-			parts.loadBoo(timeBooSerie%t, qw);
+			boost::multi_array<double, 2> cg_qw;
 			parts.loadBoo(timecgBooSerie%t, cg_qw);
 
 			//load lost neighbours
@@ -364,7 +363,7 @@ int main(int argc, char ** argv)
 			{
 				ifstream in((lngbSerie%t).c_str());
 				copy(
-					istream_iterator<size_t>(in), istream_iterator<size_t>(),
+					istream_iterator<double>(in), istream_iterator<double>(),
 					lngb.begin()
 					);
 				in.close();
@@ -396,13 +395,12 @@ int main(int argc, char ** argv)
 				in.close();
 			}
 
-			vector<ScalarField> scalars(haveVolume?10:9, ScalarField(lngb.begin(), lngb.end(), "lostNgb"));
-			for(int i=0;i<8;++i)
+			vector<ScalarField> scalars(haveVolume?6:5, ScalarField(lngb.begin(), lngb.end(), "lostNgb"));
+			for(int i=0;i<4;++i)
 			{
-				boost::multi_array<double, 2> &data = (i/4)?cg_qw:qw;
 				scalars[i] = ScalarField(
-					data.begin(), data.end(),
-					string((i/4)?"cg":"")+string((i/2)%2?"W":"Q")+string(i%2?"6":"4"),
+					cg_qw.begin(), cg_qw.end(),
+					string((i/2)%2?"W":"Q")+string(i%2?"6":"4"),
 					i%4
 					);
 			}
