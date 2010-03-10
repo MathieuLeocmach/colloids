@@ -1,5 +1,7 @@
 from __future__ import with_statement #for python 2.5, useless in 2.6
 import numpy as np
+from scipy.spatial import KDTree
+import math
 
 class Polydata:
     """A VTK polydata dataset"""
@@ -91,5 +93,67 @@ class Polydata:
         div[:self.bonds[:,0].max()+1] += np.bincount(self.bonds[:,0])
         div[:self.bonds[:,1].max()+1] += np.bincount(self.bonds[:,1])
         return cg/div
+
+    def spatialCorelation(self, Nbins=200, maxDist=50.0):
+        """Compute the spatial corellation of each field"""
+        return spatialCorelation(
+            self.points,
+            np.hstack(tuple(
+                [np.column_stack(tuple(
+                    [s for n, s in self.scalars]
+                    ))]+[v for n, v in self.vectors]
+                      )),
+            np.array(
+                range(len(self.scalars))
+                + [i/3 + len(self.scalars) for i in range(3*len(self.vectors))]
+                ),
+            Nbins,
+            maxDist
+            )
+        
+
+def spatialCorelation(points, fields, vectorColumns=None, Nbins=200, maxDist=50.0):
+    """Compute the spatial corellation of each field
+
+    points -- 2D array of points coordinates. Shape is (N,d) with d the number of spatial dimensions.
+    fields -- 2D array of scalar field or of coordinates of vector fields. Shape is (N, F)
+    with F the sum of the dimensions of each field.
+    vectorColumns -- 1D array indexing the columns of fields into vector fields.
+    for example [0, 1, 1, 1] means that the first column of fields is the scalar field 0 and
+    the next 3 columns are the coordinates of a 3D vector field.
+    Nbins -- The number of bins of the histogram
+    maxLength -- The maximum distance between a pair of points taken into account in the histogram
+    """
+    if len(points) != len(fields):
+        raise ValueError(
+            'You must have exactly one field value per point\n'
+            + 'Here points id %i and fieds is %i'%(len(points), len(fields))
+            )
+    if vectorColumns==None:
+        vectorColumns = np.arange(fields.shape[1])
+    if len(vectorColumns) != fields.shape[1]:
+        vectorColumns = np.concatenate((
+            vectorColumns,
+            np.arange(vectorColumns.max()+1,fields.shape[1])
+            ))
+    slices = [np.where(vectorColumns==v)[0] for v in range(vectorColumns.max()+1)]
+    bins = np.zeros((Nbins, 2 + vectorColumns.max()))
+    lowerBound = points.min(axis=0) + maxDist/2
+    upperBound = points.max(axis=0) - maxDist/2
+    maxDistSq = maxDist**2
+    for p, f in zip(points, fields):
+        if (p >= lowerBound).min() and (p <= upperBound).min():
+            for q, g in zip(points, fields):
+                dsq = np.dot(p, q)
+                if dsq < maxDistSq:
+                    r = math.sqrt(dsq) * Nbins / maxDist
+                    toAdd = [1.0] + [
+                        np.dot(f[cols], g[cols])
+                        for cols in slices
+                                     ]
+                    bins[r] += np.asarray(toAdd)
+    bins[:,1:] /= bins[:,0:1]
+    bins[:,0] = np.arange(Nbins)/maxDist
+    return bins
 
 
