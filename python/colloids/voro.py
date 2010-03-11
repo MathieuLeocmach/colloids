@@ -22,21 +22,19 @@ import shlex, subprocess, os
 from os.path import splitext
 
 def saveVoroFormat(fname, a):
-    with open(fname, 'w') as f:
-        for i, p in enumerate(a):
-            f.write('%i %s\n' % (i, np.array_str(p)[1:-1]))
+    """Save a numpy array to a format readable to voro++"""
+    np.savetxt(
+        fname,
+        np.column_stack((np.arange(len(a)), a)),
+        fmt='%d %g %g %g'
+        )
 
 def volume(fname):
     """Use voro++ to output to disk the volume of the voronoi cell of each particle in file.vol"""
     outName = splitext(fname)[0]
     dat = np.loadtxt(fname, skiprows=2)
-    size = len(dat)
     bb = np.column_stack([dat.min(axis=0)-0.1, dat.max(axis=0)+0.1])
-    np.savetxt(
-        outName,
-        np.column_stack((np.arange(size), dat)),
-        fmt='%d %g %g %g'
-        )
+    saveVoroFormat(outName, dat)
     subprocess.check_call(
         shlex.split(
             'voro++ -c "%i %v" '+('10 %g %g %g %g %g %g' % tuple(bb.ravel()))
@@ -62,12 +60,9 @@ def faces(fname):
     Neighbours with negative ID are walls
     """
     outName = splitext(fname)[0]+'.face'
-    with open(fname) as f:
-        f.readline()
-        bb = [float(x)-5 for x in f.readline()[:-1].split()]
-        with open(outName, 'w') as out:
-            for i, p in enumerate(f):
-                out.write('%i %s' % (i, p))
+    dat = np.loadtxt(fname, skiprows=2)
+    bb = np.column_stack([dat.min(axis=0)-0.1, dat.max(axis=0)+0.1])
+    saveVoroFormat(outName, dat)
 
     subprocess.check_call(
         shlex.split(
@@ -77,17 +72,13 @@ def faces(fname):
     os.remove(outName)
     os.rename(outName+'.vol', outName)
 
-def cgVolume(fname):
+def cgVolume(fname, Return=False):
     """Use voro++ to output to disk the volume of the voronoi cell of each particle in file.vol"""
     outName = '_space_t'.join(splitext(fname)[0].split('_t'))
     dat = np.loadtxt(fname, skiprows=2)
     size = len(dat)
     bb = np.column_stack([dat.min(axis=0)-0.1, dat.max(axis=0)+0.1])
-    np.savetxt(
-        outName,
-        np.column_stack((np.arange(size), dat)),
-        fmt='%d %g %g %g'
-        )
+    saveVoroFormat(outName, dat)
     subprocess.check_call(
         shlex.split(
             'voro++ -c "%i %v %n" '+('10 %g %g %g %g %g %g' % tuple(bb.ravel()))
@@ -111,3 +102,5 @@ def cgVolume(fname):
     vol[np.nonzero(vol*nbNgb)] /= nbNgb[np.nonzero(vol*nbNgb)]
     np.savetxt(outName+'.vol', vol, fmt='%g')
     os.remove(outName)
+    if Return :
+        return np.column_stack((dat,vol))
