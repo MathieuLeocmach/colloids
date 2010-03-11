@@ -124,6 +124,7 @@ def spatialCorelation(points, fields, vectorColumns=None, Nbins=200, maxDist=50.
     Nbins -- The number of bins of the histogram
     maxLength -- The maximum distance between a pair of points taken into account in the histogram
     """
+    #parameters parsing
     if len(points) != len(fields):
         raise ValueError(
             'You must have exactly one field value per point\n'
@@ -137,23 +138,30 @@ def spatialCorelation(points, fields, vectorColumns=None, Nbins=200, maxDist=50.
             np.arange(vectorColumns.max()+1,fields.shape[1])
             ))
     slices = [np.where(vectorColumns==v)[0] for v in range(vectorColumns.max()+1)]
-    bins = np.zeros((Nbins, 2 + vectorColumns.max()))
+    #spatial query
     lowerBound = points.min(axis=0) + maxDist/2
     upperBound = points.max(axis=0) - maxDist/2
-    maxDistSq = maxDist**2
-    for p, f in zip(points, fields):
-        if (p >= lowerBound).min() and (p <= upperBound).min():
-            for q, g in zip(points, fields):
-                dsq = np.dot(p, q)
-                if dsq < maxDistSq:
-                    r = math.sqrt(dsq) * Nbins / maxDist
-                    toAdd = [1.0] + [
-                        np.dot(f[cols], g[cols])
-                        for cols in slices
-                                     ]
-                    bins[r] += np.asarray(toAdd)
-    bins[:,1:] /= bins[:,0:1]
-    bins[:,0] = np.arange(Nbins)/maxDist
-    return bins
+    inside_id = [
+        i for i, p in enumerate(points)
+        if (p>= lowerBound).all() and (p <= upperBound).all()
+        ]
+    tree = KDTree(points)
+    inside_tree = KDTree(points[inside_id])
+    pairs = inside_tree.query_ball_tree(tree, maxDist)
+    #binning
+    coord_bins = np.zeros((Nbins, fields.shape[1]))
+    nb_bins = np.zeros((Nbins), dtype=int)
+    for p, qs in zip(inside_id, pairs):
+        qs.remove(p)
+        rs = np.asarray(
+            np.sqrt(
+                ((points[qs] - points[p])**2).sum(axis=1)
+                ) * Nbins / maxDist,
+            dtype=int)
+        nb_bins[rs] += 1 
+        coord_bins[rs] += fields[qs]*fields[p]
+    bins = np.column_stack([coord_bins[:,cols].sum(axis=1) for cols in slices])
+    bins[np.nonzero(nb_bins)] /= nb_bins[np.nonzero(nb_bins)][:,np.newaxis]
+    return np.column_stack((np.arange(Nbins, dtype=float)/maxDist,bins))
 
 
