@@ -92,13 +92,13 @@ def cgVolume(fname, Return=False):
             i = int(l[0])
             v = float(l[1])
             ngb = [n for n in map(int, l[2:]) if n>=0]
-            nbNgb[i] = len(ngb)
+            #the center cell volume is significant only if not near a wall
             if len(ngb)+2 == len(l):
-                #the center cell volume itself is counted only if not near a wall
                 vol[i] += v
                 nbNgb[i] += 1
-            for n in ngb:
-                vol[n] += v
+                for n in ngb:
+                    vol[n] += v
+                    nbNgb[n] += 1
     vol[np.nonzero(vol*nbNgb)] /= nbNgb[np.nonzero(vol*nbNgb)]
     np.savetxt(outName+'.vol', vol, fmt='%g')
     os.remove(outName)
