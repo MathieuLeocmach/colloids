@@ -87,7 +87,7 @@ void export_lostNgb(const TrajIndex &trajectories, const size_t &tau, FileSerie 
                     dyn[start][tr[start]].begin(), dyn[start][tr[start]].end(),
                     back_inserter(lost)
                     );
-                lngb[p] = lost.size() * (1+tau*2)/(double)(stop-start);
+                lngb[p] = lost.size();// * (1+tau*2)/(double)(stop-start);
             }
 	    }
 		ofstream f((lngbSerie%t0).c_str(), ios::out | ios::trunc);
@@ -104,12 +104,12 @@ void export_timeBoo(const TrajIndex& trajectories, const size_t& tau, FileSerie 
 	const size_t size = trajectories.inverse.size();
 	FileSerie booSerie = timeBooSerie.changeExt(".cloud");
 	boost::multi_array<double, 2> qw;
-	vector<ScalarDynamicField> scalars(4, ScalarDynamicField(trajectories, tau, 0));
+	vector<ScalarDynamicField> scalars(4, ScalarDynamicField(trajectories, tau));
 	for(size_t i=0;i<4;++i)
 		scalars[i].name = prefix+string((i/2)%2?"W":"Q")+string(i%2?"6":"4");
 	for(size_t t=0; t<size; ++t)
 	{
-		//read boo from file
+		//read qw from file
 		boost::array<size_t, 2> shape = {{trajectories.inverse[t].size(), 4}};
 		qw.resize(shape);
 		ifstream cloud((booSerie%t).c_str(), ios::in);
