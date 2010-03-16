@@ -62,11 +62,11 @@ double PeriodicParticles::getNumberDensity() const
     \return list of all the particles
      Dummy function in the case of periodic boundary condition.
 */
-set<size_t> PeriodicParticles::selectInside(const double &margin) const
+vector<size_t> PeriodicParticles::selectInside(const double &margin) const
 {
-    set<size_t> inside;
+    vector<size_t> inside;
     for(size_t i=0;i<size();++i)
-        inside.insert(inside.end(),i);
+        inside.push_back(i);
     return inside;
 }
 
@@ -75,7 +75,7 @@ set<size_t> PeriodicParticles::selectInside(const double &margin) const
     \param b search range
     \return list of the index
 */
-set<size_t> PeriodicParticles::selectEnclosed(const BoundingBox &b) const
+vector<size_t> PeriodicParticles::selectEnclosed(const BoundingBox &b) const
 {
     //case where the query doesn't get across the boundaries
     if(bb.encloses(b))
@@ -84,7 +84,8 @@ set<size_t> PeriodicParticles::selectEnclosed(const BoundingBox &b) const
     // case where the periodicity has to be taken into account
     BoundingBox queryBox = b;
     valarray<double> translation(0.0,3);
-    set<size_t> total, newParts;
+    list<size_t>total;
+    vector<size_t>newParts;
     for(int i=-1;i<=1;++i)
     {
         translation[0]=i*getPeriod(0);
@@ -104,10 +105,12 @@ set<size_t> PeriodicParticles::selectEnclosed(const BoundingBox &b) const
                 //so no special precaution to discard in advance irrealistic translations of the query box.
                 newParts = Particles::selectEnclosed(queryBox);
                 //the new set of particles is added
-                total.insert(newParts.begin(),newParts.end());
+                copy(newParts.begin(),newParts.end(), back_inserter(total));
             }
         }
     }
-    return total;
+    total.sort();
+    total.unique();
+    return vector<size_t>(total.begin(), total.end());
 
 }

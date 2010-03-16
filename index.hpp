@@ -80,14 +80,15 @@ namespace Colloids
     {
         virtual ~BasicIndex(){return;};
         virtual void insert(const size_t &i, const BoundingItem &b)=0;
-        virtual std::set<size_t> operator()(const BoundingItem &b) const = 0;
+        /** \return sorted unique indicies*/
+        virtual std::vector<size_t> operator()(const BoundingItem &b) const = 0;
     };
 
     /** \brief A virtual class defining the common interface of spatial index classes   */
     class SpatialIndex : public BasicIndex<BoundingBox>
     {
         public:
-            virtual std::set<size_t> getInside(const double &margin) const;
+            virtual std::vector<size_t> getInside(const double &margin) const;
             /** @brief Translate index */
             virtual void operator+=(const Coord &v) = 0;
             virtual BoundingBox getOverallBox() const = 0;
@@ -104,11 +105,11 @@ namespace Colloids
     class SpatioTemporalIndex : public BasicIndex<TimeBox>
     {
         public:
-            virtual std::set<size_t> operator()(const TimeBox &b) const = 0;
-            virtual std::set<size_t> operator()(const BoundingBox &b) const = 0;
-            virtual std::set<size_t> operator()(const Interval &in) const = 0;
-            virtual std::set<size_t> getSpanningInside(const Interval &in,const double &margin) const;
-            virtual std::set<size_t> getInside(const double &margin) const;
+            virtual std::vector<size_t> operator()(const TimeBox &b) const = 0;
+            virtual std::vector<size_t> operator()(const BoundingBox &b) const = 0;
+            virtual std::vector<size_t> operator()(const Interval &in) const = 0;
+            virtual std::vector<size_t> getSpanningInside(const Interval &in,const double &margin) const;
+            virtual std::vector<size_t> getInside(const double &margin) const;
             virtual BoundingBox getOverallBox() const = 0;
             virtual Interval getOverallInterval() const = 0;
     };
@@ -122,7 +123,7 @@ namespace Colloids
         public:
             INDEX_CONSTRUCTOR(BruteSpatialIndex, BoundingBox)
             void insert(const size_t &i, const BoundingBox &b);
-            std::set<size_t> operator()(const BoundingBox &b) const;
+            std::vector<size_t> operator()(const BoundingBox &b) const;
             void operator+=(const Coord &v);
             BoundingBox getOverallBox() const{return *overallBox;};
     };
@@ -136,19 +137,19 @@ namespace Colloids
 
         /** \brief Visitor gathering particles indices */
         struct Gatherer {
-            std::set<size_t> gathered;
+            std::list<size_t> gathered;
             bool ContinueVisiting;
 
             Gatherer() : gathered(), ContinueVisiting(true) {};
 
             void operator()(const RTree::Leaf * const leaf)
             {
-                gathered.insert(leaf->leaf);
+                gathered.push_back(leaf->leaf);
             }
         };
             INDEX_CONSTRUCTOR(RStarIndex_S, BoundingBox)
             void insert(const size_t &i, const BoundingBox &b);
-            std::set<size_t> operator()(const BoundingBox &b) const;
+            std::vector<size_t> operator()(const BoundingBox &b) const;
             void operator+=(const Coord &v) {tree+=v;};
             BoundingBox getOverallBox() const{return tree.getOverallBox();};
     };
@@ -163,7 +164,7 @@ namespace Colloids
         public:
             INDEX_CONSTRUCTOR(TreeIndex_T, Interval)
             void insert(const size_t &i, const Interval &in);
-            std::set<size_t> operator()(const Interval &in) const;
+            std::vector<size_t> operator()(const Interval &in) const;
             Interval getOverallInterval() const{return *overallInterval;};
     };
 
@@ -179,9 +180,9 @@ namespace Colloids
             SpatioTemporalIndex_slice(ParentSTIndex &par, const size_t &t, Converter &converter)
              : parent(&par), time(t), conv(converter) {return;};
 
-            std::set<size_t> operator()(const BoundingBox &b) const
+            std::vector<size_t> operator()(const BoundingBox &b) const
             {
-                std::set<size_t> ret, trs = (*parent)(std::make_pair(std::make_pair(time,time),b));
+                std::vector<size_t> ret, trs = (*parent)(std::make_pair(std::make_pair(time,time),b));
                 std::transform(trs.begin(), trs.end(), std::inserter(ret,ret.end()), this->conv);
                 return ret;
             }

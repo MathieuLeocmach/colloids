@@ -71,7 +71,7 @@ int main(int argc, char ** argv)
 		Particles::G6Binner binner(Centers,Nbins,nbDiameterCutOff,allBoo);
 
 		//select particles and bin them
-		set<size_t> inside = Centers.selectInside(2.0*radius*(nbDiameterCutOff+2));
+		vector<size_t> inside = Centers.selectInside(2.0*radius*(nbDiameterCutOff+2));
 		binner << inside;
 
 		binner.normalize(inside.size());

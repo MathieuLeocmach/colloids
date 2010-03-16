@@ -23,7 +23,7 @@ using namespace std;
 using namespace Colloids;
 
 /** @brief Get the indices of the objects contained inside a reduction of the maximum bounding box  */
-set<size_t> SpatialIndex::getInside(const double &margin) const
+vector<size_t> SpatialIndex::getInside(const double &margin) const
 {
     BoundingBox insideBox = getOverallBox();
     for(size_t i=0;i<3;++i)
@@ -37,19 +37,19 @@ set<size_t> SpatialIndex::getInside(const double &margin) const
 }
 
 /** @brief Get objects spanning the whole interval inside the query box  */
-set<size_t> SpatioTemporalIndex::operator()(const BoundingBox &b) const
+vector<size_t> SpatioTemporalIndex::operator()(const BoundingBox &b) const
 {
     return (*this)(TimeBox(getOverallInterval(),b));
 }
 
 /** @brief Get all the objects spanning the query interval  */
-set<size_t> SpatioTemporalIndex::operator()(const Interval &in) const
+vector<size_t> SpatioTemporalIndex::operator()(const Interval &in) const
 {
     return (*this)(TimeBox(in,getOverallBox()));
 }
 
 /** @brief Get the indices of the objects spanning the query interval inside a reduction of the maximum bounding box  */
-set<size_t> SpatioTemporalIndex::getSpanningInside(const Interval &in,const double &margin) const
+vector<size_t> SpatioTemporalIndex::getSpanningInside(const Interval &in,const double &margin) const
 {
     BoundingBox insideBox = getOverallBox();
     for(size_t i=0;i<3;++i)
@@ -64,7 +64,7 @@ set<size_t> SpatioTemporalIndex::getSpanningInside(const Interval &in,const doub
 
 /** @brief Get the indices of the objects spanning the whole interval inside a reduction of the maximum bounding box
   */
-set<size_t> SpatioTemporalIndex::getInside(const double &margin) const
+vector<size_t> SpatioTemporalIndex::getInside(const double &margin) const
 {
     return getSpanningInside(getOverallInterval(),margin);
 }
@@ -84,13 +84,15 @@ void BruteSpatialIndex::insert(const size_t &i, const BoundingBox &b)
 /** @brief get all items included in the query box
     complexity ~N
 */
-set<size_t> BruteSpatialIndex::operator()(const BoundingBox &b) const
+vector<size_t> BruteSpatialIndex::operator()(const BoundingBox &b) const
 {
-    set<size_t> ret;
+    list<size_t> ret;
     for(multimap<size_t, BoundingBox>::const_iterator it = items.begin(); it!= items.end();++it)
         if(b.encloses(it->second))
-            ret.insert(ret.end(), it->first);
-    return ret;
+            ret.push_back(it->first);
+	ret.sort();
+	ret.unique();
+    return vector<size_t>(ret.begin(), ret.end());
 }
 
 /** @brief Translate all bounding boxes  */
@@ -106,9 +108,12 @@ void RStarIndex_S::insert(const size_t &i, const BoundingBox &b)
 }
 
 /** @brief Get the indices of the objects whose bounding boxes are contained inside the query box */
-set<size_t> RStarIndex_S::operator()(const BoundingBox &b) const
+vector<size_t> RStarIndex_S::operator()(const BoundingBox &b) const
 {
-    return tree.Query(RTree::AcceptEnclosing(b), Gatherer()).gathered;
+    list<size_t> g = tree.Query(RTree::AcceptEnclosing(b), Gatherer()).gathered;
+    g.sort();
+    g.unique();
+    return vector<size_t>(g.begin(), g.end());
 }
 
 /** @brief insertion  */
@@ -129,12 +134,14 @@ void TreeIndex_T::insert(const size_t &i, const Interval &in)
 }
 
 /** @brief Get the objects spanning at least the query interval */
-set<size_t> TreeIndex_T::operator()(const Interval &in) const
+vector<size_t> TreeIndex_T::operator()(const Interval &in) const
 {
-    set<size_t> sel;
+    list<size_t> sel;
     for(size_t t0=0;t0<=min(in.first,tree.size());++t0)
         for(size_t t1=in.second-in.first;t1<tree[t0].size();++t1)
-            copy(tree[t0][t1].begin(), tree[t0][t1].end(), inserter(sel,sel.end()));
-    return sel;
+            copy(tree[t0][t1].begin(), tree[t0][t1].end(), back_inserter(sel));
+	sel.sort();
+	sel.unique();
+    return vector<size_t>(sel.begin(), sel.end());
 }
 

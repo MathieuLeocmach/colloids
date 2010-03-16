@@ -222,7 +222,7 @@ int main(int argc, char ** argv)
 			if(!trajfile.good())
 				throw invalid_argument((filename+" doesn't exist").c_str() );
 			trajfile >> radius >> dt;
-			trajfile.get(); //escape the endl
+			trajfile.ignore(1); //escape the endl
 			getline(trajfile, pattern); //pattern is on the 2nd line
 			getline(trajfile, token); //token is on the 3rd line
 			trajfile >> offset >> size;

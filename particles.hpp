@@ -54,7 +54,7 @@
 namespace Colloids
 {
     typedef RStarIndex_S::RTree                     RTree;
-    typedef std::vector< std::set<size_t> >         NgbList;
+    typedef std::vector< std::vector<size_t> >         NgbList;
 
     struct Bond : private std::pair<size_t, size_t>
 	{
@@ -126,7 +126,7 @@ namespace Colloids
             virtual Coord getDiff(const Coord &from,const size_t &to) const;
             virtual Coord getDiff(const size_t &from,const size_t &to) const;
             virtual double getAngle(const size_t &origin,const size_t &a,const size_t &b) const;
-            virtual std::set<size_t> selectInside_noindex(const double &margin) const;
+            virtual std::vector<size_t> selectInside_noindex(const double &margin) const;
 
             /** Index related   */
             static BoundingBox bounds(const Coord &center,const double &r=0.0);
@@ -136,9 +136,9 @@ namespace Colloids
             BoundingBox getOverallBox() const;
 
             /** Spatial query and neighbours. Depends on both geometry and spatial index */
-            virtual std::set<size_t> selectEnclosed(const BoundingBox &b) const;
-            std::set<size_t> getEuclidianNeighbours(const Coord &center, const double &range) const;
-            std::set<size_t> getEuclidianNeighbours(const size_t &center, const double &range) const;
+            virtual std::vector<size_t> selectEnclosed(const BoundingBox &b) const;
+            std::vector<size_t> getEuclidianNeighbours(const Coord &center, const double &range) const;
+            std::vector<size_t> getEuclidianNeighbours(const size_t &center, const double &range) const;
             size_t getNearestNeighbour(const Coord &center, const double &range=1.0) const;
             std::multimap<double,size_t> getEuclidianNeighboursBySqDist(const Coord &center, const double &range) const;
             NgbList & makeNgbList(const double &bondLength);
@@ -146,15 +146,15 @@ namespace Colloids
             const NgbList & getNgbList() const {return *this->neighboursList;};
             void delNgbList(){neighboursList.reset();};
             BondSet getBonds() const {return ngb2bonds(getNgbList());};
-            virtual std::set<size_t> selectInside(const double &margin) const;
+            virtual std::vector<size_t> selectInside(const double &margin) const;
 
 
             /**Bond Orientational Order related */
             BooData sphHarm_OneBond(const size_t &center, const size_t &neighbour) const;
             BooData getBOO(const size_t &center) const;
             BooData getCgBOO(const std::vector<BooData> &BOO, const size_t &center) const;
-            void getBOOs(const std::set<size_t> &selection, std::vector<BooData> &BOO) const;
-            void getCgBOOs(const std::set<size_t> &selection, const std::vector<BooData> &BOO, std::vector<BooData> &cgBOO) const;
+            void getBOOs(const std::vector<size_t> &selection, std::vector<BooData> &BOO) const;
+            void getCgBOOs(const std::vector<size_t> &selection, const std::vector<BooData> &BOO, std::vector<BooData> &cgBOO) const;
             void exportQlm(const std::vector<BooData> &BOO, const std::string &outputPath) const;
             void exportQ6m(const std::vector<BooData> &BOO, const std::string &outputPath) const;
             void load_q6m(const std::string &filename, std::vector<BooData> &BOO) const;
@@ -178,7 +178,7 @@ namespace Colloids
                 };
                 virtual ~Binner(void);
                 virtual void operator()(const size_t &p, const size_t &q){};
-                void operator<<(const std::set<size_t> &selection);
+                void operator<<(const std::vector<size_t> &selection);
             };
 
             struct RdfBinner : public Binner
@@ -199,7 +199,7 @@ namespace Colloids
                 void normalize(const size_t &n);
             };
 
-            std::vector<double> getRdf(const std::set<size_t> &selection, const size_t &n, const double &nbDiameterCutOff) const;
+            std::vector<double> getRdf(const std::vector<size_t> &selection, const size_t &n, const double &nbDiameterCutOff) const;
             std::vector<double> getRdf(const size_t &n, const double &nbDiameterCutOff) const;
 
             struct G6Binner : public RdfBinner
@@ -275,7 +275,7 @@ namespace Colloids
     }
 
     /** @brief get the indices of the particles enclosed by a query box  */
-    inline std::set<size_t> Particles::selectEnclosed(const BoundingBox &b) const
+    inline std::vector<size_t> Particles::selectEnclosed(const BoundingBox &b) const
     {
         #ifndef NDEBUG
         if(!this->hasIndex()) throw std::logic_error("Set a spatial index before doing spatial queries !");
@@ -284,7 +284,7 @@ namespace Colloids
     }
 
     /** @brief get the indices of the particles inside a reduction of the maximum bounding box  */
-    inline std::set<size_t> Particles::selectInside(const double &margin) const
+    inline std::vector<size_t> Particles::selectInside(const double &margin) const
     {
         #ifndef NDEBUG
         if(!this->hasIndex()) throw std::logic_error("Set a spatial index before doing spatial queries !");

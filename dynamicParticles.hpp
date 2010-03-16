@@ -109,50 +109,50 @@ namespace Colloids
             template <class ParentSTIndex>
             void sliceIndex(bool force = false);
 
-            std::set<size_t> selectSpanning_Enclosed(const TimeBox &b) const;
-            std::set<size_t> selectEnclosed(const BoundingBox &b) const;
-            std::set<size_t> selectSpanning(const Interval &in) const;
-            std::set<size_t> selectSpanningInside(const Interval &in, const double &margin) const;
+            std::vector<size_t> selectSpanning_Enclosed(const TimeBox &b) const;
+            std::vector<size_t> selectEnclosed(const BoundingBox &b) const;
+            std::vector<size_t> selectSpanning(const Interval &in) const;
+            std::vector<size_t> selectSpanningInside(const Interval &in, const double &margin) const;
 
             /** geometry and dynamics related **/
             virtual Coord getDiff(const size_t &tr_from,const size_t &t_from,const size_t &tr_to,const size_t &t_to) const;
-            Coord getDrift(const std::set<size_t>&selection,const size_t &t0,const size_t &t1) const;
+            Coord getDrift(const std::vector<size_t>&selection,const size_t &t0,const size_t &t1) const;
             Coord getDrift(const size_t &t0,const size_t &t1) const;
             void removeDrift();
             void removeDrift(const std::string &displFile, const size_t &t_offset=0);
-            double getSD(const std::set<size_t>&selection,const size_t &t0,const size_t &t1) const;
+            double getSD(const std::vector<size_t>&selection,const size_t &t0,const size_t &t1) const;
             std::vector<double> getSD(const size_t &t, const size_t &halfInterval=1) const;
-            std::vector<double> getMSD(const std::set<size_t> &selection,const size_t &t0,const size_t &t1,const size_t &t3=0) const;
+            std::vector<double> getMSD(const std::vector<size_t> &selection,const size_t &t0,const size_t &t1,const size_t &t3=0) const;
             std::vector<double> getMSD(const size_t &t0,const size_t &t1,const size_t &t3=0) const;
-            std::vector<double> getISF(const std::set<size_t> &selection,const Coord &q,const size_t &t0,const size_t &t1) const;
+            std::vector<double> getISF(const std::vector<size_t> &selection,const Coord &q,const size_t &t0,const size_t &t1) const;
             std::vector<double> getISF(const Coord &q,const size_t &t0,const size_t &t1) const;
-            std::vector<double> getSelfISF(const std::set<size_t> &selection,const Coord &q,const size_t &t0,const size_t &t1,const size_t &t3=0) const;
+            std::vector<double> getSelfISF(const std::vector<size_t> &selection,const Coord &q,const size_t &t0,const size_t &t1,const size_t &t3=0) const;
             std::vector<double> getSelfISF(const Coord &q,const size_t &t0,const size_t &t1,const size_t &t3=0) const;
             std::vector<double> getSelfISF(const size_t &t0,const size_t &t1,const size_t &t3=0) const;
             void makeDynamics(std::vector<double> &MSD,std::vector<double> &ISF) const;
             void makeDynamics(std::vector<double> &MSD,std::vector<std::vector<double> >&ISF) const;
-            void makeDynamics(const std::vector< std::set<size_t> >&sets,std::vector< std::vector<double> > &MSD,std::vector< std::vector<double> > &ISF) const;
+            void makeDynamics(const std::vector< std::vector<size_t> >&sets,std::vector< std::vector<double> > &MSD,std::vector< std::vector<double> > &ISF) const;
             void exportDynamics(const std::string &inputPath) const;
-            void exportDynamics(const std::vector< std::set<size_t> >&sets,const std::vector<std::string>&setsNames,const std::string &inputPath) const;
+            void exportDynamics(const std::vector< std::vector<size_t> >&sets,const std::vector<std::string>&setsNames,const std::string &inputPath) const;
             std::vector<Coord> velocities(const size_t &t, const size_t &halfInterval=1) const;
 
-            std::set<size_t> getLostNgbs(const size_t &tr,const size_t &t_from,const size_t &t_to) const;
+            std::vector<size_t> getLostNgbs(const size_t &tr,const size_t &t_from,const size_t &t_to) const;
             std::vector<double> getNbLostNgbs(const size_t &t, const size_t &halfInterval=1) const;
 
             //boost::array<double,180> getMeanAngularDistribution(const DynNgbList &selection) const;
 
             /** bond orientational order related **/
             //std::set<size_t> getBooFromFile(const std::string &prefix, std::vector<std::map<size_t, tvmet::Vector<double, 4> > >&qw) const;
-            void makeBoo(const size_t &t, const std::set<size_t> &selection, std::map<size_t,BooData> &allBoo) const;
-            void makeSBoo(const size_t &t, const std::set<size_t> &selection, const std::map<size_t,BooData> &allBoo, std::map<size_t,BooData> &SallBoo) const;
+            void makeBoo(const size_t &t, const std::vector<size_t> &selection, std::map<size_t,BooData> &allBoo) const;
+            void makeSBoo(const size_t &t, const std::vector<size_t> &selection, const std::map<size_t,BooData> &allBoo, std::map<size_t,BooData> &SallBoo) const;
             void makeTimeAverage(
-                const std::set<size_t> &selection,
+                const std::vector<size_t> &selection,
                 const size_t &avgInterval,
                 const std::vector< std::map<size_t,double> > &timeDependant,
                 std::vector< std::map<size_t,double> > &timeAveraged
             ) const;
             void makeSlidingTimeAverage(
-                const std::set<size_t> &selection,
+                const std::vector<size_t> &selection,
                 const size_t &avgInterval,
                 const std::vector< std::map<size_t,double> > &timeDependant,
                 std::vector< std::map<size_t,double> > &timeAveraged

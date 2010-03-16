@@ -151,7 +151,7 @@ double Particles::getAngle(const size_t &origin,const size_t &a,const size_t &b)
 }
 
 /** @brief Gives the indices of the particles inside a reduction of the total bonding box. Not using spatial index, thus slower.  */
-set<size_t> Particles::selectInside_noindex(const double &margin) const
+vector<size_t> Particles::selectInside_noindex(const double &margin) const
 {
 	Coord upper(0.0,3), lower = this->front();
 	for(const_iterator p=begin(); p!=end(); ++p)
@@ -162,10 +162,10 @@ set<size_t> Particles::selectInside_noindex(const double &margin) const
 		}
 	upper -= margin;
 	lower += margin;
-	set<size_t> ret;
+	vector<size_t> ret;
 	for(size_t p=0; p<size(); ++p)
 		if( ((*this)[p]<=upper).min() && (lower<=(*this)[p]).min() )
-			ret.insert(ret.end(), p);
+			ret.push_back(p);
 	return ret;
 }
 
@@ -213,16 +213,17 @@ BoundingBox Particles::getOverallBox() const
 /**
     \brief get the indices of the particles closer than range to center (Euclidian norm)
 */
-set<size_t> Particles::getEuclidianNeighbours(const Coord &center, const double &range) const
+vector<size_t> Particles::getEuclidianNeighbours(const Coord &center, const double &range) const
 {
-    set<size_t> NormOneNeighbours = selectEnclosed(bounds(center,range));
-    set<size_t> NormTwoNeighbours;
+    vector<size_t> NormOneNeighbours = selectEnclosed(bounds(center,range));
+    vector<size_t> NormTwoNeighbours;
+    NormTwoNeighbours.reserve(NormOneNeighbours.size());
     Coord diff(3);
     double rSq = range*range;
-    for(set<size_t>::const_iterator p=NormOneNeighbours.begin();p!=NormOneNeighbours.end();++p)
+    for(ssize_t p=0; p<(ssize_t)NormOneNeighbours.size();++p)
     {
-        diff = getDiff(center,*p);
-        if(dot(diff,diff)<rSq) NormTwoNeighbours.insert(NormTwoNeighbours.end(),*p);
+        diff = getDiff(center,NormOneNeighbours[p]);
+        if(dot(diff,diff)<rSq) NormTwoNeighbours.push_back(NormOneNeighbours[p]);
     }
     return NormTwoNeighbours;
 }
@@ -230,17 +231,18 @@ set<size_t> Particles::getEuclidianNeighbours(const Coord &center, const double 
 /**
     \brief get the indices of the particles closer than range to center (Euclidian norm), discarding center itself
 */
-set<size_t> Particles::getEuclidianNeighbours(const size_t &center, const double &range) const
+vector<size_t> Particles::getEuclidianNeighbours(const size_t &center, const double &range) const
 {
-    set<size_t> NormOneNeighbours = selectEnclosed(bounds((*this)[center],range));
-    NormOneNeighbours.erase(center);
-    set<size_t> NormTwoNeighbours;
+    vector<size_t> NormOneNeighbours = selectEnclosed(bounds((*this)[center],range));
+    vector<size_t> NormTwoNeighbours;
+    NormTwoNeighbours.reserve(NormOneNeighbours.size());
     Coord diff(3);
     double rSq = range*range;
-    for(set<size_t>::const_iterator p=NormOneNeighbours.begin();p!=NormOneNeighbours.end();++p)
+    for(ssize_t p=0; p<(ssize_t)NormOneNeighbours.size();++p)
     {
-        diff = getDiff((*this)[center],*p);
-        if(dot(diff,diff)<rSq) NormTwoNeighbours.insert(NormTwoNeighbours.end(),*p);
+    	if(NormOneNeighbours[p] == center) continue;
+        diff = getDiff((*this)[center],NormOneNeighbours[p]);
+        if(dot(diff,diff)<rSq) NormTwoNeighbours.push_back(NormOneNeighbours[p]);
     }
     return NormTwoNeighbours;
 }
@@ -250,15 +252,15 @@ set<size_t> Particles::getEuclidianNeighbours(const size_t &center, const double
 */
 multimap<double,size_t> Particles::getEuclidianNeighboursBySqDist(const Coord &center, const double &range) const
 {
-    set<size_t> NormOneNeighbours = selectEnclosed(bounds(center,range));
+    vector<size_t> NormOneNeighbours = selectEnclosed(bounds(center,range));
     multimap<double,size_t> NormTwoNeighbours;
     Coord diff(3);
     double rSq = range*range, distSq;
-    for(set<size_t>::const_iterator p=NormOneNeighbours.begin();p!=NormOneNeighbours.end();++p)
+    for(ssize_t p=0;p<(ssize_t)NormOneNeighbours.size();++p)
     {
-        diff = getDiff(center,*p);
+        diff = getDiff(center,NormOneNeighbours[p]);
         distSq = dot(diff, diff);
-        if(distSq<rSq) NormTwoNeighbours.insert(make_pair(distSq,*p));
+        if(distSq<rSq) NormTwoNeighbours.insert(make_pair(distSq,NormOneNeighbours[p]));
     }
     return NormTwoNeighbours;
 }
@@ -270,7 +272,7 @@ multimap<double,size_t> Particles::getEuclidianNeighboursBySqDist(const Coord &c
 size_t Particles::getNearestNeighbour(const Coord &center, const double &range) const
 {
     double rg = range;
-    set<size_t> ngb = getEuclidianNeighbours(center,rg);
+    vector<size_t> ngb = getEuclidianNeighbours(center,rg);
     //seeking for an acceptable range
     while(ngb.empty())
     {
@@ -284,14 +286,14 @@ size_t Particles::getNearestNeighbour(const Coord &center, const double &range) 
     size_t nN=size();
     double dist=0.0,mindist=rg*rg;
     Coord diff(3);
-    for(set<size_t>::const_iterator it=ngb.begin();it!=ngb.end();++it)
+    for(ssize_t p=0;p<(ssize_t)ngb.size();++p)
     {
-        diff = getDiff(center,*it);
+        diff = getDiff(center,ngb[p]);
         dist = dot(diff, diff);
         if(dist<mindist)
         {
             mindist = dist;
-            nN=*it;
+            nN=ngb[p];
         }
     }
     return nN;
@@ -337,13 +339,13 @@ BooData Particles::sphHarm_OneBond(const size_t &center, const size_t &neighbour
 BooData Particles::getBOO(const size_t &center) const
 {
 	BooData boo;
-	const set<size_t> & ngbList = getNgbList()[center];
+	const vector<size_t> & ngbList = getNgbList()[center];
     const size_t nb = ngbList.size();
     if(nb > 0)
     {
         //sum up the contribution of each neighbour to every spherical harmonic.
-        for(set<size_t>::const_iterator p=ngbList.begin();p!=ngbList.end();++p)
-            boo+=sphHarm_OneBond(center,*p);
+        for(ssize_t p=0; p<(ssize_t)ngbList.size();++p)
+            boo+=sphHarm_OneBond(center,ngbList[p]);
 
         boo/=(double)nb;
     }
@@ -360,9 +362,9 @@ BooData Particles::getCgBOO(const std::vector<BooData> &BOO, const size_t &cente
 {
     //sum up the contribution of each neighbour including the particle itself.
 	BooData avBoo = BOO[center];
-    const std::set<size_t> &ngbList = getNgbList()[center];
-    for(set<size_t>::const_iterator p=ngbList.begin();p!=ngbList.end();++p)
-            avBoo += BOO[*p];
+    const std::vector<size_t> &ngbList = getNgbList()[center];
+    for(ssize_t p=0; p<(ssize_t)ngbList.size();++p)
+            avBoo += BOO[ngbList[p]];
 
     avBoo/=(double)(1+ngbList.size());
     return avBoo;
@@ -371,21 +373,21 @@ BooData Particles::getCgBOO(const std::vector<BooData> &BOO, const size_t &cente
 /**
     \brief get the bond orientational order for all particles
 */
-void Particles::getBOOs(const set<size_t> &selection, std::vector<BooData> &BOO) const
+void Particles::getBOOs(const vector<size_t> &selection, std::vector<BooData> &BOO) const
 {
     BOO.resize(size());
-    for(set<size_t>::const_iterator p=selection.begin();p!=selection.end();++p)
-        BOO[*p] = getBOO(*p);
+    for(ssize_t p=0;p<(ssize_t)selection.size();++p)
+        BOO[selection[p]] = getBOO(selection[p]);
 }
 
 /**
     \brief get the coarse grained bond orientational order for all particles
 */
-void Particles::getCgBOOs(const set<size_t> &selection, const std::vector<BooData> &BOO, std::vector<BooData> &cgBOO) const
+void Particles::getCgBOOs(const vector<size_t> &selection, const std::vector<BooData> &BOO, std::vector<BooData> &cgBOO) const
 {
     cgBOO.resize(size());
-    for(set<size_t>::const_iterator p=selection.begin();p!=selection.end();++p)
-        cgBOO[*p] = getCgBOO(BOO, *p);
+    for(ssize_t p=0;p<(ssize_t)selection.size();++p)
+        cgBOO[selection[p]] = getCgBOO(BOO, selection[p]);
 }
 
 /** @brief export qlm in binary  */
@@ -459,7 +461,7 @@ void Particles::load_qlm(const std::string &filename, std::vector<BooData> &BOO)
 boost::array<double,180> Particles::getAngularDistribution(const size_t &numPt) const
 {
     boost::array<double,180> angD;
-    const std::set<size_t> &ngbs = getNgbList()[numPt];
+    const std::vector<size_t> &ngbs = getNgbList()[numPt];
     fill(angD.begin(), angD.end(), 0.0);
     const size_t nb = ngbs.size();
     if(nb > 1)
@@ -467,18 +469,11 @@ boost::array<double,180> Particles::getAngularDistribution(const size_t &numPt) 
         //histogram is scaled by the number of bond angles
         const double scale = nb>2 ? 1.0 / ((nb-1)*(nb-2)/2) : 1.0;
         //sum up the contribution of each bond angle.
-        for(set<size_t>::const_iterator a=ngbs.begin();a!=ngbs.end();++a)
-            if( numPt != *a)
-            {
-                set<size_t>::const_iterator b=a;
-                b++;
-                while(b!=ngbs.end())
-                {
-                    if( numPt != *b)
-                        angD[(size_t)(getAngle(numPt,*a,*b)* 180.0 / M_PI)] = scale;
-                    b++;
-                }
-            }
+        for(ssize_t a=0;a<(ssize_t)ngbs.size();++a)
+            if( numPt != ngbs[a])
+            	for(ssize_t b=a+1;b<(ssize_t)ngbs.size();++b)
+					if(numPt != ngbs[b])
+						angD[(size_t)(getAngle(numPt,ngbs[a],ngbs[b])* 180.0 / M_PI)] = scale;
     }
     return angD;
 }
@@ -506,25 +501,15 @@ boost::array<double,180> Particles::getAngularDistribution(const size_t &numPt) 
 Particles::Binner::~Binner(void){};
 
 /**	\brief Bin the particles given by selection (coupled to their neighbours). */
-void Particles::Binner::operator<<(const std::set<size_t> &selection)
+void Particles::Binner::operator<<(const std::vector<size_t> &selection)
 {
-    vector<size_t> sel(selection.size());
-    copy(selection.begin(), selection.end(), sel.begin());
     #pragma omp parallel for shared(selection) schedule(dynamic)
-    for(ssize_t s=0; s<selection.size(); ++s)
+    for(ssize_t p=0; p<(ssize_t)selection.size(); ++p)
     {
-        const size_t p = sel[s];
-        std::set<size_t> around = parts.getEuclidianNeighbours(p,cutoff);
-        for(std::set<size_t>::const_iterator q=around.begin();q!=around.end();++q)
-			(*this)(p,*q);
+        std::vector<size_t> around = parts.getEuclidianNeighbours(selection[p],cutoff);
+        for(ssize_t q=0;q<(ssize_t)around.size();++q)
+			(*this)(selection[p],around[q]);
     }
-	//for each inside particle, select all particles having their center within the cutoff (norm infinity) and bin them
-    /*for(std::set<size_t>::const_iterator p=selection.begin();p!=selection.end();++p)
-    {
-        std::set<size_t> around = parts.getEuclidianNeighbours(*p,cutoff);
-        for(std::set<size_t>::const_iterator q=around.begin();q!=around.end();++q)
-			(*this)(*p,*q);
-    }*/
 }
 
 /**	\brief Normalize the histogram. Do not bin afterward */
@@ -539,7 +524,7 @@ void Particles::RdfBinner::normalize(const size_t &n)
 }
 
 /**	\brief Make and export the rdf of the selection */
-std::vector<double> Particles::getRdf(const std::set<size_t> &selection, const size_t &n, const double &nbDiameterCutOff) const
+std::vector<double> Particles::getRdf(const std::vector<size_t> &selection, const size_t &n, const double &nbDiameterCutOff) const
 {
 	RdfBinner b(*this,n,nbDiameterCutOff);
 	b<<selection;
@@ -730,7 +715,7 @@ BondSet Colloids::ngb2bonds(const NgbList& ngbList)
 {
     BondSet bonds;
 	for(size_t p=0;p<ngbList.size();++p)
-		for(set<size_t>::const_iterator q=ngbList[p].lower_bound(p+1); q!=ngbList[p].end();++q)
+		for(vector<size_t>::const_iterator q=lower_bound(ngbList[p].begin(), ngbList[p].end(), p+1); q!=ngbList[p].end();++q)
 			bonds.insert(bonds.end(), Bond(p,*q));
 	return bonds;
 }

@@ -440,7 +440,7 @@ void DynamicParticles::exportToVTK(
 /**
     \brief get the index of the trajectories spanning from t0 to t1 and enclosed inside a given bounding box
 */
-set<size_t> DynamicParticles::selectSpanning_Enclosed(const TimeBox &b) const
+vector<size_t> DynamicParticles::selectSpanning_Enclosed(const TimeBox &b) const
 {
     if(!this->hasIndex()) throw logic_error("Set a spatio-temporal index before doing spatio-temporal queries !");
     return (*(this->index))(b);
@@ -451,34 +451,40 @@ set<size_t> DynamicParticles::selectSpanning_Enclosed(const TimeBox &b) const
     \param b search range
     \return list of the index
 */
-set<size_t> DynamicParticles::selectEnclosed(const BoundingBox &b) const
+vector<size_t> DynamicParticles::selectEnclosed(const BoundingBox &b) const
 {
     if(!this->hasIndex()) throw logic_error("Set a spatio-temporal index before doing spatio-temporal queries !");
     return (*(this->index))(b);
 }
 
 /** \brief index of trajectories spanning from t0 to t1 */
-set<size_t> DynamicParticles::selectSpanning(const Interval &in) const
+vector<size_t> DynamicParticles::selectSpanning(const Interval &in) const
 {
     if(this->hasIndex())
 		return (*(this->index))(in);
 	else
 	{
-		set<size_t> a, b, c;
+		list<size_t> a, b;
     	copy(
 			trajectories.inverse[in.first].begin(),
 			trajectories.inverse[in.first].end(),
-			inserter(a, a.end())
+			back_inserter(a)
 			);
+		a.sort();
+		a.unique();
 		copy(
 			trajectories.inverse[in.second].begin(),
 			trajectories.inverse[in.second].end(),
-			inserter(b, b.end())
+			back_inserter(b)
 			);
+		b.sort();
+		b.unique();
+		vector<size_t> c;
+		c.reserve(min(a.size(), b.size()));
 		set_intersection(
 			a.begin(), a.end(),
 			b.begin(), b.end(),
-			inserter(c, c.end())
+			back_inserter(c)
 			);
 		return c;
 	}
@@ -487,7 +493,7 @@ set<size_t> DynamicParticles::selectSpanning(const Interval &in) const
 /**
     \brief get the index of the trajectories enclosed inside a reduction of the minimum bounding box
 */
-set<size_t> DynamicParticles::selectSpanningInside(const Interval &in,const double &margin) const
+vector<size_t> DynamicParticles::selectSpanningInside(const Interval &in,const double &margin) const
 {
     if(!this->hasIndex()) throw logic_error("Set a spatio-temporal index before doing spatio-temporal queries !");
     return this->index->getSpanningInside(in, margin);
@@ -502,11 +508,11 @@ Coord DynamicParticles::getDiff(const size_t &tr_from,const size_t &t_from,const
 }
 
 /** \brief overall drift between t0 and t1 */
-Coord DynamicParticles::getDrift(const set<size_t>&selection,const size_t &t0,const size_t &t1) const
+Coord DynamicParticles::getDrift(const vector<size_t>&selection,const size_t &t0,const size_t &t1) const
 {
     Coord drift(0.0,3);
-    for(set<size_t>::iterator tr=selection.begin();tr!=selection.end();++tr)
-        drift += getDiff(*tr,t0,*tr,t1);
+    for(ssize_t tr=0;tr<selection.size();++tr)
+        drift += getDiff(selection[tr],t0,selection[tr],t1);
 
     drift/=(double)selection.size();
     return drift;
@@ -597,14 +603,14 @@ void DynamicParticles::removeDrift(const std::string &displFile, const size_t &t
 
 
 /**    \brief Sum of the square displacement of particles referenced in selection between t0 and t1 */
-double DynamicParticles::getSD(const set<size_t>&selection,const size_t &t0,const size_t &t1) const
+double DynamicParticles::getSD(const vector<size_t>&selection,const size_t &t0,const size_t &t1) const
 {
     double result=0.0;
     Coord diff(3);
 
-    for(set<size_t>::iterator tr=selection.begin();tr!=selection.end();++tr)
+    for(ssize_t tr=0;tr<selection.size();++tr)
     {
-        diff = getDiff(*tr,t0,*tr,t1);
+        diff = getDiff(selection[tr],t0,selection[tr],t1);
         result += dot(diff, diff);
     }
     //cout << result << endl;
@@ -634,7 +640,7 @@ vector<double> DynamicParticles::getSD(const size_t &t, const size_t &halfInterv
 
 
 /** \brief Mean square displacement function of time between t0 and t1 for a selection of trajectories */
-vector<double> DynamicParticles::getMSD(const set<size_t> &selection,const size_t &t0,const size_t &t1,const size_t &t3) const
+vector<double> DynamicParticles::getMSD(const vector<size_t> &selection,const size_t &t0,const size_t &t1,const size_t &t3) const
 {
     const size_t nb_selection = selection.size();
     vector<double> sumSD(t1-t0+1,0.0), nbSD(t1-t0+1,0.0);
@@ -674,7 +680,7 @@ vector<double> DynamicParticles::getMSD(const size_t &t0,const size_t &t1,const 
 }
 
 /** \brief Intermediate scatering function of time between t0 and t1 for a selection of trajectories */
-vector<double> DynamicParticles::getISF(const set<size_t> &selection,const Coord &q,const size_t &t0,const size_t &t1) const
+vector<double> DynamicParticles::getISF(const vector<size_t> &selection,const Coord &q,const size_t &t0,const size_t &t1) const
 {
     vector<double> sumISF(t1-t0+1,0.0), nb_per_interval(t1-t0+1,0.0);
     if(selection.empty())
@@ -687,9 +693,9 @@ vector<double> DynamicParticles::getISF(const set<size_t> &selection,const Coord
     #pragma omp parallel for schedule(runtime) shared(t0, t1, selection) private(innerProd)
     for(size_t t=t0;t<=t1;++t)
     {
-        for(set<size_t>::iterator tr=selection.begin();tr!=selection.end();++tr)
+        for(ssize_t tr=0;tr<selection.size();++tr)
         {
-            innerProd = dot((*this)(*tr,t),q);
+            innerProd = dot((*this)(selection[tr],t),q);
             A[t]+=cos(innerProd);
             B[t]+=sin(innerProd);
         }
@@ -703,7 +709,7 @@ vector<double> DynamicParticles::getISF(const set<size_t> &selection,const Coord
     {
         for(size_t stop=start+1;stop<=t1;++stop)
         {
-            for(set<size_t>::iterator tr=selection.begin();tr!=selection.end();++tr)
+            for(ssize_t tr=0;tr<selection.size();++tr)
                 sumISF[stop-start] += A[stop]*A[start]+B[stop]*B[start];
             nb_per_interval[stop-start] += 1.0;
         }
@@ -742,7 +748,7 @@ vector<double> DynamicParticles::getISF(const Coord &q,const size_t &t0,const si
 			ISF[2] = ( isf([1,3]) + isf([2,4]) )/2
 			ISF[3] = ( isf([1,4]) + isf([2,5]) )/2
 */
-vector<double> DynamicParticles::getSelfISF(const set<size_t> &selection,const Coord &q,const size_t &t0,const size_t &t1,const size_t &t3) const
+vector<double> DynamicParticles::getSelfISF(const vector<size_t> &selection,const Coord &q,const size_t &t0,const size_t &t1,const size_t &t3) const
 {
     const size_t nb_selection = selection.size();
     //boost::progress_display show_progress(2*(t1-t0));
@@ -754,9 +760,9 @@ vector<double> DynamicParticles::getSelfISF(const set<size_t> &selection,const C
     for(size_t t=0;t+t0<=t1+t3;++t)
     {
         p=0;
-        for(set<size_t>::iterator tr=selection.begin();tr!=selection.end();++tr)
+        for(ssize_t tr=0;tr<selection.size();++tr)
         {
-            innerProd = dot((*this)(*tr,t+t0), q);
+            innerProd = dot((*this)(selection[tr],t+t0), q);
             A[t][p]=cos(innerProd);
             B[t][p]=sin(innerProd);
             p++;
@@ -801,7 +807,7 @@ vector<double> DynamicParticles::getSelfISF(const Coord &q,const size_t &t0,cons
 /** \brief Get Self ISF averaged over the three axis */
 vector<double> DynamicParticles::getSelfISF(const size_t &t0,const size_t &t1,const size_t &t3) const
 {
-	set<size_t> sp = selectSpanning(Interval(t0,t1+t3));
+	vector<size_t> sp = selectSpanning(Interval(t0,t1+t3));
 	vector< vector<double> >ISF(4,vector<double>(t1-t0+1));
 	vector< Coord > q(3, Coord(0.0,3));
     for(size_t d=0;d<3;++d)
@@ -821,7 +827,7 @@ vector<double> DynamicParticles::getSelfISF(const size_t &t0,const size_t &t1,co
 /**
     @brief make MSD and Self ISF for various sets of trajectories
   */
-void DynamicParticles::makeDynamics(const std::vector< std::set<size_t> >&sets,std::vector< std::vector<double> > &MSD, std::vector< std::vector<double> > &ISF) const
+void DynamicParticles::makeDynamics(const std::vector< std::vector<size_t> >&sets,std::vector< std::vector<double> > &MSD, std::vector< std::vector<double> > &ISF) const
 {
 	const size_t stop = getNbTimeSteps()-1;
 	MSD.assign(sets.size(),vector<double>(stop+1));
@@ -849,7 +855,7 @@ void DynamicParticles::makeDynamics(const std::vector< std::set<size_t> >&sets,s
 /** @brief make MSD and Self ISF (along x,y,z + average) for the set of all spanning trajectories */
 void DynamicParticles::makeDynamics(vector<double> &MSD,vector< vector<double> > &ISF) const
 {
-	vector< set<size_t> > sets(1, selectSpanning(Interval(0, getNbTimeSteps()-1)));
+	vector< vector<size_t> > sets(1, selectSpanning(Interval(0, getNbTimeSteps()-1)));
 	vector< vector<double> > MSDs;
 	makeDynamics(sets,MSDs,ISF);
 	MSD.swap(MSDs.front());
@@ -858,7 +864,7 @@ void DynamicParticles::makeDynamics(vector<double> &MSD,vector< vector<double> >
 /** @brief make MSD and Self ISF (average only) for the set of all spanning trajectories */
 void DynamicParticles::makeDynamics(vector<double> &MSD,vector<double> &ISF) const
 {
-	vector< set<size_t> > sets(1, selectSpanning(Interval(0, getNbTimeSteps()-1)));
+	vector< vector<size_t> > sets(1, selectSpanning(Interval(0, getNbTimeSteps()-1)));
 	vector< vector<double> > MSDs, ISFs;
 	makeDynamics(sets,MSDs,ISFs);
 	MSD.swap(MSDs.front());
@@ -868,7 +874,7 @@ void DynamicParticles::makeDynamics(vector<double> &MSD,vector<double> &ISF) con
 /**
     @brief make and export MSD and Self ISF for various sets of trajectories
   */
-void DynamicParticles::exportDynamics(const std::vector< std::set<size_t> >&sets,const std::vector<std::string>&setsNames,const std::string &inputPath) const
+void DynamicParticles::exportDynamics(const std::vector< std::vector<size_t> >&sets,const std::vector<std::string>&setsNames,const std::string &inputPath) const
 {
     vector< vector<double> > MSD;
     vector< vector<double> > ISF;
@@ -906,7 +912,7 @@ void DynamicParticles::exportDynamics(const std::vector< std::set<size_t> >&sets
 /** @brief make and export MSD and Self ISF  */
 void DynamicParticles::exportDynamics(const string &inputPath) const
 {
-    vector< set<size_t> > sets(1, selectSpanning(Interval(0, getNbTimeSteps()-1)));
+    vector< vector<size_t> > sets(1, selectSpanning(Interval(0, getNbTimeSteps()-1)));
     vector<string> setsNames(1,"");
     exportDynamics(sets,setsNames,inputPath);
 }
@@ -935,26 +941,32 @@ vector<Coord> DynamicParticles::velocities(const size_t &t, const size_t &halfIn
 
 
 /** @brief get the neighbours lost between t_from and t_to by the trajectory tr  */
-set<size_t> DynamicParticles::getLostNgbs(const size_t &tr,const size_t &t_from,const size_t &t_to) const
+vector<size_t> DynamicParticles::getLostNgbs(const size_t &tr,const size_t &t_from,const size_t &t_to) const
 {
 	if(t_from==t_to)
-		return set<size_t>();
+		return vector<size_t>();
 	//convert the position index of the neighbours in time t_from to trajectory index
-	set<size_t> ngb_from, ngb_to, ngb_diff;
-	const set<size_t>& n_from = positions[t_from].getNgbList()[trajectories[tr][t_from]];
-	for(set<size_t>::const_iterator p=n_from.begin(); p!=n_from.end(); ++p)
-		ngb_from.insert(ngb_from.end(), trajectories.inverse[t_from][*p]);
+	list<size_t> ngb_from, ngb_to;
+	const vector<size_t>& n_from = positions[t_from].getNgbList()[trajectories[tr][t_from]];
+	for(ssize_t p=0; p<n_from.size(); ++p)
+		ngb_from.push_back(trajectories.inverse[t_from][n_from[p]]);
+	ngb_from.sort();
+	ngb_from.unique();
 
 	//same for t_to
-	const set<size_t>& n_to = positions[t_to].getNgbList()[trajectories[tr][t_to]];
-	for(set<size_t>::const_iterator p=n_to.begin(); p!=n_to.end(); ++p)
-		ngb_to.insert(ngb_to.end(), trajectories.inverse[t_to][*p]);
+	const vector<size_t>& n_to = positions[t_to].getNgbList()[trajectories[tr][t_to]];
+	for(ssize_t p=0; p<n_to.size(); ++p)
+		ngb_to.push_back(trajectories.inverse[t_to][n_to[p]]);
+	ngb_to.sort();
+	ngb_to.unique();
 
 	//make the difference
+	vector<size_t> ngb_diff;
+	ngb_diff.reserve(ngb_from.size());
 	set_difference(
 		ngb_from.begin(),ngb_from.end(),
 		ngb_to.begin(),ngb_to.end(),
-		inserter(ngb_diff,ngb_diff.end())
+		back_inserter(ngb_diff)
 		);
 	return ngb_diff;
 }
@@ -1062,34 +1074,34 @@ vector<double> DynamicParticles::getNbLostNgbs(const size_t &t, const size_t &ha
 
 /** @brief Calculate local Bond Orientational Order for each trajectory of the selection at the given time step
   */
-void DynamicParticles::makeBoo(const size_t &t, const std::set<size_t> &selection, std::map<size_t,BooData> &allBoo) const
+void DynamicParticles::makeBoo(const size_t &t, const std::vector<size_t> &selection, std::map<size_t,BooData> &allBoo) const
 {
     allBoo.clear();
     size_t p;
-    for(set<size_t>::const_iterator tr=selection.begin();tr!=selection.end();++tr)
-        if(trajectories[*tr].exist(t))
+    for(ssize_t tr=0;tr<selection.size();++tr)
+        if(trajectories[selection[tr]].exist(t))
         {
-            p = trajectories[*tr][t];
+            p = trajectories[selection[tr]][t];
             allBoo.insert(allBoo.end(),make_pair(p,positions[t].getBOO(p)));
         }
 }
 
 /** @brief Calculate coarse grained Bond Orientational Order for each position of each trajectory of the selection
   */
-void DynamicParticles::makeSBoo(const size_t &t, const std::set<size_t> &selection, const std::map<size_t,BooData> &allBoo, std::map<size_t,BooData> &SallBoo) const
+void DynamicParticles::makeSBoo(const size_t &t, const std::vector<size_t> &selection, const std::map<size_t,BooData> &allBoo, std::map<size_t,BooData> &SallBoo) const
 {
     SallBoo.clear();
     size_t p;
     map<size_t,BooData>::iterator it;
-    for(set<size_t>::const_iterator tr=selection.begin();tr!=selection.end();++tr)
-        if(trajectories[*tr].exist(t))
+    for(ssize_t tr=0;tr<selection.size();++tr)
+        if(trajectories[selection[tr]].exist(t))
         {
-            p = trajectories[*tr][t];
+            p = trajectories[selection[tr]][t];
             it = SallBoo.insert(SallBoo.end(),make_pair(p,BooData()));
-            set<size_t> EuNgb = positions[t].getEuclidianNeighbours(positions[t][p],1.3*2.0*radius);
+            vector<size_t> EuNgb = positions[t].getEuclidianNeighbours(positions[t][p],1.3*2.0*radius);
             //sum up the contribution of each neighbour including the particle itself.
-            for(set<size_t>::iterator n=EuNgb.begin();n!=EuNgb.end();++n)
-                (*it).second += (*allBoo.find(*n)).second;
+            for(ssize_t n=0;n<EuNgb.size();++n)
+                (*it).second += (*allBoo.find(EuNgb[n])).second;
 
             (*it).second /= (double)(EuNgb.size());
         }
@@ -1103,17 +1115,17 @@ void DynamicParticles::makeSBoo(const size_t &t, const std::set<size_t> &selecti
   * \param timeDependant The input values, function of time and of trajectories
   * \param timeAverage The output, function of the trajectories
   */
-void DynamicParticles::makeTimeAverage(const std::set<size_t> &selection, const size_t &avgInterval, const std::vector< std::map<size_t,double> > &timeDependant, std::vector< std::map<size_t,double> > &timeAveraged) const
+void DynamicParticles::makeTimeAverage(const std::vector<size_t> &selection, const size_t &avgInterval, const std::vector< std::map<size_t,double> > &timeDependant, std::vector< std::map<size_t,double> > &timeAveraged) const
 {
     map<size_t,double>::iterator it;
     timeAveraged.assign((size_t)max(getNbTimeSteps()/(double)avgInterval,1.0),map<size_t,double>());
     for(size_t avt=0;avt<timeAveraged.size();++avt)
-        for(set<size_t>::const_iterator tr=selection.begin();tr!=selection.end();++tr)
-            if(trajectories[*tr].span(avt*avgInterval,(avt+1)*avgInterval-1))
+        for(ssize_t tr=0;tr<selection.size();++tr)
+            if(trajectories[selection[tr]].span(avt*avgInterval,(avt+1)*avgInterval-1))
             {
-                it = timeAveraged[avt].insert(timeAveraged[avt].end(),std::make_pair(*tr,0.0));
+                it = timeAveraged[avt].insert(timeAveraged[avt].end(),std::make_pair(selection[tr],0.0));
                 for(size_t t=avt*avgInterval;t<(avt+1)*avgInterval;++t)
-                    (*it).second += (*timeDependant[t].find(trajectories[*tr][t])).second;
+                    (*it).second += (*timeDependant[t].find(trajectories[selection[tr]][t])).second;
 
                 (*it).second /= (double)avgInterval;
             }
@@ -1126,7 +1138,7 @@ void DynamicParticles::makeTimeAverage(const std::set<size_t> &selection, const 
   * \param timeAverage The output, function of the trajectories
   */
 void DynamicParticles::makeSlidingTimeAverage(
-	const std::set<size_t> &selection,
+	const std::vector<size_t> &selection,
 	const size_t &avgInterval,
 	const std::vector< std::map<size_t,double> > &timeDependant,
 	std::vector< std::map<size_t,double> > &timeAveraged
@@ -1139,16 +1151,16 @@ void DynamicParticles::makeSlidingTimeAverage(
     for(size_t avt=0;avt<timeAveraged.size();++avt)
     {
     	//cout<<"avt="<<avt<<" keep trajectories spanning between "<<avt<<" and "<<avt+avgInterval-1<<endl;
-        for(std::set<size_t>::const_iterator tr=selection.begin();tr!=selection.end();++tr)
-            if(trajectories[*tr].span(avt,avt+avgInterval-1))
+        for(ssize_t tr=0;tr<selection.size();++tr)
+            if(trajectories[selection[tr]].span(avt,avt+avgInterval-1))
             {
-                it = timeAveraged[avt].insert(timeAveraged[avt].end(),std::make_pair(*tr,0.0));
+                it = timeAveraged[avt].insert(timeAveraged[avt].end(),std::make_pair(selection[tr],0.0));
                 for(size_t t=avt;t<avt+avgInterval;++t)
 				{
-					td = timeDependant[t].find(trajectories[*tr][t]);
+					td = timeDependant[t].find(trajectories[selection[tr]][t]);
 					if(td == timeDependant[t].end())
 					{
-						std::cerr<<"avt="<<avt<<"\tt="<<t<<"\ttr="<<*tr<<"\tstart="<<trajectories[*tr].start_time<<"\tlast="<<trajectories[*tr].last_time()<<std::endl;
+						std::cerr<<"avt="<<avt<<"\tt="<<t<<"\ttr="<<selection[tr]<<"\tstart="<<trajectories[selection[tr]].start_time<<"\tlast="<<trajectories[selection[tr]].last_time()<<std::endl;
 						/*for(size_t i=trajectories[*tr].start_time;i<=trajectories[*tr].last_time();++i)
 							std::cerr<<(*timeDependant[i].find(trajectories[*tr][i])).second<<"\t";
 						std::cerr<<std::endl;*/

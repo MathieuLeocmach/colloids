@@ -64,7 +64,7 @@ int main(int argc, char ** argv)
 		Particles parts(filename, radius);
 #endif
 		//select interesting particles and load (or make) bonds
-		set<size_t> inside, secondInside;
+		vector<size_t> inside, secondInside;
 		BondSet bonds = loadBonds(inputPath+".bonds");
 		if(bonds.empty())
 		{

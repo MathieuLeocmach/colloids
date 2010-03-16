@@ -49,10 +49,10 @@ namespace Colloids
             Coord getDiff(const Coord &from,const size_t &to) const;
             Coord getDiff(const size_t &from,const size_t &to) const;
             double getNumberDensity() const;
-            std::set<size_t> selectInside(const double &margin) const;
-            std::set<size_t> selectEnclosed(const BoundingBox &b) const;
-            std::set<size_t> selectInside_noindex(const double &margin) const{return this->selectInside(margin);};
-            //set<size_t> getEuclidianNeighbours(const valarray<double> &center, const double &range) const;
+            std::vector<size_t> selectInside(const double &margin) const;
+            std::vector<size_t> selectEnclosed(const BoundingBox &b) const;
+            std::vector<size_t> selectInside_noindex(const double &margin) const{return this->selectInside(margin);};
+            //vector<size_t> getEuclidianNeighbours(const valarray<double> &center, const double &range) const;
     };
 
     /** \brief get the periodicity according to the bounding box */

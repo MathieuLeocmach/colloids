@@ -79,8 +79,8 @@ int main(int argc, char ** argv)
 				parts.positions[t].makeNgbList(1.3);
 				bonds = parts.positions[t].getBonds();
 				ofstream bondFile((inputPath+".bonds").c_str(), ios::out | ios::trunc);
-				for(deque<pair<size_t, size_t> >::const_iterator b=bonds.begin(); b!= bonds.end();++b)
-					bondFile<<b->first<<" "<<b->second<<"\n";
+				for(BondSet::const_iterator b=bonds.begin(); b!= bonds.end();++b)
+					bondFile<<b->low()<<" "<<b->high()<<"\n";
 			}
 			else
 				parts.positions[t].makeNgbList(bonds);
