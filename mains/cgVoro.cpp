@@ -130,8 +130,9 @@ int main(int argc, char ** argv)
 		const string filename(argv[1]);
 		const string ext = filename.substr(filename.find_last_of("."));
 		string inputPath = filename.substr(0,filename.find_last_of("."));
+		const string path = filename.substr(0, filename.find_last_of("/\\")+1);
 		//no traj for periodic version
-		#ifdef use_periodic
+		#ifndef use_periodic
 		if(ext==".traj")
 		{
 		    double radius, dt;
@@ -142,7 +143,7 @@ int main(int argc, char ** argv)
                 if(!trajfile.good())
                     throw invalid_argument((filename+" doesn't exist").c_str() );
                 trajfile >> radius >> dt;
-                trajfile.get(); //escape the endl
+                trajfile.ignore(1); //escape the endl
                 getline(trajfile, pattern); //pattern is on the 2nd line
                 getline(trajfile, token); //token is on the 3rd line
                 trajfile >> offset >> size;
@@ -150,7 +151,7 @@ int main(int argc, char ** argv)
             FileSerie datSerie(path+pattern, token, size, offset),
                 volSerie = datSerie.addPostfix("_space", ".vol");
 
-            #omp parallel for shared(radius,dt, datSerie, volSerie)
+            #pragma omp parallel for shared(radius) firstprivate(datSerie, volSerie)
             for(size_t t=0; t<size;++t)
             {
                 Particles parts(datSerie%t,radius);
@@ -167,7 +168,8 @@ int main(int argc, char ** argv)
                     parts.bb.edges[d].second = maxi[d]+1;
                 }
                 VoroContainer con(parts, false);
-                vector<double> cgVolumes = con.get_cgVolumes();
+                vector<double> cgVolumes(parts.size(),0.0);
+                con.get_cgVolumes(cgVolumes);
 
                 //export
                 ofstream out((volSerie%t).c_str(), ios::out | ios::trunc);
