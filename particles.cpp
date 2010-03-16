@@ -508,13 +508,23 @@ Particles::Binner::~Binner(void){};
 /**	\brief Bin the particles given by selection (coupled to their neighbours). */
 void Particles::Binner::operator<<(const std::set<size_t> &selection)
 {
+    vector<size_t> sel(selection.size());
+    copy(selection.begin(), selection.end(), sel.begin());
+    #pragma omp parallel for shared(selection) schedule(dynamic)
+    for(ssize_t s=0; s<selection.size(); ++s)
+    {
+        const size_t p = sel[s];
+        std::set<size_t> around = parts.getEuclidianNeighbours(p,cutoff);
+        for(std::set<size_t>::const_iterator q=around.begin();q!=around.end();++q)
+			(*this)(p,*q);
+    }
 	//for each inside particle, select all particles having their center within the cutoff (norm infinity) and bin them
-    for(std::set<size_t>::const_iterator p=selection.begin();p!=selection.end();++p)
+    /*for(std::set<size_t>::const_iterator p=selection.begin();p!=selection.end();++p)
     {
         std::set<size_t> around = parts.getEuclidianNeighbours(*p,cutoff);
         for(std::set<size_t>::const_iterator q=around.begin();q!=around.end();++q)
 			(*this)(*p,*q);
-    }
+    }*/
 }
 
 /**	\brief Normalize the histogram. Do not bin afterward */
@@ -658,12 +668,27 @@ double Particles::getMinDim() const
 /** \brief return the number density */
 double Particles::getNumberDensity() const
 {
-    //get the volume accessible to the particles (edge-2*radius)
-    double vol =1;
-    for(size_t i=0;i<3;++i)
-        vol *= bb.edges[i].second-bb.edges[i].first-2*radius;
+    //get the volume accessible to the particles
+    BoundingBox b;
+    if(hasIndex())
+        b = index->getOverallBox();
+    else
+    {
+        valarray<double> maxi = front(), mini = front();
+        for(Particles::const_iterator p=begin(); p!=end(); ++p)
+            for(int d=0; d<3;++d)
+            {
+                maxi[d] = max(maxi[d], (*p)[d]);
+                mini[d] = min(mini[d], (*p)[d]);
+            }
+        for(int d=0; d<3;++d)
+        {
+            b.edges[d].first = mini[d];
+            b.edges[d].second = maxi[d];
+        }
+    }
     //calculate the number density (number of particles per unit size^3)
-    return size()/vol;
+    return size()/b.area();
 }
 
 /** \brief return the volume fraction, considering a margin equal to the radius */
@@ -729,6 +754,7 @@ ostream & Colloids::toVTKstream(std::ostream &out, const BondSet &bonds)
 	out << "LINES "<<bonds.size()<<" "<<bonds.size()*3<<endl;
 	for(BondSet::const_iterator b= bonds.begin();b!=bonds.end();++b)
 		out<<"2 "<< *b <<"\n";
+    return out;
 }
 
 

@@ -77,7 +77,7 @@ int main(int argc, char ** argv)
 				cout<<"calculate rdf and save it to "<<datSerie.head()+".rdf"<<endl;
 				boost::progress_display show_pr(span);
 				boost::progress_timer ti;
-				#pragma omp parallel for shared(positions, total_g)
+				//#pragma omp parallel for shared(positions, total_g)
 				for(int t=0; t<(int)span; ++t)
 				{
 					vector<double> g = positions[t].getRdf(200,15.0);
