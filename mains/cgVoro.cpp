@@ -20,7 +20,7 @@
 //Define the preprocessor variable "periodic" if you want periodic boundary conditions
 #include "../periodic.hpp"
 #include <voro++.cc>
-
+#include <boost/progress.hpp>
 
 using namespace std;
 using namespace Colloids;
@@ -151,32 +151,39 @@ int main(int argc, char ** argv)
             FileSerie datSerie(path+pattern, token, size, offset),
                 volSerie = datSerie.addPostfix("_space", ".vol");
 
-            #pragma omp parallel for shared(radius) firstprivate(datSerie, volSerie)
-            for(size_t t=0; t<size;++t)
+            boost::progress_display *showProgress;
+            #pragma omp parallel shared(radius, showProgress) firstprivate(datSerie, volSerie)
             {
-                Particles parts(datSerie%t,radius);
-                valarray<double> maxi = parts.front(), mini = parts.front();
-                for(Particles::const_iterator p= parts.begin(); p!=parts.end(); ++p)
+                #pragma omp single
+                showProgress = new boost::progress_display(size);
+                #pragma omp for
+                for(size_t t=0; t<size;++t)
+                {
+                    Particles parts(datSerie%t,radius);
+                    valarray<double> maxi = parts.front(), mini = parts.front();
+                    for(Particles::const_iterator p= parts.begin(); p!=parts.end(); ++p)
+                        for(int d=0; d<3;++d)
+                        {
+                            maxi[d] = max(maxi[d], (*p)[d]);
+                            mini[d] = min(mini[d], (*p)[d]);
+                        }
                     for(int d=0; d<3;++d)
                     {
-                        maxi[d] = max(maxi[d], (*p)[d]);
-                        mini[d] = min(mini[d], (*p)[d]);
+                        parts.bb.edges[d].first = mini[d]-1;
+                        parts.bb.edges[d].second = maxi[d]+1;
                     }
-                for(int d=0; d<3;++d)
-                {
-                    parts.bb.edges[d].first = mini[d]-1;
-                    parts.bb.edges[d].second = maxi[d]+1;
-                }
-                VoroContainer con(parts, false);
-                vector<double> cgVolumes(parts.size(),0.0);
-                con.get_cgVolumes(cgVolumes);
+                    VoroContainer con(parts, false);
+                    vector<double> cgVolumes(parts.size(),0.0);
+                    con.get_cgVolumes(cgVolumes);
 
-                //export
-                ofstream out((volSerie%t).c_str(), ios::out | ios::trunc);
-                copy(
-                    cgVolumes.begin(), cgVolumes.end(),
-                    ostream_iterator<double>(out, "\n")
-                    );
+                    //export
+                    ofstream out((volSerie%t).c_str(), ios::out | ios::trunc);
+                    copy(
+                        cgVolumes.begin(), cgVolumes.end(),
+                        ostream_iterator<double>(out, "\n")
+                        );
+                    ++(*showProgress);
+                }
             }
 		}
 		else
