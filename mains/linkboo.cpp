@@ -109,8 +109,12 @@ int main(int argc, char ** argv)
 
 		//treat each file
 		cout<<"neighbourlist and BOO at each time step"<<endl;
-		boost::progress_display show_progress(span);
-		#pragma omp parallel for schedule(runtime) shared(positions, bondLength, show_progress)
+		boost::progress_display *show_progress;
+		#pragma omp parallel shared(positions, bondLength, show_progress)
+		{
+		#pragma omp single
+		show_progress = new boost::progress_display(span);
+		#pragma omp for schedule(runtime)
 		for(int t=0; t<(int)span; ++t)
 		{
 			//create neighbour list and export bonds
@@ -158,7 +162,8 @@ int main(int argc, char ** argv)
 			positions[t].radius = radius;
 			//remove neigbour list from memory (can be heavy)
 			positions[t].delNgbList();
-			++show_progress;
+			++(*show_progress);
+		}
 		}
 
 		//link and save trajectories
