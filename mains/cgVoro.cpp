@@ -29,6 +29,7 @@ using namespace Colloids;
 class VoroContainer : public container
 {
     public:
+		vector< vector<int> > neighbours;
         VoroContainer(Particles &parts, bool periodic) :
         container(
             parts.bb.edges[0].first,parts.bb.edges[0].second,
@@ -47,7 +48,7 @@ class VoroContainer : public container
         void get_cgVolumes(vector<double> &cgVolumes)
         {
             vector<double> volumes(cgVolumes.size(),0.0);
-            vector< vector<int> > neighbours(cgVolumes.size());
+            neighbours.resize(cgVolumes.size());
             {
                 //compute voronoi diagram and export it in a memory buffer (only way get data from voro++)
                 stringstream buffer;
@@ -106,6 +107,36 @@ class VoroContainer : public container
                     secondChance.push_back(p);
             }
         }
+
+        /**	\brief get the index of the particles neighbouring any wall and the index of the particles neighbouring them */
+        void getOutsides(list<size_t> &outside, list<size_t> &secondOutside)
+        {
+        	outside.clear();
+        	secondOutside.clear();
+        	for(ssize_t p=0; p<neighbours.size(); ++p)
+        		if(neighbours[p].front()<0)
+        		{
+        			outside.push_back(p);
+        			secondOutside.push_back(p);
+        			copy(
+						lower_bound(neighbours[p].begin(), neighbours[p].end(), 0),
+						neighbours[p].end(),
+						back_inserter(secondOutside)
+						);
+        		}
+        	secondOutside.sort();
+        	secondOutside.unique();
+        }
+
+        /** print the bonds between centers (not walls) to a stream */
+        void print_bonds(ostream &out)
+        {
+        	for(ssize_t p=0; p<neighbours.size(); ++p)
+				for(
+					vector<int>::const_iterator q = lower_bound(neighbours[p].begin(), neighbours[p].end(), p);
+					q!=neighbours[p].end();	++q)
+					out<<p<<" "<< *q <<"\n";
+        }
 };
 
 
@@ -114,13 +145,13 @@ int main(int argc, char ** argv)
     #ifdef use_periodic
 	if(argc<6)
 	{
-		cerr<<"Syntax : cgVoro [path]filename.grv Nb Dx Dy Dz" << endl;
+		cerr<<"Syntax : cgVoro [path]filename.grv Nb Dx Dy Dz [token size [offset]]" << endl;
 		return EXIT_FAILURE;
 	}
     #else
     if(argc<2)
 	{
-		cerr<<"Syntax : cgVoro [path]filename[.dat|.traj]" << endl;
+		cerr<<"Syntax : cgVoro [path]filename[.dat [token size [offset]] |.traj]" << endl;
 		return EXIT_FAILURE;
 	}
     #endif
@@ -131,15 +162,32 @@ int main(int argc, char ** argv)
 		const string ext = filename.substr(filename.find_last_of("."));
 		string inputPath = filename.substr(0,filename.find_last_of("."));
 		const string path = filename.substr(0, filename.find_last_of("/\\")+1);
-		//no traj for periodic version
-		#ifndef use_periodic
-		if(ext==".traj")
+
+		#ifdef use_periodic
+		const size_t Nb = atoi(argv[3]);
+		BoundingBox b;
+		for(size_t d=0;d<3;++d)
 		{
-		    double radius, dt;
+			b.edges[d].first=0.0;
+			b.edges[d].second = atof(argv[4+d]);
+		}
+		if(argc>7)
+		#else
+		if(argc>2 || ext==".traj")
+		#endif
+		{
+			double radius = 5.0;
+			size_t offset, size;
+			#ifdef use_periodic
+			size = atol(argv[7]);
+			offset = (argc<9)?0:atol(argv[8]);
+            FileSerie datSerie(filename, string(argv[6]), size, offset);
+            #else
             string pattern, token;
-            size_t offset, size, tau;
-            {
-                ifstream trajfile(filename.c_str(), ios::in);
+            if(ext==".traj")
+			{
+				double dt;
+				ifstream trajfile(filename.c_str(), ios::in);
                 if(!trajfile.good())
                     throw invalid_argument((filename+" doesn't exist").c_str() );
                 trajfile >> radius >> dt;
@@ -147,9 +195,21 @@ int main(int argc, char ** argv)
                 getline(trajfile, pattern); //pattern is on the 2nd line
                 getline(trajfile, token); //token is on the 3rd line
                 trajfile >> offset >> size;
-            }
-            FileSerie datSerie(path+pattern, token, size, offset),
-                volSerie = datSerie.addPostfix("_space", ".vol");
+                pattern.insert(0, path);
+			}
+			else
+			{
+				pattern = filename;
+				token = string(argv[2]);
+				size = atol(argv[3]);
+				offset = (argc<4)?0:atol(argv[4]);
+			}
+			FileSerie datSerie(pattern, token, size, offset),
+				outsideSerie = datSerie.changeExt(".outside"),
+				secondOutsideSerie = datSerie.changeExt(".outside2");
+			#endif
+			FileSerie volSerie = datSerie.addPostfix("_space", ".vol"),
+				bondSerie = datSerie.changeExt(".bonds");
 
             boost::progress_display *showProgress;
             #pragma omp parallel shared(radius, showProgress) firstprivate(datSerie, volSerie)
@@ -159,6 +219,10 @@ int main(int argc, char ** argv)
                 #pragma omp for
                 for(size_t t=0; t<size;++t)
                 {
+                	#ifdef use_periodic
+					PeriodicParticles parts(Nb,b,datSerie%t,radius);
+					VoroContainer con(parts, true);
+					#else
                     Particles parts(datSerie%t,radius);
                     valarray<double> maxi = parts.front(), mini = parts.front();
                     for(Particles::const_iterator p= parts.begin(); p!=parts.end(); ++p)
@@ -173,6 +237,7 @@ int main(int argc, char ** argv)
                         parts.bb.edges[d].second = maxi[d]+1;
                     }
                     VoroContainer con(parts, false);
+                    #endif
                     vector<double> cgVolumes(parts.size(),0.0);
                     con.get_cgVolumes(cgVolumes);
 
@@ -182,21 +247,29 @@ int main(int argc, char ** argv)
                         cgVolumes.begin(), cgVolumes.end(),
                         ostream_iterator<double>(out, "\n")
                         );
+					out.close();
+
+					ofstream bondfile((bondSerie%t).c_str(), ios::out | ios::trunc);
+					con.print_bonds(bondfile);
+
+					#ifndef use_periodic
+					list<size_t> outside, secondOutside;
+					con.getOutsides(outside, secondOutside);
+					ofstream outsidefile((outsideSerie%t).c_str(), ios::out | ios::trunc);
+					copy(outside.begin(), outside.end(), ostream_iterator<size_t>(outsidefile,"\n"));
+					outsidefile.close();
+					ofstream secondOutsidefile((secondOutsideSerie%t).c_str(), ios::out | ios::trunc);
+					copy(secondOutside.begin(), secondOutside.end(), ostream_iterator<size_t>(secondOutsidefile,"\n"));
+					secondOutsidefile.close();
+					#endif
+
                     ++(*showProgress);
                 }
             }
 		}
 		else
-		#endif
 		{
             #ifdef use_periodic
-            const size_t Nb = atoi(argv[3]);
-            BoundingBox b;
-            for(size_t d=0;d<3;++d)
-            {
-                b.edges[d].first=0.0;
-                b.edges[d].second = atof(argv[4+d]);
-            }
             PeriodicParticles parts(Nb,b,filename,5.0);
             VoroContainer con(parts, true);
             #else
@@ -227,12 +300,27 @@ int main(int argc, char ** argv)
                     csv<<parts[p][d]<<",";
                 csv<<cgVolumes[p]<<"\n";
             }
+            csv.close();
+
+			ofstream bondfile((inputPath+".bonds").c_str(), ios::out | ios::trunc);
+            con.print_bonds(bondfile);
+
+            list<size_t> outside, secondOutside;
+            con.getOutsides(outside, secondOutside);
+            ofstream outsidefile((inputPath+".outside").c_str(), ios::out | ios::trunc);
+            copy(outside.begin(), outside.end(), ostream_iterator<size_t>(outsidefile,"\n"));
+            outsidefile.close();
+            ofstream secondOutsidefile((inputPath+".outside2").c_str(), ios::out | ios::trunc);
+            copy(secondOutside.begin(), secondOutside.end(), ostream_iterator<size_t>(secondOutsidefile,"\n"));
+            secondOutsidefile.close();
+
             const string outName = inputPath.insert(inputPath.rfind("_t"), "_space");
             ofstream out((outName+".vol").c_str(), ios::out | ios::trunc);
             copy(
                 cgVolumes.begin(), cgVolumes.end(),
                 ostream_iterator<double>(out, "\n")
                 );
+			out.close();
 		}
 
     }

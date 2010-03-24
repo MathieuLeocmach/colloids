@@ -45,7 +45,9 @@ int main(int argc, char ** argv)
 				bondSerie = datSerie.changeExt(".bonds"),
 				qlmSerie = datSerie.changeExt(".qlm"),
 				cloudSerie = datSerie.changeExt(".cloud"),
-				cgCloudSerie = datSerie.addPostfix("_space", ".cloud");
+				cgCloudSerie = datSerie.addPostfix("_space", ".cloud"),
+				outsideSerie = datSerie.changeExt(".outside"),
+				secondOutsideSerie = datSerie.changeExt(".outside2"),;
 
 		cout<<"load ..."<<endl;
 		//load all files in memory with default radius of 1.0
@@ -106,6 +108,16 @@ int main(int argc, char ** argv)
 		const double bondLength = first_min/200.0*15.0, radius = bondLength / 1.3;
 		cout<<"radius="<<radius<<endl;
 
+		//check the existence of outside and bonds files
+		const bool voro = ifstream((outsideSerie%0).c_str()).good()
+			&& ifstream((outsideSerie%(span-1)).c_str()).good()
+			&& ifstream((secondOutsideSerie%0).c_str()).good()
+			&& ifstream((secondOutsideSerie%(span-1)).c_str()).good()
+			&& ifstream((bondSerie%0).c_str()).good()
+			&& ifstream((bondSerie%(span-1)).c_str()).good();
+		if(voro)
+			cout<<"using voro++ output"<<endl;
+
 
 		//treat each file
 		cout<<"neighbourlist and BOO at each time step"<<endl;
@@ -117,17 +129,47 @@ int main(int argc, char ** argv)
 		#pragma omp for schedule(runtime)
 		for(int t=0; t<(int)span; ++t)
 		{
-			//create neighbour list and export bonds
-			positions[t].makeNgbList(bondLength);
-			BondSet bonds = positions[t].getBonds();
-			ofstream bondFile((bondSerie%t).c_str(), ios::out | ios::trunc);
-			copy(bonds.begin(), bonds.end(), ostream_iterator<Bond>(bondFile, "\n"));
-			bondFile.close();
+			BondSet bonds;
+			vector<size_t> inside, secondInside;
+			inside.reserve(positions[t].size());
+			secondInside.reserve(positions[t].size());
+			//if .outside files are present, load bonds and insides
+			if(voro)
+			{
+				bonds = loadBonds(bondSerie%t);
+				positions[t].makeNgbList(bonds);
 
-			//select the particles further than the bond length from the boundaries
-			vector<size_t> inside = positions[t].selectInside(bondLength),
-                secondInside = positions[t].selectInside(2.0*bondLength);
+				vector<size_t> all(positions[t].size());
+				for(size_t p=0; p<all.size();++p)
+					all[p]=p;
 
+				ifstream outsideFile((outsideSerie%t).c_str());
+				set_difference(
+					all.begin(), all.end(),
+					istream_iterator<size_t>(outsideFile), istream_iterator<size_t>(),
+					back_inserter(inside)
+					);
+
+				ifstream secondOutsideFile((secondOutsideSerie%t).c_str());
+				set_difference(
+					all.begin(), all.end(),
+					istream_iterator<size_t>(secondOutsideFile), istream_iterator<size_t>(),
+					back_inserter(secondInside)
+					);
+			}
+			else
+			{
+				//create neighbour list and export bonds
+				positions[t].makeNgbList(bondLength);
+				bonds = positions[t].getBonds();
+				ofstream bondFile((bondSerie%t).c_str(), ios::out | ios::trunc);
+				copy(bonds.begin(), bonds.end(), ostream_iterator<Bond>(bondFile, "\n"));
+				bondFile.close();
+
+				//select the particles further than the bond length from the boundaries
+				inside = positions[t].selectInside(bondLength);
+				secondInside = positions[t].selectInside(2.0*bondLength);
+			}
 			//calculate and export qlm
 			vector<BooData> qlm, qlm_cg;
 			positions[t].getBOOs(inside, qlm);
