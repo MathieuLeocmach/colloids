@@ -27,27 +27,58 @@ int main(int argc, char ** argv)
 {
 	try
     {
-		if(argc<5)
+		if(argc<2)
 		{
 			cerr<<"syntax: linkboo [path]filename token delta_t span [offset=0]"<<endl;
+			cerr<<"to link again: linkboo [path]filename.traj"<<endl;
 			return EXIT_FAILURE;
 		}
 
-		const string filename(argv[1]), token(argv[2]);
-		const double delta_t = atof(argv[3]);
-		const size_t span = atoi(argv[4]);
-		const size_t offset = (argc>5)?atoi(argv[5]):0;
+		const string filename(argv[1]),
+			ext = filename.substr(filename.find_last_of(".")),
+			path = filename.substr(0, filename.find_last_of("/\\")+1);
+		string pattern;
+		string token;
+		double delta_t;
+		size_t span, offset;
+		if(ext == ".traj")
+		{
+			ifstream trajfile(filename.c_str(), ios::in);
+			if(!trajfile.good())
+				throw invalid_argument((filename+" doesn't exist").c_str() );
+			double radius;
+			trajfile >> radius >> delta_t;
+			trajfile.ignore(1); //escape the endl
+			getline(trajfile, pattern); //pattern is on the 2nd line
+			getline(trajfile, token); //token is on the 3rd line
+			trajfile >> offset >> span;
+			pattern.insert(0, path);
+		}
+		else
+		{
+			if(argc<5)
+			{
+				cerr<<"syntax: linkboo [path]filename token delta_t span [offset=0]"<<endl;
+				cerr<<"to link again: linkboo [path]filename.traj"<<endl;
+				return EXIT_FAILURE;
+			}
+			pattern = filename;
+			token = string(argv[2]);
+			delta_t = atof(argv[3]);
+			span = atoi(argv[4]);
+			offset = (argc>5)?atoi(argv[5]):0;
+		}
 
-		cout<<filename.substr(filename.find_last_of("/\\")+1)<<endl;
+		cout<<pattern.substr(path.size())<<endl;
 
 		//create the needed file series
-		FileSerie datSerie(filename, token, span, offset),
+		FileSerie datSerie(pattern, token, span, offset),
 				bondSerie = datSerie.changeExt(".bonds"),
 				qlmSerie = datSerie.changeExt(".qlm"),
 				cloudSerie = datSerie.changeExt(".cloud"),
 				cgCloudSerie = datSerie.addPostfix("_space", ".cloud"),
 				outsideSerie = datSerie.changeExt(".outside"),
-				secondOutsideSerie = datSerie.changeExt(".outside2"),;
+				secondOutsideSerie = datSerie.changeExt(".outside2");
 
 		cout<<"load ..."<<endl;
 		//load all files in memory with default radius of 1.0
@@ -212,7 +243,7 @@ int main(int argc, char ** argv)
 		DynamicParticles parts(positions, radius, delta_t, datSerie.head()+".displ", offset);
 		parts.save(
 			datSerie.head()+".traj",
-			filename.substr(filename.find_last_of("/\\")+1),
+			pattern.substr(filename.find_last_of("/\\")+1),
 			token, offset, span
 			);
 	}
