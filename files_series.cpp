@@ -31,7 +31,7 @@ FileSerie::FileSerie(const std::string &namePattern, const std::string &token, s
 	size_t digits=0, pos = namePattern.rfind(token);
 
     if(pos==string::npos)
-        throw invalid_argument("Name pattern doesn't contain token");
+        throw invalid_argument(("Name pattern \""+namePattern+"\" doesn't contain token \""+token+"\"").c_str());
 
     head.resize(pos);
     digits = namePattern.find_first_not_of("0123456789", pos+token.size());
