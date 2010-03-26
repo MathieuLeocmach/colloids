@@ -92,12 +92,7 @@ DynamicParticles::DynamicParticles(const string &filename)
 
     //construct the TrajIndex from file stream
     input >> trajectories;
-    vector<size_t> frameSizes(positions.size());
-    transform(
-		positions.begin(), positions.end(),
-		frameSizes.begin(), mem_fun_ref(&Particles::size)
-		);
-    trajectories.makeInverse(frameSizes);
+    trajectories.makeInverse(this->getFrameSizes());
 }
 
 /**
@@ -133,10 +128,19 @@ BoundingBox DynamicParticles::getMaxBox() const
 /** @brief get the size of the most populated frame  */
 size_t DynamicParticles::getMaxSimultaneousParticles() const
 {
-    vector<size_t> sizes(positions.size());
-    transform(positions.begin(), positions.end(), sizes.begin(), mem_fun_ref(&Particles::size));
+    vector<size_t> sizes=getFrameSizes();
     return *max_element(sizes.begin(), sizes.end());
 }
+
+/** @brief get the number of particle in each time step  */
+vector<size_t> DynamicParticles::getFrameSizes() const
+{
+    vector<size_t> sizes(positions.size());
+    transform(positions.begin(), positions.end(), sizes.begin(), mem_fun_ref(&Particles::size));
+    return sizes;
+}
+
+
 
 /** \brief Force the spatio-temporal indexation of the trajectories */
 /*void DynamicParticles::makeSTindex(const bool reindexAllFrames)
@@ -991,6 +995,91 @@ vector<double> DynamicParticles::getNbLostNgbs(const size_t &t, const size_t &ha
 	}
 	return nb;
 }
+
+/** \brief split recursively a succession of positions into well separated regions */
+void splitByCageJump(const vector<Coord> &positions, const double &threshold, const size_t &resolution, const Interval &in, list<size_t> &jumps)
+{
+    vector<double> separation(in.second-in.first+1);
+    for(size_t t=in.first; t<in.second; ++t)
+    {
+        //center of mass of both sub intervals
+        Coord c1(3), c2(3);
+        c1 = accumulate(positions.begin()+in.first, positions.begin()+t+1, c1)/(double)(t+1-in.first);
+        c2 = accumulate(positions.begin()+t+1, positions.begin()+in.second+1, c1)/(double)(in.second-t);
+        //distances to the center of mass of the sub interval
+        double d1=0.0, d2=0.0;
+        for(size_t i=in.first; i<t+1; ++t)
+            d1 += norm2(positions[i]-c1);
+        d1 /= (double)(t+1-in.first);
+        for(size_t i=t+1; i<in.second+1; ++t)
+            d2 += norm2(positions[i]-c2);
+        d2 /= (double)(in.second-t);
+
+        separation[t-in.first] = sqrt(
+            (t-in.first)/(double)in.second*(1.0-(t-in.first)/(double)in.second)
+            * d1 * d2
+            );
+    }
+    const size_t tc = (max_element(separation.begin(), separation.end()) - separation.begin()) + in.first;
+    //continue only if the maximum separation is larger than the threshold
+    if(separation[tc-in.first] >= threshold)
+    {
+        jumps.push_back(tc);
+        Interval in1(in.first, tc), in2(tc+1, in.second);
+        if(in1.second-in1.first > resolution)
+            splitByCageJump(positions, threshold, resolution, in1, jumps);
+        if(in2.second-in2.first > resolution)
+            splitByCageJump(positions, threshold, resolution, in2, jumps);
+    }
+}
+
+/** @brief split trajectories by cages jump
+  *
+  * \param threshold minimum distance of a jump, typically diameter/10
+  * \param resolution minimum number of time steps between two jumps, >0
+  */
+TrajIndex DynamicParticles::getCages(const double &threshold, const size_t &resolution) const
+{
+    TrajIndex cages;
+    const double thrsq = threshold*threshold;
+    for(TrajIndex::const_iterator tr=trajectories.begin(); tr!=trajectories.end(); ++tr)
+    {
+        //trajectory shorter than the resolution
+        if(tr->last_time()+1-tr->start_time < resolution)
+        {
+            cages.push_back(*tr);
+            continue;
+        }
+        //prepare to split the trajectory by cage jump
+        vector<Coord> pos((tr->last_time())+1-(tr->start_time), Coord(3));
+        for(size_t t=tr->start_time; t<tr->last_time()+1; ++t)
+            pos[t-tr->start_time] = positions[t][(*tr)[t]];
+        Interval in(0, pos.size()-1);
+        list<size_t> jumps;
+        //find the jumps
+        splitByCageJump(pos, thrsq, resolution, in, jumps);
+        assert(!jumps.empty());
+        //split
+        jumps.sort();
+        assert(jumps.front()>0);
+        jumps.push_back(pos.size()-1);
+
+        cages.push_back(tr->subtraj(tr->start_time, jumps.front()+(tr->start_time)-1));
+        list<size_t>::const_iterator i=jumps.begin(), j=jumps.begin();
+        j++;
+        while(j!=jumps.end())
+        {
+            cages.push_back(tr->subtraj((*i)+tr->start_time, (*j)+tr->start_time-1));
+            j++;
+            i++;
+        }
+    }
+    //make TrajIndex inverse
+    cages.makeInverse(this->getFrameSizes());
+    return cages;
+}
+
+
 
 
 /** \brief  Time averaged bond angle distribution */

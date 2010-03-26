@@ -82,6 +82,7 @@ namespace Colloids
             inline size_t getNbTimeSteps() const {return positions.size();};
             BoundingBox getMaxBox() const;
             size_t getMaxSimultaneousParticles() const;
+            std::vector<size_t> getFrameSizes() const;
 
             /** export to various file formats */
             void save(const std::string &filename,const std::string &base_name,const std::string &token,const size_t &t_offset, const size_t &t_size) const;
@@ -138,6 +139,7 @@ namespace Colloids
 
             std::vector<size_t> getLostNgbs(const size_t &tr,const size_t &t_from,const size_t &t_to) const;
             std::vector<double> getNbLostNgbs(const size_t &t, const size_t &halfInterval=1) const;
+            TrajIndex getCages(const double &threshold, const size_t &resolution) const;
 
             //boost::array<double,180> getMeanAngularDistribution(const DynNgbList &selection) const;
 

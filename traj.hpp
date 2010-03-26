@@ -70,7 +70,7 @@ namespace Colloids
             std::deque<size_t> steps;
 
             explicit Traj(const size_t &start);
-            explicit Traj(const size_t &start,const size_t &first_step);
+            explicit Traj(const size_t &start, const size_t &first_step);
             //Traj(Traj &tr,size_t t0,size_t tmax);
 
             size_t last_time() const;
@@ -79,6 +79,7 @@ namespace Colloids
             size_t &operator[](const size_t &t) throw (TrajError);
             const size_t &operator[](const size_t &t) const throw (TrajError);
             void push_back(const size_t &pos);
+            Traj subtraj(const size_t &t0, const size_t &t0) const;
     };
 
     std::istream& operator>> (std::istream& is, Traj& tr );

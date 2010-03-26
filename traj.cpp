@@ -106,6 +106,17 @@ ostream& Colloids::operator<< (ostream& os, const Traj& tr )
     return os;
 }
 
+/** @brief Get the subtrajectory starting at t0 and ending at t1  */
+Traj Traj::subtraj(const size_t &t0, const size_t &t1) const
+{
+    Traj tr(t0);
+    for(size_t t=t0; t<=t1; ++t)
+        tr.push_back((*this)[t]);
+    return tr;
+}
+
+
+
 /** \brief explains the trajectory error */
 const char* TrajError::what() const throw()
 {
