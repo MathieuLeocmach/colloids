@@ -139,7 +139,7 @@ namespace Colloids
 
             std::vector<size_t> getLostNgbs(const size_t &tr,const size_t &t_from,const size_t &t_to) const;
             std::vector<double> getNbLostNgbs(const size_t &t, const size_t &halfInterval=1) const;
-            TrajIndex getCages(const double &threshold, const size_t &resolution) const;
+            TrajIndex getCages(const size_t &resolution=1) const;
 
             //boost::array<double,180> getMeanAngularDistribution(const DynNgbList &selection) const;
 

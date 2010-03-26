@@ -188,7 +188,7 @@ istream & Colloids::operator>>(std::istream& is, TrajIndex& tri)
 {
     size_t start;
     string indexString;
-    is>>start; //sliding the reading in oder to avoid reading final empty line
+    is>>start; //sliding the reading in order to avoid reading final empty line
     while(is.good())
     {
         is.get(); //escape the endl
@@ -201,6 +201,19 @@ istream & Colloids::operator>>(std::istream& is, TrajIndex& tri)
         is>>start;
     }
     return is;
+}
+
+/** @brief operator<<
+  *
+  * @todo: document this function
+  */
+ostream & Colloids::operator<<(std::ostream& os, const TrajIndex& tri)
+{
+    copy(
+        tri.begin(), tri.end(),
+        ostream_iterator<Traj>(os, "\n")
+        );
+    return os;
 }
 
 

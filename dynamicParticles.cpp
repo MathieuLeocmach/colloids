@@ -287,8 +287,7 @@ void DynamicParticles::save(const string &filename,const string &base_name,const
         output << t_offset << "\t" << t_size << endl;
 
         //trajectory data
-        for(deque<Traj>::const_iterator tr=trajectories.begin();tr!=trajectories.end();++tr)
-            output << *tr << "\n";
+        output << trajectories;
 
         output.close();
     }
@@ -1038,10 +1037,10 @@ void splitByCageJump(const vector<Coord> &positions, const double &threshold, co
   * \param threshold minimum distance of a jump, typically diameter/10
   * \param resolution minimum number of time steps between two jumps, >0
   */
-TrajIndex DynamicParticles::getCages(const double &threshold, const size_t &resolution) const
+TrajIndex DynamicParticles::getCages(const size_t &resolution) const
 {
     TrajIndex cages;
-    const double thrsq = threshold*threshold;
+    const double thrsq = pow(radius*0.2, 2.0);
     for(TrajIndex::const_iterator tr=trajectories.begin(); tr!=trajectories.end(); ++tr)
     {
         //trajectory shorter than the resolution
