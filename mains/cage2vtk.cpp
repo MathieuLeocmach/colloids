@@ -57,7 +57,7 @@ void export_jump(const TrajIndex &trajectories, const size_t &tau, const TrajInd
         const double length = stop - start;
         ofstream f((jumpSerie%t).c_str(), ios::out | ios::trunc);
         for(size_t p=0; p<jumps[t].size(); ++p)
-            f<< ((jumps[t][p]>0)?(length/jumps[t][p]):1) <<"\n";
+            f<< jumps[t][p]/length <<"\n";
         f.close();
     }
 
