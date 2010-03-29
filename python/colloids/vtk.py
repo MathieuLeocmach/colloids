@@ -6,11 +6,17 @@ import math
 class Polydata:
     """A VTK polydata dataset"""
 
-    def __init__(self, fileName):
+    def __init__(self, fileName=None):
         """Constructor from vtk legacy format"""
+        self.name = ''
+        self.points = np.array((0,3))
+        self.bonds = np.array((0,2))
         self.scalars = []
         self.vectors = []
-        self.name = ''
+        if not fileName ==None:
+            self.load(fileName)
+
+    def load(self, fileName=None):
         with open(fileName) as f:
             f.seek(0, 2)
             filesize = f.tell()
@@ -45,6 +51,7 @@ class Polydata:
                             f, count=size*3, sep=" "
                             ).reshape((size,3))
                         ))
+        self.__fields = dict(self.scalars + self.vectors)
             
     def save(self, fileName):
         """save to vtk legacy format"""
@@ -84,6 +91,11 @@ class Polydata:
                     v.tofile(f, sep=' ', format = '%f')
                     f.write('\n')
 
+    def getField(self, name):
+        """Return the field corresponding to name"""
+        self.__fields = dict(self.scalars + self.vectors)
+        return self.__fields[name]
+
     def coarseGrainField(self, field):
         """coarse grain the field by averaging the value at p over the neighbourhood of p"""
         cg = np.copy(field)
@@ -93,6 +105,13 @@ class Polydata:
         div[:self.bonds[:,0].max()+1] += np.bincount(self.bonds[:,0])
         div[:self.bonds[:,1].max()+1] += np.bincount(self.bonds[:,1])
         return cg/div
+
+    def dilateField(self, field):
+        """coarse grain the field by averaging the value at p over the neighbourhood of p"""
+        dil = np.zeros_like(field)
+        for b in self.bonds:
+            dil[b[0]] = dil[b[1]] = max([field[b[0]], field[b[1]]])
+        return dil
 
     def spatialCorelation(self, Nbins=200, maxDist=50.0):
         """Compute the spatial corellation of each field"""
