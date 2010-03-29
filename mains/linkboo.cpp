@@ -153,7 +153,7 @@ int main(int argc, char ** argv)
 		//treat each file
 		cout<<"neighbourlist and BOO at each time step"<<endl;
 		boost::progress_display *show_progress;
-		#pragma omp parallel shared(positions, bondLength, show_progress)
+		#pragma omp parallel shared(positions, bondLength, show_progress, voro) firstprivate(bondSerie, outsideSerie, secondOutsideSerie, qlmSerie, cloudSerie, cgCloudSerie)
 		{
 		#pragma omp single
 		show_progress = new boost::progress_display(span);
@@ -162,8 +162,6 @@ int main(int argc, char ** argv)
 		{
 			BondSet bonds;
 			vector<size_t> inside, secondInside;
-			inside.reserve(positions[t].size());
-			secondInside.reserve(positions[t].size());
 			//if .outside files are present, load bonds and insides
 			if(voro)
 			{
@@ -174,12 +172,16 @@ int main(int argc, char ** argv)
 				for(size_t p=0; p<all.size();++p)
 					all[p]=p;
 
+                inside.reserve(positions[t].size());
+                secondInside.reserve(positions[t].size());
+
 				ifstream outsideFile((outsideSerie%t).c_str());
 				set_difference(
 					all.begin(), all.end(),
 					istream_iterator<size_t>(outsideFile), istream_iterator<size_t>(),
 					back_inserter(inside)
 					);
+                outsideFile.close();
 
 				ifstream secondOutsideFile((secondOutsideSerie%t).c_str());
 				set_difference(
@@ -187,6 +189,7 @@ int main(int argc, char ** argv)
 					istream_iterator<size_t>(secondOutsideFile), istream_iterator<size_t>(),
 					back_inserter(secondInside)
 					);
+                secondOutsideFile.close();
 			}
 			else
 			{
