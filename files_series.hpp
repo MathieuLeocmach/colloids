@@ -48,7 +48,7 @@ namespace Colloids
 
         public:
             FileSerie(const std::string &filesPattern, const std::string &token, size_t size, size_t offset=0);
-            std::string operator%(const size_t &step){return (pattern%(step+offset)).str();}
+            std::string operator%(const size_t &step){this->pattern.clear(); return (pattern%(step+offset)).str();}
             size_t size() const {return length;}
             size_t get_offset() const {return offset;}
             FileSerie changeExt(const std::string &ext) const;
