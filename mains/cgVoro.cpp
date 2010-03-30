@@ -202,7 +202,7 @@ int main(int argc, char ** argv)
 				pattern = filename;
 				token = string(argv[2]);
 				size = atol(argv[3]);
-				offset = (argc<4)?0:atol(argv[4]);
+				offset = (argc<5)?0:atol(argv[4]);
 			}
 			FileSerie datSerie(pattern, token, size, offset),
 				outsideSerie = datSerie.changeExt(".outside"),
