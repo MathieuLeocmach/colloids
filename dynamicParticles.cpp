@@ -682,6 +682,56 @@ vector<double> DynamicParticles::getMSD(const size_t &t0,const size_t &t1,const 
     return getMSD(selectSpanning(Interval(t0,t1+t3)),t0,t1,t3);
 }
 
+/** @brief get Non Gaussian parameter function of time between t0 and t1  */
+vector<double> DynamicParticles::getNonGaussian(const std::vector<size_t> &selection,const size_t &t0,const size_t &t1,const size_t &t3) const
+{
+	const size_t nb_selection = selection.size();
+    vector<double> alpha(t1-t0+1,0.0), sumSD(t1-t0+1,0.0), sumQD(t1-t0+1,0.0), nb(t1-t0+1,0.0);
+    if(selection.empty())
+        return sumSD;
+
+    nb[0]=1.0;
+    if(t3==0)
+    {
+    	#pragma omp parallel for schedule(runtime) shared(sumSD, nbSD, t0, t1, t3, selection)
+		for(size_t start=t0;start<t1;++start)
+			for(size_t stop=start+1;stop<=t1;++stop)
+			{
+				for(ssize_t tr=0;tr<selection.size();++tr)
+				{
+					Coord diff(3);
+					diff = getDiff(selection[tr],t0,selection[tr],t1);
+					const double sd = dot(diff, diff);
+					sumSD[stop-start] += sd;
+					sumQD[stop-start] += sd*sd;
+				}
+				nb[stop-start] += 1.0;
+			}
+		for(size_t t=0;t<sumSD.size();++t)
+			alpha[t] = nb[t]*selection.size()/3.0 * sumQD[t]/sumSD[t]/sumSD[t];
+    }
+    else
+    {
+    	for(size_t Dt=1;Dt<sumSD.size();++Dt)
+    	{
+    	    #pragma omp parallel for schedule(runtime) shared(sumSD, t3, Dt)
+			for(size_t start=0;start<t3;++start)
+				for(ssize_t tr=0;tr<selection.size();++tr)
+				{
+					Coord diff(3);
+					diff = getDiff(selection[tr],t0,selection[tr],t1);
+					const double sd = dot(diff, diff);
+					sumSD[Dt] += sd;
+					sumQD[Dt] += sd*sd;
+				}
+			alpha[Dt] = (t3*nb_selection)/3.0 * sumQD[Dt]/sumSD[Dt]/sumSD[Dt];
+    	}
+    }
+    return alpha;
+}
+
+
+
 /** \brief Intermediate scatering function of time between t0 and t1 for a selection of trajectories */
 vector<double> DynamicParticles::getISF(const vector<size_t> &selection,const Coord &q,const size_t &t0,const size_t &t1) const
 {

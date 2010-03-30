@@ -125,6 +125,7 @@ namespace Colloids
             std::vector<double> getSD(const size_t &t, const size_t &halfInterval=1) const;
             std::vector<double> getMSD(const std::vector<size_t> &selection,const size_t &t0,const size_t &t1,const size_t &t3=0) const;
             std::vector<double> getMSD(const size_t &t0,const size_t &t1,const size_t &t3=0) const;
+            std::vector<double> getNonGaussian(const std::vector<size_t> &selection,const size_t &t0,const size_t &t1,const size_t &t3=0) const;
             std::vector<double> getISF(const std::vector<size_t> &selection,const Coord &q,const size_t &t0,const size_t &t1) const;
             std::vector<double> getISF(const Coord &q,const size_t &t0,const size_t &t1) const;
             std::vector<double> getSelfISF(const std::vector<size_t> &selection,const Coord &q,const size_t &t0,const size_t &t1,const size_t &t3=0) const;
