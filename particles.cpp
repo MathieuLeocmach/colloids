@@ -129,8 +129,9 @@ Particles& Particles::operator*=(const double &mul)
 Particles& Particles::operator+=(const Coord &v)
 {
     bb+=v;
-    for(iterator p=begin(); p!=end(); ++p)
-        *p += v;
+    #pragma omp parallel for shared(v)
+    for(ssize_t p=0; p<size(); ++p)
+        (*this)[p] += v;
 
     if(hasIndex())
 		(*index)+=v;
@@ -724,8 +725,9 @@ BondSet Colloids::ngb2bonds(const NgbList& ngbList)
 BondSet Colloids::loadBonds(const std::string &filename)
 {
 	BondSet bonds;
-	pair<size_t, size_t> b;
 	ifstream f(filename.c_str());
+	if(!f)
+		throw invalid_argument("no such file as "+filename);
 	copy(
 		istream_iterator<Bond>(f), istream_iterator<Bond>(),
 		inserter(bonds, bonds.end())
