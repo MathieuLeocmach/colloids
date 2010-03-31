@@ -514,6 +514,7 @@ Coord DynamicParticles::getDiff(const size_t &tr_from,const size_t &t_from,const
 Coord DynamicParticles::getDrift(const vector<size_t>&selection,const size_t &t0,const size_t &t1) const
 {
     Coord drift(0.0,3);
+    #pragma omp parallel for shared(selection, t0, t1)
     for(ssize_t tr=0;tr<selection.size();++tr)
         drift += getDiff(selection[tr],t0,selection[tr],t1);
 
@@ -653,7 +654,7 @@ vector<double> DynamicParticles::getMSD(const vector<size_t> &selection,const si
     nbSD[0]=1.0;
     if(t3==0)
     {
-    	#pragma omp parallel for schedule(runtime) shared(sumSD, nbSD, t0, t1, t3, selection)
+    	//#pragma omp parallel for schedule(runtime) shared(sumSD, nbSD, t0, t1, t3, selection)
 		for(size_t start=t0;start<t1;++start)
 			for(size_t stop=start+1;stop<=t1;++stop)
 			{
@@ -693,7 +694,7 @@ vector<double> DynamicParticles::getNonGaussian(const std::vector<size_t> &selec
     nb[0]=1.0;
     if(t3==0)
     {
-    	#pragma omp parallel for schedule(runtime) shared(sumSD, nbSD, t0, t1, t3, selection)
+    	#pragma omp parallel for schedule(runtime) shared(sumSD, nb, t0, t1, t3, selection)
 		for(size_t start=t0;start<t1;++start)
 			for(size_t stop=start+1;stop<=t1;++stop)
 			{
@@ -745,7 +746,7 @@ void DynamicParticles::get_MSD_NGP(const std::vector<size_t> &selection, std::ve
     nb[0]=1.0;
     if(t3==0)
     {
-    	#pragma omp parallel for schedule(runtime) shared(sumSD, nbSD, t0, t1, t3, selection)
+    	#pragma omp parallel for schedule(dynamic) shared(MSD, NGP, nb, t0, t1, t3, selection)
 		for(size_t start=t0;start<t1;++start)
 			for(size_t stop=start+1;stop<=t1;++stop)
 			{
@@ -759,6 +760,7 @@ void DynamicParticles::get_MSD_NGP(const std::vector<size_t> &selection, std::ve
 				}
 				nb[stop-start] += 1.0;
 			}
+        #pragma omp parallel for schedule(static) shared(NGP, nb, nb_selection, MSD)
 		for(size_t t=0;t<MSD.size();++t)
 		{
 			NGP[t] *= nb[t] * nb_selection / (3.0 * MSD[t] * MSD[t]);
@@ -770,7 +772,7 @@ void DynamicParticles::get_MSD_NGP(const std::vector<size_t> &selection, std::ve
     {
     	for(size_t Dt=1;Dt<MSD.size();++Dt)
     	{
-    	    #pragma omp parallel for schedule(runtime) shared(sumSD, t3, Dt)
+    	    #pragma omp parallel for schedule(dynamic) shared(MSD, NGP, t3, Dt)
 			for(size_t start=0;start<t3;++start)
 				for(ssize_t tr=0;tr<selection.size();++tr)
 				{
@@ -863,26 +865,23 @@ vector<double> DynamicParticles::getSelfISF(const vector<size_t> &selection,cons
     //boost::progress_display show_progress(2*(t1-t0));
 
     //fill in the basic data used for calculation
-    vector< vector<double> > A(t1+t3-t0+1,vector<double>(nb_selection,0.0)),B=A;
-    double innerProd;
-    size_t p;
-    for(size_t t=0;t+t0<=t1+t3;++t)
+    vector< vector<double> > A(t1+t3-t0+1,vector<double>(nb_selection,0.0)), B=A;
+    vector<double> sumISF(t1-t0+1,0.0);
+    //#pragma omp parallel for shared(selection, t0, t3, q)
+    for(ssize_t t=0;t<A.size();++t)
     {
-        p=0;
         for(ssize_t tr=0;tr<selection.size();++tr)
         {
-            innerProd = dot((*this)(selection[tr],t+t0), q);
-            A[t][p]=cos(innerProd);
-            B[t][p]=sin(innerProd);
-            p++;
+            const double innerProd = dot((*this)(selection[tr],t+t0), q);
+            A[t][tr]=cos(innerProd);
+            B[t][tr]=sin(innerProd);
         }
-        //++show_progress;
     }
-    vector<double> sumISF(t1-t0+1,0.0);
     if(t3==0)
     {
 		vector<double> nb_per_interval(sumISF.size(),0.0);
 		nb_per_interval[0]=1.0;
+		//#pragma omp parallel for schedule(dynamic) shared(sumISF, t0, A, B, nb_per_interval)
 		for(size_t start=t0;start<t1;++start)
 			for(size_t stop=start+1;stop<=t1;++stop)
 			{
@@ -994,7 +993,7 @@ void DynamicParticles::exportDynamics(const std::vector< std::vector<size_t> >&s
     string xyz[3] = {"x","y","z"};
     ofstream msd_f((inputPath + ".msd").c_str());
     ofstream isf_f((inputPath + ".isf").c_str());
-    ofstream ngp_f((inputPath + ".isf").c_str());
+    ofstream ngp_f((inputPath + ".ngp").c_str());
     msd_f << "#t";
     isf_f << "#t";
     ngp_f << "#t";
@@ -1113,7 +1112,8 @@ vector<double> DynamicParticles::getNbLostNgbs(const size_t &t, const size_t &ha
 void splitByCageJump(const vector<Coord> &positions, const double &threshold, const size_t &resolution, const Interval &in, list<size_t> &jumps)
 {
     vector<double> separation(in.second-in.first+1);
-    for(size_t t=in.first; t<in.second; ++t)
+    #pragma omp parallel for schedule(dynamic) shared(separation)
+    for(ssize_t t=in.first; t<(ssize_t)in.second; ++t)
     {
         //center of mass of both sub intervals
         Coord c1(3), c2(3);
@@ -1121,10 +1121,10 @@ void splitByCageJump(const vector<Coord> &positions, const double &threshold, co
         c2 = accumulate(positions.begin()+t+1, positions.begin()+in.second+1, c1)/(double)(in.second-t);
         //distances to the center of mass of the sub interval
         double d1=0.0, d2=0.0;
-        for(size_t i=in.first; i<t+1; ++t)
+        for(size_t i=in.first; i<t+1; ++i)
             d1 += norm2(positions[i]-c1);
         d1 /= (double)(t+1-in.first);
-        for(size_t i=t+1; i<in.second+1; ++t)
+        for(size_t i=t+1; i<in.second+1; ++i)
             d2 += norm2(positions[i]-c2);
         d2 /= (double)(in.second-t);
 
@@ -1154,13 +1154,15 @@ void splitByCageJump(const vector<Coord> &positions, const double &threshold, co
 TrajIndex DynamicParticles::getCages(const size_t &resolution) const
 {
     TrajIndex cages;
-    const double thrsq = pow(radius*0.2, 2.0);
+    const double thrsq = pow(radius*0.5, 2.0);
+    boost::progress_display show_progress(trajectories.size());
     for(TrajIndex::const_iterator tr=trajectories.begin(); tr!=trajectories.end(); ++tr)
     {
         //trajectory shorter than the resolution
         if(tr->last_time()+1-tr->start_time < resolution)
         {
             cages.push_back(*tr);
+            ++show_progress;
             continue;
         }
         //prepare to split the trajectory by cage jump
@@ -1171,7 +1173,12 @@ TrajIndex DynamicParticles::getCages(const size_t &resolution) const
         list<size_t> jumps;
         //find the jumps
         splitByCageJump(pos, thrsq, resolution, in, jumps);
-        assert(!jumps.empty());
+        if(jumps.empty())
+        {
+            cages.push_back(*tr);
+            ++show_progress;
+            continue;
+        }
         //split
         jumps.sort();
         assert(jumps.front()>0);
@@ -1186,7 +1193,9 @@ TrajIndex DynamicParticles::getCages(const size_t &resolution) const
             j++;
             i++;
         }
+        ++show_progress;
     }
+    cout<<cages.size()<<" cages, ie "<<cages.size()/(double)trajectories.size()<<" cages per trajectory"<<endl;
     //make TrajIndex inverse
     cages.makeInverse(this->getFrameSizes());
     return cages;
