@@ -256,14 +256,20 @@ int main(int argc, char ** argv)
 				cout<<"calculate ISF"<<endl;
 				//Dynamics calculation and export
 				vector< vector<double> > isf(4,vector<double>(size));
-				vector<double> msd;
-				parts.makeDynamics(msd, isf);
+				vector<double> msd, ngp;
+				parts.makeDynamics(msd, isf, ngp);
 
 				ofstream msd_f((inputPath + ".msd").c_str());
 				msd_f << "#t\tMSD"<<endl;
 				for(size_t t=0; t<msd.size(); ++t)
 					msd_f << t*parts.dt<<"\t"<< msd[t]<<"\n";
 				msd_f.close();
+
+				ofstream ngp_f((inputPath + ".ngp").c_str());
+				ngp_f << "#t\tNGP"<<endl;
+				for(size_t t=0; t<ngp.size(); ++t)
+					ngp_f << t*parts.dt<<"\t"<< ngp[t]<<"\n";
+				ngp_f.close();
 
 				ofstream isf_f((inputPath + ".isf").c_str(), ios::out | ios::trunc);
 				isf_f << "#t\tx\ty\tz\tav"<<endl;

@@ -730,6 +730,62 @@ vector<double> DynamicParticles::getNonGaussian(const std::vector<size_t> &selec
     return alpha;
 }
 
+/** @brief get both Mean Square Displacement and Non Gaussian Parameter  */
+void DynamicParticles::get_MSD_NGP(const std::vector<size_t> &selection, std::vector<double> &MSD, std::vector<double> &NGP, const size_t &t0, const size_t &t1, const size_t &t3) const
+{
+	const size_t nb_selection = selection.size();
+	//NGP is used to store the quadratic displacements
+	NGP.assign(t1-t0+1,0.0);
+	//MSD is used to store the square displacements
+	MSD.assign(t1-t0+1,0.0);
+    vector<double> nb(t1-t0+1,0.0);
+    if(selection.empty())
+        return;
+
+    nb[0]=1.0;
+    if(t3==0)
+    {
+    	#pragma omp parallel for schedule(runtime) shared(sumSD, nbSD, t0, t1, t3, selection)
+		for(size_t start=t0;start<t1;++start)
+			for(size_t stop=start+1;stop<=t1;++stop)
+			{
+				for(ssize_t tr=0;tr<selection.size();++tr)
+				{
+					Coord diff(3);
+					diff = getDiff(selection[tr],t0,selection[tr],t1);
+					const double sd = dot(diff, diff);
+					MSD[stop-start] += sd;
+					NGP[stop-start] += sd*sd;
+				}
+				nb[stop-start] += 1.0;
+			}
+		for(size_t t=0;t<MSD.size();++t)
+		{
+			NGP[t] *= nb[t] * nb_selection / (3.0 * MSD[t] * MSD[t]);
+			MSD[t] /= nb[t]* pow(2.0*radius,2.0)*nb_selection;
+		}
+
+    }
+    else
+    {
+    	for(size_t Dt=1;Dt<MSD.size();++Dt)
+    	{
+    	    #pragma omp parallel for schedule(runtime) shared(sumSD, t3, Dt)
+			for(size_t start=0;start<t3;++start)
+				for(ssize_t tr=0;tr<selection.size();++tr)
+				{
+					Coord diff(3);
+					diff = getDiff(selection[tr],t0,selection[tr],t1);
+					const double sd = dot(diff, diff);
+					MSD[Dt] += sd;
+					NGP[Dt] += sd*sd;
+				}
+			NGP[Dt] *= (t3*nb_selection) / (3.0 * MSD[Dt] * MSD[Dt]);
+			MSD[Dt] /= (t3*nb_selection) * pow(2.0*radius,2.0) * nb_selection;
+    	}
+    }
+}
+
 
 
 /** \brief Intermediate scatering function of time between t0 and t1 for a selection of trajectories */
@@ -878,12 +934,13 @@ vector<double> DynamicParticles::getSelfISF(const size_t &t0,const size_t &t1,co
 }
 
 /**
-    @brief make MSD and Self ISF for various sets of trajectories
+    @brief make MSD, Self ISF and Non Gaussian Parameter for various sets of trajectories
   */
-void DynamicParticles::makeDynamics(const std::vector< std::vector<size_t> >&sets,std::vector< std::vector<double> > &MSD, std::vector< std::vector<double> > &ISF) const
+void DynamicParticles::makeDynamics(const std::vector< std::vector<size_t> >&sets,std::vector< std::vector<double> > &MSD, std::vector< std::vector<double> > &ISF, std::vector< std::vector<double> > &NGP) const
 {
 	const size_t stop = getNbTimeSteps()-1;
 	MSD.assign(sets.size(),vector<double>(stop+1));
+	NGP.assign(sets.size(),vector<double>(stop+1));
 	ISF.assign(sets.size()*4,vector<double>(stop+1));
 	cout << "get Mean Square Displacement and Self Intermediate Scattering Function"<<endl;
 
@@ -893,7 +950,7 @@ void DynamicParticles::makeDynamics(const std::vector< std::vector<size_t> >&set
 
 	for(size_t s=0;s<sets.size();++s)
 	{
-        MSD[s] = getMSD(sets[s],0,stop);
+        get_MSD_NGP(sets[s], MSD[s], NGP[s], 0, stop);
         for(size_t d=0;d<3;++d)
         	ISF[4*s+d] = getSelfISF(sets[s],q[d],0,stop);
 		for(size_t t=0;t<ISF[4*s+3].size();++t)
@@ -905,43 +962,47 @@ void DynamicParticles::makeDynamics(const std::vector< std::vector<size_t> >&set
 	}
 }
 
-/** @brief make MSD and Self ISF (along x,y,z + average) for the set of all spanning trajectories */
-void DynamicParticles::makeDynamics(vector<double> &MSD,vector< vector<double> > &ISF) const
+/** @brief make MSD, Self ISF (along x,y,z + average) and Non Gaussian Parameter for the set of all spanning trajectories */
+void DynamicParticles::makeDynamics(vector<double> &MSD,vector< vector<double> > &ISF, std::vector<double> &NGP) const
 {
 	vector< vector<size_t> > sets(1, selectSpanning(Interval(0, getNbTimeSteps()-1)));
-	vector< vector<double> > MSDs;
-	makeDynamics(sets,MSDs,ISF);
+	vector< vector<double> > MSDs, NGPs;
+	makeDynamics(sets,MSDs,ISF, NGPs);
 	MSD.swap(MSDs.front());
+	NGP.swap(NGPs.front());
 }
 
-/** @brief make MSD and Self ISF (average only) for the set of all spanning trajectories */
-void DynamicParticles::makeDynamics(vector<double> &MSD,vector<double> &ISF) const
+/** @brief make MSD, Self ISF (average only) and Non Gaussian Parameter for the set of all spanning trajectories */
+void DynamicParticles::makeDynamics(vector<double> &MSD, vector<double> &ISF, std::vector<double> &NGP) const
 {
 	vector< vector<size_t> > sets(1, selectSpanning(Interval(0, getNbTimeSteps()-1)));
-	vector< vector<double> > MSDs, ISFs;
-	makeDynamics(sets,MSDs,ISFs);
+	vector< vector<double> > MSDs, ISFs, NGPs;
+	makeDynamics(sets,MSDs,ISFs, NGPs);
 	MSD.swap(MSDs.front());
 	ISF.swap(ISFs.back());
+	NGP.swap(NGPs.front());
 }
 
 /**
-    @brief make and export MSD and Self ISF for various sets of trajectories
+    @brief make and export MSD, Self ISF and Non Gaussian Parameter for various sets of trajectories
   */
 void DynamicParticles::exportDynamics(const std::vector< std::vector<size_t> >&sets,const std::vector<std::string>&setsNames,const std::string &inputPath) const
 {
-    vector< vector<double> > MSD;
-    vector< vector<double> > ISF;
-    makeDynamics(sets,MSD,ISF);
+    vector< vector<double> > MSD, ISF, NGP;
+    makeDynamics(sets,MSD,ISF, NGP);
 
     string xyz[3] = {"x","y","z"};
     ofstream msd_f((inputPath + ".msd").c_str());
     ofstream isf_f((inputPath + ".isf").c_str());
+    ofstream ngp_f((inputPath + ".isf").c_str());
     msd_f << "#t";
     isf_f << "#t";
+    ngp_f << "#t";
 
     for(size_t s=0;s<sets.size();++s)
     {
         msd_f <<"\t"<<setsNames[s];
+        ngp_f <<"\t"<<setsNames[s];
         for(size_t d=0;d<3;++d)
 			isf_f<<"\t"<<setsNames[s]<<"_"<<xyz[d];
 		isf_f<<"\t"<<setsNames[s]<<"_av";
@@ -951,18 +1012,21 @@ void DynamicParticles::exportDynamics(const std::vector< std::vector<size_t> >&s
 	{
 		msd_f << t*dt;
 		isf_f << t*dt;
+		ngp_f << t*dt;
 		for(size_t s=0;s<sets.size();++s)
 		{
 			msd_f << "\t"<< MSD[s][t];
+			ngp_f << "\t"<< NGP[s][t];
 			for(size_t d=0; d<4; ++d)
 				isf_f<<"\t"<< ISF[4*s+d][t];
 		}
 		msd_f<<"\n";
 		isf_f<<"\n";
+		ngp_f<<"\n";
 	}
 }
 
-/** @brief make and export MSD and Self ISF  */
+/** @brief make and export MSD, Self ISF and Non Gaussian Parameter  */
 void DynamicParticles::exportDynamics(const string &inputPath) const
 {
     vector< vector<size_t> > sets(1, selectSpanning(Interval(0, getNbTimeSteps()-1)));
