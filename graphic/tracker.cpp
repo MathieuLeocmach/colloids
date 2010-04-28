@@ -111,6 +111,12 @@ void Tracker::makeBandPassMask(const boost::array<double,3> &radiiMin, const boo
     transform(freqMin.begin(), freqMin.end(), freqMin.begin(), bind2nd(divides<double>(), 2.0));
     if(!quiet)
     {
+        cout << "Size min (";
+		copy(radiiMin.begin(),radiiMin.end(),ostream_iterator<double>(cout,","));
+		cout<<") ... ";
+		cout << "Size max (";
+		copy(radiiMax.begin(),radiiMax.end(),ostream_iterator<double>(cout,","));
+		cout<<") ... ";
     	cout << "Freq max (";
 		copy(freqMax.begin(),freqMax.end(),ostream_iterator<double>(cout,","));
 		cout<<") ... ";
@@ -139,7 +145,7 @@ void Tracker::makeBandPassMask(const boost::array<double,3> &radiiMin, const boo
 		cout<<") ... ";
     }
     //boost::multi_array_ref<bool, 3>portion(data, halfdims);
-    double imin, imax;
+    double imin, imax, jmin, jmax;
     size_t di=0,dj=0;
     //array_type_b::array_view<3>::type::array_view<1>::type line;
 
@@ -152,15 +158,20 @@ void Tracker::makeBandPassMask(const boost::array<double,3> &radiiMin, const boo
 		imax = pow(di / freqMax[0], 2.0);
 		for(array_type_b::value_type::iterator j = i->begin();j!=i->end();++j)
 		{
+		    //cout<<(j-i->begin())<<endl;
+		    jmin = pow(dj / freqMin[1], 2.0);
+		    jmax = pow(dj / freqMax[1], 2.0);
 			size_t kmin = min(
 				j->size(),
-				(size_t)(1+freqMin[2]*sqrt(1.0 - imin - pow(dj / freqMin[1], 2.0)))
+				(imin+jmin>1.0)?0:
+				(size_t)(1+freqMin[2]*sqrt(1.0 - imin - jmin))
 				);
 			size_t kmax = min(
 				j->size(),
-				(size_t)(1+freqMax[2]*sqrt(1.0 - imax - pow(dj / freqMax[1], 2.0)))
+				(imax+jmax>1.0)?kmin:
+				(size_t)(1+freqMax[2]*sqrt(1.0 - imax - jmax))
 				);
-			//cout<<di<<","<<dj<<","<<kmin<<","<<kmax;//<<endl;
+			//cout<<imin<<","<<imax<<","<<jmin<<","<<jmax<<","<<kmin<<","<<kmax;//<<endl;
 			//cout<<" 0->"<<kmin;
 			fill_n(j->begin(), kmin, false);
 			//cout<<"->"<<kmax;

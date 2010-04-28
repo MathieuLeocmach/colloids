@@ -72,7 +72,7 @@ struct ParticlesExporter : public unary_function<const Particles&, void>
         t=0;
         ostringstream nbframes;
         nbframes << size-1;
-        const size_t digits = max(nbframes.str().size(), 1u);
+        const size_t digits = std::max(nbframes.str().size(), (size_t)1);
         ostringstream os;
         os<<outputPath<<"_t%|0"<<digits<<"d|.dat";
         outputFileName.parse(os.str());

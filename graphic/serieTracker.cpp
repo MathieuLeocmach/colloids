@@ -25,7 +25,7 @@
  *
  */
 #include "serieTracker.hpp"
-#include <Cimg.h>
+#include <CImg.h>
 
 using namespace std;
 using namespace cimg_library;
