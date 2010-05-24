@@ -40,21 +40,21 @@ namespace Colloids
 
     /** \brief Bond-Orientational-Order data
      *  Coordinates qlm of the local symmetry on the pair spherical harmonics base Ylm(theta,phi)
-     *   0 <= l <=6 (pair)
+     *   0 <= l <=10 (pair)
      *  -l <= m <=l
      *  conjugate of Ylm is (-1)^m * Yl(-m) so only positive m coefficients are kept in memory
     */
     class BooData : public std::valarray< std::complex<double> >
     {
-        static size_t w3j_l_offset[4],w3j_m1_offset[7];
+        static size_t w3j_l_offset[6],w3j_m1_offset[11];
         public:
-            /** the non redundant wigner 3j coefficients for l=0,2,4,6 */
-            static double w3j[30];
+            /** the non redundant wigner 3j coefficients for l=0,2,4,6,8,10 */
+            static double w3j[91];
             static double &getW3j(const size_t &l, const int &m1, const int &m2);
-            static size_t i2l[16], i2m[16];
+            static size_t i2l[36], i2m[36];
 
             /** \brief default constructor */
-            BooData() : std::valarray< std::complex <double> >(std::complex <double>(0.0,0.0),16){return;};
+            BooData() : std::valarray< std::complex <double> >(std::complex <double>(0.0,0.0),36){return;};
             explicit BooData(const Coord &rij);
             explicit BooData(const std::string &str);
             explicit BooData(const double* buff);
@@ -99,9 +99,11 @@ namespace Colloids
 	{
 		std::string operator()(const BooData &boo)
 		{
-			boost::array<double, 4> qw;
-			boo.getInvarients(4, qw[0], qw[2]);
-			boo.getInvarients(6, qw[1], qw[3]);
+			boost::array<double, 8> qw;
+			boo.getInvarients(4, qw[0], qw[4]);
+			boo.getInvarients(6, qw[1], qw[5]);
+			boo.getInvarients(8, qw[2], qw[6]);
+			boo.getInvarients(10, qw[3], qw[7]);
 			std::ostringstream os;
 			std::copy(qw.begin(), qw.end(), std::ostream_iterator<double>(os, "\t"));
 			return os.str();

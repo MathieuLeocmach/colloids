@@ -34,34 +34,66 @@ using namespace std;
 using namespace Colloids;
 //using namespace tvmet;
 
-double BooData::w3j[30] = {
+double BooData::w3j[91] = {
     //l=0
     1,
     //l=2
-    -0.239045722,				//(0, 0,0)
-    0.119522861,				//(1,-1,0)
-    0.239045722,-0.292770022,	//(2,-2,0),(2,-1,-1)
+    -sqrt(2/35.),				//(0, 0,0)
+    sqrt(1/70.),				//(1,-1,0)
+    sqrt(2/35.),-sqrt(3/35.),	//(2,-2,0),(2,-1,-1)
     //l=4
-    0.134097047,							//(0, 0,0)
-    -0.067048523,							//(1,-1,0)
-    -0.081948195,0.141350699,				//(2,-2,0),(2,-1,-1)
-    0.156446555,-0.062329799,				//(3,-3,0),(3,-2,-1)
-    0.104297703,-0.164909148,0.186989398,	//(4,-4,0),(4,-3,-1),(4,-2,-2)
+    3*sqrt(2/1001.),							        //(0, 0,0)
+    -3*sqrt(1/2002.),							        //(1,-1,0)
+    -sqrt(11/182.)/3, 2*sqrt(5/1001.),				    //(2,-2,0),(2,-1,-1)
+    sqrt(7/286.), -sqrt(5/143.)/3,				        //(3,-3,0),(3,-2,-1)
+    sqrt(14/143.)/3, -sqrt(35/143.)/3, sqrt(5/143.),	//(4,-4,0),(4,-3,-1),(4,-2,-2)
     //l=6
-    -0.0930595,											//(0, 0,0)
-    0.04652975,											//(1,-1,0)
-    0.051182725,-0.095357612,							//(2,-2,0),(2,-1,-1)
-    -0.100038963,0.045232087,							//(3,-3,0),(3,-2,-1)
-    0.0186119,0.068818428,-0.10445903,					//(4,-4,0),(4,-3,-1),(4,-2,-2)
-    0.127956813,-0.106078646,0.04082969,				//(5,-5,0),(5,-4,-1),(5,-3,-2)
-    0.051182725,-0.095754111,0.129114817,-0.141438195	//(6,-6,0),(6,-5,-1),(6,-4,-2),(6,-3,-3)
+    -20*sqrt(1/46189.),									                //(0, 0,0)
+    10*sqrt(1/46189.),									                //(1,-1,0)
+    sqrt(11/4199.), -2*sqrt(105/46189.),					            //(2,-2,0),(2,-1,-1)
+    -43*sqrt(1/46189.)/2, 3*sqrt(21/92378.),			                //(3,-3,0),(3,-2,-1)
+    4*sqrt(1/46189.), 2.5*sqrt(35/46189.), -6*sqrt(14/46189.),          //(4,-4,0),(4,-3,-1),(4,-2,-2)
+    2.5*sqrt(11/4199.), -3*sqrt(21/4199.)/2, sqrt(7/4199.) ,	        //(5,-5,0),(5,-4,-1),(5,-3,-2)
+    sqrt(11/4199.), -sqrt(77/8398.), sqrt(70/4199.), -2*sqrt(21/4199.), //(6,-6,0),(6,-5,-1),(6,-4,-2),(6,-3,-3)
+    //l=8
+    7*sqrt(10/96577.),                                                                          //(0, 0,0)
+    -7*sqrt(5/193154.),                                                                         //(1,-1,0)
+    -37*sqrt(1/965770.), 6*sqrt(14/96577.),                                                     //(2,-2,0),(2,-1,-1)
+    73*sqrt(1/965770.), -3*sqrt(66/482885.),                                                    //(3,-3,0),(3,-2,-1)
+    -5*sqrt(5/193154.), -8*sqrt(3/96577.), 6*sqrt(77/482885.),                                  //(4,-4,0),(4,-3,-1),(4,-2,-2)
+    -sqrt(65/14858.), 3*sqrt(5/7429.), -sqrt(42/37145.),                                        //(5,-5,0),(5,-4,-1),(5,-3,-2)
+    sqrt(65/14858.), 0.0, -3*sqrt(3/7429.), 2*sqrt(66/37145.),                                  //(6,-6,0),(6,-5,-1),(6,-4,-2),(6,-3,-3)
+    7*sqrt(13/74290.), -sqrt(78/7429.), 3*sqrt(26/37145.), -sqrt(33/37145.),                    //(7,-7,0),(7,-6,-1),(7,-5,-2),(7,-4,-3)
+    sqrt(26/37145.), -3*sqrt(13/37145.), sqrt(273/37145.), -sqrt(429/37145.), 3*sqrt(11/7429.), //(8,-8,0),(8,-7,-1),(8,-6,-2),(8,-5,-3),(8,-4,-4)
+    //l=10
+    -126*sqrt(7/33393355.), //( 0,  0,0)
+    63*sqrt(7/33393355.),   //( 1, -1,0)
+    196*sqrt(7/33393355.)/3, -7*sqrt(462/6678671.),     //( 2, -2,0),( 2,-1,-1)
+    -259*sqrt(7/33393355.)/2, 7*sqrt(1001/6678671.)/3,  //( 3, -3,0),( 3,-2,-1)
+    1097*sqrt(1/233753485.)/3, 59*sqrt(77/6678671.)/6, -2*sqrt(6006/6678671.),      //( 4, -4,0),( 4,-3,-1),( 4,-2,-2)
+    4021*sqrt(1/233753485.)/6, -113*sqrt(55/46750697.)/2, 3*sqrt(1155/13357342.),   //( 5, -5,0),( 5,-4,-1),( 5,-3,-2)
+    -914*sqrt(1/233753485.), sqrt(2926/1757545.)/3, 48*sqrt(33/46750697.), -3*sqrt(3003/6678671.),  //( 6, -6,0),( 6,-5,-1),( 6,-4,-2),( 6,-3,-3)
+    -7*sqrt(119/1964315.)/3, 65*sqrt(22/2750041.)/3, -sqrt(1914/474145.), 3*sqrt(429/5500082.),     //( 7, -7,0),( 7,-6,-1),( 7,-5,-2),( 7,-4,-3)
+    214*sqrt(17/13750205.)/3, -3*sqrt(561/2750041.), -2*sqrt(77/392863.)/3, 71*sqrt(143/27500410.)/3, -sqrt(2002/392863.),  //( 8, -8,0),( 8,-7,-1),( 8,-6,-2),( 8,-5,-3),( 8,-4,-4)
+    3*sqrt(323/723695.), -sqrt(1309/20677.)/3, 5*sqrt(374/144739.)/3, -2*sqrt(143/144739.), sqrt(1001/206770.)/3,           //( 9, -9,0),( 9,-8,-1),( 9,-7,-2),( 9,-6,-3),( 9,-5,-4)
+    2*sqrt(323/723695.)/3, -sqrt(7106/723695.)/3, 2*sqrt(561/723695.), -4*sqrt(2431/723695.)/3, 2*sqrt(2002/103385.)/3, -sqrt(1001/103385.) //(10,-10,0),(10,-9,-1),(10,-8,-2),(10,-7,-3),(10,-6,-4),(10,-5,-5)
 };
 
-size_t BooData::w3j_l_offset[4] = {0,1,5,14};
-size_t BooData::w3j_m1_offset[7] = {0,1,2,4,6,9,12};
+size_t BooData::w3j_l_offset[6] = {0,1,5,14,30,55};
+size_t BooData::w3j_m1_offset[11] = {0,1,2,4,6,9,12,16,20,25,30};
 
-size_t BooData::i2l[16] = {0, 2, 2, 2, 4, 4, 4, 4, 4, 6, 6, 6, 6, 6, 6, 6};
-size_t BooData::i2m[16] = {0, 0, 1, 2, 0, 1, 2, 3, 4, 0, 1, 2, 3, 4, 5, 6};
+size_t BooData::i2l[36] = {0,
+                           2, 2, 2,
+                           4, 4, 4, 4, 4,
+                           6, 6, 6, 6, 6, 6, 6,
+                           8, 8, 8, 8, 8, 8, 8, 8, 8,
+                           10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10};
+size_t BooData::i2m[36] = {0,
+                           0, 1, 2,
+                           0, 1, 2, 3, 4,
+                           0, 1, 2, 3, 4, 5, 6,
+                           0, 1, 2, 3, 4, 5, 6, 7, 8,
+                           0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
 
 /** @brief get the value of the Wigner 3j symbol ((l,l,l),(m1,m2,-m1-m2))
  *  l even
@@ -80,7 +112,7 @@ double & BooData::getW3j(const size_t &l, const int &m1, const int &m2)
 
 
 /** \brief constructor from one bond */
-BooData::BooData(const Coord &rij): valarray< complex <double> >(16)
+BooData::BooData(const Coord &rij): valarray< complex <double> >(36)
 {
     Coord diff(3);
 	double theta, phi;
@@ -96,7 +128,7 @@ BooData::BooData(const Coord &rij): valarray< complex <double> >(16)
 	else phi = atan( diff[1] / diff[0]) + (diff[0] > 0.0 ? 0.0 :M_PI);
 
 	//fill in with spherical harmonics
-	for(int i=0; i<16; ++i)
+	for(int i=0; i<36; ++i)
         (*this)[i] = boost::math::spherical_harmonic(i2l[i], i2m[i], theta, phi);
     return;
 }
@@ -181,7 +213,7 @@ void BooData::getInvarients(const size_t &l, double &Q, std::complex<double> &W)
 string BooData::toString() const
 {
     ostringstream oss;
-    for(size_t i=0;i<16;++i)
+    for(size_t i=0;i<size();++i)
         oss<<(*this)[i]<<"\t";
     return oss.str();
 }
@@ -191,7 +223,7 @@ string BooData::toString() const
  BooData::BooData(const std::string &str): valarray< complex <double> >(complex <double>(0.0,0.0),16)
 {
     istringstream iss(str);
-    for(size_t i=0;i<16;++i)
+    for(size_t i=0;i<36;++i)
         iss>>(*this)[i];
     return;
 }
@@ -201,7 +233,7 @@ string BooData::toString() const
   */
 char * BooData::toBinary(double* output) const
 {
-    for(size_t i=0;i<16;++i)
+    for(size_t i=0;i<size();++i)
     {
         *(output+2*i) = (*this)[i].real();
         *(output+2*i+1) = (*this)[i].imag();
@@ -209,11 +241,11 @@ char * BooData::toBinary(double* output) const
     return (char*)output;
 }
 
-/** @brief constructor form a buffer of 32 doubles
+/** @brief constructor form a buffer of 72 doubles
   */
-BooData::BooData(const double* buff) : std::valarray< std::complex <double> >(std::complex <double>(0.0,0.0),16)
+BooData::BooData(const double* buff) : std::valarray< std::complex <double> >(std::complex <double>(0.0,0.0),36)
 {
-	for(size_t i=0;i<16;++i)
+	for(size_t i=0;i<36;++i)
 		(*this)[i] = complex<double>(*(buff+2*i),*(buff+2*i+1));
 	return;
 }
@@ -221,7 +253,7 @@ BooData::BooData(const double* buff) : std::valarray< std::complex <double> >(st
 /** \brief output to a stream */
 ostream& Colloids::operator<< (ostream& out, const BooData &boo )
 {
-	for(size_t i=0;i<16;++i)
+	for(size_t i=0;i<boo.size();++i)
         out << boo[i].real() <<"\t"<< boo[i].imag() <<"\t";
 
     return out;
@@ -231,7 +263,7 @@ ostream& Colloids::operator<< (ostream& out, const BooData &boo )
 istream& Colloids::operator>> (istream& in, BooData &boo )
 {
 	double re, im;
-	for(size_t i=0;i<16;++i)
+	for(size_t i=0;i<boo.size();++i)
 	{
         in >> re >> im;
         boo[i] = complex<double>(re, im);
