@@ -165,6 +165,9 @@ namespace Colloids
             boost::array<double,180> getAngularDistribution(const size_t &numPt) const;
             boost::array<double,180> getMeanAngularDistribution(const NgbList &selection) const;
 
+            /**Common neighbour analysis */
+            void getSP5c(std::vector< std::vector<size_t> > &SP5c) const;
+
             /** histograms*/
             struct Binner : public std::binary_function<const size_t &,const size_t &,void>
             {

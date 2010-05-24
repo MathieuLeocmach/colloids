@@ -537,6 +537,30 @@ boost::array<double,180> Particles::getAngularDistribution(const size_t &numPt) 
     return angD;
 }*/
 
+/**
+    \brief get the SP5c clusters (TCC, Williams 2008) = Honeycut & Andersen's 1551 pairs
+*/
+void Particles::getSP5c(std::vector< std::vector<size_t> > &SP5c) const
+{
+    for(size_t p=0;p<getNgbList().size();++p)
+		for(vector<size_t>::const_iterator q=lower_bound(getNgbList()[p].begin(), getNgbList()[p].end(), p+1); q!=getNgbList()[p].end();++q)
+		{
+            //find the common neighbours of p and q
+            vector<size_t> common;
+            common.reserve(max(getNgbList()[p].size(), getNgbList()[*q].size())+1);
+            common.push_back(p);
+            common.push_back(*q);
+            set_intersection(
+                getNgbList()[p].begin(), getNgbList()[p].end(),
+                getNgbList()[*q].begin(), getNgbList()[*q].end(),
+                back_inserter(common)
+                );
+            if(common.size()==7)
+                SP5c.push_back(common);
+            //should look here if it's a ring or not, but not crucial if non voronoi bonds
+		}
+}
+
 Particles::Binner::~Binner(void){};
 
 /**	\brief Bin the particles given by selection (coupled to their neighbours). */
