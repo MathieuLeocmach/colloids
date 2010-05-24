@@ -65,32 +65,55 @@ int main(int argc, char ** argv)
 #endif
 		//select interesting particles and load (or make) bonds
 		vector<size_t> inside, secondInside;
-		BondSet bonds = loadBonds(inputPath+".bonds");
-		if(bonds.empty())
+		try
 		{
-			parts.makeRTreeIndex();
-			parts.makeNgbList(1.3);
-			bonds = parts.getBonds();
-			ofstream bondFile((inputPath+".bonds").c_str(), ios::out | ios::trunc);
-			for(deque<pair<size_t, size_t> >::const_iterator b=bonds.begin(); b!= bonds.end();++b)
-				bondFile<<b->first<<" "<<b->second<<"\n";
-			inside = parts.selectInside(1.3*radius);
-			secondInside = parts.selectInside(2.0*1.3*radius);
-		}
-		else
-		{
-			parts.makeNgbList(bonds);
+            BondSet bonds = loadBonds(inputPath+".bonds");
+            parts.makeNgbList(bonds);
 			inside = parts.selectInside_noindex(1.3*radius);
 			secondInside = parts.selectInside_noindex(2.0*1.3*radius);
 		}
+		catch(invalid_argument &e)
+		{
+		    cout<<"bond network ";
+            boost::progress_timer ti;
+			parts.makeRTreeIndex();
+			parts.makeNgbList(1.3);
+			BondSet bonds = parts.getBonds();
+			ofstream bondFile((inputPath+".bonds").c_str(), ios::out | ios::trunc);
+			for(BondSet::const_iterator b=bonds.begin(); b!= bonds.end();++b)
+				bondFile<<b->high()<<" "<<b->low()<<"\n";
+			inside = parts.selectInside(1.3*radius);
+			secondInside = parts.selectInside(2.0*1.3*radius);
+		}
 
 		//calculate and export qlm
-		vector<BooData> qlm, qlm_cg;
-{
-boost::progress_timer ti;
-		parts.getBOOs(inside, qlm);
-		parts.getCgBOOs(secondInside, qlm, qlm_cg);
-}
+		vector<BooData> qlm, qlm_cg, qlm_sf;
+        {
+            cout<<"usual boo ";
+            boost::progress_timer ti;
+            parts.getBOOs(inside, qlm);
+        }
+		{
+            cout<<"coarse grained ";
+            boost::progress_timer ti;
+            parts.getCgBOOs(secondInside, qlm, qlm_cg);
+		}
+		{
+		    cout<<"surface boo ";
+            boost::progress_timer ti;
+            parts.getSurfBOOs(qlm_sf);
+
+            size_t p=0;
+            for(vector<size_t>::const_iterator it = inside.begin(); it!=inside.end(); ++it)
+            {
+                while(p<*it)
+                    qlm_sf[p++] = BooData();
+                p=(*it)+1;
+            }
+            for(size_t p=inside.back(); p<parts.size(); ++p)
+                    qlm_sf[p] = BooData();
+
+        }
 		ofstream qlmFile((inputPath+".qlm").c_str(), ios::out | ios::trunc);
 		copy(
 			qlm_cg.begin(), qlm_cg.end(),
@@ -115,6 +138,15 @@ boost::progress_timer ti;
 			cloud_exporter()
 			);
 		cloud_cgFile.close();
+
+		ofstream cloud_sfFile((head+"_surf"+neck+".cloud").c_str(), ios::out | ios::trunc);
+		cloud_cgFile<<"#Q4\tQ6\tW4\tW6"<<endl;
+		transform(
+			qlm_sf.begin(), qlm_sf.end(),
+			ostream_iterator<string>(cloud_sfFile,"\n"),
+			cloud_exporter()
+			);
+		cloud_sfFile.close();
     }
     catch(const exception &e)
     {

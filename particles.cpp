@@ -391,6 +391,44 @@ void Particles::getCgBOOs(const vector<size_t> &selection, const std::vector<Boo
         cgBOO[selection[p]] = getCgBOO(BOO, selection[p]);
 }
 
+/**
+    \brief get the bond orientational order including surface bonds for all particles
+*/
+void Particles::getSurfBOOs(std::vector<BooData> &BOO) const
+{
+    BOO.resize(size());
+    vector<size_t> nbs(size(),0);
+    for(size_t p=0;p<getNgbList().size();++p)
+		for(vector<size_t>::const_iterator q=lower_bound(getNgbList()[p].begin(), getNgbList()[p].end(), p+1); q!=getNgbList()[p].end();++q)
+		{
+		    //calculate the spherical harmonics coefficients of the bond between p and q
+            BooData spharm = sphHarm_OneBond(p, *q);
+            //add it to the qlm of p and q
+            BOO[p] += spharm;
+            nbs[p]++;
+            BOO[*q] += spharm;
+            nbs[*q]++;
+            //find the common neighbours of p and q
+            vector<size_t> common;
+            common.reserve(max(getNgbList()[p].size(), getNgbList()[*q].size())-1);
+            set_intersection(
+                getNgbList()[p].begin(), getNgbList()[p].end(),
+                getNgbList()[*q].begin(), getNgbList()[*q].end(),
+                back_inserter(common)
+                );
+            //add the spherical harmonics coeff to the qlm of the common neighbours of p and q
+            for(vector<size_t>::const_iterator c= common.begin(); c!=common.end(); ++c)
+            {
+                BOO[*c] += spharm;
+                nbs[*c]++;
+            }
+		}
+    //normalize by the number of bonds
+    for(size_t p=0; p<size(); ++p)
+        BOO[p] /= complex<double>(nbs[p], 0);
+}
+
+
 /** @brief export qlm in binary  */
 void Particles::exportQlm(const std::vector<BooData> &BOO, const std::string &outputPath) const
 {

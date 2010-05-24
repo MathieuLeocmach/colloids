@@ -155,6 +155,7 @@ namespace Colloids
             BooData getCgBOO(const std::vector<BooData> &BOO, const size_t &center) const;
             void getBOOs(const std::vector<size_t> &selection, std::vector<BooData> &BOO) const;
             void getCgBOOs(const std::vector<size_t> &selection, const std::vector<BooData> &BOO, std::vector<BooData> &cgBOO) const;
+            void getSurfBOOs(std::vector<BooData> &BOO) const;
             void exportQlm(const std::vector<BooData> &BOO, const std::string &outputPath) const;
             void exportQ6m(const std::vector<BooData> &BOO, const std::string &outputPath) const;
             void load_q6m(const std::string &filename, std::vector<BooData> &BOO) const;
