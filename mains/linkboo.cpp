@@ -76,6 +76,7 @@ int main(int argc, char ** argv)
 				bondSerie = datSerie.changeExt(".bonds"),
 				qlmSerie = datSerie.changeExt(".qlm"),
 				cloudSerie = datSerie.changeExt(".cloud"),
+				surfCloudSerie = datSerie.addPostfix("_surf", ".cloud"),
 				cgCloudSerie = datSerie.addPostfix("_space", ".cloud"),
 				outsideSerie = datSerie.changeExt(".outside"),
 				secondOutsideSerie = datSerie.changeExt(".outside2");
@@ -205,8 +206,10 @@ int main(int argc, char ** argv)
 				secondInside = positions[t].selectInside(2.0*bondLength);
 			}
 			//calculate and export qlm
-			vector<BooData> qlm, qlm_cg;
-			positions[t].getBOOs(inside, qlm);
+			vector<BooData> qlm, qlm_cg, qlm_sf;
+			positions[t].getBOOs_SurfBOOs(qlm, qlm_sf);
+			positions[t].removeOutside(inside, qlm);
+			positions[t].removeOutside(inside, qlm_sf);
 			positions[t].getCgBOOs(secondInside, qlm, qlm_cg);
 			ofstream qlmFile((qlmSerie%t).c_str(), ios::out | ios::trunc);
 			copy(
@@ -217,7 +220,7 @@ int main(int argc, char ** argv)
 
 			//calculate and export invarients
 			ofstream cloudFile((cloudSerie%t).c_str(), ios::out | ios::trunc);
-			cloudFile<<"#Q4\tQ6\tW4\tW6"<<endl;
+			cloudFile<<"#Q4\tQ6\tQ8\tQ10\tW4\tW6\tW8\tW10"<<endl;
 			transform(
 				qlm.begin(), qlm.end(),
 				ostream_iterator<string>(cloudFile,"\n"),
@@ -225,8 +228,17 @@ int main(int argc, char ** argv)
 				);
 			cloudFile.close();
 
+			ofstream surfCloudFile((surfCloudSerie%t).c_str(), ios::out | ios::trunc);
+			surfCloudFile<<"#Q4\tQ6\tQ8\tQ10\tW4\tW6\tW8\tW10"<<endl;
+			transform(
+				qlm_sf.begin(), qlm_sf.end(),
+				ostream_iterator<string>(surfCloudFile,"\n"),
+				cloud_exporter()
+				);
+			surfCloudFile.close();
+
 			ofstream cloud_cgFile((cgCloudSerie%t).c_str(), ios::out | ios::trunc);
-			cloud_cgFile<<"#Q4\tQ6\tW4\tW6"<<endl;
+			cloud_cgFile<<"#Q4\tQ6\tQ8\tQ10\tW4\tW6\tW8\tW10"<<endl;
 			transform(
 				qlm_cg.begin(), qlm_cg.end(),
 				ostream_iterator<string>(cloud_cgFile,"\n"),

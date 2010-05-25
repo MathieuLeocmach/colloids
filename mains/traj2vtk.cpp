@@ -104,13 +104,17 @@ void export_timeBoo(const TrajIndex& trajectories, const size_t& tau, FileSerie 
 	const size_t size = trajectories.inverse.size();
 	FileSerie booSerie = timeBooSerie.changeExt(".cloud");
 	boost::multi_array<double, 2> qw;
-	vector<ScalarDynamicField> scalars(4, ScalarDynamicField(trajectories, tau));
-	for(size_t i=0;i<4;++i)
-		scalars[i].name = prefix+string((i/2)%2?"W":"Q")+string(i%2?"6":"4");
+	vector<ScalarDynamicField> scalars(8, ScalarDynamicField(trajectories, tau));
+	for(size_t i=0;i<scalars.size();++i)
+	{
+	    stringstream o(prefix);
+	    o<<((i/4)?"W":"Q")<<((i%4)*2+4);
+		scalars[i].name = o.str();
+	}
 	for(size_t t=0; t<size; ++t)
 	{
 		//read qw from file
-		boost::array<size_t, 2> shape = {{trajectories.inverse[t].size(), 4}};
+		boost::array<size_t, 2> shape = {{trajectories.inverse[t].size(), scalars.size()}};
 		qw.resize(shape);
 		ifstream cloud((booSerie%t).c_str(), ios::in);
 		string trash;
@@ -127,14 +131,14 @@ void export_timeBoo(const TrajIndex& trajectories, const size_t& tau, FileSerie 
 	//export
 	for(size_t t=0; t<size; ++t)
 	{
-		vector<ScalarField> s(4, ScalarField("", trajectories.inverse[t].size()));
+		vector<ScalarField> s(8, ScalarField("", trajectories.inverse[t].size()));
 		for(int i=0; i<4; ++i)
 			s[i] = scalars[i][t];
 		ofstream f((timeBooSerie%t).c_str(), ios::out | ios::trunc);
-		f<<"#Q4\tQ6\tW4\tW6"<<endl;
+		f<<"#Q4\tQ6\tQ8\tQ10\tW4\tW6\tW8\tW10"<<endl;
 		for(size_t p=0; p<s.front().size(); ++p)
 		{
-			for(size_t i=0;i<4;++i)
+			for(size_t i=0;i<s.size();++i)
 				f << s[i][p]<<"\t";
 			f<<"\n";
 		}
@@ -235,7 +239,7 @@ int main(int argc, char ** argv)
 		FileSerie datSerie(path+pattern, token, size, offset),
 			velSerie = datSerie.changeExt(".vel"),
 			bondSerie = datSerie.changeExt(".bonds"),
-			//timeBooSerie = datSerie.changeExt(".boo"),
+			timeBooSerie = datSerie.changeExt(".boo"),
 			timecgBooSerie = datSerie.addPostfix("_space", ".boo"),
 			lngbSerie = datSerie.changeExt(".lngb"),
 			volSerie = datSerie.addPostfix("_space", ".vol"),
@@ -319,14 +323,14 @@ int main(int argc, char ** argv)
 			export_lostNgb(trajectories, tau, bondSerie, lngbSerie);
 		}
 
-		/*cout<<"Time averaged bond orientational order ... ";
+		cout<<"Time averaged bond orientational order ... ";
 		if(ifstream((timeBooSerie%0).c_str()).good() && ifstream((timeBooSerie%(size-1)).c_str()).good())
 			cout<<"have already been calculated"<<endl;
 		else
 		{
 			cout<<"calculate"<<endl;
 			export_timeBoo(trajectories, tau, timeBooSerie);
-		}*/
+		}
 
 		cout<<"Time averaged coarse grained bond orientational order ... ";
 		if(ifstream((timecgBooSerie%0).c_str()).good() && ifstream((timecgBooSerie%(size-1)).c_str()).good())
@@ -401,13 +405,16 @@ int main(int argc, char ** argv)
 				in.close();
 			}
 
-			vector<ScalarField> scalars(haveVolume?6:5, ScalarField(lngb.begin(), lngb.end(), "lostNgb"));
-			for(int i=0;i<4;++i)
+			vector<ScalarField> scalars(haveVolume?10:9, ScalarField(lngb.begin(), lngb.end(), "lostNgb"));
+			for(int i=0;i<8;++i)
 			{
+			    stringstream o;
+                o<<((i/4)?"W":"Q")<<((i%4)*2+4);
+                scalars[i].name = o.str();
 				scalars[i] = ScalarField(
 					cg_qw.begin(), cg_qw.end(),
-					string((i/2)%2?"W":"Q")+string(i%2?"6":"4"),
-					i%4
+					o.str(),
+					i%8
 					);
 			}
 			if(haveVolume)

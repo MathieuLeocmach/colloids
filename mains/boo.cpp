@@ -89,31 +89,18 @@ int main(int argc, char ** argv)
 		//calculate and export qlm
 		vector<BooData> qlm, qlm_cg, qlm_sf;
         {
-            cout<<"usual boo ";
+            cout<<"boo with and without surface bonds ";
             boost::progress_timer ti;
-            parts.getBOOs(inside, qlm);
+            parts.getBOOs_SurfBOOs(qlm, qlm_sf);
+            parts.removeOutside(inside, qlm);
+            parts.removeOutside(inside, qlm_sf);
         }
 		{
             cout<<"coarse grained ";
             boost::progress_timer ti;
             parts.getCgBOOs(secondInside, qlm, qlm_cg);
 		}
-		{
-		    cout<<"surface boo ";
-            boost::progress_timer ti;
-            parts.getSurfBOOs(qlm_sf);
 
-            size_t p=0;
-            for(vector<size_t>::const_iterator it = inside.begin(); it!=inside.end(); ++it)
-            {
-                while(p<*it)
-                    qlm_sf[p++] = BooData();
-                p=(*it)+1;
-            }
-            for(size_t p=inside.back(); p<parts.size(); ++p)
-                    qlm_sf[p] = BooData();
-
-        }
 		ofstream qlmFile((inputPath+".qlm").c_str(), ios::out | ios::trunc);
 		copy(
 			qlm_cg.begin(), qlm_cg.end(),

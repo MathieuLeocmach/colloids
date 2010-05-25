@@ -153,13 +153,16 @@ namespace Colloids
             BooData sphHarm_OneBond(const size_t &center, const size_t &neighbour) const;
             BooData getBOO(const size_t &center) const;
             BooData getCgBOO(const std::vector<BooData> &BOO, const size_t &center) const;
+            void getBOOs(std::vector<BooData> &BOO) const;
             void getBOOs(const std::vector<size_t> &selection, std::vector<BooData> &BOO) const;
             void getCgBOOs(const std::vector<size_t> &selection, const std::vector<BooData> &BOO, std::vector<BooData> &cgBOO) const;
             void getSurfBOOs(std::vector<BooData> &BOO) const;
+            void getBOOs_SurfBOOs(std::vector<BooData> &BOO, std::vector<BooData> &surfBOO) const;
             void exportQlm(const std::vector<BooData> &BOO, const std::string &outputPath) const;
             void exportQ6m(const std::vector<BooData> &BOO, const std::string &outputPath) const;
             void load_q6m(const std::string &filename, std::vector<BooData> &BOO) const;
             void load_qlm(const std::string &filename, std::vector<BooData> &BOO) const;
+            template<typename T> void removeOutside(const std::vector<size_t> &inside, std::vector<T> &BOO) const;
 
             /**Bond angle distribution related  */
             boost::array<double,180> getAngularDistribution(const size_t &numPt) const;
@@ -306,6 +309,23 @@ namespace Colloids
 		std::valarray<std::complex<double> > prod = (boo[p].getL(6)) * (boo[q].getL(6));
 		g6[r] += 2.0*norm(prod.sum()) - norm(prod[0]);
 	};
+
+	/** @brief remove the values that are not in the selection      */
+	template<typename T>
+    void Particles::removeOutside(const std::vector<size_t> &inside, std::vector<T> &BOO) const
+    {
+        size_t p=0;
+        for(std::vector<size_t>::const_iterator it = inside.begin(); it!=inside.end(); ++it)
+        {
+            while(p<*it)
+                BOO[p] = T();
+            p=(*it)+1;
+        }
+        for(size_t p=inside.back(); p<size(); ++p)
+            BOO[p] = T();
+    }
+
+
 
 };
 #endif

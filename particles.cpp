@@ -374,6 +374,29 @@ BooData Particles::getCgBOO(const std::vector<BooData> &BOO, const size_t &cente
 /**
     \brief get the bond orientational order for all particles
 */
+void Particles::getBOOs(std::vector<BooData> &BOO) const
+{
+    BOO.resize(size());
+    vector<size_t> nbs(size(),0);
+    for(size_t p=0;p<getNgbList().size();++p)
+		for(vector<size_t>::const_iterator q=lower_bound(getNgbList()[p].begin(), getNgbList()[p].end(), p+1); q!=getNgbList()[p].end();++q)
+		{
+		    //calculate the spherical harmonics coefficients of the bond between p and q
+            BooData spharm = sphHarm_OneBond(p, *q);
+            //add it to the qlm of p and q
+            BOO[p] += spharm;
+            nbs[p]++;
+            BOO[*q] += spharm;
+            nbs[*q]++;
+		}
+    //normalize by the number of bonds
+    for(size_t p=0; p<size(); ++p)
+        BOO[p] /= complex<double>(nbs[p], 0);
+}
+
+/**
+    \brief get the bond orientational order for a selection of particles
+*/
 void Particles::getBOOs(const vector<size_t> &selection, std::vector<BooData> &BOO) const
 {
     BOO.resize(size());
@@ -428,6 +451,49 @@ void Particles::getSurfBOOs(std::vector<BooData> &BOO) const
         BOO[p] /= complex<double>(nbs[p], 0);
 }
 
+void Particles::getBOOs_SurfBOOs(std::vector<BooData> &BOO, std::vector<BooData> &surfBOO) const
+{
+    BOO.resize(size());
+    surfBOO.resize(size());
+    vector<size_t> nbs(size(),0);
+    vector<size_t> nbsurf(size(),0);
+    for(size_t p=0;p<getNgbList().size();++p)
+		for(vector<size_t>::const_iterator q=lower_bound(getNgbList()[p].begin(), getNgbList()[p].end(), p+1); q!=getNgbList()[p].end();++q)
+		{
+		    //calculate the spherical harmonics coefficients of the bond between p and q
+            BooData spharm = sphHarm_OneBond(p, *q);
+            //add it to the qlm of p and q
+            BOO[p] += spharm;
+            nbs[p]++;
+            BOO[*q] += spharm;
+            nbs[*q]++;
+            //same for the sum including the surface bonds
+            surfBOO[p] += spharm;
+            nbsurf[p]++;
+            surfBOO[*q] += spharm;
+            nbsurf[*q]++;
+            //find the common neighbours of p and q
+            vector<size_t> common;
+            common.reserve(max(getNgbList()[p].size(), getNgbList()[*q].size())-1);
+            set_intersection(
+                getNgbList()[p].begin(), getNgbList()[p].end(),
+                getNgbList()[*q].begin(), getNgbList()[*q].end(),
+                back_inserter(common)
+                );
+            //add the spherical harmonics coeff to the qlm of the common neighbours of p and q
+            for(vector<size_t>::const_iterator c= common.begin(); c!=common.end(); ++c)
+            {
+                surfBOO[*c] += spharm;
+                nbsurf[*c]++;
+            }
+		}
+    //normalize by the number of bonds
+    for(size_t p=0; p<size(); ++p)
+        BOO[p] /= complex<double>(nbs[p], 0);
+    for(size_t p=0; p<size(); ++p)
+        surfBOO[p] /= complex<double>(nbsurf[p], 0);
+}
+
 
 /** @brief export qlm in binary  */
 void Particles::exportQlm(const std::vector<BooData> &BOO, const std::string &outputPath) const
@@ -437,10 +503,10 @@ void Particles::exportQlm(const std::vector<BooData> &BOO, const std::string &ou
     if(!qlm.is_open())
         throw invalid_argument("No such file as "+outputPath);
 
-    double buffer[32];
+    double buffer[72];
     for(vector<BooData>::const_iterator p=BOO.begin();p!=BOO.end();++p)
     {
-        qlm.write(p->toBinary(&buffer[0]),32*sizeof(double));
+        qlm.write(p->toBinary(&buffer[0]),72*sizeof(double));
     }
     qlm.close();
 }
@@ -752,7 +818,7 @@ double Particles::getVF() const
      return dot(diff*diff).sum()<Sep*Sep ;
 }*/
 
-/** @brief get q4, q6, w4, w6 from a cloud file  */
+/** @brief get rotational invariants ql, wl (l=4 to l=10) from a cloud file  */
 void Particles::loadBoo(const string &filename, boost::multi_array<double,2>&qw) const
 {
 	ifstream cloud(filename.c_str(), ios::in);
@@ -763,7 +829,7 @@ void Particles::loadBoo(const string &filename, boost::multi_array<double,2>&qw)
 	//trashing the header
 	getline(cloud, trash);
 
-	boost::array<size_t, 2> shape = {{size(), 4}};
+	boost::array<size_t, 2> shape = {{size(), 8}};
 	qw.resize(shape);
 	copy(
 		istream_iterator<double>(cloud), istream_iterator<double>(),
