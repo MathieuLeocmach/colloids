@@ -318,7 +318,7 @@ namespace Colloids
         for(std::vector<size_t>::const_iterator it = inside.begin(); it!=inside.end(); ++it)
         {
             while(p<*it)
-                BOO[p] = T();
+                BOO[p++] = T();
             p=(*it)+1;
         }
         for(size_t p=inside.back(); p<size(); ++p)
