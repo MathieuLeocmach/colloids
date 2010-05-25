@@ -131,8 +131,8 @@ void export_timeBoo(const TrajIndex& trajectories, const size_t& tau, FileSerie 
 	//export
 	for(size_t t=0; t<size; ++t)
 	{
-		vector<ScalarField> s(8, ScalarField("", trajectories.inverse[t].size()));
-		for(int i=0; i<4; ++i)
+		vector<ScalarField> s(scalars.size(), ScalarField("", trajectories.inverse[t].size()));
+		for(int i=0; i<s.size(); ++i)
 			s[i] = scalars[i][t];
 		ofstream f((timeBooSerie%t).c_str(), ios::out | ios::trunc);
 		f<<"#Q4\tQ6\tQ8\tQ10\tW4\tW6\tW8\tW10"<<endl;
