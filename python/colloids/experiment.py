@@ -36,14 +36,12 @@ class Experiment:
     """A serie of coordinates and it's derived data"""
 
     def __init__(self, trajPath, T=310, pixel_size=297e-9):
-        """Constructor. If the file.traj exist, read it. Else cut and link."""
+        """Constructor. If the file.traj exist, read it. Else launch linkboo."""
         self.path,self.trajfile = os.path.split(trajPath)
         self.path = os.path.abspath(self.path)
         self.unitLength = pixel_size
         self.T = T
-        if os.path.exists(os.path.join(self.path,self.trajfile)):
-            self.read_traj()
-        else:
+        if not os.path.exists(os.path.join(self.path,self.trajfile)):
             self.head = os.path.splitext(self.trajfile)[0]
             #find size, token and number of digits out of the .dat filenames
             self.digits = 0
@@ -55,9 +53,6 @@ class Experiment:
                 if len(m.group(2)) > self.digits:
                     self.digits = len(m.group(2))
                     self.token = m.group(1)
-            self.cut()
-            #guess radius from g(r)
-            self.radius = self.rdf_radius()
             #guess time interval from file name
             self.dt = 0.0
             m = re.search('([0-9]+)min',self.head)
@@ -66,7 +61,8 @@ class Experiment:
             m = re.search('([0-9]+)s([0-9]*)',self.head)
             if m:
                 self.dt += float(m.group(1)+'.'+m.group(2))
-            self.link()
+            self.linkboo()
+        self.read_traj()
 
     def read_traj(self):
         with open(os.path.join(self.path,self.trajfile),'r') as f:
@@ -100,6 +96,18 @@ class Experiment:
                  ['linker', 
                  self.get_format_string(absPath=False)%0, self.token,
                  self.radius, self.dt,
+                 self.offset,self.size])
+            )
+        os.chdir(actual)
+
+    def linkboo(self):
+        """calculate total g(r), radius, BOO for each time step and link trajectories."""
+        actual = os.getcwd()
+        os.chdir(self.path)
+        subprocess.check_call(map(str,
+                 ['linkboo', 
+                 self.get_format_string(absPath=False)%0, self.token,
+                 self.dt,
                  self.offset,self.size])
             )
         os.chdir(actual)
