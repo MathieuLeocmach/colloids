@@ -463,6 +463,18 @@ class Txp:
     def export_dynamics(self,start,stop,av):
         self.export_msd(start,stop,av)
         self.export_self_isf(start,stop,av)
+
+    def time_correlation(self, postfix='',ext='dat', col=0):
+        """read the particle-wise scalar from a time serie of files and compute the time correlation"""
+        data = np.zeros_like(self.trajs, dtype=float)
+        for t, fname in enum(self.xp):
+            data[:,t] = np.readtxt(fname, usecols=[col])[trajs[:,t]]
+        c=zeros_like(data)
+        for p in range(len(data)):
+            c[p] = np.correlate(data[p],data[p],mode='full')[traj.shape[1]-1:]
+        ret = c.mean(axis=1)
+        ret /= ret[0]
+        return ret
         
     
 def enum(xp,postfix='',ext='dat',absPath=True):
