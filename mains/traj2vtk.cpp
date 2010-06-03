@@ -342,14 +342,14 @@ int main(int argc, char ** argv)
 			export_timeBoo(trajectories, tau, timecgBooSerie, "cg");
 		}
 
-		cout<<"Time averaged surface bond orientational order ... ";
+		/*cout<<"Time averaged surface bond orientational order ... ";
 		if(ifstream((timesfBooSerie%0).c_str()).good() && ifstream((timesfBooSerie%(size-1)).c_str()).good())
 			cout<<"have already been calculated"<<endl;
 		else
 		{
 			cout<<"calculate"<<endl;
 			export_timeBoo(trajectories, tau, timesfBooSerie, "sf");
-		}
+		}*/
 
 		cout<<"Voronoi cell volume fraction ... ";
 		bool haveVolume = ifstream((phiSerie%0).c_str()).good() && ifstream((phiSerie%(size-1)).c_str()).good();
