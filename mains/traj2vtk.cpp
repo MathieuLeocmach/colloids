@@ -42,14 +42,19 @@ void export_lostNgb(const TrajIndex &trajectories, const size_t &tau, FileSerie 
 			dyn[t].push_back(new Ngbs());
 	}
 
-
+    #pragma omp parallel for schedule(static)
 	for(size_t t=0; t<size;++t)
 	{
 		//Easily filled, disordered but easy to sort container. Bad memory perf. But it's just one frame.
 		ListNgbFrame easy(dyn[t].size());
 		//load bonds from file and bin their ends to neighbour list
+		string bondfile;
+		#pragma omp critical
+		{
+		    bondfile = bondSerie%t;
+		}
+		ifstream f(bondfile.c_str());
 		size_t a, b;
-		ifstream f((bondSerie%t).c_str());
 		while(f.good())
 		{
 			f>>a>>b;
@@ -58,7 +63,7 @@ void export_lostNgb(const TrajIndex &trajectories, const size_t &tau, FileSerie 
 		}
 		f.close();
 
-		#pragma omp parallel for shared(easy, dyn) schedule(dynamic)
+		//#pragma omp parallel for shared(easy, dyn) schedule(dynamic)
 		for(size_t p=0;p<easy.size();++p)
 		{
 			//sort each neighbour list
@@ -294,12 +299,18 @@ int main(int argc, char ** argv)
 					tau = loadTau(inputPath + ".isf", size);
 				else
 					tau = atoi(argv[2]);
+                cout<<"relaxation time is "<<tau<<" steps, ie "<<tau*dt<<"s"<<endl;
 				cout<<"calculate velocities"<<endl;
 				#pragma omp parallel for schedule(runtime) shared(parts, tau, velSerie)
 				for(ssize_t t=0; t<parts.getNbTimeSteps(); ++t)
 				{
+				    string velfile;
+				    #pragma omp critical
+				    {
+				        velfile = velSerie%t;
+				    }
 					vector<Coord> vel = parts.velocities(t, (tau+1)/2);
-					ofstream v_f((velSerie%t).c_str(), ios::out | ios::trunc);
+					ofstream v_f(velfile.c_str(), ios::out | ios::trunc);
 					v_f << VectorField(vel.begin(), vel.end(), "V");
 					v_f.close();
 				}

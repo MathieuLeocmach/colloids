@@ -41,13 +41,21 @@ void export_post_lostNgb(const TrajIndex &trajectories, const size_t &tau, FileS
 		for(size_t p=0; p<trajectories.inverse[t].size();++p)
 			dyn[t].push_back(new Ngbs());
 	}
+	{
+	    boost::progress_timer ti;
+	    #pragma omp parallel for schedule(static)
 	for(size_t t=0; t<size;++t)
 	{
 		//Easily filled, disordered but easy to sort container. Bad memory perf. But it's just one frame.
 		ListNgbFrame easy(dyn[t].size());
 		//load bonds from file and bin their ends to neighbour list
-		size_t a, b;
-		ifstream f((bondSerie%t).c_str());
+		string bondfile;
+		#pragma omp critical
+		{
+		    bondfile = bondSerie%t;
+		}
+		ifstream f(bondfile.c_str());
+		size_t a,b;
 		while(f.good())
 		{
 			f>>a>>b;
@@ -56,7 +64,8 @@ void export_post_lostNgb(const TrajIndex &trajectories, const size_t &tau, FileS
 		}
 		f.close();
 
-		#pragma omp parallel for shared(easy, dyn) schedule(dynamic)
+
+		//#pragma omp parallel for shared(easy, dyn) schedule(dynamic)
 		for(size_t p=0;p<easy.size();++p)
 		{
 			//sort each neighbour list
@@ -67,6 +76,8 @@ void export_post_lostNgb(const TrajIndex &trajectories, const size_t &tau, FileS
 			dyn[t][p].assign(easy[p].begin(), easy[p].end());
 		}
     }
+    cout<<"input & assignement\t";
+	}
 
 	//look at the neighbourhood difference between t0 and t0+tau
     for(size_t t0=0; t0<size-tau; ++t0)
