@@ -24,7 +24,7 @@
 using namespace std;
 using namespace Colloids;
 
-void export_post_lostNgb(const TrajIndex &trajectories, const size_t &tau, FileSerie &bondSerie, FileSerie &lngbSerie)
+TrajIndex export_post_lostNgb(const TrajIndex &trajectories, const size_t &tau, FileSerie &bondSerie, FileSerie &lngbSerie)
 {
     const size_t size = trajectories.inverse.size();
     typedef vector<size_t>	Ngbs;
@@ -105,6 +105,39 @@ void export_post_lostNgb(const TrajIndex &trajectories, const size_t &tau, FileS
 			);
 		f.close();
 	}
+
+	//bonus : split the trajectories in neighbourhoods (same neighbours all along)
+	TrajIndex split;
+	{
+	    boost::progress_timer ti;
+	for(TrajIndex::const_iterator tr=trajectories.begin(); tr!=trajectories.end(); ++tr)
+    {
+		split.push_back(Traj(tr->start_time, tr->steps.front()));
+		Traj *s = &split.back();
+		Ngbs *ref_ngb = &dyn[s->start_time][s->steps.front()];
+		for(size_t t=tr->start_time+1; t<=tr->last_time(); ++t)
+		{
+			if(ref_ngb->size()==dyn[t][(*tr)[t]].size() &&
+				equal(
+					ref_ngb->begin(), ref_ngb->end(),
+					dyn[t][(*tr)[t]].begin()
+					))
+			{
+				//in case of unchanged neighbourhood, the trajectory is prolonged
+				s->push_back((*tr)[t]);
+			}
+			else
+			{
+				//if the neighbourhood has changed, a new trajectory begins
+				split.push_back(Traj(t, (*tr)[t]));
+				s = &split.back();
+				ref_ngb = &dyn[s->start_time][s->steps.front()];
+			}
+		}
+	}
+	cout<<"trajectory splitting\t";
+	}
+	return split;
 }
 
 int main(int argc, char ** argv)
@@ -147,7 +180,25 @@ int main(int argc, char ** argv)
 			lngbSerie = datSerie.addPostfix("_post", ".lngb");
 
 		cout<<"Lost Neighbours between t0 and t0+tau..."<<endl;
-		export_post_lostNgb(trajectories, tau, bondSerie, lngbSerie);
+		TrajIndex split = export_post_lostNgb(trajectories, tau, bondSerie, lngbSerie);
+
+		ofstream output((inputPath+"_split.traj").c_str(), ios::out | ios::trunc);
+		if(output.good())
+		{
+			//header
+			output << radius << "\t" << dt << endl;
+
+			//link to the positions files serie
+			output << pattern << endl;
+			output << token << endl;
+			output << offset << "\t" << size << endl;
+
+			//trajectory data
+			output << split;
+
+			output.close();
+		}
+		else cerr << " cannot open the file";
 	}
     catch(const exception &e)
     {
