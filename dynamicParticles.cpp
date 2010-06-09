@@ -950,7 +950,8 @@ void DynamicParticles::makeDynamics(const std::vector< std::vector<size_t> >&set
 	for(size_t s=0;s<sets.size();++s)
 	{
         get_MSD_NGP(sets[s], MSD[s], NGP[s], 0, stop);
-        for(size_t d=0;d<3;++d)
+        #pragma omp parallel for
+        for(int d=0;d<3;++d)
         	ISF[4*s+d] = getSelfISF(sets[s],q[d],0,stop);
 		for(size_t t=0;t<ISF[4*s+3].size();++t)
 		{
