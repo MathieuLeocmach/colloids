@@ -448,7 +448,8 @@ void Particles::getSurfBOOs(std::vector<BooData> &BOO) const
 		}
     //normalize by the number of bonds
     for(size_t p=0; p<size(); ++p)
-        BOO[p] /= complex<double>(nbs[p], 0);
+		if(nbs[p]!=0)
+			BOO[p] /= complex<double>(nbs[p], 0);
 }
 
 void Particles::getBOOs_SurfBOOs(std::vector<BooData> &BOO, std::vector<BooData> &surfBOO) const
@@ -489,9 +490,11 @@ void Particles::getBOOs_SurfBOOs(std::vector<BooData> &BOO, std::vector<BooData>
 		}
     //normalize by the number of bonds
     for(size_t p=0; p<size(); ++p)
-        BOO[p] /= complex<double>(nbs[p], 0);
+		if(nbs[p]!=0)
+			BOO[p] /= complex<double>(nbs[p], 0);
     for(size_t p=0; p<size(); ++p)
-        surfBOO[p] /= complex<double>(nbsurf[p], 0);
+		if(nbsurf[p]!=0)
+			surfBOO[p] /= complex<double>(nbsurf[p], 0);
 }
 
 
