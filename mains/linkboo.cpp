@@ -154,7 +154,7 @@ int main(int argc, char ** argv)
 		//treat each file
 		cout<<"neighbourlist and BOO at each time step"<<endl;
 		boost::progress_display *show_progress;
-		#pragma omp parallel shared(positions, bondLength, show_progress, voro) firstprivate(bondSerie, outsideSerie, secondOutsideSerie, qlmSerie, cloudSerie, cgCloudSerie)
+		#pragma omp parallel shared(positions, bondLength, show_progress, voro) firstprivate(bondSerie, outsideSerie, secondOutsideSerie, cloudSerie, cgCloudSerie)
 		{
 		#pragma omp single
 		show_progress = new boost::progress_display(span);
