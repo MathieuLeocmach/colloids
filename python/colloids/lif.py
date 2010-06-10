@@ -441,27 +441,26 @@ class Serie(SerieHeader):
 
         return displs
 
-            
-def enumByFrame(s):
-    """yield time steps one after the other as a couple (time,numpy array)"""
-    yield 1,s.getFrame()
-    for t in range(1,s.getNbFrames()):
-        yield t,np.fromfile(
-            s.f,
-            dtype=np.ubyte,
-            count=s.getNbPixelsPerFrame()
-            ).reshape(s.getFrameShape())
-
-def enumBySlice(s):
-    """yield 2D slices one after the other as a 3-tuple (time,z,numpy array)"""
-    shape = self.get2DShape()
-    shape.reverse()
-    s.f.seek(s.getOffset())
-    for t in range(s.getNbFrames()):
-        for z in range(s.getNbPixelsPerFrame()/s.getNbPixelsPerSlice()):
-            yield t,z,np.fromfile(
-                s.f,
+    def enumByFrame(self):
+        """yield time steps one after the other as a couple (time,numpy array)"""
+        yield 0,self.getFrame()
+        for t in range(1,self.getNbFrames()):
+            yield t,np.fromfile(
+                self.f,
                 dtype=np.ubyte,
-                count=s.getNbPixelsPerSlice()
-                ).reshape(shape).transpose()
+                count=self.getNbPixelsPerFrame()
+                ).reshape(self.getFrameShape())
+
+    def enumBySlice(self):
+        """yield 2D slices one after the other as a 3-tuple (time,z,numpy array)"""
+        shape = self.get2DShape()
+        shape.reverse()
+        self.f.seek(self.getOffset())
+        for t in range(self.getNbFrames()):
+            for z in range(self.getNbPixelsPerFrame()/self.getNbPixelsPerSlice()):
+                yield t,z,np.fromfile(
+                    self.f,
+                    dtype=np.ubyte,
+                    count=s.getNbPixelsPerSlice()
+                    ).reshape(shape).transpose()
 
