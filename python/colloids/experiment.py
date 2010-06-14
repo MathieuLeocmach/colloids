@@ -19,12 +19,13 @@
 from __future__ import with_statement #for python 2.5, useless in 2.6
 import scipy as sp
 import numpy as np
-import scipy.constants as const
+#import scipy.constants as const
 from scipy.ndimage.filters import gaussian_filter1d
 from scipy.ndimage.morphology import grey_dilation
 import os, os.path, subprocess
-import re, string
+import re, string, math
 from math import exp
+from colloids import vtk
 
 def noNaN(x):
     if x == 'NaN':
@@ -300,6 +301,19 @@ class Experiment:
             )
         return envelope
 
+    def lost_ngb_profile(self, t, Nbins=50, vf=False):
+        """output the lost neighbour profile. Default unit is pixel^-3, or volume fraction"""
+        lngb = np.loadtxt(self.get_format_string(ext='lngb')%t)
+        pos = np.loadtxt(self.get_format_string()%t, skiprows=2)
+        H, xedges, yedges = np.histogram2d(pos[:,-1], lngb, bins=[Nbins,2])
+        H /= pos.ptp(axis=0).prod()/Nbins
+        if(vf):
+            H *= 4 * math.pi * self.radius**3 /3
+        np.savetxt(
+            self.get_format_string('_lngb','hist')%t,
+            np.column_stack((xedges[:-1], H))
+            )
+
 class Txp:
     """Implementig time algorithms in python"""
     
@@ -343,23 +357,81 @@ class Txp:
             pos[t-start] = raw_pos[self.trajs[:,t-start]]
         return pos
 
+    def load_bonds(self, t):
+        oldbonds = np.loadtxt(self.xp.get_format_string(ext='bonds')%t, dtype=long)
+        pos2traj = dict([(p,tr) for tr,p in enumerate(self.trajs[:,t])])
+        newbonds = np.asarray([
+            np.sort([pos2traj[a], pos2traj[b]])
+            for a,b in oldbonds
+            if pos2traj.has_key(a) and pos2traj.has_key(b)
+            ])
+        indices = np.lexsort((newbonds[:,1], newbonds[:,0]))
+        return newbonds[indices]
+
     def remove_drift(self):
         """Remove the average drift between time steps"""
         drift = np.cumsum(np.diff(self.positions,axis=0).mean(axis=1),axis=0)
         sw = np.swapaxes(self.positions[1:],0,1)
         sw -= drift
 
-    def z_slab(self, lowerMargin=0, upperMargin=0):
+    def z_slab(self, bottom, top, allTimes=True):
         """remove all trajectories that are not in the slab
-            defined by lowerMargin and upperMargin"""
-        m = np.amin(self.positions[:,:,-1], axis=1)+lowerMargin
-        M = np.amax(self.positions[:,:,-1], axis=1)-upperMargin
-        self.positions = self.positions[
-            :, np.bitwise_and(
-                np.amin(self.positions[:,:,-1].T>m, axis=1),
-                np.amin(self.positions[:,:,-1].T<M, axis=1)
-                )
-            ]
+            defined by [bottom, top]"""
+        if allTimes:
+            selection = np.unique1d(np.where(
+                np.bitwise_and(
+                    self.positions[:,:,-1]>180,
+                    self.positions[:,:,-1]<280
+                    ))[1])
+        else:
+            selection = np.unique1d(np.where(
+                np.bitwise_and(
+                    self.positions[:,:,-1].max(axis=0)>180,
+                    self.positions[:,:,-1].min(axis=0)<280
+                    )))
+        self.trajs = self.trajs[selection]
+        self.positions = self.positions[:,selection]
+
+    def exclude_null(self, postfix='_space',ext='cloud', col=1):
+        """Remove trajectories having at least a null value in the field given by postfix, ext and col"""
+        field = np.zeros((self.trajs.shape[1], self.trajs.shape[0]))
+        for t, fname in enum(self.xp, postfix=postfix, ext=ext):
+            field[t] = np.loadtxt(fname, usecols=[col])[self.trajs[:,t]]
+        selection = np.where(field.min(axis=0)!=0.0)[0]
+        self.trajs = self.trajs[selection]
+        self.positions = self.positions[:,selection]
+        
+
+    def get_vtk(self, t):
+        """Get a view of a time step as a vtk file. remove_drift recommended before use."""
+	v=vtk.Polydata()
+	v.points=self.positions[t]
+	v.bonds=self.load_bonds(t)
+	cgcloud = np.loadtxt(
+		self.xp.get_format_string(postfix='_space', ext='cloud')%t
+		)[self.trajs[:,t]]
+	v.scalars.append(('Q6',cgcloud[:,1]))
+	v.scalars.append(('W4',cgcloud[:,4]))
+	cloud = np.loadtxt(
+		self.xp.get_format_string(ext='cloud')%t
+		)[self.trajs[:,t]]
+	v.scalars.append(('w6',cloud[:,5]))
+	v.scalars.append(('w10',cloud[:,7]))
+	lngb = np.loadtxt(
+		self.xp.get_format_string(postfix='_post', ext='lngb')%t
+		)[self.trajs[:,t]]
+	v.scalars.append(('lngb',lngb))
+	phi = np.loadtxt(
+		self.xp.get_format_string(postfix='_space', ext='phi')%t,
+		skiprows=2
+		)[self.trajs[:,t]]
+	v.scalars.append(('phi',phi))
+	vel = np.loadtxt(
+		self.xp.get_format_string(ext='vel')%t,
+		skiprows=1
+		)[self.trajs[:,t]]
+	v.vectors.append(('vel', vel-vel.mean(axis=0)))
+	return v
 
 
     def msd(self,start,stop,av):
@@ -372,14 +444,14 @@ class Txp:
                 MSD[1] = ( msd([1,2]) + msd([2,3]) + msd([3,4]))/3
                 MSD[2] = ( msd([1,3]) + msd([2,4]) )/2
                 MSD[3] = msd([1,4])
-	If av>0, the average will be done over av time intervals starting
-	from start, start+1,...,start+av-1
+        If av>0, the average will be done over av time intervals starting
+        from start, start+1,...,start+av-1
             Example : start=1 stop=4 av=2
                 MSD[0] = 1
                 MSD[1] = ( msd([1,2]) + msd([2,3]) )/2
                 MSD[2] = ( msd([1,3]) + msd([2,4]) )/2
                 MSD[3] = ( msd([1,4]) + msd([2,5]) )/2
-	"""
+    """
         A = self.positions[start:stop+av]
         msd = np.zeros((stop-start))
         if av==0:
@@ -419,14 +491,14 @@ class Txp:
                 ISF[1] = ( isf([1,2]) + isf([2,3]) + isf([3,4]))/3
                 ISF[2] = ( isf([1,3]) + isf([2,4]) )/2
                 ISF[3] = isf([1,4])
-	If av>0, the average will be done over av time intervals starting
-	from start, start+1,...,start+av-1
+    If av>0, the average will be done over av time intervals starting
+    from start, start+1,...,start+av-1
             Example : start=1 stop=4 av=2
                 ISF[0] = 1
                 ISF[1] = ( isf([1,2]) + isf([2,3]) )/2
                 ISF[2] = ( isf([1,3]) + isf([2,4]) )/2
                 ISF[3] = ( isf([1,4]) + isf([2,5]) )/2
-	"""
+    """
         A = np.exp(
             self.positions[start:stop+av] * (1j * np.pi / self.xp.radius)
             )
@@ -464,17 +536,27 @@ class Txp:
         self.export_msd(start,stop,av)
         self.export_self_isf(start,stop,av)
 
-    def time_correlation(self, postfix='',ext='dat', col=0):
+    def time_correlation(self, postfix='',ext='dat', col=0, av=10):
         """read the particle-wise scalar from a time serie of files and compute the time correlation"""
-        data = np.zeros_like(self.trajs, dtype=float)
-        for t, fname in enum(self.xp):
-            data[:,t] = np.readtxt(fname, usecols=[col])[trajs[:,t]]
-        c=zeros_like(data)
-        for p in range(len(data)):
-            c[p] = np.correlate(data[p],data[p],mode='full')[traj.shape[1]-1:]
-        ret = c.mean(axis=1)
-        ret /= ret[0]
-        return ret
+        data = np.zeros((self.trajs.shape[1], self.trajs.shape[0]))
+        for t, fname in enum(self.xp, postfix=postfix, ext=ext):
+            data[t] = np.loadtxt(fname, usecols=[col])[self.trajs[:,t]]
+        c=np.zeros((data.shape[0]-av+1))
+        if av==0:
+            for t0, a in enumerate(data):
+                for dt, b in enumerate(data[t0:]):
+                    #average is done over all trajectories
+                    c[dt] += (b*a).mean()
+            for dt, n in enumerate(range(c.shape[1],0,-1)):
+                c[dt] /= n
+            return c/c[0]
+        else:
+            for t0, a in enumerate(data[:av]):
+                for dt, b in enumerate(data[t0:1-av+t0]):
+                    c[dt] += (b*a).mean()
+            c /= av
+            return c/c[0]
+        
         
     
 def enum(xp,postfix='',ext='dat',absPath=True):
@@ -491,3 +573,24 @@ def histz(f):
     """export the density histogram of a .dat file into a .z file"""
     hist, bins = np.histogram(np.loadtxt(f, delimiter='\t', skiprows=2, usecols=[2]))
     np.savetxt(f[:-3]+'z', hist/(bins[1]-bins[0]), fmt='%f', delimiter='\t')
+
+def dilate(field, bonds):
+	ngb = [[n] for n in range(field.shape[0])]
+	for b in bonds:
+		ngb[b[0]].append(b[1])
+		ngb[b[1]].append(b[0])
+	dil = np.zeros_like(field)
+	for p,n in enumerate(ngb):
+		a = field[n]
+		dil[p] = a[np.absolute(a).argmax(axis=0), range(a.shape[1])]
+	return dil
+
+def average(field, bonds):
+	ngb = [[] for n in range(field.shape[0])]
+	for b in bonds:
+		ngb[b[0]].append(b[1])
+		ngb[b[1]].append(b[0])
+	av = np.zeros_like(field)
+	for p,n in enumerate(ngb):
+		av[p] = (field[p]+field[n].mean(axis=0))/2
+	return av
