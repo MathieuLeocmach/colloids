@@ -200,7 +200,7 @@ int main(int argc, char ** argv)
 			else
 			{
 				pattern = filename;
-				token = string(argv[2]);
+ 				token = string(argv[2]);
 				size = atol(argv[3]);
 				offset = (argc<5)?0:atol(argv[4]);
 			}
@@ -209,7 +209,7 @@ int main(int argc, char ** argv)
 				secondOutsideSerie = datSerie.changeExt(".outside2");
 			#endif
 			FileSerie volSerie = datSerie.addPostfix("_space", ".vol"),
-				bondSerie = datSerie.changeExt(".bonds");
+				bondSerie = datSerie.addPostfix("_voro", ".bonds");
 
             boost::progress_display *showProgress;
             #pragma omp parallel shared(radius, showProgress) firstprivate(datSerie, volSerie)
@@ -219,11 +219,16 @@ int main(int argc, char ** argv)
                 #pragma omp for
                 for(size_t t=0; t<size;++t)
                 {
+                    string datfile;
+                    #pragma omp critical
+                    {
+                        datfile = datSerie%t;
+                    }
                 	#ifdef use_periodic
-					PeriodicParticles parts(Nb,b,datSerie%t,radius);
+					PeriodicParticles parts(Nb,b,datfile,radius);
 					VoroContainer con(parts, true);
 					#else
-                    Particles parts(datSerie%t,radius);
+                    Particles parts(datfile,radius);
                     valarray<double> maxi = parts.front(), mini = parts.front();
                     for(Particles::const_iterator p= parts.begin(); p!=parts.end(); ++p)
                         for(int d=0; d<3;++d)
