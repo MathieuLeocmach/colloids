@@ -106,10 +106,11 @@ class Experiment:
         actual = os.getcwd()
         os.chdir(self.path)
         subprocess.check_call(map(str,
-                 ['linkboo', 
-                 self.get_format_string(absPath=False)%0, self.token,
-                 self.dt,
-                 self.offset,self.size])
+                 ['linkboo',
+                  self.get_format_string(absPath=False)%0,
+                  self.token,
+                  self.dt,self.size,
+                  self.offset])
             )
         os.chdir(actual)
 
@@ -123,11 +124,17 @@ class Experiment:
             format_string = os.path.join(self.path,format_string)
         return format_string
 
+    def enum(self,postfix='',ext='dat',absPath=True):
+        """Generator of couples (time, filename)"""
+        format_string = self.get_format_string(postfix,ext,absPath)
+        for t in self.get_range():
+            yield t, (format_string % t)
+
     def mean_Nb(self):
         """Calculate the time averaged number of particles in a frame"""
         if not hasattr(self,'__mean_Nb'):
             nb = 0L
-            for t,name in enum(self):
+            for t,name in self.enum():
                 with open(name,'r') as f:
                     nb += int(re.split("\t",f.readline())[1])
             self.__mean_Nb = float(nb) / self.size
@@ -137,7 +144,7 @@ class Experiment:
         """Calculate the time averaged volume"""
         if not hasattr(self,'__mean_V'):
             V=0
-            for t,name in enum(self):
+            for t,name in self.enum():
                 V += np.ptp(
                     np.loadtxt(name, delimiter='\t', skiprows=2),
                     axis=0).prod()
@@ -151,7 +158,7 @@ class Experiment:
     def rdf_radius(self,force=False):
         """Return the place of the largest (first) peak of the g(r),
         in pixel unit"""
-        name = os.path.join(self.path, self.head + '_total.rdf')
+        name = os.path.join(self.path, self.head + '.rdf')
         if force or not os.path.exists(name):
             subprocess.check_call(map(str,
                   ['totalRdf',self.get_format_string()%0, self.token,
@@ -165,7 +172,7 @@ class Experiment:
     def get_Nb_density(self, averaged=True):
         nbs = np.empty((self.size))
         Vs = np.empty((self.size))
-        for t,fname in enum(self):
+        for t,fname in self.enum():
             coords = np.loadtxt(fname,delimiter='\t', skiprows=2)
             nbs[t-self.offset] = len(coords)
             Vs[t-self.offset] = np.ptp(coords, axis=0).prod()
@@ -178,7 +185,7 @@ class Experiment:
         """Get the number density of a z-slab"""
         nbs = np.empty((self.size))
         Vs = np.empty((self.size))
-        for t,fname in enum(self):
+        for t,fname in self.enum():
             coords = np.loadtxt(fname,delimiter='\t', skiprows=2)
             m = np.amin(coords[:,-1])+lowerMargin
             M = np.amax(coords[:,-1])-upperMargin
@@ -258,16 +265,16 @@ class Experiment:
         output is (r,g6,g)
         """
         if not force:
-            for t, name in enum(self,ext='g6'):
+            for t, name in self.enum(ext='g6'):
                 if not os.path.exists(name):
                     force=True
                     break
         if force:
-            for t, name in enum(self):
+            for t, name in self.enum():
                 subprocess.check_call(map(str,
                     ['g6', name, self.radius, Nbins, nbDiameters]))
         tot = np.zeros((Nbins,3))
-        for t, name in enum(self,ext='g6'):
+        for t, name in self.enum(ext='g6'):
             tot += np.nan_to_num(
                 np.loadtxt(name,converters={0:noNaN,1:noNaN,2:noNaN})
                 )
@@ -317,15 +324,21 @@ class Experiment:
 class Txp:
     """Implementig time algorithms in python"""
     
-    def __init__(self, xp, start=None, size=None):
-        self.xp = xp
-        if not start or start < self.xp.offset:
-            start = self.xp.offset
-        if not size or start+size > self.xp.offset+self.xp.size:
-            size = self.xp.size + self.xp.offset - start
-        self.trajs = self.read_trajs(start, size)
-        self.positions = self.read_pos(start, size)
-        self.remove_drift()
+    def __init__(self, xp=None, start=None, size=None, copy=None):
+        if copy is not None:
+            self.xp = copy.xp
+            self.trajs = np.copy(copy.trajs)
+            self.positions = np.copy(copy.positions)
+            return
+        if xp is not None:
+            self.xp = xp
+            if not start or start < self.xp.offset:
+                start = self.xp.offset
+            if not size or start+size > self.xp.offset+self.xp.size:
+                size = self.xp.size + self.xp.offset - start
+            self.trajs = self.read_trajs(start, size)
+            self.positions = self.read_pos(start, size)
+            self.remove_drift()
 
     def read_trajs(self, start, size):
         """
@@ -350,7 +363,7 @@ class Txp:
     def read_pos(self, start, size):
         """Reads the usefull positions from the .dat files"""
         pos = np.empty((self.trajs.shape[1],self.trajs.shape[0],3))
-        for t, fname in enum(self.xp):
+        for t, fname in self.xp.enum():
             if t<start or t>= start+size:
                 continue
             raw_pos = np.loadtxt(fname,delimiter='\t',skiprows=2)
@@ -380,14 +393,14 @@ class Txp:
         if allTimes:
             selection = np.unique1d(np.where(
                 np.bitwise_and(
-                    self.positions[:,:,-1]>180,
-                    self.positions[:,:,-1]<280
+                    self.positions[:,:,-1]>bottom,
+                    self.positions[:,:,-1]<top
                     ))[1])
         else:
             selection = np.unique1d(np.where(
                 np.bitwise_and(
-                    self.positions[:,:,-1].max(axis=0)>180,
-                    self.positions[:,:,-1].min(axis=0)<280
+                    self.positions[:,:,-1].max(axis=0)>bottom,
+                    self.positions[:,:,-1].min(axis=0)<top
                     )))
         self.trajs = self.trajs[selection]
         self.positions = self.positions[:,selection]
@@ -395,7 +408,7 @@ class Txp:
     def exclude_null(self, postfix='_space',ext='cloud', col=1):
         """Remove trajectories having at least a null value in the field given by postfix, ext and col"""
         field = np.zeros((self.trajs.shape[1], self.trajs.shape[0]))
-        for t, fname in enum(self.xp, postfix=postfix, ext=ext):
+        for t, fname in self.xp.enum(postfix=postfix, ext=ext):
             field[t] = np.loadtxt(fname, usecols=[col])[self.trajs[:,t]]
         selection = np.where(field.min(axis=0)!=0.0)[0]
         self.trajs = self.trajs[selection]
@@ -539,8 +552,9 @@ class Txp:
     def time_correlation(self, postfix='',ext='dat', col=0, av=10):
         """read the particle-wise scalar from a time serie of files and compute the time correlation"""
         data = np.zeros((self.trajs.shape[1], self.trajs.shape[0]))
-        for t, fname in enum(self.xp, postfix=postfix, ext=ext):
+        for t, fname in self.xp.enum(postfix=postfix, ext=ext):
             data[t] = np.loadtxt(fname, usecols=[col])[self.trajs[:,t]]
+        data -= data.mean()
         c=np.zeros((data.shape[0]-av+1))
         if av==0:
             for t0, a in enumerate(data):
@@ -559,11 +573,7 @@ class Txp:
         
         
     
-def enum(xp,postfix='',ext='dat',absPath=True):
-    """Generator of couples (time, filename)"""
-    format_string = xp.get_format_string(postfix,ext,absPath)
-    for t in xp.get_range():
-        yield t, (format_string % t)
+
 
 def br(sigma, T=310, eta=2.22e-3):
         """Brownian time for a particle of diameter sigma (in meters)"""
