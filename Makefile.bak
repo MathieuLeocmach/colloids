@@ -7,29 +7,36 @@ OUTPUT_DIR = /home/mathieu/bin/
 #BOOST_DIR = /home/mathieu/boost
 BOOST_DIR = /usr/local/boost
 VORO_DIR = /home/mathieu/src/voro++/src
+CIMG_DIR = /home/mathieu/src/CImg-1.3.1
 
 #complier related
 CPP = icpc
-CXXFLAGS += -O3 -Wall -I $(BOOST_DIR) -I$(VORO_DIR)
-LDFLAGS += -L$(OUTPUT_DIR)
+CXXFLAGS += -O3 -Wall -I $(BOOST_DIR) -I$(VORO_DIR) -I$(CIMG_DIR) -DTIXML_USE_STL -Dcimg_use_tiff -Dcimg_use_fftw3 -DINSTAL_PATH=\"$(OUTPUT_DIR)\" -DTRACKER_N_THREADS=6
+LDFLAGS += -L$(OUTPUT_DIR) -L/home/lib
 ifeq ($(CPP),icpc)
-	CXXFLAGS += -w1 -xT -parallel -openmp -use-intel-optimized-headers
+	CXXFLAGS += -w1 -xT -parallel -use-intel-optimized-headers -L$(MKLPATH) $(MKLPATH)/libmkl_solver_lp64.a -Wl,--start-group -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -Wl,--end-group -openmp -lpthread
 endif
 
 #OS related
 OS=nux
 LIB_BASE_NAME = particles
+GRAPHIC_LIB_BASE_NAME = graphic_$(LIB_BASE_NAME)
 ifeq ($(OS),win)
 	SONAME = $(LIB_BASE_NAME).dll
+	GRAPHIC_SONAME = $(GRAPHIC_LIB_BASE_NAME).dll
 	EXT = .exe
 	MKDIR_COMMAND =
 else
 	SONAME = lib$(LIB_BASE_NAME).so
+	GRAPHIC_SONAME = lib$(GRAPHIC_LIB_BASE_NAME).so
 	EXT =
 	MKDIR_COMMAND = -p
 endif
 LIB_NAME = $(OUTPUT_DIR)$(SONAME)
+LIB_GRAPHIC_NAME = $(OUTPUT_DIR)$(GRAPHIC_SONAME)
 LIBS += -l$(LIB_BASE_NAME)
+LIBS_GRAPHIC = $(LIBS) -lgdi32 -ltiff -lfftw3f -lboost_program_options -lX11
+#GRAPHIC_FLAGS = -Dcimg_use_tiff -Dcimg_use_fftw3 -DINSTAL_PATH=\"$(OUTPUT_DIR)\"
 
 #following option is -DLINUX even under MinGW
 CXXFLAGS += -DLINUX
@@ -45,39 +52,73 @@ SRC_PERIODIC := rdf.cpp boo.cpp
 OBJ_PERIODIC := $(addprefix $(OBJ_OUTPUT)mains/periodic_, $(SRC_PERIODIC:.cpp=.o) )
 TARGETS_PERIODIC := $(addprefix periodic_, $(basename $(SRC_PERIODIC)))
 
-all: library $(TARGETS) $(TARGETS_PERIODIC)
+SRC_GRAPHIC := $(wildcard graphic/*.cpp)
+HEADER_GRAPHIC := $(wildcard graphic/*.hpp)
+OBJ_GRAPHIC := $(addprefix $(OBJ_OUTPUT), $(SRC_GRAPHIC:.cpp=.o) )
+TARGETS_GRAPHIC := $(notdir $(basename $(wildcard graphic/mains/*.cpp)))
+
+SRC_TINYXML := $(addprefix tinyxml/, tinyxml.cpp tinyxmlparser.cpp tinyxmlerror.cpp tinystr.cpp)
+OBJ_TINYXML := $(addprefix $(OBJ_OUTPUT), $(SRC_TINYXML:.cpp=.o) )
+
+all: library graphiclibrary $(TARGETS) $(TARGETS_PERIODIC)
 
 library: $(LIB_NAME)
+
+graphiclibrary: $(LIB_GRAPHIC_NAME) $(LIB_NAME)
 
 $(LIB_NAME): $(OBJ)
 	-@mkdir $(MKDIR_COMMAND) $(OUTPUT_DIR)
 	@$(CPP) -o $@ -shared $(CXXFLAGS) $^
 
+$(LIB_GRAPHIC_NAME): $(OBJ_GRAPHIC) $(OBJ_TINYXML)
+	-@mkdir $(MKDIR_COMMAND) $(OUTPUT_DIR)
+	@$(CPP) -o $@ -shared $^ $(LDFLAGS) $(LIBS_GRAPHIC) $(GRAPHIC_FLAGS)
+
 #making the target "c:/bin/target.exe" a dependency of the target "target"
-$(foreach tar,$(TARGETS) $(TARGETS_PERIODIC),$(eval $(tar): $(OUTPUT_DIR)$(tar)$(EXT)) )
+$(foreach tar,$(TARGETS) $(TARGETS_PERIODIC) $(TARGETS_GRAPHIC),$(eval $(tar): $(OUTPUT_DIR)$(tar)$(EXT)) )
 
 #linking of each target
 $(foreach tar,$(TARGETS) $(TARGETS_PERIODIC),$(eval $(OUTPUT_DIR)$(tar)$(EXT): $(OBJ_OUTPUT)mains/$(tar).o $(LIB_NAME) ; $(CPP) -o $$@ $$< $(LDFLAGS) $(LIBS) $(CXXFLAGS)))
+$(foreach tar,$(TARGETS_GRAPHIC),$(eval $(OUTPUT_DIR)$(tar)$(EXT): $(OBJ_OUTPUT)graphic/mains/$(tar).o graphiclibrary; $(CPP) -o $$@ $$< $(LDFLAGS) $(GRAPHIC_FLAGS) $(LIBS_GRAPHIC) -l$(GRAPHIC_LIB_BASE_NAME)))
 
 $(OBJ_OUTPUT)%.o: %.cpp $(HEADERS)
 	-@mkdir $(MKDIR_COMMAND) $(OBJ_OUTPUT)
 	@$(CPP) -o $@ -c $< -fPIC $(CXXFLAGS)
 
+$(OBJ_OUTPUT)graphic/%.o: graphic/%.cpp %.hpp $(HEADERS)
+	-@mkdir $(MKDIR_COMMAND) $(OBJ_OUTPUT)graphic
+	@$(CPP) -o $@ -c $< -fPIC $(CXXFLAGS) $(GRAPHIC_FLAGS)
+
 $(OBJ_OUTPUT)mains/%.o: mains/%.cpp
 	-@mkdir $(MKDIR_COMMAND) $(OBJ_OUTPUT)mains
-	@$(CPP) -o $@ -c $< $(CXXFLAGS)
+	@$(CPP) -o $@ -c $< $(CXXFLAGS) $(GRAPHIC_FLAGS)
+
+$(OBJ_OUTPUT)graphic/mains/%.o: graphic/mains/%.cpp $(HEADERS)
+	-@mkdir $(MKDIR_COMMAND) $(OBJ_OUTPUT)graphic/mains
+	@$(CPP) -o $@ -c $< $(CXXFLAGS) $(GRAPHIC_FLAGS)
 
 $(OBJ_OUTPUT)mains/periodic_%.o: mains/%.cpp
 	-@mkdir $(MKDIR_COMMAND) $(OBJ_OUTPUT)mains
 	@$(CPP) -o $@ -c $< $(CXXFLAGS) -Duse_periodic
 
-clean: cleanlibrary $(addprefix clean, $(TARGETS) $(TARGETS_PERIODIC))
+$(OBJ_OUTPUT)tinyxml/%.o: tinyxml/%.cpp
+	-@mkdir $(MKDIR_COMMAND) $(OBJ_OUTPUT)tinyxml
+	@$(CPP) -o $@ -c $< -fPIC $(CXXFLAGS) $(GRAPHIC_FLAGS)
+
+clean: cleanlibrary cleangraphiclibrary $(addprefix clean, $(TARGETS) $(TARGETS_PERIODIC))
 
 cleanlibrary:
 	-@rm -rf $(OBJ_OUTPUT)*.o
 
+cleangraphiclibrary: cleantinyxml
+	-@rm -rf $(OBJ_OUTPUT)graphic/*.o
+
+cleantinyxml:
+	-@rm -rf $(OBJ_OUTPUT)tinyxml/*.o
+
 #cleaning each target
 $(foreach tar,$(TARGETS) $(TARGETS_PERIODIC),$(eval clean$(tar): cleanlibrary; -@rm -rf $(OBJ_OUTPUT)mains/$(tar).o) )
+$(foreach tar,$(TARGETS_GRAPHIC),$(eval clean$(tar): cleanlibrary cleangraphiclibrary; -@rm -rf $(OBJ_OUTPUT)graphic/mains/$(tar).o) )
 
 mrproper: clean
 	-@($(foreach tar, $(TARGETS) $(TARGETS_PERIODIC), rm -rf $(OUTPUT_DIR)$(tar)$(EXT) &&) rm -rf $(LIB_NAME))
