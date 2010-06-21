@@ -45,7 +45,7 @@ namespace Colloids
     	template<class tableInterator>
     	Field(tableInterator first, tableInterator last, const std::string &name, const size_t &column);
 
-    	const double& operator[](const size_t &p) const {return this->values[p];}
+    	const V& operator[](const size_t &p) const {return this->values[p];}
     	size_t size() const {return values.size();}
     };
     typedef Field<double>							ScalarField;
