@@ -77,7 +77,7 @@ namespace Colloids
 			{
 				for(size_t t=0; t<ti.inverse.size(); ++t)
 					this->values.push_back(new std::vector<V>(ti.inverse[t].size(), getNull()));
-				for(size_t t=0; t<(averaging/2)+1; ++t)
+				for(size_t t=0; t<(averaging/2)+1 && t<ti.inverse.size(); ++t)
 					divisors.push_back(std::vector<size_t>(ti.inverse[t].size(), 0));
 			};
 			DynamicField(const TrajIndex &ti, boost::ptr_vector< std::vector<V> > &values, const std::string &name="")
