@@ -79,7 +79,7 @@ namespace Colloids
             size_t &operator[](const size_t &t) throw (TrajError);
             const size_t &operator[](const size_t &t) const throw (TrajError);
             void push_back(const size_t &pos);
-            Traj subtraj(const size_t &t0, const size_t &t0) const;
+            Traj subtraj(const size_t &t0, const size_t &t1) const;
     };
 
     std::istream& operator>> (std::istream& is, Traj& tr );

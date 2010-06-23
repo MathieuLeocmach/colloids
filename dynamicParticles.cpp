@@ -760,7 +760,7 @@ void DynamicParticles::get_MSD_NGP(const std::vector<size_t> &selection, std::ve
 				}
 				nb[stop-start] += 1.0;
 			}
-        #pragma omp parallel for schedule(static) shared(NGP, nb, nb_selection, MSD)
+        #pragma omp parallel for schedule(static) shared(NGP, nb, MSD)
 		for(size_t t=0;t<MSD.size();++t)
 		{
 			NGP[t] *= nb[t] * nb_selection / (3.0 * MSD[t] * MSD[t]);
