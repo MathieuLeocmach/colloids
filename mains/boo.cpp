@@ -121,9 +121,9 @@ int main(int argc, char ** argv)
 		ofstream qlmcgFile((head+"_space"+neck+".qlm").c_str(), ios::out | ios::trunc);
 		copy(
 			qlm_cg.begin(), qlm_cg.end(),
-			ostream_iterator<BooData>(qlmFile,"\n")
+			ostream_iterator<BooData>(qlmcgFile,"\n")
 			);
-		qlmFile.close();
+		qlmcgFile.close();
 
 		//calculate and export invarients
 		ofstream cloudFile((inputPath+".cloud").c_str(), ios::out | ios::trunc);
