@@ -81,35 +81,53 @@ int main(int argc, char ** argv)
 			BondSet bonds = parts.getBonds();
 			ofstream bondFile((inputPath+".bonds").c_str(), ios::out | ios::trunc);
 			for(BondSet::const_iterator b=bonds.begin(); b!= bonds.end();++b)
-				bondFile<<b->high()<<" "<<b->low()<<"\n";
+				bondFile<<b->low()<<" "<<b->high()<<"\n";
 			inside = parts.selectInside(1.3*radius);
 			secondInside = parts.selectInside(2.0*1.3*radius);
 		}
+		const bool empty = inside.empty(), empty2 = secondInside.empty();
+		if(empty)
+			for(size_t p=0; p<parts.size(); ++p)
+				inside.insert(inside.end(), p);
+		if(empty2)
+			for(size_t p=0; p<parts.size(); ++p)
+				secondInside.insert(secondInside.end(), p);
 
 		//calculate and export qlm
 		vector<BooData> qlm, qlm_cg, qlm_sf;
         {
-            cout<<"boo with and without surface bonds ";
+            cout<<"boo with and without surface bonds for "<<inside.size()<<" particles ";
             boost::progress_timer ti;
             parts.getBOOs_SurfBOOs(qlm, qlm_sf);
-            parts.removeOutside(inside, qlm);
-            parts.removeOutside(inside, qlm_sf);
+            if(!empty)
+            {
+            	parts.removeOutside(inside, qlm);
+				parts.removeOutside(inside, qlm_sf);
+            }
         }
 		{
-            cout<<"coarse grained ";
+            cout<<"coarse grained for "<<secondInside.size()<<" particles ";
             boost::progress_timer ti;
             parts.getCgBOOs(secondInside, qlm, qlm_cg);
 		}
 
 		ofstream qlmFile((inputPath+".qlm").c_str(), ios::out | ios::trunc);
 		copy(
+			qlm.begin(), qlm.end(),
+			ostream_iterator<BooData>(qlmFile,"\n")
+			);
+		qlmFile.close();
+
+		ofstream qlmcgFile((head+"_space"+neck+".qlm").c_str(), ios::out | ios::trunc);
+		copy(
 			qlm_cg.begin(), qlm_cg.end(),
 			ostream_iterator<BooData>(qlmFile,"\n")
 			);
+		qlmFile.close();
 
 		//calculate and export invarients
 		ofstream cloudFile((inputPath+".cloud").c_str(), ios::out | ios::trunc);
-		cloudFile<<"#Q4\tQ6\tW4\tW6"<<endl;
+		cloudFile<<"#q4\tq6\tq8\tq10\tw4\tw6\tw8\tw10"<<endl;
 		transform(
 			qlm.begin(), qlm.end(),
 			ostream_iterator<string>(cloudFile,"\n"),
@@ -118,7 +136,7 @@ int main(int argc, char ** argv)
 		cloudFile.close();
 
 		ofstream cloud_cgFile((head+"_space"+neck+".cloud").c_str(), ios::out | ios::trunc);
-		cloud_cgFile<<"#Q4\tQ6\tW4\tW6"<<endl;
+		cloud_cgFile<<"#Q4\tQ6\tQ8\tQ10\tW4\tW6\tW8\tW10"<<endl;
 		transform(
 			qlm_cg.begin(), qlm_cg.end(),
 			ostream_iterator<string>(cloud_cgFile,"\n"),
