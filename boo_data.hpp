@@ -83,18 +83,6 @@ namespace Colloids
     std::ostream& operator<< (std::ostream& out, const BooData &boo );
     std::istream& operator>> (std::istream& in, BooData &boo );
 
-    /**   \brief five-fold bond orientational order */
-    class BooFive : public std::valarray< std::complex<double> >
-    {
-        public:
-            BooFive() : std::valarray< std::complex <double> >(std::complex <double>(0.0,0.0),6){return;};
-            explicit BooFive(const std::valarray<double> &rij);
-
-            double getSumNorm() const;
-
-            double getQ5() const;
-    };
-
     struct cloud_exporter : public std::unary_function<const BooData&, std::string>
 	{
 		std::string operator()(const BooData &boo)
