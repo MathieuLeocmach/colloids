@@ -127,6 +127,7 @@ namespace Colloids
             virtual Coord getDiff(const size_t &from,const size_t &to) const;
             virtual double getAngle(const size_t &origin,const size_t &a,const size_t &b) const;
             virtual std::vector<size_t> selectInside_noindex(const double &margin) const;
+            void loadInside(std::vector<size_t> &inside) const;
 
             /** Index related   */
             static BoundingBox bounds(const Coord &center,const double &r=0.0);
@@ -158,6 +159,7 @@ namespace Colloids
             void getCgBOOs(const std::vector<size_t> &selection, const std::vector<BooData> &BOO, std::vector<BooData> &cgBOO) const;
             void getSurfBOOs(std::vector<BooData> &BOO) const;
             void getBOOs_SurfBOOs(std::vector<BooData> &BOO, std::vector<BooData> &surfBOO) const;
+            void getFlipBOOs(const std::vector<BooData> &BOO, std::vector<BooData> &flipBOO, const BondSet &bonds) const;
             void exportQlm(const std::vector<BooData> &BOO, const std::string &outputPath) const;
             void exportQ6m(const std::vector<BooData> &BOO, const std::string &outputPath) const;
             void load_q6m(const std::string &filename, std::vector<BooData> &BOO) const;
@@ -169,7 +171,10 @@ namespace Colloids
             boost::array<double,180> getMeanAngularDistribution(const NgbList &selection) const;
 
             /**Common neighbour analysis */
+            bool is_ring(std::list<size_t> common) const;
             void getSP5c(std::vector< std::vector<size_t> > &SP5c) const;
+            BondSet get1551pairs() const;
+            BondSet get2331pairs() const;
 
             /** histograms*/
             struct Binner : public std::binary_function<const size_t &,const size_t &,void>

@@ -60,7 +60,7 @@ namespace Colloids
             explicit BooData(const double* buff);
 
             /** \brief access to members */
-            std::complex<double> &operator()(const size_t &l, const size_t &m){return (*this)[m + l*l/4];};
+            //std::complex<double> &operator()(const size_t &l, const size_t &m){return (*this)[m + l*l/4];};
             const std::complex<double> operator()(const size_t &l, const int &m) const;
             double getSumNorm(const size_t &l) const;
             std::valarray<std::complex<double> > getL(const size_t &l) const
@@ -75,6 +75,8 @@ namespace Colloids
                 getInvarients(l,Q,W);
                 w=W.real();
             }
+
+			BooData rotate_by_Pi(const Coord &axis) const;
 
             std::string toString() const;
             char* toBinary(double *output) const;

@@ -497,6 +497,24 @@ void Particles::getBOOs_SurfBOOs(std::vector<BooData> &BOO, std::vector<BooData>
 			surfBOO[p] /= complex<double>(nbsurf[p], 0);
 }
 
+/** @brief coarse grain the bond orientational order along the bonds after half turn rotation.  */
+void Particles::getFlipBOOs(const std::vector<BooData> &BOO, std::vector<BooData> &flipBOO, const BondSet &bonds) const
+{
+	flipBOO = BOO;
+	vector<size_t> nb(BOO.size(), 1);
+	for(BondSet::const_iterator b=bonds.begin(); b!=bonds.end(); ++b)
+	{
+		Coord diff = getDiff(b->low(), b->high());
+		flipBOO[b->low()] += BOO[b->high()].rotate_by_Pi(diff);
+		flipBOO[b->high()] += BOO[b->low()].rotate_by_Pi(diff);
+		nb[b->low()]++;
+		nb[b->high()]++;
+	}
+	for(size_t p=0; p<BOO.size(); ++p)
+		flipBOO[p] /= (double)nb[p];
+}
+
+
 
 /** @brief export qlm in binary  */
 void Particles::exportQlm(const std::vector<BooData> &BOO, const std::string &outputPath) const
@@ -542,7 +560,7 @@ void Particles::load_q6m(const string &filename, vector<BooData> &BOO) const
 	while(!f.eof())
 	{
 		for(size_t m=0;m<=6;++m)
-			f>> BOO[p](6,m);
+			f>> BOO[p][m + 9];
         p++;
 	}
 	f.close();
@@ -606,6 +624,25 @@ boost::array<double,180> Particles::getAngularDistribution(const size_t &numPt) 
     return angD;
 }*/
 
+/** @brief Do the particles listed in common form a ring ?  */
+bool Particles::is_ring(std::list<size_t> common) const
+{
+	for(list<size_t>::const_iterator c=common.begin(); c!=common.end(); ++c)
+	{
+		list<size_t> ringngb;
+		set_intersection(
+			getNgbList()[*c].begin(), getNgbList()[*c].end(),
+			common.begin(), common.end(),
+			back_inserter(ringngb)
+			);
+		if(ringngb.size()!=2)
+			return false;
+	}
+	return true;
+}
+
+
+
 /**
     \brief get the SP5c clusters (TCC, Williams 2008) = Honeycut & Andersen's 1551 pairs
 */
@@ -628,6 +665,67 @@ void Particles::getSP5c(std::vector< std::vector<size_t> > &SP5c) const
                 SP5c.push_back(common);
             //should look here if it's a ring or not, but not crucial if non voronoi bonds
 		}
+}
+
+/** @brief get 1551 pairs of particles (linked particles having exactly 5 common neighbours forming a ring) */
+BondSet Particles::get1551pairs() const
+{
+	BondSet ret;
+	for(size_t p=0; p<getNgbList().size(); ++p)
+		for(vector<size_t>::const_iterator q=lower_bound(getNgbList()[p].begin(), getNgbList()[p].end(), p+1); q!=getNgbList()[p].end();++q)
+		{
+			//find the common neighbours of the two extremities of the bond
+			list<size_t> common;
+			set_intersection(
+                getNgbList()[p].begin(), getNgbList()[p].end(),
+                getNgbList()[*q].begin(), getNgbList()[*q].end(),
+                back_inserter(common)
+                );
+			if(common.size()!=5 || !is_ring(common)) continue;
+
+			ret.insert(ret.end(), Bond(p,*q));
+		}
+	return ret;
+}
+
+/** @brief get 2331 pairs of particles (unlinked particles having exactly 3 common neighbours forming a ring) */
+BondSet Particles::get2331pairs() const
+{
+	BondSet ret;
+	for(size_t p=0; p<getNgbList().size(); ++p)
+	{
+		list<size_t> second_ngb, not_first_ngb;
+		//list the first and second shell
+		for(vector<size_t>::const_iterator c=getNgbList()[p].begin(); c!=getNgbList()[p].end();++c)
+			copy(
+				getNgbList()[*c].begin(), getNgbList()[*c].end(),
+				back_inserter(second_ngb)
+				);
+		second_ngb.sort();
+		second_ngb.unique();
+
+		//reduce to the second shell only
+		set_difference(
+			second_ngb.begin(), second_ngb.end(),
+			getNgbList()[p].begin(), getNgbList()[p].end(),
+			back_inserter(not_first_ngb)
+			);
+
+		for(list<size_t>::const_iterator q=lower_bound(not_first_ngb.begin(), not_first_ngb.end(), p+1); q!=not_first_ngb.end();++q)
+		{
+			//find the common neighbours of the two extremities of the bond
+			list<size_t> common;
+			set_intersection(
+				getNgbList()[p].begin(), getNgbList()[p].end(),
+				getNgbList()[*q].begin(), getNgbList()[*q].end(),
+				back_inserter(common)
+				);
+			if(common.size()!=3 || !is_ring(common)) continue;
+
+			ret.insert(ret.end(), Bond(p,*q));
+		}
+	}
+	return ret;
 }
 
 Particles::Binner::~Binner(void){};

@@ -25,6 +25,7 @@
  */
 
 #include <boost/math/special_functions/spherical_harmonic.hpp>
+#include <boost/math/special_functions/factorials.hpp>
 #include <boost/bind.hpp>
 #include "boo_data.hpp"
 
@@ -207,6 +208,81 @@ void BooData::getInvarients(const size_t &l, double &Q, std::complex<double> &W)
 
     if(1.0 + sumQl != 1.0) W /= pow(sumQl,1.5);
 }
+
+/**	\brief compute the wigner d (small d) matrix */
+double wigner_d(const int &l, const int &m2, const int &m1, const double &c, const double &s)
+{
+	double sum = 0.0;
+	for(int k=max(0, m1-m2); k<=min(l+m1, l-m2); ++k)
+		sum += ((m2-m1+k)%2?-1:1)
+				* pow(c, 2*l+m1-m2-2*k)
+				* pow(s, m2-m1+2*k)
+				/(
+					boost::math::factorial<double>(l+m1-k)
+					* boost::math::factorial<double>(k)
+					* boost::math::factorial<double>(m2-m1+k)
+					* boost::math::factorial<double>(l-m2-k)
+				);
+	return sum * sqrt(
+		boost::math::factorial<double>(l+m2)
+		* boost::math::factorial<double>(l-m2)
+		* boost::math::factorial<double>(l+m1)
+		* boost::math::factorial<double>(l-m1)
+		);
+}
+
+/** @brief rotate the spherical harmonics by Pi around the given axis  */
+BooData BooData::rotate_by_Pi(const Coord &axis) const
+{
+	//get the spherical coordinates of the axis
+	Coord diff(3);
+	double theta, phi;
+    diff = normalize(axis);
+    //orientation of the axis doesn't matter to the final result,
+    //but this way we ensure that theta<=Pi/2
+    if(diff[2]<0.0)
+		diff=-diff;
+    theta = acos(diff[2]);
+	if(1.0+diff[0]*diff[0]==1.0)
+	{
+	    if(1.0+diff[1]*diff[1]==1.0) phi=0.0;
+	    else phi = M_PI / 2.0 * (diff[1] > 0.0 ? 1.0 : -1.0);
+	}
+	else phi = atan( diff[1] / diff[0]) + (diff[0] > 0.0 ? 0.0 :M_PI);
+
+	//The Euler angles are
+	// 	alpha = M_PI - phi,
+	//	beta = 2.0 * theta,
+	//	gamma = phi;
+
+	//subtotals of the Wigner D matrix elements depending only on phi and theta
+	const complex<double>
+		e_alpha = std::exp(complex<double>(0, phi-M_PI)),
+		e_gamma = std::exp(complex<double>(0, -phi));
+	const double
+		&c = diff[2],
+		s = sin(theta);
+	boost::array<complex<double>, 11> e_a;
+	boost::array<complex<double>, 21> e_g;
+	for(int m=0; m<=10; ++m)
+	{
+		e_a[m] = pow(e_alpha, m);
+		e_g[10+m] = pow(e_gamma, m);
+	}
+	for(int m=1; m<=10; ++m)
+		e_g[10-m] = pow(e_gamma, -m);
+
+	//Compute the rotation by applying the Wigner D matrix to the qlm's.
+	BooData res;
+	for(size_t l=0; l<=10; l=l+2)
+		for(size_t m2=0; m2<=l; ++m2)
+			for(int m1=-(int)l; m1<=(int)l; ++m1)
+				res[m2 + l*l/4] += e_a[m2] * wigner_d(l,m2,m1,c,s) * e_g[10+m1] * (*this)(l,m1);
+
+	return res;
+}
+
+
 
 /** @brief Export the inner data to a String
   */
