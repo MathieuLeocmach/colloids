@@ -75,8 +75,11 @@ namespace Colloids
                 getInvarients(l,Q,W);
                 w=W.real();
             }
+            double normedProduct(const BooData &boo, const size_t &l) const;
 
 			BooData rotate_by_Pi(const Coord &axis) const;
+			BooData reflect(const Coord &normal) const;
+			BooData reflect(const Coord &normal, const size_t &l) const;
 
             std::string toString() const;
             char* toBinary(double *output) const;
