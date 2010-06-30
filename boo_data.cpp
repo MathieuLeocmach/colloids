@@ -296,7 +296,6 @@ BooData BooData::rotate_by_Pi(const Coord &axis) const
 
 	//Compute the rotation by applying the Wigner D matrix to the qlm's.
 	BooData res;
-	cout<<endl;
 	for(size_t l=0; l<=10; l=l+2)
 		for(size_t m2=0; m2<=l; ++m2)
 			for(int m1=-(int)l; m1<=(int)l; ++m1)
