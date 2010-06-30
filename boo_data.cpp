@@ -122,14 +122,17 @@ Coord cartesian2spherical(const Coord &cartesian)
 	Coord spherical(0.0,3);
 	//r
 	spherical[0] = norm2(cartesian);
-	if(abs(cartesian[0])==spherical[0] || pow(spherical[0], 2)+1.0 == 1.0)
+	//cout<<"r="<<spherical[0]<<endl;
+	if(abs(cartesian[2])==spherical[0] || pow(spherical[0], 2)+1.0 == 1.0)
 		return spherical;
 	//theta
 	spherical[1] = acos(cartesian[2]/spherical[0]);
+	//cout<<"theta="<<spherical[1]<<endl;
 	//phi
 	spherical[2] = atan2(cartesian[1], cartesian[0]);
 	if(spherical[2]<0)
 		spherical[2] += 2.0*M_PI;
+	//cout<<"phi="<<spherical[2]<<endl;
 	return spherical;
 }
 
@@ -224,7 +227,7 @@ void BooData::getInvarients(const size_t &l, double &Q, std::complex<double> &W)
 double BooData::normedProduct(const BooData &boo, const size_t &l) const
 {
 	double sum = 0.0;
-	for(int m=1; m<=l; ++m)
+	for(int m=1; m<=(int)l; ++m)
 		sum += real((*this)(l,m)*conj(boo(l,m)));
 	sum*=2.0;
 	sum += real((*this)[l*l/4]*boo[l*l/4]);
@@ -259,13 +262,11 @@ double wigner_d(const int &l, const int &m2, const int &m1, const double &c, con
 /** @brief rotate the spherical harmonics by Pi around the given axis  */
 BooData BooData::rotate_by_Pi(const Coord &axis) const
 {
+	//cout<<"cartesian\t"<<axis[0]<<"\t"<<axis[1]<<"\t"<<axis[2]<<endl;
 	//orientation of the axis doesn't matter to the final result,
     //but this way we ensure that theta<=Pi/2
-    Coord spherical(3, 0.0);
-	if(axis[2]<0.0)
-		spherical = cartesian2spherical(-axis);
-	else
-		spherical = cartesian2spherical(axis);
+    Coord spherical = cartesian2spherical(axis * ((axis[2]<0.0)?-1.0:1.0));
+	//cout<<"spherical\t"<<spherical[0]<<"\t"<<spherical[1]<<"\t"<<spherical[2]<<endl;
 
 	//The Euler angles are
 	// 	alpha = M_PI - phi,
@@ -277,8 +278,12 @@ BooData BooData::rotate_by_Pi(const Coord &axis) const
 		e_alpha = std::exp(complex<double>(0, spherical[2]-M_PI)),
 		e_gamma = std::exp(complex<double>(0, -spherical[2]));
 	const double
-		c = cos(spherical[1]),
-		s = sin(spherical[1]);
+		c = cos(M_PI-spherical[1]),
+		s = sin(M_PI-spherical[1]);
+	//cout<<"exp(-i*alpha)="<<e_alpha<<endl;
+	//cout<<"exp(-i*gamma)="<<e_gamma<<endl;
+	//cout<<"cos(beta/2)="<<c<<endl;
+	//cout<<"sin(beta/2)="<<s<<endl;
 	boost::array<complex<double>, 11> e_a;
 	boost::array<complex<double>, 21> e_g;
 	for(int m=0; m<=10; ++m)
@@ -291,6 +296,7 @@ BooData BooData::rotate_by_Pi(const Coord &axis) const
 
 	//Compute the rotation by applying the Wigner D matrix to the qlm's.
 	BooData res;
+	cout<<endl;
 	for(size_t l=0; l<=10; l=l+2)
 		for(size_t m2=0; m2<=l; ++m2)
 			for(int m1=-(int)l; m1<=(int)l; ++m1)
@@ -304,11 +310,7 @@ BooData BooData::reflect(const Coord &normal) const
 {
 	//orientation of the axis doesn't matter to the final result,
     //but this way we ensure that theta<=Pi/2
-    Coord spherical(3, 0.0);
-	if(normal[2]<0.0)
-		spherical = cartesian2spherical(-normal);
-	else
-		spherical = cartesian2spherical(normal);
+    Coord spherical = cartesian2spherical(normal * ((normal[2]<0.0)?-1.0:1.0));
 
 	//rotate by Euler angles (z-y-z convention) alpha=phi, beta=theta, gamma=0 that bring z axis on the normal
 	//reflection on the new (xy) plane
@@ -329,8 +331,8 @@ BooData BooData::reflect(const Coord &normal) const
 		e_g[10-m] = pow(e_gamma, -m);
 
 	double
-		c = cos(spherical[1]/2),
-		s = sin(spherical[1]/2);
+		c = cos(M_PI-spherical[1]/2),
+		s = sin(M_PI-spherical[1]/2);
 
 	BooData rotated, res;
 	for(size_t l=0; l<=10; l=l+2)
@@ -351,11 +353,7 @@ BooData BooData::reflect(const Coord &normal, const size_t &l) const
 {
 	//orientation of the axis doesn't matter to the final result,
     //but this way we ensure that theta<=Pi/2
-    Coord spherical(3, 0.0);
-	if(normal[2]<0.0)
-		spherical = cartesian2spherical(-normal);
-	else
-		spherical = cartesian2spherical(normal);
+    Coord spherical = cartesian2spherical(normal * ((normal[2]<0.0)?-1.0:1.0));
 
 	//rotate by Euler angles (z-y-z convention) alpha=phi, beta=theta, gamma=0 that bring z axis on the normal
 	//reflection on the new (xy) plane
@@ -366,17 +364,17 @@ BooData BooData::reflect(const Coord &normal, const size_t &l) const
 		e_alpha = std::exp(complex<double>(0, -spherical[2])),
 		e_gamma = std::exp(complex<double>(0, spherical[2]));
 	vector< complex<double> > e_a(l+1), e_g(2*l+1);
-	for(int m=0; m<=l; ++m)
+	for(int m=0; m<=(int)l; ++m)
 	{
 		e_a[m] = pow(e_alpha, m);
 		e_g[l+m] = pow(e_gamma, m);
 	}
-	for(int m=1; m<=l; ++m)
+	for(int m=1; m<=(int)l; ++m)
 		e_g[l-m] = pow(e_gamma, -m);
 
 	double
-		c = cos(spherical[1]/2),
-		s = sin(spherical[1]/2);
+		c = cos(M_PI-spherical[1]/2),
+		s = sin(M_PI-spherical[1]/2);
 
 	BooData rotated, res;
 	for(size_t m2=0; m2<=l; ++m2)
