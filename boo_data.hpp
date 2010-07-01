@@ -95,7 +95,7 @@ namespace Colloids
     	/** Tables of powers of trigonometric functions depending on Euler Angles*/
     	boost::array<std::complex<double>, 11> e_a;
 		boost::array<std::complex<double>, 21> e_g;
-		boost::array<double, 21> e_b;
+		boost::array<double, 21> c_b, s_b;
 
 
 		static const double & getPrefactor(const size_t &l, const int &m1, const int &m2)

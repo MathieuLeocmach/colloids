@@ -365,7 +365,7 @@ boost::array<double, 6*11*11> init_prefactor()
 	return ret;
 }
 
-const boost::array<double, 6*11*11> Wigner_D::prefactor(init_prefactor());
+const boost::array<double, 6*11*11> Wigner_D::prefactor = init_prefactor();
 
 /** @brief Wigner_D constructor from Euler angles  */
 Wigner_D::Wigner_D(const double &alpha, const double &beta, const double &gamma)
@@ -383,8 +383,10 @@ Wigner_D::Wigner_D(const double &alpha, const double &beta, const double &gamma)
 	const double
 		c = cos(beta/2.0),
 		s = sin(beta/2.0);
-	for(int i=0; i<(int)e_b.size(); ++i)
-		e_b[i] = pow(c, i) * pow(s, (int)e_b.size()-i);
+	for(int i=0; i<(int)c_b.size(); ++i)
+		c_b[i] = pow(c, i);
+	for(int i=0; i<(int)c_b.size(); ++i)
+		s_b[i] = pow(s, i);
 	return;
 }
 
@@ -394,7 +396,8 @@ double Wigner_D::small_d(const int &l, const int &m2, const int &m1) const
 	double sum = 0.0;
 	for(int k=max(0, m1-m2); k<=min(l+m1, l-m2); ++k)
 		sum += ((m2-m1+k)%2?-1:1)
-				* e_b[2*l+m1-m2-2*k]
+				* c_b[2*l+m1-m2-2*k]
+				* s_b[m2-m1+2*k]
 				/(
 					boost::math::factorial<double>(l+m1-k)
 					* boost::math::factorial<double>(k)
