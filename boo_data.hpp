@@ -79,7 +79,6 @@ namespace Colloids
 
 			BooData rotate_by_Pi(const Coord &axis) const;
 			BooData reflect(const Coord &normal) const;
-			BooData reflect(const Coord &normal, const size_t &l) const;
 
             std::string toString() const;
             char* toBinary(double *output) const;
@@ -87,6 +86,33 @@ namespace Colloids
 
     std::ostream& operator<< (std::ostream& out, const BooData &boo );
     std::istream& operator>> (std::istream& in, BooData &boo );
+
+    /**	\brief Wigner D matrix (large D) to rotate spherical harmonics by Euler angles (alpha, beta, gamma) in zyz convention */
+    class Wigner_D
+    {
+    	/**	\brief The prefactor of Wigner d matrix (small d) is independant of the Euler angles */
+    	static const boost::array<double, 6*11*11> prefactor;
+    	/** Tables of powers of trigonometric functions depending on Euler Angles*/
+    	boost::array<std::complex<double>, 11> e_a;
+		boost::array<std::complex<double>, 21> e_g;
+		boost::array<double, 21> e_b;
+
+
+		static const double & getPrefactor(const size_t &l, const int &m1, const int &m2)
+		{
+			return prefactor[l/2 + 6*abs(m1) + 66*abs(m2)];
+		};
+		double small_d(const int &l, const int &m2, const int &m1) const;
+
+		public:
+			Wigner_D(const double &alpha, const double &beta, const double &gamma);
+			std::complex<double> operator()(const size_t &l, const size_t &m2, const int &m1) const
+			{
+				return e_a[m2] * small_d(l, m2, m1) * e_g[10+m1];
+			};
+    };
+
+
 
     struct cloud_exporter : public std::unary_function<const BooData&, std::string>
 	{

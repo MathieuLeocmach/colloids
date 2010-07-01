@@ -235,76 +235,33 @@ double BooData::normedProduct(const BooData &boo, const size_t &l) const
 	return sum;
 }
 
-
-
-/**	\brief compute the wigner d (small d) matrix */
-double wigner_d(const int &l, const int &m2, const int &m1, const double &c, const double &s)
-{
-	double sum = 0.0;
-	for(int k=max(0, m1-m2); k<=min(l+m1, l-m2); ++k)
-		sum += ((m2-m1+k)%2?-1:1)
-				* pow(c, 2*l+m1-m2-2*k)
-				* pow(s, m2-m1+2*k)
-				/(
-					boost::math::factorial<double>(l+m1-k)
-					* boost::math::factorial<double>(k)
-					* boost::math::factorial<double>(m2-m1+k)
-					* boost::math::factorial<double>(l-m2-k)
-				);
-	return sum * sqrt(
-		boost::math::factorial<double>(l+m2)
-		* boost::math::factorial<double>(l-m2)
-		* boost::math::factorial<double>(l+m1)
-		* boost::math::factorial<double>(l-m1)
-		);
-}
-
 /** @brief rotate the spherical harmonics by Pi around the given axis  */
 BooData BooData::rotate_by_Pi(const Coord &axis) const
 {
-	//cout<<"cartesian\t"<<axis[0]<<"\t"<<axis[1]<<"\t"<<axis[2]<<endl;
 	//orientation of the axis doesn't matter to the final result,
     //but this way we ensure that theta<=Pi/2
     Coord spherical = cartesian2spherical(axis * ((axis[2]<0.0)?-1.0:1.0));
-	//cout<<"spherical\t"<<spherical[0]<<"\t"<<spherical[1]<<"\t"<<spherical[2]<<endl;
 
 	//The Euler angles are
 	// 	alpha = M_PI - phi,
-	//	beta = 2.0 * theta,
+	//	beta = -2.0 * theta,
 	//	gamma = phi;
 
-	//subtotals of the Wigner D matrix elements depending only on phi and theta
-	const complex<double>
-		e_alpha = std::exp(complex<double>(0, spherical[2]-M_PI)),
-		e_gamma = std::exp(complex<double>(0, -spherical[2]));
-	const double
-		c = cos(M_PI-spherical[1]),
-		s = sin(M_PI-spherical[1]);
-	//cout<<"exp(-i*alpha)="<<e_alpha<<endl;
-	//cout<<"exp(-i*gamma)="<<e_gamma<<endl;
-	//cout<<"cos(beta/2)="<<c<<endl;
-	//cout<<"sin(beta/2)="<<s<<endl;
-	boost::array<complex<double>, 11> e_a;
-	boost::array<complex<double>, 21> e_g;
-	for(int m=0; m<=10; ++m)
-	{
-		e_a[m] = pow(e_alpha, m);
-		e_g[10+m] = pow(e_gamma, m);
-	}
-	for(int m=1; m<=10; ++m)
-		e_g[10-m] = pow(e_gamma, -m);
-
-	//Compute the rotation by applying the Wigner D matrix to the qlm's.
+	Wigner_D wD(M_PI-spherical[2], -2.0*spherical[1], spherical[2]);
 	BooData res;
 	for(size_t l=0; l<=10; l=l+2)
 		for(size_t m2=0; m2<=l; ++m2)
 			for(int m1=-(int)l; m1<=(int)l; ++m1)
-				res[m2 + l*l/4] += e_a[m2] * wigner_d(l,m2,m1,c,s) * e_g[10+m1] * (*this)(l,m1);
+				res[m2 + l*l/4] += wD(l, m2, m1) * (*this)(l,m1);
 
 	return res;
 }
 
-/** @brief reflect the spherical harmonics by the plane given by normal  */
+/** @brief reflect the spherical harmonics by the plane given by normal.
+
+	Mathematically equel to the result of rotate_by_Pi for even l.
+	Computationally more intensive.
+  */
 BooData BooData::reflect(const Coord &normal) const
 {
 	//orientation of the axis doesn't matter to the final result,
@@ -314,79 +271,21 @@ BooData BooData::reflect(const Coord &normal) const
 	//rotate by Euler angles (z-y-z convention) alpha=phi, beta=theta, gamma=0 that bring z axis on the normal
 	//reflection on the new (xy) plane
 	//rotate back (alpha=0, beta= -theta, gamma=-phi)
-
-	//subtotals of the Wigner D matrix elements depending only on phi and theta
-	const complex<double>
-		e_alpha = std::exp(complex<double>(0, -spherical[2])),
-		e_gamma = std::exp(complex<double>(0, spherical[2]));
-	boost::array<complex<double>, 11> e_a;
-	boost::array<complex<double>, 21> e_g;
-	for(int m=0; m<=10; ++m)
-	{
-		e_a[m] = pow(e_alpha, m);
-		e_g[10+m] = pow(e_gamma, m);
-	}
-	for(int m=1; m<=10; ++m)
-		e_g[10-m] = pow(e_gamma, -m);
-
-	double
-		c = cos(M_PI-spherical[1]/2),
-		s = sin(M_PI-spherical[1]/2);
+	Wigner_D pos(spherical[2], spherical[1], 0.0), neg(0.0, -spherical[1], -spherical[2]);
 
 	BooData rotated, res;
 	for(size_t l=0; l<=10; l=l+2)
 		for(size_t m2=0; m2<=l; ++m2)
 			for(int m1=-(int)l; m1<=(int)l; ++m1)
-				rotated[m2 + l*l/4] += (((l-m2)%2)?-1.0:1.0) * e_a[m2] * wigner_d(l,m2,m1,c,s) * (*this)(l,m1);
+				rotated[m2 + l*l/4] += (((l-m2)%2)?-1.0:1.0) * pos(l,m2,m1) * (*this)(l,m1);
 
 
 	for(size_t l=0; l<=10; l=l+2)
 		for(size_t m2=0; m2<=l; ++m2)
 			for(int m1=-(int)l; m1<=(int)l; ++m1)
-				res[m2 + l*l/4] += wigner_d(l,m2,m1,c,-s) * e_g[10+m1] * rotated(l,m1);
+				res[m2 + l*l/4] += neg(l,m2,m1) * rotated(l,m1);
 	return res;
 }
-
-/** @brief reflect the spherical harmonics by the plane given by normal, for a given l only (remaining coefficients are zero)  */
-BooData BooData::reflect(const Coord &normal, const size_t &l) const
-{
-	//orientation of the axis doesn't matter to the final result,
-    //but this way we ensure that theta<=Pi/2
-    Coord spherical = cartesian2spherical(normal * ((normal[2]<0.0)?-1.0:1.0));
-
-	//rotate by Euler angles (z-y-z convention) alpha=phi, beta=theta, gamma=0 that bring z axis on the normal
-	//reflection on the new (xy) plane
-	//rotate back (alpha=0, beta= -theta, gamma=-phi)
-
-	//subtotals of the Wigner D matrix elements depending only on phi and theta
-	const complex<double>
-		e_alpha = std::exp(complex<double>(0, -spherical[2])),
-		e_gamma = std::exp(complex<double>(0, spherical[2]));
-	vector< complex<double> > e_a(l+1), e_g(2*l+1);
-	for(int m=0; m<=(int)l; ++m)
-	{
-		e_a[m] = pow(e_alpha, m);
-		e_g[l+m] = pow(e_gamma, m);
-	}
-	for(int m=1; m<=(int)l; ++m)
-		e_g[l-m] = pow(e_gamma, -m);
-
-	double
-		c = cos(M_PI-spherical[1]/2),
-		s = sin(M_PI-spherical[1]/2);
-
-	BooData rotated, res;
-	for(size_t m2=0; m2<=l; ++m2)
-		for(int m1=-(int)l; m1<=(int)l; ++m1)
-			rotated[m2 + l*l/4] += (((l-m2)%2)?-1.0:1.0) * e_a[m2] * wigner_d(l,m2,m1,c,s) * (*this)(l,m1);
-
-	for(size_t m2=0; m2<=l; ++m2)
-		for(int m1=-(int)l; m1<=(int)l; ++m1)
-			res[m2 + l*l/4] += wigner_d(l,m2,m1,c,-s) * e_g[l+m1] * rotated(l,m1);
-	return res;
-}
-
-
 
 /** @brief Export the inner data to a String
   */
@@ -450,3 +349,58 @@ istream& Colloids::operator>> (istream& in, BooData &boo )
 	}
 	return in;
 }
+
+boost::array<double, 6*11*11> init_prefactor()
+{
+	boost::array<double, 6*11*11> ret;
+	for(int l=0; l<=10; l+=2)
+		for(int m1=0; m1<=l; ++m1)
+			for(int m2=0; m2<=l; ++m2)
+				ret[l/2 + 6*m1 + 66*m2] = sqrt(
+					boost::math::factorial<double>(l+m2)
+					* boost::math::factorial<double>(l-m2)
+					* boost::math::factorial<double>(l+m1)
+					* boost::math::factorial<double>(l-m1)
+					);
+	return ret;
+}
+
+const boost::array<double, 6*11*11> Wigner_D::prefactor(init_prefactor());
+
+/** @brief Wigner_D constructor from Euler angles  */
+Wigner_D::Wigner_D(const double &alpha, const double &beta, const double &gamma)
+{
+	const complex<double>
+		e_alpha = std::exp(complex<double>(0, -alpha)),
+		e_gamma = std::exp(complex<double>(0, -gamma));
+	for(int m=0; m<=10; ++m)
+	{
+		e_a[m] = pow(e_alpha, m);
+		e_g[10+m] = pow(e_gamma, m);
+	}
+	for(int m=1; m<=10; ++m)
+		e_g[10-m] = pow(e_gamma, -m);
+	const double
+		c = cos(beta/2.0),
+		s = sin(beta/2.0);
+	for(int i=0; i<(int)e_b.size(); ++i)
+		e_b[i] = pow(c, i) * pow(s, (int)e_b.size()-i);
+	return;
+}
+
+/** @brief return the small_d matrix coefficient  */
+double Wigner_D::small_d(const int &l, const int &m2, const int &m1) const
+{
+	double sum = 0.0;
+	for(int k=max(0, m1-m2); k<=min(l+m1, l-m2); ++k)
+		sum += ((m2-m1+k)%2?-1:1)
+				* e_b[2*l+m1-m2-2*k]
+				/(
+					boost::math::factorial<double>(l+m1-k)
+					* boost::math::factorial<double>(k)
+					* boost::math::factorial<double>(m2-m1+k)
+					* boost::math::factorial<double>(l-m2-k)
+				);
+	return sum * getPrefactor(l, m1, m2);
+}
+
