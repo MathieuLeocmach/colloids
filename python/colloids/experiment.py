@@ -544,6 +544,47 @@ class Txp:
             fmt='%f',
             delimiter='\t'
             )
+    def nonGaussian(self,start,stop,av):
+        """
+        Non gaussian parameter
+        If av is 0 (Default), the calculation will act greedily,
+        averaging over all the avilabe intervals of a given length.
+            Example : start=1 stop=4 av=0
+                alpha[dt=0] = 1
+                alpha[dt=1] = ( alpha([1,2]) + alpha([2,3]) + alpha([3,4]))/3
+                alpha[dt=2] = ( alpha([1,3]) + alpha([2,4]) )/2
+                alpha[dt=3] = msd([1,4])
+        If av>0, the average will be done over av time intervals starting
+        from start, start+1,...,start+av-1
+            Example : start=1 stop=4 av=2
+                alpha[dt=0] = 1
+                alpha[dt=1] = ( alpha([1,2]) + alpha([2,3]) )/2
+                alpha[dt=2] = ( alpha([1,3]) + alpha([2,4]) )/2
+                alpha[dt=3] = ( alpha([1,4]) + alpha([2,5]) )/2
+    """
+        A = self.positions[start:stop+av]
+        msd = np.zeros((stop-start))
+        mqd = np.zeros((stop-start))
+        if av==0:
+            for t0, a in enumerate(A):
+                for dt, b in enumerate(A[t0+1:]):
+                    #average is done over all trajectories and the 3 dimensions
+                    msd[dt+1] += ((b-a)**2).sum()
+                    mqd[dt+1] += ((b-a)**4).sum()
+            msd /= A.shape[1] * A.shape[2] * (self.xp.radius*2)**2
+            mqd /= A.shape[1] * A.shape[2] * (self.xp.radius*2)**4
+            for dt, n in enumerate(range(stop-start,0,-1)):
+                msd[dt+1] /= n
+                mqd[dt+1] /=n
+            return mqd/(3 * msd**2) - 1
+        else:
+            for t0, a in enumerate(A[:av]):
+                for dt, b in enumerate(A[t0+1:-av+t0]):
+                    msd[dt+1] += ((b-a)**2).sum()
+                    mqd[dt+1] += ((b-a)**4).sum()
+            msd /= av * A.shape[1] * A.shape[2]  * (self.xp.radius*2)**2
+            mqd /= av * A.shape[1] * A.shape[2]  * (self.xp.radius*2)**4
+            return mqd/(3 * msd**2) - 1
 
     def export_dynamics(self,start,stop,av):
         self.export_msd(start,stop,av)
