@@ -469,7 +469,7 @@ ChannelData::ChannelData(TiXmlElement *element)
 DimensionData::DimensionData(TiXmlElement *element)
 {
     element->QueryIntAttribute("DimID",&dimID);
-    element->QueryIntAttribute("NumberOfElements",(int*)&numberOfElements);
+    element->QueryIntAttribute("NumberOfElements", &numberOfElements);
     element->QueryDoubleAttribute("Origin",&origin);
     element->QueryDoubleAttribute("Length",&length);
     unit = element->Attribute("Unit");

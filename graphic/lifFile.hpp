@@ -187,7 +187,7 @@ struct ChannelData
 struct DimensionData
 {
     int dimID; // 0 Not valid, 1 X, 2 Y, 3 Z, 4 T, 5 Lambda, 6 Rotation, 7 XT Slices, 8 T Slices
-    size_t numberOfElements; // Number of elements in this dimension
+    int numberOfElements; // Number of elements in this dimension
     double origin; // Physical position of the first element (left pixel side)
     double length; // Physical length from the first left pixel side to the last left pixel side
     std::string unit; // Physical unit

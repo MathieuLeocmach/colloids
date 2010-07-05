@@ -157,7 +157,7 @@ int main(int ac, char* av[])
         po::variables_map vm;
         po::store(po::parse_command_line(ac, av, cmdline_options), vm);
 
-        if (vm.count("help") || !vm.count("modeLIF") && !vm.count("modeSerie"))
+        if (vm.count("help") || (!vm.count("modeLIF") && !vm.count("modeSerie")))
         {
             cout << cmdline_options << "\n";
             return EXIT_SUCCESS;
