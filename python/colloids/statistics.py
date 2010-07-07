@@ -16,20 +16,12 @@ def plot2dhist(datax, datay, title=None, bins=50, normed=False):
         with_='lines',
         title=title)
 
-def meanMap(x, y, values):
-    binx = np.linspace(x.min(), x.max()+x.ptp()/50)
-    biny = np.linspace(y.min(), y.max()+y.ptp()/50)
-    total = np.zeros((50, 50))
-    number = np.zeros((50, 50), dtype=long)
-    for d, v in zip(
-            zip(np.digitize(x, binx), np.digitize(y, biny)),
-            values
-            ):
-            total[d] += v
-            number[d] += 1
-    return np.where(number==0, -1, total/number), binx, biny
+def meanMap(x, y, values, bins=50):
+    number, bx, by = np.histogram2d(x, y, bins)
+    total, bx, by = np.histogram2d(x, y, bins=[bx, by], weights=values)
+    return np.where(number==0, -1, total/number), bx[:-1], by[:-1]
 
-def plotMeanMap(x, y, values, bins=50):
+def plotMeanMap(x, y, values, bins=50, cbmax=None):
     """plot the mean map in order to have real step functions"""
     h, bx, by = meanMap(x, y, values, bins)
     h2 = np.repeat(np.repeat(h, 2, axis=0), 2, axis=1)
@@ -40,8 +32,8 @@ def plotMeanMap(x, y, values, bins=50):
     if not cbmax:
             cbmax = h.max()
     low = np.extract(h>-1, h).min();
-    g('set palette defined (%g "white", %g "black", %g "red", %g "yellow")' % (low-1, low, (cbmax+low)/2, cbmax))
-    g('set cbrange [%g:%g]' % (low-1, cbmax))
+    g('set palette defined (%g "white", %g "black", %g "purple", %g "red", %g "yellow")' % (low-(cbmax-low)/100, low, (cbmax+2*low)/3, (2*cbmax+low)/3, cbmax))
+    g('set cbrange [%g:%g]' % (low-(cbmax-low)/100, cbmax))
     g.splot(Gnuplot.GridData(h2, bx2, by2, binary=0))
 
 def pca(data):
