@@ -339,6 +339,13 @@ class Txp:
             self.trajs = self.read_trajs(start, size)
             self.positions = self.read_pos(start, size)
             self.remove_drift()
+            
+    def __getitem__(self, indices):
+        """get a copy of a selection of trajectories"""
+        c = Txp(copy=self)
+        c.trajs = c.trajs[indices]
+        c.positions = c.positions[:, indices]
+        return c
 
     def read_trajs(self, start, size):
         """
@@ -576,7 +583,6 @@ class Txp:
             for dt, n in enumerate(range(stop-start,0,-1)):
                 msd[dt+1] /= n
                 mqd[dt+1] /=n
-            return mqd/(3 * msd**2) - 1
         else:
             for t0, a in enumerate(A[:av]):
                 for dt, b in enumerate(A[t0+1:-av+t0]):
@@ -584,7 +590,8 @@ class Txp:
                     mqd[dt+1] += ((b-a)**4).sum()
             msd /= av * A.shape[1] * A.shape[2]  * (self.xp.radius*2)**2
             mqd /= av * A.shape[1] * A.shape[2]  * (self.xp.radius*2)**4
-            return mqd/(3 * msd**2) - 1
+        mqd[1:] /= (3 * msd[1:]**2)
+        return mqd-1
 
     def export_dynamics(self,start,stop,av):
         self.export_msd(start,stop,av)
