@@ -82,7 +82,7 @@ class Polydata:
             f.write('POINTS %i double\n' % len(self.points))
             #self.points.tofile(f, sep=' ', format = '%f')
             for p in self.points:
-                p.tofile(f, sep=' ', format = '%f')
+                p.tofile(f, sep=' ', format = '%g')
                 f.write('\n')
 
             size = len(self.bonds)
@@ -99,14 +99,19 @@ class Polydata:
             f.write('POINT_DATA %i\n' % len(self.points))
 
             for name, field in self.scalars:
-                f.write('SCALARS %s double\n'%name)
-                f.write('LOOKUP_TABLE default\n')
-                field.tofile(f, sep='\n', format = '%f')
+                if field.dtype.kind=='i':
+                    f.write('SCALARS %s int\n'%name)
+                    f.write('LOOKUP_TABLE default\n')
+                    field.tofile(f, sep='\n', format = '%i')
+                else:
+                    f.write('SCALARS %s double\n'%name)
+                    f.write('LOOKUP_TABLE default\n')
+                    field.tofile(f, sep='\n', format = '%g')
             for name, field in self.vectors:
                 f.write('VECTORS %s double\n'%name)
                 #field.tofile(f, sep=' ', format = '%f')
                 for v in field:
-                    v.tofile(f, sep=' ', format = '%f')
+                    v.tofile(f, sep=' ', format = '%g')
                     f.write('\n')
 
     def getField(self, name):
