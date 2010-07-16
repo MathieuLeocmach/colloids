@@ -28,11 +28,14 @@ int main(int argc, char ** argv)
 	invalid_argument er(
 		"Bond angle correlation function\n"
 #ifdef use_periodic
-		"Syntax : periodic_g6 [path]filename radius NbOfBins range Nb dx dy dz\n"
+		"Syntax : periodic_g6 [path]filename radius NbOfBins range Nb dx dy dz [mode=0]\n"
 #else
-		"Syntax : g6 [path]filename radius NbOfBins range\n"
+		"Syntax : g6 [path]filename radius NbOfBins range [mode=0 [zmin zmax]]\n"
 #endif
-		" range is in diameter unit");
+		" range is in diameter unit\n"
+		" mode\t0 raw boo\n"
+		"     \t1 coarse grained boo\n"
+		);
 
     try
     {
@@ -55,28 +58,49 @@ int main(int argc, char ** argv)
 			b.edges[d].first=0.0;
 			b.edges[d].second = atof(argv[6+d]);
 		}
+		const bool mode = (argc<10)?0:atoi(argv[9]);
 		PeriodicParticles Centers(Nb,b,filename,radius);
 		cout << "With periodic boundary conditions"<<endl;
 #else
+        const bool mode = (argc<6)?0:atoi(argv[5]);
 		Particles Centers(filename,radius);
 #endif
 		cout << Centers.size() << " particles ... ";
 		Centers.makeRTreeIndex();
 
 		//read q6m
-		vector<BooData> allBoo;
-		Centers.load_qlm(inputPath+".qlm", allBoo);
+		vector<BooData> rawBoo, allBoo;
+		Centers.load_qlm(inputPath+".qlm", rawBoo);
+		if(mode)
+		{
+		    Centers.makeNgbList(loadBonds(inputPath+".bonds"));
+		    Centers.getCgBOOs(Centers.selectInside(4.0*radius*1.3), rawBoo, allBoo);
+		}
+		else
+            allBoo=rawBoo;
 
 		//create binner
 		Particles::G6Binner binner(Centers,Nbins,nbDiameterCutOff,allBoo);
 
 		//select particles and bin them
-		vector<size_t> inside = Centers.selectInside(2.0*radius*(nbDiameterCutOff+2));
+		vector<size_t> inside = Centers.selectInside(2.0*radius*(nbDiameterCutOff+(1+mode)*1.3/2));
+		//Case where we ask to discard all points out of the interval [zmin, zmax]
+		if(argc>7)
+		{
+		    const double zmin = atof(argv[6]),
+                        zmax = atof(argv[7]);
+            vector<size_t> in;
+            in.reserve(inside.size());
+            for(vector<size_t>::const_iterator p=inside.begin(); p!=inside.end(); ++p)
+                if(Centers[*p][2]>=zmin && Centers[*p][2]<=zmax)
+                    in.push_back(*p);
+            in.swap(inside);
+		}
 		binner << inside;
 
 		binner.normalize(inside.size());
 		cout << " done !" << endl;
-		ofstream rdfFile((inputPath+".g6").c_str(), ios::out | ios::trunc);
+		ofstream rdfFile((inputPath+(mode?".cg6":".g6")).c_str(), ios::out | ios::trunc);
 		rdfFile << "#r\tg6(r)\tg(r)"<<endl;
 		for(size_t r=0; r<Nbins; ++r)
 			rdfFile<< r/(double)Nbins*nbDiameterCutOff <<"\t"<< binner.g6[r] <<"\t"<< binner.g[r] <<"\n";
