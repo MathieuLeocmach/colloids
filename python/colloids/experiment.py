@@ -19,13 +19,17 @@
 from __future__ import with_statement #for python 2.5, useless in 2.6
 import scipy as sp
 import numpy as np
-#import scipy.constants as const
+import scipy.constants as const
 from scipy.ndimage.filters import gaussian_filter1d
 from scipy.ndimage.morphology import grey_dilation
+from scipy import optimize
 import os, os.path, subprocess
 import re, string, math
 from math import exp
 from colloids import vtk
+from pygraph.classes.graph import graph
+from pygraph.algorithms.accessibility import connected_components
+
 
 def noNaN(x):
     if x == 'NaN':
@@ -378,15 +382,37 @@ class Txp:
         return pos
 
     def load_bonds(self, t):
-        oldbonds = np.loadtxt(self.xp.get_format_string(ext='bonds')%t, dtype=long)
-        pos2traj = dict([(p,tr) for tr,p in enumerate(self.trajs[:,t])])
-        newbonds = np.asarray([
-            np.sort([pos2traj[a], pos2traj[b]])
-            for a,b in oldbonds
-            if pos2traj.has_key(a) and pos2traj.has_key(b)
-            ])
+        oldbonds = np.loadtxt(self.xp.get_format_string(ext='bonds')%t, dtype=int)
+        pos2traj = -np.ones((bonds.max()+1), dtype=int)
+        pos2traj[self.trajs[:,t]] = range(self.trajs.shape[0])
+        newbonds = pos2traj[bonds]
+        newbonds = newbonds[np.where(newbonds.min(axis=1)>-1)]
+        newbonds.sort(axis=1)
         indices = np.lexsort((newbonds[:,1], newbonds[:,0]))
         return newbonds[indices]
+
+    def load_q6m(self):
+        q6m = np.zeros((self.positions.shape[0], self.positions.shape[1], 7), dtype=complex)
+        for t, fname in self.xp.enum(ext='qlm'):
+            a = np.loadtxt(fname, usecols=range(18,32))[self.trajs[:, t]]
+            q6m[t] = a[:,::2] + 1j * a[:,1::2]
+        return q6m
+
+    def load_Q6m(self):
+        q6m = np.zeros((self.positions.shape[0], self.positions.shape[1], 7), dtype=complex)
+        Q6m = np.zeros_like(q6m)
+        for t, fname in self.xp.enum(ext='qlm'):
+            A = np.loadtxt(fname, usecols=range(18,32))
+            B = np.copy(A)
+            nb = np.ones((len(B),1), dtype=int)
+            bonds = np.loadtxt(self.xp.get_format_string(ext='bonds')%t, dtype=int)
+            B[bonds[:,0]] += A[bonds[:,1]]
+            B[bonds[:,1]] += A[bonds[:,0]]
+            nb[bonds.ravel()] +=1
+            B /= nb
+            q6m[t] = A[self.trajs[:,t]][:, ::2] + 1j * A[self.trajs[:,t]][:, 1::2]
+            Q6m[t] = B[self.trajs[:,t]][:, ::2] + 1j * B[self.trajs[:,t]][:, 1::2]
+        return q6m, Q6m
 
     def remove_drift(self):
         """Remove the average drift between time steps"""
@@ -520,7 +546,7 @@ class Txp:
                 ISF[3] = ( isf([1,4]) + isf([2,5]) )/2
     """
         A = np.exp(
-            self.positions[start:stop+av] * (1j * np.pi / self.xp.radius)
+            self.positions[start:stop+av-1] * (1j * np.pi / self.xp.radius)
             )
         isf = np.zeros((stop-start+1))
         if av==0:
@@ -618,8 +644,51 @@ class Txp:
                     c[dt] += (b*a).mean()
             c /= av
             return c/c[0]
+
+    def cor_q6m(self, q6m, start, stop):
+        A = np.exp(
+            self.positions * (1j * np.pi / self.xp.radius)
+            )
+	B = np.atleast_3d(A.mean(axis=-1)) * q6m
+	C = np.real(B[start].conj() * B[start:stop])
+	return (C.sum(axis=2)-C[:,:,0]).mean(axis=1)
         
-        
+    def get_clusters(self, t, isNode):
+        """Regroup the given particles into connected clusters.
+
+Keyword arguments:
+t -- time step where to look for clusters
+isNode -- a 1d boolean array of dimension (number of trajectories) containing False where the particle should not be part of a cluster.
+Single particle clusters are not returned, even if the particle was declared as node.
+
+Return a dictionary (particle id -> cluster id)
+
+"""
+	nodes = np.where(isNode)
+	posbonds = np.loadtxt(self.xp.get_format_string(ext='bonds')%t, dtype=int)
+	pos2traj = -np.ones((posbonds.max()+1), dtype=int)
+	pos2traj[self.trajs[nodes, t]] = nodes
+	trajbonds = pos2traj[posbonds]
+	trajbonds = trajbonds[np.where(trajbonds.min(axis=1)>-1)]
+	gr = graph()
+	gr.add_nodes(np.unique(trajbonds))
+	for b in trajbonds:
+		gr.add_edge(b)
+	return connected_components(gr)
+
+    def get_time_clusters(self, isNode):
+        clusters = [self.get_clusters(t, isNode[t]) for t in range(self.xp.size)]
+        timegr = graph()
+        for t, cluster in enumerate(clusters):
+            timegr.add_nodes(
+		[(t,k) for k in np.unique(cluster.values())]
+		)
+	for t, frame in enumerate(clusters[:-1]):
+            for tr, k in frame.iteritems():
+		c = clusters[t+1].get(tr,-1)
+		if c>-1 and not timegr.has_edge(((t, k), (t+1, c))):
+			timegr.add_edge(((t, k), (t+1, c)))
+	return clusters, connected_components(timegr)
     
 
 
@@ -652,3 +721,46 @@ def average(field, bonds):
 	for p,n in enumerate(ngb):
 		av[p] = (field[p]+field[n].mean(axis=0))/2
 	return av
+
+OrnsteinZernike3D = lambda p, r: p[0]/r * np.exp(-r/p[1])
+singleExponentialDecay = lambda p, t: p[0] * np.exp(-(t/p[1])**p[2])
+VogelFulcherTammann = lambda p, phi: p[0]*np.exp(p[1]*phi/(p[2]-phi))
+
+def fit_OrnsteinZernike(g6, envelope, p0=[1,1]):
+    fitfunc = OrnsteinZernike3D
+    errfunc = lambda p, x, y: fitfunc(p, x) - y
+    logerrfunc = lambda p, x, y: np.log(fitfunc(p, x)) - np.log(y)
+    p1, success = optimize.leastsq(errfunc, p0[:], args=(g6[:,0][envelope], g6[:,1][envelope]))
+    p2, success = optimize.leastsq(logerrfunc, p0[:], args=(g6[:,0][envelope], g6[:,1][envelope]))
+    return p1, p2
+
+def fit_decay(isf, p0 = [0.95, 100, 1]):
+    fitfunc = singleExponentialDecay
+    errfunc = lambda p, x, y: fitfunc(p, x) - y
+    if isf[0]==1:
+        data = isf[1:]
+    else:
+        data = isf
+    p1, success = optimize.leastsq(errfunc, p0, args=(np.arange(len(data))+1, data))
+    return p1
+
+def fit_vft(tau, p0 = [30, 0.5, 0.62]):
+    fitfunc = VogelFulcherTammann
+    errfunc = lambda p, x, y: np.log(fitfunc(p, x)) - np.log(y)
+    p1, success = optimize.leastsq(errfunc, p0[:], args=(tau[:,0], tau[:,1]))
+    return p1
+
+def envelope(g6, smooth=1.0):
+    #smooth g6
+    sg6 = gaussian_filter1d(np.copy(g6[:,1]),smooth)
+    #find local maxima
+    dg6 = np.gradient(sg6)
+    env = np.where(np.bitwise_and(dg6[:-1]>0, dg6[1:]<0))[0]
+    #remove the points before the first peak and with negative values
+    env = env[g6[:,0][env]>1.5]
+    env = env[g6[:,1][env]>0]
+    #from peak to peak, the function should be decreasing
+    #denv = np.gradient(sg6[env])
+    #sel = list(np.where(denv[1:]<0)[0])+[len(env)-1]
+    #env = env[sel]
+    return env
