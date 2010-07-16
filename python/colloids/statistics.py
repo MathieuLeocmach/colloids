@@ -1,6 +1,9 @@
 import numpy as np
 import Gnuplot
 
+g=Gnuplot.Gnuplot()
+g('set pm3d map')
+
 def plothist(data, title=None, bins=50, normed=False):
     h, b = np.histogram(data, bins=bins, normed=normed)
     return Gnuplot.Data(
@@ -9,19 +12,32 @@ def plothist(data, title=None, bins=50, normed=False):
         with_='steps'
         )
 
-def plot2dhist(datax, datay, title=None, bins=50, normed=False):
+def plot2dhist(datax, datay, title=None, bins=50, normed=False, cbmax=None, cbmin=None, logscale=False):
     h, bx, by = np.histogram2d(datax, datay, bins=bins, normed=normed)
-    return Gnuplot.GridData(
-        h, bx[:-1], by[:-1],
-        with_='lines',
-        title=title)
+    h[np.where(h==0)] = -1
+    if logscale:
+        h[np.where(h>0)] = np.log(h[np.where(h>0)])
+    h2 = np.repeat(np.repeat(h, 2, axis=0), 2, axis=1)
+    bx2 = np.repeat(bx[:-1], 2)
+    bx2[1::2] = bx[:-1]+(bx[1]-bx[0])
+    by2 = np.repeat(by[:-1], 2)
+    by2[1::2] = by[:-1]+(by[1]-by[0])
+    if not cbmax:
+            cbmax = h.max()
+    if cbmin:
+        low = cbmin
+    else:
+        low = np.extract(h>-1, h).min();
+    g('set palette defined (%g "white", %g "black", %g "purple", %g "red", %g "yellow")' % (low-(cbmax-low)/100, low, (cbmax+2*low)/3, (2*cbmax+low)/3, cbmax))
+    g('set cbrange [%g:%g]' % (low-(cbmax-low)/100, cbmax))
+    g.splot(Gnuplot.GridData(h2, bx2, by2, binary=0))
 
 def meanMap(x, y, values, bins=50):
     number, bx, by = np.histogram2d(x, y, bins)
     total, bx, by = np.histogram2d(x, y, bins=[bx, by], weights=values)
     return np.where(number==0, -1, total/number), bx[:-1], by[:-1]
 
-def plotMeanMap(x, y, values, bins=50, cbmax=None):
+def plotMeanMap(x, y, values, bins=50, cbmax=None, cbmin=None):
     """plot the mean map in order to have real step functions"""
     h, bx, by = meanMap(x, y, values, bins)
     h2 = np.repeat(np.repeat(h, 2, axis=0), 2, axis=1)
@@ -31,8 +47,21 @@ def plotMeanMap(x, y, values, bins=50, cbmax=None):
     by2[1::2] = by+(by[1]-by[0])
     if not cbmax:
             cbmax = h.max()
-    low = np.extract(h>-1, h).min();
-    g('set palette defined (%g "white", %g "black", %g "purple", %g "red", %g "yellow")' % (low-(cbmax-low)/100, low, (cbmax+2*low)/3, (2*cbmax+low)/3, cbmax))
+    if cbmin:
+        low = cbmin
+    else:
+        low = np.extract(h>-1, h).min();
+    g(
+        'set palette defined ('
+        +'%g "white", %g "black", %g "purple", %g "red", %g "yellow")'
+        % (
+            low-(cbmax-low)/100,
+            low,
+            (2*cbmax+3*low)/5,
+            (3*cbmax+2*low)/5,
+            cbmax
+            )
+        )
     g('set cbrange [%g:%g]' % (low-(cbmax-low)/100, cbmax))
     g.splot(Gnuplot.GridData(h2, bx2, by2, binary=0))
 
