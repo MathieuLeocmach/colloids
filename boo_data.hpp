@@ -65,6 +65,7 @@ namespace Colloids
             double getSumNorm(const size_t &l) const;
             std::valarray<std::complex<double> > getL(const size_t &l) const
             {return std::valarray<std::complex<double> >::operator[](std::slice(l*l/4,l+1,1));}
+            bool isnull() const {return std::norm((*this)[0])+1.0==1.0;};
 
             double getQl(const size_t &l) const;
             std::complex<double> getWl(const size_t &l) const;

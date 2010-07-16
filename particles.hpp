@@ -307,12 +307,13 @@ namespace Colloids
     /**	\brief Bin a couple of particles into the g and g6 histogram. */
 	inline void Particles::G6Binner::operator()(const size_t &p, const size_t &q)
 	{
-		count++;
-		const size_t r = (size_t)(norm2(parts.getDiff(p, q)) * scale);
-		g[r]++;
-
-		std::valarray<std::complex<double> > prod = (boo[p].getL(6)) * (boo[q].getL(6));
-		g6[r] += 2.0*norm(prod.sum()) - norm(prod[0]);
+	    if(!boo[p].isnull() && !boo[q].isnull())
+	    {
+            count++;
+            const size_t r = (size_t)(norm2(parts.getDiff(p, q)) * scale);
+            g[r]++;
+            g6[r] += boo[p].normedProduct(boo[q], 6);
+	    }
 	};
 
 	/** @brief remove the values that are not in the selection      */
