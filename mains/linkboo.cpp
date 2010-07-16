@@ -74,7 +74,7 @@ int main(int argc, char ** argv)
 		//create the needed file series
 		FileSerie datSerie(pattern, token, span, offset),
 				bondSerie = datSerie.changeExt(".bonds"),
-				//qlmSerie = datSerie.changeExt(".qlm"),
+				qlmSerie = datSerie.changeExt(".qlm"),
 				cloudSerie = datSerie.changeExt(".cloud"),
 				//surfCloudSerie = datSerie.addPostfix("_surf", ".cloud"),
 				cgCloudSerie = datSerie.addPostfix("_space", ".cloud"),
@@ -115,7 +115,7 @@ int main(int argc, char ** argv)
 				for(int t=0; t<(int)span; ++t)
 				{
 					vector<double> g = positions[t].getRdf(200,15.0);
-					for(int r=0; r<g.size(); ++r)
+					for(size_t r=0; r<g.size(); ++r)
 						total_g[r] += g[r];
 					++show_pr;
 				}
@@ -147,14 +147,14 @@ int main(int argc, char ** argv)
 			&& ifstream((secondOutsideSerie%(span-1)).c_str()).good()
 			&& ifstream((bondSerie%0).c_str()).good()
 			&& ifstream((bondSerie%(span-1)).c_str()).good();
-		if(voro)
-			cout<<"using voro++ output"<<endl;
 
+		if(!voro)
+			cout<<"neighbourlist and ";
 
 		//treat each file
-		cout<<"neighbourlist and BOO at each time step"<<endl;
+		cout<<"BOO at each time step"<<endl;
 		boost::progress_display *show_progress;
-		#pragma omp parallel shared(positions, bondLength, show_progress, voro) firstprivate(bondSerie, outsideSerie, secondOutsideSerie, cloudSerie, cgCloudSerie)
+		#pragma omp parallel shared(positions, show_progress) firstprivate(bondSerie, outsideSerie, secondOutsideSerie, cloudSerie, cgCloudSerie)
 		{
 		#pragma omp single
 		show_progress = new boost::progress_display(span);
@@ -211,11 +211,11 @@ int main(int argc, char ** argv)
 			positions[t].removeOutside(inside, qlm);
 			positions[t].removeOutside(inside, qlm_sf);
 			positions[t].getCgBOOs(secondInside, qlm, qlm_cg);
-			/*ofstream qlmFile((qlmSerie%t).c_str(), ios::out | ios::trunc);
+			ofstream qlmFile((qlmSerie%t).c_str(), ios::out | ios::trunc);
 			copy(
-				qlm_cg.begin(), qlm_cg.end(),
+				qlm.begin(), qlm.end(),
 				ostream_iterator<BooData>(qlmFile,"\n")
-				);*/
+				);
 
 
 			//calculate and export invarients
