@@ -504,6 +504,8 @@ void Particles::getFlipBOOs(const std::vector<BooData> &BOO, std::vector<BooData
 	vector<size_t> nb(BOO.size(), 1);
 	for(BondSet::const_iterator b=bonds.begin(); b!=bonds.end(); ++b)
 	{
+		if(BOO[b->low()][0]==0.0 || BOO[b->high()][0]==0.0)
+			continue;
 		Coord diff = getDiff(b->low(), b->high());
 		flipBOO[b->low()] += BOO[b->high()].rotate_by_Pi(diff);
 		flipBOO[b->high()] += BOO[b->low()].rotate_by_Pi(diff);
@@ -728,6 +730,29 @@ BondSet Particles::get2331pairs() const
 	return ret;
 }
 
+/** @brief get the bonds to the neighbours and to their neighbours   */
+BondSet Particles::getSecondShell() const
+{
+	BondSet ret;
+	for(size_t p=0; p<getNgbList().size(); ++p)
+	{
+		list<size_t> second_ngb;
+		//list the first and second shell
+		for(vector<size_t>::const_iterator c=getNgbList()[p].begin(); c!=getNgbList()[p].end();++c)
+			copy(
+				getNgbList()[*c].begin(), getNgbList()[*c].end(),
+				back_inserter(second_ngb)
+				);
+		second_ngb.sort();
+		second_ngb.unique();
+		for(list<size_t>::const_iterator q = lower_bound(second_ngb.begin(), second_ngb.end(), p+1); q!=second_ngb.end(); ++q)
+			ret.insert(ret.end(), Bond(p, *q));
+	}
+	return ret;
+}
+
+
+
 Particles::Binner::~Binner(void){};
 
 /**	\brief Bin the particles given by selection (coupled to their neighbours). */
@@ -769,7 +794,7 @@ std::vector<double> Particles::getRdf(const size_t &n, const double &nbDiameterC
 }
 
 /**	\brief Normalize the histogram. Do not bin afterward */
-void Particles::G6Binner::normalize(const size_t &n)
+void Particles::GlBinner::normalize(const size_t &n)
 {
     g6[0]=0.0;
     const double norm = 13.0/(4.0*M_PI);

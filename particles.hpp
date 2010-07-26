@@ -175,6 +175,7 @@ namespace Colloids
             void getSP5c(std::vector< std::vector<size_t> > &SP5c) const;
             BondSet get1551pairs() const;
             BondSet get2331pairs() const;
+            BondSet getSecondShell() const;
 
             /** histograms*/
             struct Binner : public std::binary_function<const size_t &,const size_t &,void>
@@ -214,13 +215,14 @@ namespace Colloids
             std::vector<double> getRdf(const std::vector<size_t> &selection, const size_t &n, const double &nbDiameterCutOff) const;
             std::vector<double> getRdf(const size_t &n, const double &nbDiameterCutOff) const;
 
-            struct G6Binner : public RdfBinner
+            struct GlBinner : public RdfBinner
             {
                 std::vector<double> g6;
                 const std::vector<BooData> &boo;
+                const size_t l;
 
-                G6Binner(const Particles &p, size_t n, const double &nbDiameterCutOff, const std::vector<BooData> &BOO)
-                : RdfBinner(p,n,nbDiameterCutOff),boo(BOO)
+                GlBinner(const Particles &p, const size_t &n, const double &nbDiameterCutOff, const std::vector<BooData> &BOO, const size_t &order=6)
+                : RdfBinner(p,n,nbDiameterCutOff),boo(BOO), l(order)
                 {
                     g6 = std::vector<double>(n,0.0);
                 };
@@ -305,14 +307,14 @@ namespace Colloids
     }
 
     /**	\brief Bin a couple of particles into the g and g6 histogram. */
-	inline void Particles::G6Binner::operator()(const size_t &p, const size_t &q)
+	inline void Particles::GlBinner::operator()(const size_t &p, const size_t &q)
 	{
 	    if(!boo[p].isnull() && !boo[q].isnull())
 	    {
             count++;
             const size_t r = (size_t)(norm2(parts.getDiff(p, q)) * scale);
             g[r]++;
-            g6[r] += boo[p].normedProduct(boo[q], 6);
+            g6[r] += boo[p].innerProduct(boo[q], l);
 	    }
 	};
 

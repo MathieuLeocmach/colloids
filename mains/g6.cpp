@@ -28,9 +28,9 @@ int main(int argc, char ** argv)
 	invalid_argument er(
 		"Bond angle correlation function\n"
 #ifdef use_periodic
-		"Syntax : periodic_g6 [path]filename radius NbOfBins range Nb dx dy dz [mode=0]\n"
+		"Syntax : periodic_g6 [path]filename radius NbOfBins range Nb dx dy dz [mode=0 [l=6]]\n"
 #else
-		"Syntax : g6 [path]filename radius NbOfBins range [mode=0 [zmin zmax]]\n"
+		"Syntax : g6 [path]filename radius NbOfBins range [mode=0 [l=6 [zmin zmax]]]\n"
 #endif
 		" range is in diameter unit\n"
 		" mode\t0 raw boo\n"
@@ -59,10 +59,12 @@ int main(int argc, char ** argv)
 			b.edges[d].second = atof(argv[6+d]);
 		}
 		const bool mode = (argc<10)?0:atoi(argv[9]);
+		const size_t l = (argc<11)?6:atoi(argv[10]);
 		PeriodicParticles Centers(Nb,b,filename,radius);
 		cout << "With periodic boundary conditions"<<endl;
 #else
         const bool mode = (argc<6)?0:atoi(argv[5]);
+        const size_t l = (argc<7)?0:atoi(argv[6]);
 		Particles Centers(filename,radius);
 #endif
 		cout << Centers.size() << " particles ... ";
@@ -80,12 +82,12 @@ int main(int argc, char ** argv)
             allBoo=rawBoo;
 
 		//create binner
-		Particles::G6Binner binner(Centers,Nbins,nbDiameterCutOff,allBoo);
+		Particles::GlBinner binner(Centers, Nbins, nbDiameterCutOff, allBoo, l);
 
 		//select particles and bin them
 		vector<size_t> inside = Centers.selectInside(2.0*radius*(nbDiameterCutOff+(1+mode)*1.3/2));
 		//Case where we ask to discard all points out of the interval [zmin, zmax]
-		if(argc>7)
+		if(argc>8)
 		{
 		    const double zmin = atof(argv[6]),
                         zmax = atof(argv[7]);
@@ -100,8 +102,10 @@ int main(int argc, char ** argv)
 
 		binner.normalize(inside.size());
 		cout << " done !" << endl;
-		ofstream rdfFile((inputPath+(mode?".cg6":".g6")).c_str(), ios::out | ios::trunc);
-		rdfFile << "#r\tg6(r)\tg(r)"<<endl;
+		ostringstream rdffilename;
+		rdffilename << inputPath << (mode?".cg":".g") << l;
+		ofstream rdfFile(rdffilename.str().c_str(), ios::out | ios::trunc);
+		rdfFile << "#r\tg"<<l<<"(r)\tg(r)"<<endl;
 		for(size_t r=0; r<Nbins; ++r)
 			rdfFile<< r/(double)Nbins*nbDiameterCutOff <<"\t"<< binner.g6[r] <<"\t"<< binner.g[r] <<"\n";
 
