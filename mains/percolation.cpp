@@ -70,20 +70,25 @@ int main(int argc, char ** argv)
 			alltraj.insert(alltraj.end(),tr);
 
 		//neighbour list at each time
-		for(size_t t=0; t<parts.getNbTimeSteps();++t)
+		try
 		{
-			BondSet bonds = loadBonds(bondSerie%t);
-			if(bonds.empty())
+			for(size_t t=0; t<parts.getNbTimeSteps();++t)
+			{
+				BondSet bonds = loadBonds(bondSerie%t);
+				parts.positions[t].makeNgbList(bonds);
+			}
+		}
+		catch(invalid_argument& e)
+		{
+			for(size_t t=0; t<parts.getNbTimeSteps();++t)
 			{
 				parts.positions[t].makeRTreeIndex();
 				parts.positions[t].makeNgbList(1.3);
-				bonds = parts.positions[t].getBonds();
+				BondSet bonds = parts.positions[t].getBonds();
 				ofstream bondFile((inputPath+".bonds").c_str(), ios::out | ios::trunc);
 				for(BondSet::const_iterator b=bonds.begin(); b!= bonds.end();++b)
 					bondFile<<b->low()<<" "<<b->high()<<"\n";
 			}
-			else
-				parts.positions[t].makeNgbList(bonds);
 		}
 
 
