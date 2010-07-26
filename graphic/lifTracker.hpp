@@ -60,5 +60,22 @@ class LifTracker : public TrackerIterator
 		std::streampos tellg(){return serie->tellg();}
 
 };
+
+/** \brief A slice by slice version of the previous
+*/
+class LifTracker2D : public LifTracker
+{
+ 	public:
+		explicit LifTracker2D(LifSerie &serie, const size_t ch=0, const unsigned fs=FFTW_ESTIMATE) : LifTracker(serie, ch, fs){};
+		/** \brief default constructor that should be used only to get an "end" iterator*/
+		LifTracker2D end(){return LifTracker2D(getLif().getNbTimeSteps()*getLif().getSpatialDimensions()[0]);};
+
+		bool operator==(const LifTracker2D& rhs) {return time_step==rhs.time_step && serie==rhs.serie;}
+		//bool operator!=(const LifTracker& rhs) {return time_step!=rhs.time_step;}
+
+	private:
+		boost::array<size_t,3> getTrackerDims() const;
+
+};
 }
 #endif

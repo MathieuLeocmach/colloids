@@ -102,5 +102,22 @@ boost::array<size_t,3> LifTracker::getTrackerDims() const
 }
 
 
+/** @brief get the dimensions according to the content of the lif serie
+	Convert the dimension order from row major (Leica files) to column major (c order)
+	If less than 3 dimensions, the first(s) dimension(s) is/are set to 1.
+	That way (last dim != 1), real to complex FFT is efficient.
+*/
+boost::array<size_t,3> LifTracker2D::getTrackerDims() const
+{
+	boost::array<size_t,3> dims = {1,1,1};
+	vector<size_t> fortran_order_dims = getLif().getSpatialDimensions();
+	fortran_order_dims.back()=1;
+	copy(
+		fortran_order_dims.begin(),
+		fortran_order_dims.end(),
+		dims.rbegin()
+		);
+	return dims;
+}
 
 
