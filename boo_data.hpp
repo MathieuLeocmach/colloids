@@ -62,6 +62,8 @@ namespace Colloids
             /** \brief access to members */
             //std::complex<double> &operator()(const size_t &l, const size_t &m){return (*this)[m + l*l/4];};
             const std::complex<double> operator()(const size_t &l, const int &m) const;
+            double innerProduct(const BooData &boo, const size_t &l) const;
+            double normedProduct(const BooData &boo, const size_t &l) const;
             double getSumNorm(const size_t &l) const;
             std::valarray<std::complex<double> > getL(const size_t &l) const
             {return std::valarray<std::complex<double> >::operator[](std::slice(l*l/4,l+1,1));}
@@ -76,7 +78,6 @@ namespace Colloids
                 getInvarients(l,Q,W);
                 w=W.real();
             }
-            double normedProduct(const BooData &boo, const size_t &l) const;
 
 			BooData rotate_by_Pi(const Coord &axis) const;
 			BooData reflect(const Coord &normal) const;

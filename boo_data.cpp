@@ -159,6 +159,23 @@ const complex<double> BooData::operator()(const size_t &l, const int &m) const
         return -conj((*this)[l*l/4-m]);
 }
 
+/** @brief return the scalar product of indice l */
+double BooData::innerProduct(const BooData &boo, const size_t &l) const
+{
+	double sum = 0.0;
+	for(int m=1; m<=(int)l; ++m)
+		sum += real((*this)(l,m)*conj(boo(l,m)));
+	sum*=2.0;
+	sum += real((*this)[l*l/4]*boo[l*l/4]);
+	return sum;
+}
+
+/** @brief return the normed scalar product  */
+double BooData::normedProduct(const BooData &boo, const size_t &l) const
+{
+	return innerProduct(boo, l) / sqrt(getSumNorm(l) * boo.getSumNorm(l));
+}
+
 /** \brief sum over m for a given l of the norms */
 double BooData::getSumNorm(const size_t &l) const
 {
@@ -221,18 +238,6 @@ void BooData::getInvarients(const size_t &l, double &Q, std::complex<double> &W)
     W *= 12.0;*/
 
     if(1.0 + sumQl != 1.0) W /= pow(sumQl,1.5);
-}
-
-/** @brief return the normed scalar product  */
-double BooData::normedProduct(const BooData &boo, const size_t &l) const
-{
-	double sum = 0.0;
-	for(int m=1; m<=(int)l; ++m)
-		sum += real((*this)(l,m)*conj(boo(l,m)));
-	sum*=2.0;
-	sum += real((*this)[l*l/4]*boo[l*l/4]);
-	sum /= sqrt(getSumNorm(l) * boo.getSumNorm(l));
-	return sum;
 }
 
 /** @brief rotate the spherical harmonics by Pi around the given axis  */
