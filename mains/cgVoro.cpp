@@ -72,10 +72,13 @@ class VoroContainer : public container
             vector<size_t> div(cgVolumes.size(),0);
             for(size_t p=0; p<cgVolumes.size(); ++p)
             {
+                //cout<<"p="<<p<<endl;
                 //the center cell volume is significant only if not near a wall
-                if(neighbours[p].front()<0) continue;
+                if(neighbours[p].empty() || neighbours[p].front()<0) continue;
+                //cout<<"\tnot wall"<<endl;
                 cgVolumes[p] += volumes[p];
                 div[p]++;
+                //cout<<"\tadded"<<endl;
                 for(vector<int>::const_iterator n = neighbours[p].begin(); n!=neighbours[p].end(); ++n)
                 {
                     cgVolumes[*n] += volumes[p];
@@ -87,9 +90,11 @@ class VoroContainer : public container
                 if(div[p]>0)
                     cgVolumes[p] /= div[p];
                 else
-                    secondChance.push_back(p);
+                    if(!neighbours[p].empty())
+                        secondChance.push_back(p);
 
             //second chance for the particles whose neighbours where all near wall
+
             while(!secondChance.empty())
             {
                 const size_t p = secondChance.front();
@@ -164,12 +169,12 @@ int main(int argc, char ** argv)
 		const string path = filename.substr(0, filename.find_last_of("/\\")+1);
 
 		#ifdef use_periodic
-		const size_t Nb = atoi(argv[3]);
+		const size_t Nb = atoi(argv[2]);
 		BoundingBox b;
 		for(size_t d=0;d<3;++d)
 		{
 			b.edges[d].first=0.0;
-			b.edges[d].second = atof(argv[4+d]);
+			b.edges[d].second = atof(argv[3+d]);
 		}
 		if(argc>7)
 		#else
@@ -310,6 +315,7 @@ int main(int argc, char ** argv)
 			ofstream bondfile((inputPath+".bonds").c_str(), ios::out | ios::trunc);
             con.print_bonds(bondfile);
 
+            #ifndef use_periodic
             list<size_t> outside, secondOutside;
             con.getOutsides(outside, secondOutside);
             ofstream outsidefile((inputPath+".outside").c_str(), ios::out | ios::trunc);
@@ -320,6 +326,9 @@ int main(int argc, char ** argv)
             secondOutsidefile.close();
 
             const string outName = inputPath.insert(inputPath.rfind("_t"), "_space");
+            #else
+            const string outName = inputPath+"_space";
+            #endif
             ofstream out((outName+".vol").c_str(), ios::out | ios::trunc);
             copy(
                 cgVolumes.begin(), cgVolumes.end(),
