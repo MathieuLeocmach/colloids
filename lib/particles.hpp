@@ -217,14 +217,14 @@ namespace Colloids
 
             struct GlBinner : public RdfBinner
             {
-                std::vector<double> g6;
-                const std::vector<BooData> &boo;
+                std::vector<double> gl;
                 const size_t l;
+                const std::vector<BooData> &boo;
 
-                GlBinner(const Particles &p, const size_t &n, const double &nbDiameterCutOff, const std::vector<BooData> &BOO, const size_t &order=6)
-                : RdfBinner(p,n,nbDiameterCutOff),boo(BOO), l(order)
+                GlBinner(const Particles &p, size_t n, const double &nbDiameterCutOff, const std::vector<BooData> &BOO, const size_t &l)
+                : RdfBinner(p,n,nbDiameterCutOff),boo(BOO), l(l)
                 {
-                    g6 = std::vector<double>(n,0.0);
+                    gl = std::vector<double>(n,0.0);
                 };
                 void operator()(const size_t &p, const size_t &q);
                 void normalize(const size_t &n);
@@ -309,13 +309,13 @@ namespace Colloids
     /**	\brief Bin a couple of particles into the g and g6 histogram. */
 	inline void Particles::GlBinner::operator()(const size_t &p, const size_t &q)
 	{
-	    if(!boo[p].isnull() && !boo[q].isnull())
-	    {
-            count++;
-            const size_t r = (size_t)(norm2(parts.getDiff(p, q)) * scale);
-            g[r]++;
-            g6[r] += boo[p].innerProduct(boo[q], l);
-	    }
+		if(!boo[p].isnull() && !boo[q].isnull())
+		{
+			count++;
+			const size_t r = (size_t)(norm2(parts.getDiff(p, q)) * scale);
+			g[r]++;
+			gl[r] += boo[p].innerProduct(boo[q], l);
+		}
 	};
 
 	/** @brief remove the values that are not in the selection      */

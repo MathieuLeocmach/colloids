@@ -1,4 +1,6 @@
-#include "../dynamicParticles.hpp"
+#include "dynamicParticles.hpp"
+using namespace std;
+using namespace Colloids;
 
 int main(int argc, char ** argv)
 {
@@ -14,7 +16,7 @@ int main(int argc, char ** argv)
 
     try
     {
-        dynamicParticles parts(filename);
+        DynamicParticles parts(filename);
         cout << "total of " << parts.trajectories.size() << " trajectories" << endl;
 
         const size_t last_frame = parts.positions.size()-1;
@@ -27,7 +29,7 @@ int main(int argc, char ** argv)
 
         for(size_t t=0;t<last_frame;++t)
         {
-            drift = parts.getDrift(parts.getSpanning(t,t+1),t,t+1);
+            drift = parts.getDrift(parts.selectSpanning(Interval(t,t+1)),t,t+1);
             output << t;
             for(size_t i=0;i<3;++i)
                 output << "\t" << drift[i];
@@ -35,9 +37,9 @@ int main(int argc, char ** argv)
         }
         output.close();
     }
-    catch(trajerror tre)
+    catch(const exception &e)
     {
-        cout << tre;
+        cerr<< e.what()<<endl;
         return EXIT_FAILURE;
     }
 

@@ -18,9 +18,9 @@
 **/
 
 //Define the preprocessor variable "periodic" if you want periodic boundary conditions
-#include "../periodic.hpp"
-//#include "../pv.hpp"
-#include "../dynamicParticles.hpp"
+#include "periodic.hpp"
+//#include "pv.hpp"
+#include "dynamicParticles.hpp"
 #include <boost/progress.hpp>
 
 using namespace std;

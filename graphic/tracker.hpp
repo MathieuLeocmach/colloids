@@ -36,7 +36,7 @@ extern "C" {
 }
 //#include "lifFile.hpp"
 //#include "../files_series.hpp"
-#include "../particles.hpp"
+#include "../lib/particles.hpp"
 //#include <CImg.h>
 #include <boost/multi_array.hpp>
 namespace Colloids{

@@ -17,7 +17,7 @@
     along with Colloids.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
-#include "../dynamicClusters.hpp"
+#include "dynamicClusters.hpp"
 
 using namespace std;
 using namespace Colloids;

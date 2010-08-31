@@ -17,7 +17,7 @@
     along with Colloids.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
-#include "../dynamicParticles.hpp"
+#include "dynamicParticles.hpp"
 
 #include <boost/progress.hpp>
 
@@ -99,6 +99,78 @@ void export_lostNgb(const TrajIndex &trajectories, const size_t &tau, FileSerie 
 		copy(
 			lngb.begin(), lngb.end(),
 			ostream_iterator<double>(f,"\n")
+			);
+		f.close();
+	}
+}
+
+void export_post_lostNgb(const TrajIndex &trajectories, const size_t &tau, FileSerie &bondSerie, FileSerie &lngbSerie)
+{
+    const size_t size = trajectories.inverse.size();
+    typedef vector<size_t>	Ngbs;
+    typedef boost::ptr_vector<Ngbs> NgbFrame;
+    typedef boost::ptr_vector<NgbFrame> DynNgbs;
+    typedef list<size_t> ListNgb;
+    typedef vector<ListNgb> ListNgbFrame;
+
+    //what are the trajectories neighbouring the position p at time t
+    DynNgbs dyn(size);
+    for(size_t t=0; t<size;++t)
+	{
+		dyn.push_back(new NgbFrame(trajectories.inverse[t].size()));
+		for(size_t p=0; p<trajectories.inverse[t].size();++p)
+			dyn[t].push_back(new Ngbs());
+	}
+	for(size_t t=0; t<size;++t)
+	{
+		//Easily filled, disordered but easy to sort container. Bad memory perf. But it's just one frame.
+		ListNgbFrame easy(dyn[t].size());
+		//load bonds from file and bin their ends to neighbour list
+		size_t a, b;
+		ifstream f((bondSerie%t).c_str());
+		while(f.good())
+		{
+			f>>a>>b;
+			easy[a].push_back(trajectories.inverse[t][b]);
+			easy[b].push_back(trajectories.inverse[t][a]);
+		}
+		f.close();
+
+		#pragma omp parallel for shared(easy, dyn) schedule(dynamic)
+		for(size_t p=0;p<easy.size();++p)
+		{
+			//sort each neighbour list
+			easy[p].sort();
+			//ensure uniqueness (could be asserted, but anyway...)
+			easy[p].unique();
+			//fill in the memory-efficient container
+			dyn[t][p].assign(easy[p].begin(), easy[p].end());
+		}
+    }
+
+	//look at the neighbourhood difference between t0 and t0+tau
+    for(size_t t0=0; t0<size-tau; ++t0)
+	{
+	    vector<int> lngb(trajectories.inverse[t0].size(),-1);
+	    #pragma omp parallel for shared(trajectories, lngb, t0) schedule(dynamic)
+	    for(size_t p=0;p<trajectories.inverse[t0].size(); ++p)
+	    {
+	        const Traj &tr = trajectories[trajectories.inverse[t0][p]];
+	        if(tr.last_time()>=t0+tau)
+	        {
+	        	ListNgb lost;
+                set_difference(
+                    dyn[t0+tau][tr[t0+tau]].begin(), dyn[t0+tau][tr[t0+tau]].end(),
+                    dyn[t0][tr[t0]].begin(), dyn[t0][tr[t0]].end(),
+                    back_inserter(lost)
+                    );
+                lngb[p] = lost.size();
+	        }
+	    }
+		ofstream f((lngbSerie%t0).c_str(), ios::out | ios::trunc);
+		copy(
+			lngb.begin(), lngb.end(),
+			ostream_iterator<int>(f,"\n")
 			);
 		f.close();
 	}

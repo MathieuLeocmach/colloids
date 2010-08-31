@@ -233,13 +233,13 @@ void SerieTracker::setTimeStep(size_t t)
         if(!hasDepth)
         {
             buffer.load(serie.str().c_str());
-            tracker->fillImage(buffer.data+buffer.offset(0,0,0,channel));
+            tracker->fillImage(buffer.data()+buffer.offset(0,0,0,channel));
         }
         else
             for(size_t z=0; z<tracker->centersMap.shape()[0];++z)
             {
                 buffer.load((serie%z).str().c_str());
-                tracker->fillSlice(z, buffer.data+buffer.offset(0,0,0,channel));
+                tracker->fillSlice(z, buffer.data()+buffer.offset(0,0,0,channel));
             }
     }
     else
@@ -247,13 +247,13 @@ void SerieTracker::setTimeStep(size_t t)
         if(!hasDepth)
         {
             buffer.load((serie%t).str().c_str());
-            tracker->fillImage(buffer.data+buffer.offset(0,0,0,channel));
+            tracker->fillImage(buffer.data()+buffer.offset(0,0,0,channel));
         }
         else
             for(size_t z=0; z<tracker->centersMap.shape()[0];++z)
             {
                 buffer.load((serie%z%t).str().c_str());
-                tracker->fillSlice(z, buffer.data+buffer.offset(0,0,0,channel));
+                tracker->fillSlice(z, buffer.data()+buffer.offset(0,0,0,channel));
             }
     }
 }

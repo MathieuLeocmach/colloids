@@ -796,13 +796,13 @@ std::vector<double> Particles::getRdf(const size_t &n, const double &nbDiameterC
 /**	\brief Normalize the histogram. Do not bin afterward */
 void Particles::GlBinner::normalize(const size_t &n)
 {
-    g6[0]=0.0;
+    gl[0]=0.0;
     const double norm = 13.0/(4.0*M_PI);
     for(size_t r=1;r<g.size();++r)
 		if(1.0+g[r]*g[r] == 1.0)
-			g6[r]=0;
+			gl[r]=0;
 		else
-			g6[r] /= norm * g[r];
+			gl[r] /= norm * g[r];
 	RdfBinner::normalize(n);
 }
 

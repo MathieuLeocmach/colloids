@@ -107,7 +107,7 @@ boost::array<size_t,3> LifTracker::getTrackerDims() const
 	If less than 3 dimensions, the first(s) dimension(s) is/are set to 1.
 	That way (last dim != 1), real to complex FFT is efficient.
 */
-boost::array<size_t,3> LifTracker2D::getTrackerDims() const
+/*boost::array<size_t,3> LifTracker2D::getTrackerDims() const
 {
 	boost::array<size_t,3> dims = {1,1,1};
 	vector<size_t> fortran_order_dims = getLif().getSpatialDimensions();
@@ -118,6 +118,7 @@ boost::array<size_t,3> LifTracker2D::getTrackerDims() const
 		dims.rbegin()
 		);
 	return dims;
-}
+}*/
+
 
 

@@ -17,7 +17,7 @@
     along with Colloids.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
-#include "../dynamicParticles.hpp"
+#include "dynamicParticles.hpp"
 
 using namespace std;
 using namespace Colloids;

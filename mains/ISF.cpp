@@ -17,7 +17,7 @@
     along with Colloids.  If not, see <http://www.gnu.org/licenses/>.
 **/
 #include <boost/format.hpp>
-#include "../dynamicParticles.hpp"
+#include "dynamicParticles.hpp"
 
 
 using namespace std;

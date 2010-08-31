@@ -49,13 +49,14 @@
 #include "../serieTracker.hpp"
 #include <boost/progress.hpp>
 #include <boost/format.hpp>
+#include "config.h"
 
 namespace po = boost::program_options;
 using namespace std;
 using namespace Colloids;
 
 #ifndef INSTAL_PATH
-#define INSTAL_PATH "c:/bin/"
+#define INSTAL_PATH "c:/bin"
 #endif
 
 /** \brief Functor to save a serie of particles to file */
@@ -163,10 +164,10 @@ int main(int ac, char* av[])
             return EXIT_SUCCESS;
         }
 
-        ifstream ifs(INSTAL_PATH "tracker.ini");
+        ifstream ifs(INSTAL_PATH "/tracker.ini");
         if(!ifs)
         {
-            cout << "Cannot open " INSTAL_PATH "tracker.ini" <<endl;
+            cout << "Cannot open " INSTAL_PATH "/tracker.ini" <<endl;
             return EXIT_FAILURE;
         }
         po::store(parse_config_file(ifs, config_file_options), vm);
@@ -179,13 +180,22 @@ int main(int ac, char* av[])
         if(outputPath.substr(outputPath.size()-1) == "_")
             outputPath.erase(outputPath.end()-1);
 
+        //test wrtiting on the given outputpath
+        {
+            ofstream output_test((outputPath+"test.test").c_str(), ios::out | ios::trunc);
+            if(output_test.good())
+                remove((outputPath+"test.test").c_str());
+            else
+                throw invalid_argument("Cannot write on specified output path :\t"+outputPath);
+        }
+
         //configure FTTW to use multiple CPU
 #if (TRACKER_N_THREADS>1)
         fftwf_init_threads();
         fftwf_plan_with_nthreads(cores);
 #endif
 
-        Tracker::loadWisdom(INSTAL_PATH "wisdom.fftw");
+        Tracker::loadWisdom(INSTAL_PATH "/wisdom.fftw");
 
 
         if (vm.count("modeSerie"))
@@ -228,7 +238,7 @@ int main(int ac, char* av[])
             /*ofstream out((outputPath+"img.raw").c_str(), ios_base::out | ios_base::trunc);
             track.getTracker().copyImage(ostream_iterator<int>(out,"\t"));
             out.close();*/
-            Tracker::saveWisdom(INSTAL_PATH "wisdom.fftw");
+            Tracker::saveWisdom(INSTAL_PATH "/wisdom.fftw");
             track.setView(!!vm.count("view"));
             track.setQuiet(!!vm.count("quiet"));
             track.setThreshold(threshold);
@@ -242,7 +252,7 @@ int main(int ac, char* av[])
             //display radius no more in use
             //track.displayRadius = displayRadius;
         }
-        Tracker::saveWisdom(INSTAL_PATH "wisdom.fftw");
+        Tracker::saveWisdom(INSTAL_PATH "/wisdom.fftw");
     }
     catch(exception& e)
     {

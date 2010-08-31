@@ -17,7 +17,7 @@
     along with Colloids.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
-#include "../dynamicParticles.hpp"
+#include "dynamicParticles.hpp"
 #include <boost/progress.hpp>
 
 using namespace std;
@@ -115,7 +115,7 @@ int main(int argc, char ** argv)
 				for(int t=0; t<(int)span; ++t)
 				{
 					vector<double> g = positions[t].getRdf(200,15.0);
-					for(size_t r=0; r<g.size(); ++r)
+					for(int r=0; r<(int)g.size(); ++r)
 						total_g[r] += g[r];
 					++show_pr;
 				}

@@ -32,7 +32,7 @@
 #include <boost/bind.hpp>
 #include <boost/algorithm/minmax_element.hpp>
 #include "tracker.hpp"
-#include "../particles.hpp"
+#include "particles.hpp"
 
 #ifndef TRACKER_N_THREADS
 #define TRACKER_N_THREADS 1

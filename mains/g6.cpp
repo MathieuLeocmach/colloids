@@ -18,7 +18,7 @@
 **/
 
 //Define the preprocessor variable "use_periodic" if you want periodic boundary conditions
-#include "../periodic.hpp"
+#include "periodic.hpp"
 
 using namespace std;
 using namespace Colloids;
@@ -107,7 +107,7 @@ int main(int argc, char ** argv)
 		ofstream rdfFile(rdffilename.str().c_str(), ios::out | ios::trunc);
 		rdfFile << "#r\tg"<<l<<"(r)\tg(r)"<<endl;
 		for(size_t r=0; r<Nbins; ++r)
-			rdfFile<< r/(double)Nbins*nbDiameterCutOff <<"\t"<< binner.g6[r] <<"\t"<< binner.g[r] <<"\n";
+			rdfFile<< r/(double)Nbins*nbDiameterCutOff <<"\t"<< binner.gl[r] <<"\t"<< binner.g[r] <<"\n";
 
     }
     catch(const std::exception &e)
