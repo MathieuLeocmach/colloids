@@ -240,18 +240,6 @@ void BooData::getInvarients(const size_t &l, double &Q, std::complex<double> &W)
     if(1.0 + sumQl != 1.0) W /= pow(sumQl,1.5);
 }
 
-/** @brief return the normed scalar product  */
-double BooData::normedProduct(const BooData &boo, const size_t &l) const
-{
-	double sum = 0.0;
-	for(int m=1; m<=(int)l; ++m)
-		sum += real((*this)(l,m)*conj(boo(l,m)));
-	sum*=2.0;
-	sum += real((*this)[l*l/4]*boo[l*l/4]);
-	sum /= sqrt(getSumNorm(l) * boo.getSumNorm(l));
-	return sum;
-}
-
 /** @brief rotate the spherical harmonics by Pi around the given axis  */
 BooData BooData::rotate_by_Pi(const Coord &axis) const
 {
