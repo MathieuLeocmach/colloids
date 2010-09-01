@@ -16,9 +16,17 @@ if test "$OPENMP_CXXFLAGS" != ""; then
 	CPPFLAGS="$CPPFLAGS -Dcimg_use_openmp"
 fi
 
-AC_ARG_WITH(with-voro-src, [  --with-voro-src=DIR   Voro++ source files are in DIR])
-AM_CONDITIONAL([WANT_VORO], test $with_voro_src)
+AC_ARG_WITH(voro-src, [  --with-voro-src=DIR   Voro++ source files are in DIR])
 if test $with_voro_src; then 	
-	AC_SUBST(VORO_SRC, $with_voro_src)
+	AC_CHECK_FILE(
+		[$with_voro_src/voro++.cc],
+		[
+			voro=true
+			AC_SUBST(VORO_SRC, $with_voro_src)
+			AC_SUBST(binvoro, "cgVoro periodic_cgVoro")
+		],
+		[AC_MSG_ERROR("No voro++.cc at the indicated path")]
+	)
 fi
+AM_CONDITIONAL([WANT_VORO],[test x$voro = xtrue])
 AC_OUTPUT

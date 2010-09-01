@@ -39,7 +39,9 @@ bin_PROGRAMS = bonds$(EXEEXT) boo$(EXEEXT) boo_flip$(EXEEXT) \
 	drift$(EXEEXT) dynamics$(EXEEXT) g6$(EXEEXT) ISF$(EXEEXT) \
 	linkboo$(EXEEXT) linker$(EXEEXT) lostngb$(EXEEXT) MSD$(EXEEXT) \
 	percolation$(EXEEXT) rdf$(EXEEXT) sp5c$(EXEEXT) \
-	totalRdf$(EXEEXT) traj2vtk$(EXEEXT)
+	totalRdf$(EXEEXT) traj2vtk$(EXEEXT) periodic_rdf$(EXEEXT) \
+	periodic_boo$(EXEEXT) $(binvoro)
+EXTRA_PROGRAMS = cgVoro$(EXEEXT) periodic_cgVoro$(EXEEXT)
 subdir = .
 DIST_COMMON = $(am__configure_deps) $(srcdir)/../config.guess \
 	$(srcdir)/../config.sub $(srcdir)/../depcomp \
@@ -86,6 +88,10 @@ am_cage2vtk_OBJECTS = cage2vtk.$(OBJEXT)
 cage2vtk_OBJECTS = $(am_cage2vtk_OBJECTS)
 cage2vtk_LDADD = $(LDADD)
 cage2vtk_DEPENDENCIES = ../lib/libcolloids.la
+am_cgVoro_OBJECTS = cgVoro-cgVoro.$(OBJEXT)
+cgVoro_OBJECTS = $(am_cgVoro_OBJECTS)
+cgVoro_LDADD = $(LDADD)
+cgVoro_DEPENDENCIES = ../lib/libcolloids.la
 am_cutter_OBJECTS = cutter.$(OBJEXT)
 cutter_OBJECTS = $(am_cutter_OBJECTS)
 cutter_LDADD = $(LDADD)
@@ -122,6 +128,18 @@ am_percolation_OBJECTS = percolation.$(OBJEXT)
 percolation_OBJECTS = $(am_percolation_OBJECTS)
 percolation_LDADD = $(LDADD)
 percolation_DEPENDENCIES = ../lib/libcolloids.la
+am_periodic_boo_OBJECTS = periodic_boo-boo.$(OBJEXT)
+periodic_boo_OBJECTS = $(am_periodic_boo_OBJECTS)
+periodic_boo_LDADD = $(LDADD)
+periodic_boo_DEPENDENCIES = ../lib/libcolloids.la
+am_periodic_cgVoro_OBJECTS = periodic_cgVoro-cgVoro.$(OBJEXT)
+periodic_cgVoro_OBJECTS = $(am_periodic_cgVoro_OBJECTS)
+periodic_cgVoro_LDADD = $(LDADD)
+periodic_cgVoro_DEPENDENCIES = ../lib/libcolloids.la
+am_periodic_rdf_OBJECTS = periodic_rdf-rdf.$(OBJEXT)
+periodic_rdf_OBJECTS = $(am_periodic_rdf_OBJECTS)
+periodic_rdf_LDADD = $(LDADD)
+periodic_rdf_DEPENDENCIES = ../lib/libcolloids.la
 am_rdf_OBJECTS = rdf.$(OBJEXT)
 rdf_OBJECTS = $(am_rdf_OBJECTS)
 rdf_LDADD = $(LDADD)
@@ -153,16 +171,20 @@ CXXLINK = $(LIBTOOL) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	$(LDFLAGS) -o $@
 SOURCES = $(ISF_SOURCES) $(MSD_SOURCES) $(bonds_SOURCES) \
 	$(boo_SOURCES) $(boo_flip_SOURCES) $(cage2vtk_SOURCES) \
-	$(cutter_SOURCES) $(dat2vtk_SOURCES) $(drift_SOURCES) \
-	$(dynamics_SOURCES) $(g6_SOURCES) $(linkboo_SOURCES) \
-	$(linker_SOURCES) $(lostngb_SOURCES) $(percolation_SOURCES) \
+	$(cgVoro_SOURCES) $(cutter_SOURCES) $(dat2vtk_SOURCES) \
+	$(drift_SOURCES) $(dynamics_SOURCES) $(g6_SOURCES) \
+	$(linkboo_SOURCES) $(linker_SOURCES) $(lostngb_SOURCES) \
+	$(percolation_SOURCES) $(periodic_boo_SOURCES) \
+	$(periodic_cgVoro_SOURCES) $(periodic_rdf_SOURCES) \
 	$(rdf_SOURCES) $(sp5c_SOURCES) $(totalRdf_SOURCES) \
 	$(traj2vtk_SOURCES)
 DIST_SOURCES = $(ISF_SOURCES) $(MSD_SOURCES) $(bonds_SOURCES) \
 	$(boo_SOURCES) $(boo_flip_SOURCES) $(cage2vtk_SOURCES) \
-	$(cutter_SOURCES) $(dat2vtk_SOURCES) $(drift_SOURCES) \
-	$(dynamics_SOURCES) $(g6_SOURCES) $(linkboo_SOURCES) \
-	$(linker_SOURCES) $(lostngb_SOURCES) $(percolation_SOURCES) \
+	$(cgVoro_SOURCES) $(cutter_SOURCES) $(dat2vtk_SOURCES) \
+	$(drift_SOURCES) $(dynamics_SOURCES) $(g6_SOURCES) \
+	$(linkboo_SOURCES) $(linker_SOURCES) $(lostngb_SOURCES) \
+	$(percolation_SOURCES) $(periodic_boo_SOURCES) \
+	$(periodic_cgVoro_SOURCES) $(periodic_rdf_SOURCES) \
 	$(rdf_SOURCES) $(sp5c_SOURCES) $(totalRdf_SOURCES) \
 	$(traj2vtk_SOURCES)
 ETAGS = etags
@@ -256,6 +278,7 @@ am__quote = @am__quote@
 am__tar = @am__tar@
 am__untar = @am__untar@
 bindir = @bindir@
+binvoro = @binvoro@
 build = @build@
 build_alias = @build_alias@
 build_cpu = @build_cpu@
@@ -299,10 +322,17 @@ top_srcdir = @top_srcdir@
 ACLOCAL_AMFLAGS = -I m4
 LDADD = ../lib/libcolloids.la
 AM_CPPFLAGS = -I$(srcdir)/../lib 
+periodic_boo_CPPFLAGS = $(AM_CPPFLAGS) -Duse_periodic
+periodic_rdf_CPPFLAGS = $(AM_CPPFLAGS) -Duse_periodic
+cgVoro_CPPFLAGS = $(AM_CPPFLAGS) -I$(VORO_SRC)
+periodic_cgVoro_CPPFLAGS = $(cgVoro_CPPFLAGS) -Duse_periodic
 bonds_SOURCES = bonds.cpp
 boo_SOURCES = boo.cpp
+periodic_boo_SOURCES = boo.cpp
 boo_flip_SOURCES = boo_flip.cpp
 cage2vtk_SOURCES = cage2vtk.cpp
+cgVoro_SOURCES = cgVoro.cpp
+periodic_cgVoro_SOURCES = cgVoro.cpp
 cutter_SOURCES = cutter.cpp
 dat2vtk_SOURCES = dat2vtk.cpp
 drift_SOURCES = drift.cpp
@@ -315,6 +345,7 @@ lostngb_SOURCES = lostngb.cpp
 MSD_SOURCES = MSD.cpp
 percolation_SOURCES = percolation.cpp
 rdf_SOURCES = rdf.cpp
+periodic_rdf_SOURCES = rdf.cpp
 sp5c_SOURCES = sp5c.cpp
 totalRdf_SOURCES = totalRdf.cpp
 traj2vtk_SOURCES = traj2vtk.cpp
@@ -435,6 +466,9 @@ boo_flip$(EXEEXT): $(boo_flip_OBJECTS) $(boo_flip_DEPENDENCIES)
 cage2vtk$(EXEEXT): $(cage2vtk_OBJECTS) $(cage2vtk_DEPENDENCIES) 
 	@rm -f cage2vtk$(EXEEXT)
 	$(CXXLINK) $(cage2vtk_OBJECTS) $(cage2vtk_LDADD) $(LIBS)
+cgVoro$(EXEEXT): $(cgVoro_OBJECTS) $(cgVoro_DEPENDENCIES) 
+	@rm -f cgVoro$(EXEEXT)
+	$(CXXLINK) $(cgVoro_OBJECTS) $(cgVoro_LDADD) $(LIBS)
 cutter$(EXEEXT): $(cutter_OBJECTS) $(cutter_DEPENDENCIES) 
 	@rm -f cutter$(EXEEXT)
 	$(CXXLINK) $(cutter_OBJECTS) $(cutter_LDADD) $(LIBS)
@@ -462,6 +496,15 @@ lostngb$(EXEEXT): $(lostngb_OBJECTS) $(lostngb_DEPENDENCIES)
 percolation$(EXEEXT): $(percolation_OBJECTS) $(percolation_DEPENDENCIES) 
 	@rm -f percolation$(EXEEXT)
 	$(CXXLINK) $(percolation_OBJECTS) $(percolation_LDADD) $(LIBS)
+periodic_boo$(EXEEXT): $(periodic_boo_OBJECTS) $(periodic_boo_DEPENDENCIES) 
+	@rm -f periodic_boo$(EXEEXT)
+	$(CXXLINK) $(periodic_boo_OBJECTS) $(periodic_boo_LDADD) $(LIBS)
+periodic_cgVoro$(EXEEXT): $(periodic_cgVoro_OBJECTS) $(periodic_cgVoro_DEPENDENCIES) 
+	@rm -f periodic_cgVoro$(EXEEXT)
+	$(CXXLINK) $(periodic_cgVoro_OBJECTS) $(periodic_cgVoro_LDADD) $(LIBS)
+periodic_rdf$(EXEEXT): $(periodic_rdf_OBJECTS) $(periodic_rdf_DEPENDENCIES) 
+	@rm -f periodic_rdf$(EXEEXT)
+	$(CXXLINK) $(periodic_rdf_OBJECTS) $(periodic_rdf_LDADD) $(LIBS)
 rdf$(EXEEXT): $(rdf_OBJECTS) $(rdf_DEPENDENCIES) 
 	@rm -f rdf$(EXEEXT)
 	$(CXXLINK) $(rdf_OBJECTS) $(rdf_LDADD) $(LIBS)
@@ -487,6 +530,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/boo.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/boo_flip.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cage2vtk.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cgVoro-cgVoro.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cutter.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dat2vtk.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/drift.Po@am__quote@
@@ -496,6 +540,9 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/linker.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lostngb.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/percolation.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/periodic_boo-boo.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/periodic_cgVoro-cgVoro.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/periodic_rdf-rdf.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/rdf.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sp5c.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/totalRdf.Po@am__quote@
@@ -521,6 +568,62 @@ distclean-compile:
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='$<' object='$@' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(LTCXXCOMPILE) -c -o $@ $<
+
+cgVoro-cgVoro.o: cgVoro.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(cgVoro_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT cgVoro-cgVoro.o -MD -MP -MF $(DEPDIR)/cgVoro-cgVoro.Tpo -c -o cgVoro-cgVoro.o `test -f 'cgVoro.cpp' || echo '$(srcdir)/'`cgVoro.cpp
+@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/cgVoro-cgVoro.Tpo $(DEPDIR)/cgVoro-cgVoro.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='cgVoro.cpp' object='cgVoro-cgVoro.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(cgVoro_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o cgVoro-cgVoro.o `test -f 'cgVoro.cpp' || echo '$(srcdir)/'`cgVoro.cpp
+
+cgVoro-cgVoro.obj: cgVoro.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(cgVoro_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT cgVoro-cgVoro.obj -MD -MP -MF $(DEPDIR)/cgVoro-cgVoro.Tpo -c -o cgVoro-cgVoro.obj `if test -f 'cgVoro.cpp'; then $(CYGPATH_W) 'cgVoro.cpp'; else $(CYGPATH_W) '$(srcdir)/cgVoro.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/cgVoro-cgVoro.Tpo $(DEPDIR)/cgVoro-cgVoro.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='cgVoro.cpp' object='cgVoro-cgVoro.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(cgVoro_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o cgVoro-cgVoro.obj `if test -f 'cgVoro.cpp'; then $(CYGPATH_W) 'cgVoro.cpp'; else $(CYGPATH_W) '$(srcdir)/cgVoro.cpp'; fi`
+
+periodic_boo-boo.o: boo.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(periodic_boo_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT periodic_boo-boo.o -MD -MP -MF $(DEPDIR)/periodic_boo-boo.Tpo -c -o periodic_boo-boo.o `test -f 'boo.cpp' || echo '$(srcdir)/'`boo.cpp
+@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/periodic_boo-boo.Tpo $(DEPDIR)/periodic_boo-boo.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='boo.cpp' object='periodic_boo-boo.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(periodic_boo_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o periodic_boo-boo.o `test -f 'boo.cpp' || echo '$(srcdir)/'`boo.cpp
+
+periodic_boo-boo.obj: boo.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(periodic_boo_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT periodic_boo-boo.obj -MD -MP -MF $(DEPDIR)/periodic_boo-boo.Tpo -c -o periodic_boo-boo.obj `if test -f 'boo.cpp'; then $(CYGPATH_W) 'boo.cpp'; else $(CYGPATH_W) '$(srcdir)/boo.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/periodic_boo-boo.Tpo $(DEPDIR)/periodic_boo-boo.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='boo.cpp' object='periodic_boo-boo.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(periodic_boo_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o periodic_boo-boo.obj `if test -f 'boo.cpp'; then $(CYGPATH_W) 'boo.cpp'; else $(CYGPATH_W) '$(srcdir)/boo.cpp'; fi`
+
+periodic_cgVoro-cgVoro.o: cgVoro.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(periodic_cgVoro_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT periodic_cgVoro-cgVoro.o -MD -MP -MF $(DEPDIR)/periodic_cgVoro-cgVoro.Tpo -c -o periodic_cgVoro-cgVoro.o `test -f 'cgVoro.cpp' || echo '$(srcdir)/'`cgVoro.cpp
+@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/periodic_cgVoro-cgVoro.Tpo $(DEPDIR)/periodic_cgVoro-cgVoro.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='cgVoro.cpp' object='periodic_cgVoro-cgVoro.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(periodic_cgVoro_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o periodic_cgVoro-cgVoro.o `test -f 'cgVoro.cpp' || echo '$(srcdir)/'`cgVoro.cpp
+
+periodic_cgVoro-cgVoro.obj: cgVoro.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(periodic_cgVoro_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT periodic_cgVoro-cgVoro.obj -MD -MP -MF $(DEPDIR)/periodic_cgVoro-cgVoro.Tpo -c -o periodic_cgVoro-cgVoro.obj `if test -f 'cgVoro.cpp'; then $(CYGPATH_W) 'cgVoro.cpp'; else $(CYGPATH_W) '$(srcdir)/cgVoro.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/periodic_cgVoro-cgVoro.Tpo $(DEPDIR)/periodic_cgVoro-cgVoro.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='cgVoro.cpp' object='periodic_cgVoro-cgVoro.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(periodic_cgVoro_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o periodic_cgVoro-cgVoro.obj `if test -f 'cgVoro.cpp'; then $(CYGPATH_W) 'cgVoro.cpp'; else $(CYGPATH_W) '$(srcdir)/cgVoro.cpp'; fi`
+
+periodic_rdf-rdf.o: rdf.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(periodic_rdf_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT periodic_rdf-rdf.o -MD -MP -MF $(DEPDIR)/periodic_rdf-rdf.Tpo -c -o periodic_rdf-rdf.o `test -f 'rdf.cpp' || echo '$(srcdir)/'`rdf.cpp
+@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/periodic_rdf-rdf.Tpo $(DEPDIR)/periodic_rdf-rdf.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='rdf.cpp' object='periodic_rdf-rdf.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(periodic_rdf_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o periodic_rdf-rdf.o `test -f 'rdf.cpp' || echo '$(srcdir)/'`rdf.cpp
+
+periodic_rdf-rdf.obj: rdf.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(periodic_rdf_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT periodic_rdf-rdf.obj -MD -MP -MF $(DEPDIR)/periodic_rdf-rdf.Tpo -c -o periodic_rdf-rdf.obj `if test -f 'rdf.cpp'; then $(CYGPATH_W) 'rdf.cpp'; else $(CYGPATH_W) '$(srcdir)/rdf.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/periodic_rdf-rdf.Tpo $(DEPDIR)/periodic_rdf-rdf.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='rdf.cpp' object='periodic_rdf-rdf.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(periodic_rdf_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o periodic_rdf-rdf.obj `if test -f 'rdf.cpp'; then $(CYGPATH_W) 'rdf.cpp'; else $(CYGPATH_W) '$(srcdir)/rdf.cpp'; fi`
 
 mostlyclean-libtool:
 	-rm -f *.lo
@@ -854,10 +957,6 @@ uninstall-am: uninstall-binPROGRAMS
 	pdf pdf-am ps ps-am tags uninstall uninstall-am \
 	uninstall-binPROGRAMS
 
-
-@WANT_VORO_TRUE@	bin_PROGRAMS += cgVoro
-@WANT_VORO_TRUE@	cgVoro_SOURCES = cgVoro.cpp
-@WANT_VORO_TRUE@	cgVoro_CPPFLAGS = -I$(VORO_SRC)
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
