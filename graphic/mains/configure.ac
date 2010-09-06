@@ -11,7 +11,7 @@ LT_INIT
 CXXFLAGS="-O3 -Wall"
 AX_BOOST_BASE([1.35], , AC_MSG_ERROR('boost >1.35 is needed to calculate spherical harmonics'))
 AX_BOOST_PROGRAM_OPTIONS
-AC_CHECK_HEADER([CImg.h], , AC_MSG_ERROR('CImg >1.42 is needed'))
+AC_CHECK_HEADER([CImg.h], , AC_MSG_ERROR('CImg >1.32 is needed'))
 AC_CHECK_HEADER([fftw3.h], , AC_MSG_ERROR('FFTW >3 is needed'))
 
 AC_OPENMP
