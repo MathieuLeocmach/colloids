@@ -293,7 +293,7 @@ class Reader(Header):
             while(self.f.read(1) != "*"):
                 pass
             #size of the memory description
-            memDescrSize, = struct.unpack("L",self.f.read(4))
+            memDescrSize, = struct.unpack("I",self.f.read(4))
             memDescrSize *=2
             #skip the description: we are at the begining of the content
             self.f.seek(memDescrSize,1)
@@ -311,7 +311,7 @@ class Reader(Header):
         if testBlock != '*':
             raise Exception ("Invalid block at %l" % self.f.tell())
         if not hasattr(self, 'xmlHeader') or self.getVersion()<2:
-            memorysize, = struct.unpack("L",self.f.read(4))
+            memorysize, = struct.unpack("I",self.f.read(4))
         else:
             memorysize, = struct.unpack("Q",self.f.read(8))
         return memorysize
@@ -464,3 +464,25 @@ class Serie(SerieHeader):
                     count=s.getNbPixelsPerSlice()
                     ).reshape(shape).transpose()
 
+def getNeighbourhood(point, image):
+    box = np.floor([np.maximum(0, points[middle][0]-10), np.minimum(im.shape, points[middle][0]+11)])
+    ngb = im[box[0,0]:box[1,0], box[0,1]:box[1,1], box[0,2]:box[1,2]]
+    center = points[middle][0]-box[0]
+    return ngb, center
+
+def getRadius(ngb, center, zratio=1, rmin=2, rmax=10, precision=0.1):
+    sqdist = [(np.arange(ngb.shape[d])-center[d])**2 for d in range(ngb.ndim)]
+    sqdist[-1]*=zratio**2
+    dist = np.empty_like(ngb)
+    for i,x in enumerate(sqdist[0]):
+            for j,y in enumerate(sqdist[1]):
+                    for k,z in enumerate(sqdist[2]):
+                            dist[i,j,k] = x+y+z
+    val = np.zeros(rmax/precision)
+    nbs = np.zeros(rmax/precision)
+    for l, (px,d) in enumerate(zip(ngb.ravel(), dist.ravel())):
+            if d<rmax**2:
+                    i = int(np.sqrt(d)/precision)
+                    nbs[i] += 1
+                    val[i] += px
+    return np.cumsum(val)[rmin/precision:]/np.cumsum(nbs)[rmin/precision:]
