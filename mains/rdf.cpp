@@ -18,7 +18,7 @@
 **/
 
 //Define the preprocessor variable "use_periodic" if you want periodic boundary conditions
-#include "../periodic.hpp"
+#include "periodic.hpp"
 
 using namespace std;
 using namespace Colloids;

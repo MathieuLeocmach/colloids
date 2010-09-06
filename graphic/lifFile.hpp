@@ -30,7 +30,7 @@
 #define lif_reader_H
 
 #define TIXML_USE_STL 1
-#include "../tinyxml/tinyxml.h"
+#include "tinyxml/tinyxml.h"
 #include <string>
 #include <iostream>
 #include <fstream>

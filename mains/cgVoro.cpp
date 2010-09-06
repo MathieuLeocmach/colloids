@@ -18,7 +18,7 @@
 **/
 
 //Define the preprocessor variable "periodic" if you want periodic boundary conditions
-#include "../periodic.hpp"
+#include "periodic.hpp"
 #include <voro++.cc>
 #include <boost/progress.hpp>
 

@@ -18,7 +18,7 @@
 **/
 
 //Define the preprocessor variable "periodic" if you want periodic boundary conditions
-#include "../periodic.hpp"
+#include "periodic.hpp"
 
 using namespace std;
 using namespace Colloids;
@@ -33,7 +33,7 @@ int main(int argc, char ** argv)
 		const string inputPath = filename.substr(0,filename.find_last_of("."));
 		const string ext = filename.substr(filename.find_last_of(".")+1);
 		double maxBondLength = 0.0;
-		deque<pair<size_t, size_t> > bonds;
+		BondSet bonds;
 		Particles parts(filename,1);
 		parts.makeRTreeIndex();
 		if(argc>2)
@@ -55,8 +55,8 @@ int main(int argc, char ** argv)
 		parts.makeNgbList(maxBondLength);
 		bonds = parts.getBonds();
 		ofstream output((inputPath + ".bonds").c_str(), ios::out | ios::trunc);
-		for(deque<pair<size_t, size_t> >::const_iterator b=bonds.begin(); b!= bonds.end();++b)
-			output<<b->first<<" "<<b->second<<"\n";
+		for(BondSet::const_iterator b=bonds.begin(); b!= bonds.end();++b)
+			output<<b->low()<<" "<<b->high()<<"\n";
     }
     catch(const exception &e)
     {

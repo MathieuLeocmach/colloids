@@ -25,6 +25,7 @@
 
 #ifndef index_H
 #define index_H
+#include "config.h"
 
 #include "RStarTree/RStarTree.h"
 

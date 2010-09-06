@@ -18,7 +18,7 @@
 **/
 
 //Define the preprocessor variable "periodic" if you want periodic boundary conditions
-#include "../periodic.hpp"
+#include "periodic.hpp"
 
 using namespace std;
 using namespace Colloids;
@@ -35,7 +35,7 @@ int main(int argc, char ** argv)
 		const size_t tokenPos = inputPath.rfind("_t");
 
 		Particles parts(filename);
-		deque<pair<size_t, size_t> > bonds = loadBonds(inputPath+".bonds");
+		BondSet bonds = loadBonds(inputPath+".bonds");
 
 		boost::multi_array<double, 2> qw, Sqw;
 		parts.loadBoo(inputPath+".cloud", qw);

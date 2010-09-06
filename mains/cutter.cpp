@@ -17,8 +17,8 @@
     along with Colloids.  If not, see <http://www.gnu.org/licenses/>.
 **/
 
-#include "../particles.hpp"
-#include "../files_series.hpp"
+#include "particles.hpp"
+#include "files_series.hpp"
 #include <boost/progress.hpp>
 
 using namespace std;
@@ -48,7 +48,7 @@ int main(int argc, char ** argv)
             radius = atof(argv[3]);
             const size_t t_span = atoi(argv[4]),
 					t_offset = atoi(argv[5]);
-            minsep = atof(argv[6]);
+            minSep = atof(argv[6]);
             const double sep = 2.0*radius*minSep;
 
             FileSerie datSerie(filename, token, t_span, t_offset);
@@ -69,7 +69,7 @@ int main(int argc, char ** argv)
                 return EXIT_FAILURE;
             }
             radius = atof(argv[2]);
-            minsep = atof(argv[3]);
+            minSep = atof(argv[3]);
 
             const double sep = 2.0*radius*minSep;
             Particles(filename).cut(sep).exportToFile(filename);

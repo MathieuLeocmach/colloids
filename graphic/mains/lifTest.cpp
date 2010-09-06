@@ -21,6 +21,7 @@
 
 using namespace std;
 using namespace cimg_library;
+using namespace Colloids;
 
 int main(int argc, char ** argv)
 {
@@ -31,8 +32,8 @@ int main(int argc, char ** argv)
     }
 
     const string filename(argv[1]);
-    LifFile lif(filename);
-    cout << "LIF version "<<lif.LifVersion << endl;
+    LifReader lif(filename);
+    cout << "LIF version "<<lif.getVersion() << endl;
     size_t serie = lif.chooseSerie(),frame=0;
     if(lif.Dimensions[serie]->size()>3)
         do

@@ -1,4 +1,4 @@
-#include "../dynamicParticles.hpp"
+#include "dynamicParticles.hpp"
 
 using namespace std;
 using namespace Colloids;

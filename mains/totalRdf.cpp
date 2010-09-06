@@ -18,8 +18,8 @@
 **/
 
 //Define the preprocessor variable "use_periodic" if you want periodic boundary conditions
-#include "../periodic.hpp"
-#include "../files_series.hpp"
+#include "periodic.hpp"
+#include "files_series.hpp"
 
 using namespace std;
 using namespace Colloids;

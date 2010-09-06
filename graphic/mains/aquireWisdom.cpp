@@ -20,6 +20,7 @@
 #include "../lifTracker.hpp"
 
 using namespace std;
+using namespace Colloids;
 
 #ifndef INSTAL_PATH
 #define INSTAL_PATH "c:/bin/"
