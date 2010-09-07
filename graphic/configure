@@ -14809,6 +14809,15 @@ fi
 	fi
 
 
+ac_fn_cxx_check_header_mongrel "$LINENO" "CImg.h" "ac_cv_header_CImg_h" "$ac_includes_default"
+if test "x$ac_cv_header_CImg_h" = x""yes; then :
+
+else
+  as_fn_error "'CImg >1.32 is needed'" "$LINENO" 5
+fi
+
+
+
 
   OPENMP_CXXFLAGS=
   # Check whether --enable-openmp was given.
@@ -14880,7 +14889,6 @@ if test "$OPENMP_CXXFLAGS" != ""; then
 fi
 
 # Checks for pthread.
-
 for ac_header in pthread.h
 do :
   ac_fn_cxx_check_header_mongrel "$LINENO" "pthread.h" "ac_cv_header_pthread_h" "$ac_includes_default"
@@ -14988,6 +14996,51 @@ if test "x$ac_cv_lib_fftw3f_fftwf_free" = x""yes; then :
 _ACEOF
 
   LIBS="-lfftw3f $LIBS"
+
+fi
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for fftwf_init_threads in -lfftw3f_threads" >&5
+$as_echo_n "checking for fftwf_init_threads in -lfftw3f_threads... " >&6; }
+if test "${ac_cv_lib_fftw3f_threads_fftwf_init_threads+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lfftw3f_threads  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char fftwf_init_threads ();
+int
+main ()
+{
+return fftwf_init_threads ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_cxx_try_link "$LINENO"; then :
+  ac_cv_lib_fftw3f_threads_fftwf_init_threads=yes
+else
+  ac_cv_lib_fftw3f_threads_fftwf_init_threads=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_fftw3f_threads_fftwf_init_threads" >&5
+$as_echo "$ac_cv_lib_fftw3f_threads_fftwf_init_threads" >&6; }
+if test "x$ac_cv_lib_fftw3f_threads_fftwf_init_threads" = x""yes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_LIBFFTW3F_THREADS 1
+_ACEOF
+
+  LIBS="-lfftw3f_threads $LIBS"
 
 fi
 

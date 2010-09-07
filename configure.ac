@@ -13,6 +13,9 @@ CXXFLAGS="-O3 -Wall"
 AX_BOOST_BASE([1.35], , AC_MSG_ERROR('boost >1.35 is needed to calculate spherical harmonics'))
 AX_BOOST_PROGRAM_OPTIONS
 
+AX_COUNT_CPUS
+CPPFLAGS="$CPPFLAGS -DTRACKER_N_THREADS=$CPU_COUNT"
+
 AC_OPENMP
 if test "$OPENMP_CXXFLAGS" != ""; then
 	CXXFLAGS="$CXXFLAGS $OPENMP_CXXFLAGS"
@@ -24,4 +27,5 @@ AM_CONDITIONAL([WANT_VORO], test $with_voro_src)
 if test $with_voro_src; then 	
 	AC_SUBST(VORO_SRC, $with_voro_src)
 fi
+
 AC_OUTPUT

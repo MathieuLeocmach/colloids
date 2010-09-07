@@ -14807,7 +14807,7 @@ ac_fn_cxx_check_header_mongrel "$LINENO" "CImg.h" "ac_cv_header_CImg_h" "$ac_inc
 if test "x$ac_cv_header_CImg_h" = x""yes; then :
 
 else
-  as_fn_error "'CImg >1.42 is needed'" "$LINENO" 5
+  as_fn_error "'CImg >1.32 is needed'" "$LINENO" 5
 fi
 
 

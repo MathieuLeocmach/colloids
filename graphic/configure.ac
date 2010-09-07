@@ -35,7 +35,9 @@ if test "$PTHREAD_LIBS" != ""; then
 fi
 
 AC_CHECK_LIB([fftw3f], [fftwf_free])
+AC_CHECK_LIB([fftw3f_threads], [fftwf_init_threads])
 AC_CHECK_LIB([X11], [XOpenDisplay])
 AC_CHECK_LIB([gdi32],[GetPixel])
+AC_CHECK_LIB([m], [sqrt])
 
 AC_OUTPUT
