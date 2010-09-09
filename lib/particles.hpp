@@ -218,8 +218,8 @@ namespace Colloids
             struct GlBinner : public RdfBinner
             {
                 std::vector<double> gl;
-                const size_t l;
                 const std::vector<BooData> &boo;
+                const size_t l;
 
                 GlBinner(const Particles &p, size_t n, const double &nbDiameterCutOff, const std::vector<BooData> &BOO, const size_t &l)
                 : RdfBinner(p,n,nbDiameterCutOff),boo(BOO), l(l)
