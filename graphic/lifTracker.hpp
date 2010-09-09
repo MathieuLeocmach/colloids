@@ -67,7 +67,7 @@ class LifTracker : public TrackerIterator
 {
  	public:
 		explicit LifTracker2D(LifSerie &serie, const size_t ch=0, const unsigned fs=FFTW_ESTIMATE) : LifTracker(serie, ch, fs){};
-		/** \brief default constructor that should be used only to get an "end" iterator*
+		// \brief default constructor that should be used only to get an "end" iterator
 		LifTracker2D end(){return LifTracker2D(getLif().getNbTimeSteps()*getLif().getSpatialDimensions()[0]);};
 
 		bool operator==(const LifTracker2D& rhs) {return time_step==rhs.time_step && getLif()==rhs.getLif();}

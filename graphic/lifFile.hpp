@@ -42,10 +42,10 @@
 #include <boost/ptr_container/ptr_vector.hpp>
 
 namespace Colloids{
-typedef struct ChannelData;
-typedef struct DimensionData;
-typedef struct ScannerSettingRecord;
-typedef struct FilterSettingRecord;
+struct ChannelData;
+struct DimensionData;
+struct ScannerSettingRecord;
+struct FilterSettingRecord;
 
 class LifSerieHeader
 {

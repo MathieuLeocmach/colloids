@@ -134,7 +134,7 @@ void LifSerieHeader::parseImage(TiXmlNode *elementImage)
     TiXmlNode *elementHardwareSettingList = 0;
     TiXmlNode *child = 0;
     string Name;
-    while( child = elementImage->IterateChildren("Attachment",child ) )
+    while( (child = elementImage->IterateChildren("Attachment", child)) )
     {
         Name = child->ToElement()->Attribute("Name");
         if(Name=="HardwareSettingList" && !child->NoChildren())
@@ -153,12 +153,12 @@ void LifSerieHeader::parseImageDescription(TiXmlNode *elementImageDescription)
         TiXmlNode *child = 0;
 
         // Get info of channels
-        while(child = elementChannels->IterateChildren(child))
+        while((child = elementChannels->IterateChildren(child)))
             this->channels.push_back(ChannelData(child->ToElement()));
 
         // Get info of dimensions
         child = 0;
-        while(child = elementDimensions->IterateChildren(child))
+        while((child = elementDimensions->IterateChildren(child)))
         {
             DimensionData data(child->ToElement());
             this->dimensions.insert(
@@ -177,7 +177,7 @@ void LifSerieHeader::parseTimeStampList(TiXmlNode *elementTimeStampList)
         unsigned long lowInt;
         unsigned long long timeStamp;
         TiXmlNode *child = 0;
-        while(child = elementTimeStampList->IterateChildren(child))
+        while((child = elementTimeStampList->IterateChildren(child)))
         {
             child->ToElement()->QueryValueAttribute<unsigned long>("HighInteger",&highInt);
             child->ToElement()->QueryValueAttribute<unsigned long>("LowInteger",&lowInt);
@@ -208,7 +208,7 @@ void LifSerieHeader::parseScannerSetting(TiXmlNode *elementScannerSetting)
     if(elementScannerSetting)
     {
         TiXmlNode *child = 0;
-        while(child = elementScannerSetting->IterateChildren("ScannerSettingRecord", child))
+        while((child = elementScannerSetting->IterateChildren("ScannerSettingRecord", child)))
             this->scannerSettings.insert(
                 make_pair(
                     child->ToElement()->Attribute("Identifier"),
@@ -231,9 +231,9 @@ LifSerie::LifSerie(LifSerieHeader serie, const std::string &filename, unsigned l
     fileSize = file.tellg();
     //cout<<"offset: "<<offset<<"\tmemorySize: "<<memorySize<<"\tfileSize: "<<fileSize<<endl;
     //check the validity of the offset and memorysize parameters
-    if(offset >= fileSize)
+    if(offset >= (unsigned long long)fileSize)
         throw invalid_argument("Offset is larger than file size");
-    if(offset+memorySize > fileSize)
+    if(offset+memorySize > (unsigned long long)fileSize)
         throw invalid_argument("The end of the serie is further than the end of file");
 
     this->offset = offset;
@@ -329,7 +329,7 @@ void LifHeader::parseHeader()
         throw logic_error("No serie in this experiment.");
 
     TiXmlNode *serieNode = 0;
-    while (serieNode = elementChildren->IterateChildren("Element", serieNode))
+    while( (serieNode = elementChildren->IterateChildren("Element", serieNode)))
         series.push_back(new LifSerieHeader(serieNode->ToElement()));
 }
 

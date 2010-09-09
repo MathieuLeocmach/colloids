@@ -91,7 +91,7 @@ LifTracker & LifTracker::operator++()
 */
 boost::array<size_t,3> LifTracker::getTrackerDims() const
 {
-	boost::array<size_t,3> dims = {1,1,1};
+	boost::array<size_t,3> dims = {{1,1,1}};
 	vector<size_t> fortran_order_dims = getLif().getSpatialDimensions();
 	copy(
 		fortran_order_dims.begin(),

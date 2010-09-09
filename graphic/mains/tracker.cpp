@@ -66,7 +66,9 @@ string testTrackerIni()
     if(!ifs.good())
     {
         cout << "create default "<<file <<endl;
-        system( ("MKDIR \""+dir+"\"").c_str() );
+        if(!system( ("MKDIR \""+dir+"\"").c_str() ))
+            throw(invalid_argument(("Cannot create the directory "+dir+". Check permissions").c_str()
+                ));
         ofstream ofs(file.c_str());
         if(!ofs.good())
             throw(invalid_argument(("Cannot create "+file+ "\n"+
