@@ -80,7 +80,7 @@ am__installdirs = "$(DESTDIR)$(libdir)" "$(DESTDIR)$(includedir)"
 LTLIBRARIES = $(lib_LTLIBRARIES)
 libcolloids_graphic_la_LIBADD =
 am_libcolloids_graphic_la_OBJECTS = lifFile.lo lifTracker.lo \
-	serieTracker.lo tracker.lo
+	radiiTracker.lo serieTracker.lo tracker.lo
 libcolloids_graphic_la_OBJECTS = $(am_libcolloids_graphic_la_OBJECTS)
 DEFAULT_INCLUDES = -I.@am__isrc@
 depcomp = $(SHELL) $(top_srcdir)/../depcomp
@@ -284,8 +284,8 @@ SUBDIRS = tinyxml . mains
 lib_LTLIBRARIES = libcolloids-graphic.la
 LDADD = ../lib/libcolloids.la tinyxml/libtinyxml.a
 AM_CPPFLAGS = -I$(srcdir)/../lib -DTIXML_USE_STL
-libcolloids_graphic_la_SOURCES = lifFile.cpp lifFile.hpp lifTracker.cpp lifTracker.hpp serieTracker.cpp serieTracker.hpp tracker.cpp tracker.hpp
-include_HEADERS = lifFile.hpp lifTracker.hpp serieTracker.hpp tracker.hpp
+libcolloids_graphic_la_SOURCES = lifFile.cpp lifFile.hpp lifTracker.cpp lifTracker.hpp radiiTracker.cpp radiiTracker.hpp serieTracker.cpp serieTracker.hpp tracker.cpp tracker.hpp
+include_HEADERS = lifFile.hpp lifTracker.hpp radiiTracker.hpp serieTracker.hpp tracker.hpp
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-recursive
 
@@ -384,6 +384,7 @@ distclean-compile:
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lifFile.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lifTracker.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/radiiTracker.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/serieTracker.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tracker.Plo@am__quote@
 

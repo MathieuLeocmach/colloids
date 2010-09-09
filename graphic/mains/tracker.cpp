@@ -45,8 +45,9 @@
  */
 
 #include <boost/program_options.hpp>
-#include "../lifTracker.hpp"
-#include "../serieTracker.hpp"
+#include "lifTracker.hpp"
+#include "serieTracker.hpp"
+#include "radiiTracker.hpp"
 #include <boost/progress.hpp>
 #include <boost/format.hpp>
 #include "config.h"
@@ -55,28 +56,55 @@ namespace po = boost::program_options;
 using namespace std;
 using namespace Colloids;
 
-#ifndef INSTAL_PATH
-#define INSTAL_PATH "c:/bin"
-#endif
+/** \brief test the existence og tracker.ini, create it if necessary  */
+string testTrackerIni()
+{
+    const string dir = string(getenv("HOME"))+"/.colloids",
+        file = dir + "/tracker.ini";
+
+    ifstream ifs(file.c_str());
+    if(!ifs.good())
+    {
+        cout << "create default "<<file <<endl;
+        system( ("MKDIR \""+dir+"\"").c_str() );
+        ofstream ofs(file.c_str());
+        if(!ofs.good())
+            throw(invalid_argument(("Cannot create "+file+ "\n"+
+                "Create the directory "+dir+" or check its permissions").c_str()
+                ));
+
+        ofs <<"# Tracking configuration"<<endl;
+        ofs <<"input="<<getenv("HOME")<<"/Code_data/liftest/Tsuru11dm_phi=52.53_J36.lif"<<endl;
+        ofs <<"outputPath = "<<getenv("HOME")<<"/Code_output/liftest/test_"<<endl;
+        ofs <<"radiusMin = 3.48"<<endl;
+        ofs <<"radiusMax = 64"<<endl;
+        ofs <<"threshold = 90"<<endl;
+        ofs <<""<<endl;
+        ofs <<"# Specific to file serie mode"<<endl;
+        ofs <<"channel = 1"<<endl;
+        ofs <<"xsize = 256"<<endl;
+        ofs <<"ysize = 256"<<endl;
+        ofs <<"zsize = 128"<<endl;
+        ofs <<"tsize = 1"<<endl;
+        ofs <<"voxelWidth = 1"<<endl;
+        ofs <<"voxelDepth = 1"<<endl;
+    }
+    return dir;
+}
 
 /** \brief Functor to save a serie of particles to file */
 struct ParticlesExporter : public unary_function<const Particles&, void>
 {
     size_t t;
     ofstream * nbs;
-    boost::format outputFileName;
+    FileSerie *outputFileName;
     boost::progress_display *show_progress;
 
     /** \brief  Constructor. Need the size of the serie only to get the right number of digits  */
     ParticlesExporter(const string& outputPath, size_t size, bool quiet)
     {
         t=0;
-        ostringstream nbframes;
-        nbframes << size-1;
-        const size_t digits = std::max(nbframes.str().size(), (size_t)1);
-        ostringstream os;
-        os<<outputPath<<"_t%|0"<<digits<<"d|.dat";
-        outputFileName.parse(os.str());
+        outputFileName = new FileSerie(FileSerie::get0th(outputPath, size)+".dat", "_t", size, 0);
         if(quiet)
             show_progress = new boost::progress_display(size-1);
         else
@@ -89,8 +117,40 @@ struct ParticlesExporter : public unary_function<const Particles&, void>
     */
     void operator()(const Particles& parts)
     {
-        parts.exportToFile((outputFileName % (t++)).str());
+        if(!show_progress) cout<<"open file"<<endl;
+        parts.exportToFile(*outputFileName % (t++));
+        if(!show_progress) cout<<"export to "<<(*outputFileName % (t++))<<endl;
         (*nbs) << parts.size() << endl;
+        if(show_progress)
+            ++(*show_progress);
+    }
+};
+
+/** \brief Functor to save a serie of radii to file */
+struct RadiiExporter : public unary_function<const Particles&, void>
+{
+    size_t t;
+    FileSerie *outputFileName;
+    boost::progress_display *show_progress;
+
+    /** \brief  Constructor. Need the size of the serie only to get the right number of digits  */
+    RadiiExporter(const string& outputPath, size_t size, bool quiet)
+    {
+        t=0;
+        outputFileName = new FileSerie(FileSerie::get0th(outputPath, size)+".radii", "_t", size, 0);
+        if(quiet)
+            show_progress = new boost::progress_display(size-1);
+        else
+            show_progress = 0;
+    }
+
+    /** \brief  Export the Particles object to the next file of the serie.
+        For example outputDir/30s_t025.dat
+    */
+    void operator()(const vector<double>& radii)
+    {
+        ofstream outputFile((*outputFileName % (t++)).c_str());
+        copy(radii.begin(), radii.end(), ostream_iterator<double>(outputFile, "\n"));
         if(show_progress)
             ++(*show_progress);
     }
@@ -111,6 +171,7 @@ int main(int ac, char* av[])
             ("help", "produce help message")
             ("modeLIF,L", "Read from a Leica LIF file")
             ("modeSerie,S", "Read from a 2D image files serie")
+            ("extractRadii,R", "Extract radii from image data and already tracked coordinates (from a previous run without the -R option).")
             ("view", "Display intermediate images")
             ("quiet", "Display only a progression bar")
 #if (TRACKER_N_THREADS>1)
@@ -164,12 +225,8 @@ int main(int ac, char* av[])
             return EXIT_SUCCESS;
         }
 
-        ifstream ifs(INSTAL_PATH "/tracker.ini");
-        if(!ifs)
-        {
-            cout << "Cannot open " INSTAL_PATH "/tracker.ini" <<endl;
-            return EXIT_FAILURE;
-        }
+        const string config_path = testTrackerIni();
+        ifstream ifs((config_path+"/tracker.ini").c_str());
         po::store(parse_config_file(ifs, config_file_options), vm);
         notify(vm);
         ifs.close();
@@ -180,7 +237,7 @@ int main(int ac, char* av[])
         if(outputPath.substr(outputPath.size()-1) == "_")
             outputPath.erase(outputPath.end()-1);
 
-        //test wrtiting on the given outputpath
+        //test writting on the given outputpath
         {
             ofstream output_test((outputPath+"test.test").c_str(), ios::out | ios::trunc);
             if(output_test.good())
@@ -195,22 +252,22 @@ int main(int ac, char* av[])
         fftwf_plan_with_nthreads(cores);
 #endif
 
-        Tracker::loadWisdom(INSTAL_PATH "/wisdom.fftw");
+        Tracker::loadWisdom(config_path+"/wisdom.fftw");
 
 
         if (vm.count("modeSerie"))
         {
             Zratio = vm["voxelDepth"].as<double>() / vm["voxelWidth"].as<double>();
             //initialize the tracker
-            boost::array<size_t, 4> xyzt = {
+            boost::array<size_t, 4> xyzt = {{
                 vm["xsize"].as<size_t>(),
                 vm["ysize"].as<size_t>(),
                 vm["zsize"].as<size_t>(),
                 vm["tsize"].as<size_t>()
-            };
+            }};
             SerieTracker track(inputFile, xyzt, Zratio, vm["channel"].as<size_t>());
             cout << "tracker ok"<<endl;
-            Tracker::saveWisdom(INSTAL_PATH "wisdom.fftw");
+            Tracker::saveWisdom(config_path+"/wisdom.fftw");
             track.setView(!!vm.count("view"));
             track.setQuiet(!!vm.count("quiet"));
             track.setThreshold(threshold);
@@ -233,26 +290,42 @@ int main(int ac, char* av[])
             if(!vm.count("serie") || serie >= reader.getNbSeries())
                 serie = reader.chooseSerieNumber();
 
-            LifTracker track(reader.getSerie(serie));
-            cout << "tracker ok"<<endl;
-            /*ofstream out((outputPath+"img.raw").c_str(), ios_base::out | ios_base::trunc);
-            track.getTracker().copyImage(ostream_iterator<int>(out,"\t"));
-            out.close();*/
-            Tracker::saveWisdom(INSTAL_PATH "/wisdom.fftw");
-            track.setView(!!vm.count("view"));
-            track.setQuiet(!!vm.count("quiet"));
-            track.setThreshold(threshold);
-            track.setIsotropicBandPass(radiusMin, radiusMax); //not using zradius for the moment
-            //string maskoutput = outputPath+"mask.txt";
-            //track.getTracker().maskToFile(maskoutput);
+            if(vm.count("extractRadii"))
+            {
+                LifRadiiTracker track(reader.getSerie(serie), outputPath);
+                Tracker::saveWisdom(config_path+"/wisdom.fftw");
+                cout << "tracker ok"<<endl;
 
-            boost::progress_timer ptimer;
-            for_each(track, track.end(), ParticlesExporter(outputPath, track.getLif().getNbTimeSteps(), track.quiet()));
+                track.setView(!!vm.count("view"));
+                track.setQuiet(!!vm.count("quiet"));
 
-            //display radius no more in use
-            //track.displayRadius = displayRadius;
+                boost::progress_timer ptimer;
+                for_each(track, track.end(), RadiiExporter(outputPath, track.getLif().getNbTimeSteps(), track.quiet()));
+                cout<<"radii extracted at all time steps in ";
+            }
+            else
+            {
+                LifTracker track(reader.getSerie(serie));
+                cout << "tracker ok"<<endl;
+                /*ofstream out((outputPath+"img.raw").c_str(), ios_base::out | ios_base::trunc);
+                track.getTracker().copyImage(ostream_iterator<int>(out,"\t"));
+                out.close();*/
+                Tracker::saveWisdom(config_path+"/wisdom.fftw");
+                track.setView(!!vm.count("view"));
+                track.setQuiet(!!vm.count("quiet"));
+                track.setThreshold(threshold);
+                track.setIsotropicBandPass(radiusMin, radiusMax); //not using zradius for the moment
+                //string maskoutput = outputPath+"mask.txt";
+                //track.getTracker().maskToFile(maskoutput);
+
+                boost::progress_timer ptimer;
+                for_each(track, track.end(), ParticlesExporter(outputPath, track.getLif().getNbTimeSteps(), track.quiet()));
+
+                //display radius no more in use
+                //track.displayRadius = displayRadius;
+            }
         }
-        Tracker::saveWisdom(INSTAL_PATH "/wisdom.fftw");
+        Tracker::saveWisdom(config_path+"/wisdom.fftw");
     }
     catch(exception& e)
     {

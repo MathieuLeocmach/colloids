@@ -21,6 +21,9 @@
 /* Define to 1 if you have the `gdi32' library (-lgdi32). */
 #undef HAVE_LIBGDI32
 
+/* Define to 1 if you have the `m' library (-lm). */
+#undef HAVE_LIBM
+
 /* Define to 1 if you have the 'pthread' library (-lpthread). */
 #undef HAVE_LIBNCURSES
 

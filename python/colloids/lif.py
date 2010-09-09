@@ -465,12 +465,12 @@ class Serie(SerieHeader):
                     ).reshape(shape).transpose()
 
 def getNeighbourhood(point, image):
-    box = np.floor([np.maximum(0, points[middle][0]-10), np.minimum(im.shape, points[middle][0]+11)])
+    box = np.floor([np.maximum(0, point-10), np.minimum(im.shape, point+11)])
     ngb = im[box[0,0]:box[1,0], box[0,1]:box[1,1], box[0,2]:box[1,2]]
-    center = points[middle][0]-box[0]
+    center = point-box[0]
     return ngb, center
 
-def getRadius(ngb, center, zratio=1, rmin=2, rmax=10, precision=0.1):
+def getRadius(ngb, center, zratio=1, rmin=3, rmax=10, precision=0.1):
     sqdist = [(np.arange(ngb.shape[d])-center[d])**2 for d in range(ngb.ndim)]
     sqdist[-1]*=zratio**2
     dist = np.empty_like(ngb)
@@ -485,4 +485,10 @@ def getRadius(ngb, center, zratio=1, rmin=2, rmax=10, precision=0.1):
                     i = int(np.sqrt(d)/precision)
                     nbs[i] += 1
                     val[i] += px
-    return np.cumsum(val)[rmin/precision:]/np.cumsum(nbs)[rmin/precision:]
+    intensity = np.cumsum(val)/np.cumsum(nbs)
+    fi = np.fft.rfft(intensity)
+    return rmin + precision*np.argmin(
+        np.ediff1d(np.fft.irfft(
+            fi*np.exp(-np.arange(len(fi))/13.5))
+                   )[rmin/precision:]
+        )
