@@ -95,5 +95,18 @@ string FileSerie::head() const
 	return pat;
 }
 
+/** @brief get the 0th file (no extention) for a given prefix and a given serie size  */
+string FileSerie::get0th(const std::string &prefix, const size_t &size, const std::string &token)
+{
+    ostringstream nbframes;
+    nbframes << size-1;
+    const size_t digits = std::max(nbframes.str().size(), (size_t)1);
+    ostringstream os;
+    os<<prefix<<"_t";
+    for(size_t d=0; d<digits; ++d)
+        os<<"0";
+    return os.str();
+}
+
 
 

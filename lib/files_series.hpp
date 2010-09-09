@@ -55,6 +55,8 @@ namespace Colloids
             FileSerie addPostfix(const std::string &postfix) const;
             FileSerie addPostfix(const std::string &postfix, const std::string &ext) const;
             std::string head() const;
+
+            static std::string get0th(const std::string &prefix, const size_t &size, const std::string &token="_t");
     };
 }
 
