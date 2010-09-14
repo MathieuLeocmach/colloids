@@ -9,7 +9,24 @@ AC_CONFIG_SUBDIRS([mains graphic])
 AC_CONFIG_FILES([Makefile lib/Makefile])
 LT_INIT
 
-CXXFLAGS="-O3 -Wall"
+dnl get the flags
+CXXFLAGS="${CXXFLAGS=}"
+dnl this macro is used to get the arguments supplied
+dnl to the configure script (./configure --enable-debug)
+dnl Check if we have enable debug support.
+AC_MSG_CHECKING(whether to enable debugging)
+debug_default="no"
+AC_ARG_ENABLE(debug, [  --enable-debug=[no/yes] turn on debugging
+                       [default=$debug_default]],, enable_debug=$debug_default)
+dnl Yes, shell scripts can be used
+if test "x$enable_debug" = "xyes"; then
+         CXXFLAGS="$CXXFLAGS -g -DDEBUG -mtune=native"
+AC_MSG_RESULT(yes)
+else
+CXXFLAGS="$CXXFLAGS -O3 -Wall -march=native -DNDEBUG"
+AC_MSG_RESULT(no)
+fi
+
 AX_BOOST_BASE([1.35], , AC_MSG_ERROR('boost >1.35 is needed to calculate spherical harmonics'))
 AX_BOOST_PROGRAM_OPTIONS
 
