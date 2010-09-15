@@ -764,3 +764,19 @@ def envelope(g6, smooth=1.0):
     #sel = list(np.where(denv[1:]<0)[0])+[len(env)-1]
     #env = env[sel]
     return env
+
+def rdf2Sq(rdf, rho, qmin=None, qmax=None):
+    """Calculate the radial Fourier transform of rdf(r) and normalize it to get the structure factor S(q)"""
+    s = np.zeros_like(rdf)
+    if qmin==None:
+            q=2*np.pi/rdf[-1,0]
+    else:
+            q=qmin
+    if qmax==None:
+            Q=0.25*np.pi/rdf[1,0]
+    else:
+            Q=qmax
+    s[:,0] = np.linspace(q, Q, len(rdf))
+    for j,k in enumerate(s[:,0]):
+            s[j,1] = (rdf[:,0] * np.sin(k*rdf[:,0])/k * (rdf[:,1]-1)).sum()
+    return 1+4*np.pi*rho*s
