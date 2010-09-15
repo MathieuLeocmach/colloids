@@ -779,4 +779,6 @@ def rdf2Sq(rdf, rho, qmin=None, qmax=None):
     s[:,0] = np.linspace(q, Q, len(rdf))
     for j,k in enumerate(s[:,0]):
             s[j,1] = (rdf[:,0] * np.sin(k*rdf[:,0])/k * (rdf[:,1]-1)).sum()
-    return 1+4*np.pi*rho*s
+    s[:,1] *= 4*np.pi*rho
+    s[:,1] += 1
+    return s
