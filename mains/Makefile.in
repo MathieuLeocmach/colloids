@@ -40,7 +40,7 @@ bin_PROGRAMS = bonds$(EXEEXT) boo$(EXEEXT) boo_flip$(EXEEXT) \
 	linkboo$(EXEEXT) linker$(EXEEXT) lostngb$(EXEEXT) MSD$(EXEEXT) \
 	percolation$(EXEEXT) rdf$(EXEEXT) sp5c$(EXEEXT) \
 	totalRdf$(EXEEXT) traj2vtk$(EXEEXT) periodic_rdf$(EXEEXT) \
-	periodic_boo$(EXEEXT) $(binvoro)
+	periodic_boo$(EXEEXT) periodic_g6$(EXEEXT) $(binvoro)
 EXTRA_PROGRAMS = cgVoro$(EXEEXT) periodic_cgVoro$(EXEEXT)
 subdir = .
 DIST_COMMON = $(am__configure_deps) $(srcdir)/../config.guess \
@@ -136,6 +136,10 @@ am_periodic_cgVoro_OBJECTS = periodic_cgVoro-cgVoro.$(OBJEXT)
 periodic_cgVoro_OBJECTS = $(am_periodic_cgVoro_OBJECTS)
 periodic_cgVoro_LDADD = $(LDADD)
 periodic_cgVoro_DEPENDENCIES = ../lib/libcolloids.la
+am_periodic_g6_OBJECTS = periodic_g6-g6.$(OBJEXT)
+periodic_g6_OBJECTS = $(am_periodic_g6_OBJECTS)
+periodic_g6_LDADD = $(LDADD)
+periodic_g6_DEPENDENCIES = ../lib/libcolloids.la
 am_periodic_rdf_OBJECTS = periodic_rdf-rdf.$(OBJEXT)
 periodic_rdf_OBJECTS = $(am_periodic_rdf_OBJECTS)
 periodic_rdf_LDADD = $(LDADD)
@@ -175,18 +179,18 @@ SOURCES = $(ISF_SOURCES) $(MSD_SOURCES) $(bonds_SOURCES) \
 	$(drift_SOURCES) $(dynamics_SOURCES) $(g6_SOURCES) \
 	$(linkboo_SOURCES) $(linker_SOURCES) $(lostngb_SOURCES) \
 	$(percolation_SOURCES) $(periodic_boo_SOURCES) \
-	$(periodic_cgVoro_SOURCES) $(periodic_rdf_SOURCES) \
-	$(rdf_SOURCES) $(sp5c_SOURCES) $(totalRdf_SOURCES) \
-	$(traj2vtk_SOURCES)
+	$(periodic_cgVoro_SOURCES) $(periodic_g6_SOURCES) \
+	$(periodic_rdf_SOURCES) $(rdf_SOURCES) $(sp5c_SOURCES) \
+	$(totalRdf_SOURCES) $(traj2vtk_SOURCES)
 DIST_SOURCES = $(ISF_SOURCES) $(MSD_SOURCES) $(bonds_SOURCES) \
 	$(boo_SOURCES) $(boo_flip_SOURCES) $(cage2vtk_SOURCES) \
 	$(cgVoro_SOURCES) $(cutter_SOURCES) $(dat2vtk_SOURCES) \
 	$(drift_SOURCES) $(dynamics_SOURCES) $(g6_SOURCES) \
 	$(linkboo_SOURCES) $(linker_SOURCES) $(lostngb_SOURCES) \
 	$(percolation_SOURCES) $(periodic_boo_SOURCES) \
-	$(periodic_cgVoro_SOURCES) $(periodic_rdf_SOURCES) \
-	$(rdf_SOURCES) $(sp5c_SOURCES) $(totalRdf_SOURCES) \
-	$(traj2vtk_SOURCES)
+	$(periodic_cgVoro_SOURCES) $(periodic_g6_SOURCES) \
+	$(periodic_rdf_SOURCES) $(rdf_SOURCES) $(sp5c_SOURCES) \
+	$(totalRdf_SOURCES) $(traj2vtk_SOURCES)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -324,6 +328,7 @@ LDADD = ../lib/libcolloids.la
 AM_CPPFLAGS = -I$(srcdir)/../lib 
 periodic_boo_CPPFLAGS = $(AM_CPPFLAGS) -Duse_periodic
 periodic_rdf_CPPFLAGS = $(AM_CPPFLAGS) -Duse_periodic
+periodic_g6_CPPFLAGS = $(AM_CPPFLAGS) -Duse_periodic
 cgVoro_CPPFLAGS = $(AM_CPPFLAGS) -I$(VORO_SRC)
 periodic_cgVoro_CPPFLAGS = $(cgVoro_CPPFLAGS) -Duse_periodic
 bonds_SOURCES = bonds.cpp
@@ -338,6 +343,7 @@ dat2vtk_SOURCES = dat2vtk.cpp
 drift_SOURCES = drift.cpp
 dynamics_SOURCES = dynamics.cpp
 g6_SOURCES = g6.cpp
+periodic_g6_SOURCES = g6.cpp
 ISF_SOURCES = ISF.cpp
 linkboo_SOURCES = linkboo.cpp
 linker_SOURCES = linker.cpp
@@ -502,6 +508,9 @@ periodic_boo$(EXEEXT): $(periodic_boo_OBJECTS) $(periodic_boo_DEPENDENCIES)
 periodic_cgVoro$(EXEEXT): $(periodic_cgVoro_OBJECTS) $(periodic_cgVoro_DEPENDENCIES) 
 	@rm -f periodic_cgVoro$(EXEEXT)
 	$(CXXLINK) $(periodic_cgVoro_OBJECTS) $(periodic_cgVoro_LDADD) $(LIBS)
+periodic_g6$(EXEEXT): $(periodic_g6_OBJECTS) $(periodic_g6_DEPENDENCIES) 
+	@rm -f periodic_g6$(EXEEXT)
+	$(CXXLINK) $(periodic_g6_OBJECTS) $(periodic_g6_LDADD) $(LIBS)
 periodic_rdf$(EXEEXT): $(periodic_rdf_OBJECTS) $(periodic_rdf_DEPENDENCIES) 
 	@rm -f periodic_rdf$(EXEEXT)
 	$(CXXLINK) $(periodic_rdf_OBJECTS) $(periodic_rdf_LDADD) $(LIBS)
@@ -542,6 +551,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/percolation.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/periodic_boo-boo.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/periodic_cgVoro-cgVoro.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/periodic_g6-g6.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/periodic_rdf-rdf.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/rdf.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sp5c.Po@am__quote@
@@ -610,6 +620,20 @@ periodic_cgVoro-cgVoro.obj: cgVoro.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='cgVoro.cpp' object='periodic_cgVoro-cgVoro.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(periodic_cgVoro_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o periodic_cgVoro-cgVoro.obj `if test -f 'cgVoro.cpp'; then $(CYGPATH_W) 'cgVoro.cpp'; else $(CYGPATH_W) '$(srcdir)/cgVoro.cpp'; fi`
+
+periodic_g6-g6.o: g6.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(periodic_g6_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT periodic_g6-g6.o -MD -MP -MF $(DEPDIR)/periodic_g6-g6.Tpo -c -o periodic_g6-g6.o `test -f 'g6.cpp' || echo '$(srcdir)/'`g6.cpp
+@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/periodic_g6-g6.Tpo $(DEPDIR)/periodic_g6-g6.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='g6.cpp' object='periodic_g6-g6.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(periodic_g6_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o periodic_g6-g6.o `test -f 'g6.cpp' || echo '$(srcdir)/'`g6.cpp
+
+periodic_g6-g6.obj: g6.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(periodic_g6_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT periodic_g6-g6.obj -MD -MP -MF $(DEPDIR)/periodic_g6-g6.Tpo -c -o periodic_g6-g6.obj `if test -f 'g6.cpp'; then $(CYGPATH_W) 'g6.cpp'; else $(CYGPATH_W) '$(srcdir)/g6.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/periodic_g6-g6.Tpo $(DEPDIR)/periodic_g6-g6.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='g6.cpp' object='periodic_g6-g6.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(periodic_g6_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o periodic_g6-g6.obj `if test -f 'g6.cpp'; then $(CYGPATH_W) 'g6.cpp'; else $(CYGPATH_W) '$(srcdir)/g6.cpp'; fi`
 
 periodic_rdf-rdf.o: rdf.cpp
 @am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(periodic_rdf_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT periodic_rdf-rdf.o -MD -MP -MF $(DEPDIR)/periodic_rdf-rdf.Tpo -c -o periodic_rdf-rdf.o `test -f 'rdf.cpp' || echo '$(srcdir)/'`rdf.cpp
