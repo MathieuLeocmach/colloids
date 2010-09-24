@@ -31,6 +31,7 @@ class Polydata:
         self.bonds = np.array((0,2))
         self.scalars = []
         self.vectors = []
+        self.bondsScalars = []
         if not fileName ==None:
             self.load(fileName)
 
@@ -107,11 +108,25 @@ class Polydata:
                     f.write('SCALARS %s double\n'%name)
                     f.write('LOOKUP_TABLE default\n')
                     field.tofile(f, sep='\n', format = '%g')
+                f.write('\n')
             for name, field in self.vectors:
                 f.write('VECTORS %s double\n'%name)
                 #field.tofile(f, sep=' ', format = '%f')
                 for v in field:
                     v.tofile(f, sep=' ', format = '%g')
+                    f.write('\n')
+
+            if len(self.bondsScalars)>0:
+                f.write('CELL_DATA %i\n' % len(self.bonds))
+                for name, field in self.bondsScalars:
+                    if field.dtype.kind=='i':
+                        f.write('SCALARS %s int\n'%name)
+                        f.write('LOOKUP_TABLE default\n')
+                        field.tofile(f, sep='\n', format = '%i')
+                    else:
+                        f.write('SCALARS %s double\n'%name)
+                        f.write('LOOKUP_TABLE default\n')
+                        field.tofile(f, sep='\n', format = '%g')
                     f.write('\n')
 
     def getField(self, name):
