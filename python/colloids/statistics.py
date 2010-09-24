@@ -16,7 +16,7 @@ def plot2dhist(datax, datay, title=None, bins=50, normed=False, cbmax=None, cbmi
     h, bx, by = np.histogram2d(datax, datay, bins=bins, normed=normed)
     h[np.where(h==0)] = -1
     if logscale:
-        h[np.where(h>0)] = np.log(h[np.where(h>0)])
+        h[np.where(h>0)] = np.log10(h[np.where(h>0)])
     h2 = np.repeat(np.repeat(h, 2, axis=0), 2, axis=1)
     bx2 = np.repeat(bx[:-1], 2)
     bx2[1::2] = bx[:-1]+(bx[1]-bx[0])
