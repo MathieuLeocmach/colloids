@@ -48,6 +48,8 @@ int main(int argc, char ** argv)
 				nbDiameterCutOff = atof(argv[4]);
 		const size_t Nbins = atoi(argv[3]);
 
+		vector<size_t> inside;
+
 		//construct the particle container out of the datafile
 #ifdef use_periodic
 		if(argc<9) throw er;
@@ -68,7 +70,6 @@ int main(int argc, char ** argv)
 		Particles Centers(filename,radius);
 #endif
 		cout << Centers.size() << " particles ... ";
-		Centers.makeRTreeIndex();
 
 		//read q6m
 		vector<BooData> rawBoo, allBoo;
@@ -76,38 +77,115 @@ int main(int argc, char ** argv)
 		if(mode)
 		{
 		    Centers.makeNgbList(loadBonds(inputPath+".bonds"));
-		    Centers.getCgBOOs(Centers.selectInside(4.0*radius*1.3), rawBoo, allBoo);
+		    //select all particles who's all neighbours' qlms are not null
+		    vector<size_t> second_inside;
+		    second_inside.reserve(Centers.size());
+		    for(size_t p=0; p<Centers.getNgbList().size(); ++p)
+		    {
+		        bool hasNullNgb = false;
+		        for(size_t n=0; n<Centers.getNgbList()[p].size(); ++n)
+                    hasNullNgb = (hasNullNgb || rawBoo[Centers.getNgbList()[p][n]].isnull());
+                if(!hasNullNgb)
+                    second_inside.push_back(p);
+		    }
+		    cout<< second_inside.size()<< " have coarse grained qlms ... ";
+		    Centers.getCgBOOs(second_inside, rawBoo, allBoo);
 		}
 		else
             allBoo=rawBoo;
 
+#ifndef use_periodic
+        vector<size_t> slab;
+        slab.reserve(Centers.size());
+        //Case where we ask to discard all points out of the interval [zmin, zmax]
+        if(argc>8)
+        {
+            const double zmin = atof(argv[7]),
+                        zmax = atof(argv[8]);
+            //look for the particles that are in the slab and have non null qlm
+            for(size_t p=0; p<Centers.size(); ++p)
+                if(Centers[p][2]>zmin && Centers[p][2]<zmax && !allBoo[p].isnull())
+                    slab.push_back(p);
+        }
+        else
+            for(size_t p=0; p<Centers.size(); ++p)
+                if(!allBoo[p].isnull())
+                    slab.push_back(p);
+
+        //reduce the centers list
+        Particles cen;
+        cen.radius = Centers.radius;
+        cen.reserve(slab.size());
+        for(size_t p=0; p<slab.size(); ++p)
+            cen.push_back(Centers[slab[p]]);
+        Centers.swap(cen);
+        Centers.delNgbList();
+
+        //reduce the qlm
+        vector<BooData> boo(slab.size());
+        for(size_t p=0; p<slab.size(); ++p)
+            boo[p] = allBoo[slab[p]];
+        allBoo.swap(boo);
+#endif
+        vector<size_t> nb(Nbins, 0);
+        vector<double> gl(Nbins, 0.0);
+        for(size_t p=0; p<Centers.size(); ++p)
+            for(size_t q=p+1; q<Centers.size(); ++q)
+            {
+                Coord diff = Centers.getDiff(p, q);
+                const double distsq = (diff*diff).sum();
+                if(distsq<pow(2.0*radius*nbDiameterCutOff, 2))
+                {
+                    const size_t r = sqrt(distsq) / (2.0*radius*nbDiameterCutOff) * Nbins;
+                    nb[r]++;
+                    gl[r] += allBoo[p].innerProduct(allBoo[q], l);
+                }
+            }
+
+        cout << " done !" << endl;
+		ostringstream rdffilename;
+		rdffilename << inputPath << (mode?".cg":".g") << l;
+		ofstream rdfFile(rdffilename.str().c_str(), ios::out | ios::trunc);
+		rdfFile << "#r\tg"<<l<<"(r)\tg(r)"<<endl;
+		for(size_t r=0; r<Nbins; ++r)
+			rdfFile<< r/(double)Nbins*nbDiameterCutOff <<"\t"<< gl[r] <<"\t"<< nb[r] <<"\n";
+
+        //all particles are "inside"
+        /*inside.reserve(Centers.size());
+        for(size_t p=0; p<Centers.size(); ++p)
+            inside[p] = p;
+        cout << Centers.size() << " inside ... ";
+
+        Centers.makeRTreeIndex();*/
 		//create binner
-		Particles::GlBinner binner(Centers, Nbins, nbDiameterCutOff, allBoo, l);
+		//Particles::GlBinner binner(Centers, Nbins, nbDiameterCutOff, allBoo, l);
 
 		//select particles and bin them
-		vector<size_t> inside = Centers.selectInside(2.0*radius*(nbDiameterCutOff+(1+mode)*1.3/2));
+		//vector<size_t> inside = Centers.selectInside(2.0*radius*(nbDiameterCutOff+(1+mode)*1.3/2));
 		//Case where we ask to discard all points out of the interval [zmin, zmax]
-		if(argc>8)
+		/*if(argc>8)
 		{
-		    const double zmin = atof(argv[6]),
-                        zmax = atof(argv[7]);
+		    const double zmin = atof(argv[7]),
+                        zmax = atof(argv[8]);
+            //cout<<"\tl="<<l<<"\tzmin="<<zmin<<"\tzmax="<<zmax;
             vector<size_t> in;
             in.reserve(inside.size());
             for(vector<size_t>::const_iterator p=inside.begin(); p!=inside.end(); ++p)
                 if(Centers[*p][2]>=zmin && Centers[*p][2]<=zmax)
                     in.push_back(*p);
             in.swap(inside);
-		}
-		binner << inside;
+		}*/
 
-		binner.normalize(inside.size());
+		/*binner << inside;
+
+		//binner.normalize(inside.size());
 		cout << " done !" << endl;
 		ostringstream rdffilename;
 		rdffilename << inputPath << (mode?".cg":".g") << l;
 		ofstream rdfFile(rdffilename.str().c_str(), ios::out | ios::trunc);
 		rdfFile << "#r\tg"<<l<<"(r)\tg(r)"<<endl;
 		for(size_t r=0; r<Nbins; ++r)
-			rdfFile<< r/(double)Nbins*nbDiameterCutOff <<"\t"<< binner.gl[r] <<"\t"<< binner.g[r] <<"\n";
+			rdfFile<< r/(double)Nbins*nbDiameterCutOff <<"\t"<< binner.gl[r] <<"\t"<< binner.g[r] <<"\n";*/
 
     }
     catch(const std::exception &e)
