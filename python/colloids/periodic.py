@@ -94,7 +94,7 @@ from start, start+1,...,start+av-1
             ISF[3] = ( isf([1,4]) + isf([2,5]) )/2
 """
     A = np.exp(
-        positions * (1j * np.pi / radius)
+        positions * (1j * np.pi * np.floor(L/radius) / L)
         )
     isf = np.zeros(len(A)-av+1)
     if av==0:
@@ -114,3 +114,10 @@ from start, start+1,...,start+av-1
         isf /= av * A.shape[1] * A.shape[2]
         isf[0]=1
         return isf
+
+def loadXbonds(fname, Q6, thr=0.25):
+    """Load the bonds linking two MRCO particles"""
+    #load all bonds
+    bonds = np.loadtxt(fname, dtype=int)
+    return bonds[np.where(Q6[bonds].min(axis=1)>thr)]
+
