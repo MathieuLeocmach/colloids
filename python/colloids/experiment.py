@@ -782,3 +782,29 @@ def rdf2Sq(rdf, rho, qmin=None, qmax=None):
     s[:,1] *= 4*np.pi*rho
     s[:,1] += 1
     return s
+
+def find_peaks(a):
+    """Find global maxima of decreasing intensity separated by a global minimum. Usefull for rdf"""
+    p=0
+    peaks = []
+    while p+1<len(a):
+            m = 1 +p + np.argmin(a[p+1:])
+            if m == len(a)-1:
+                    break
+            p = 1 + m + np.argmax(a[m+1:])
+            if p == len(a)-1:
+                    break
+            peaks.append(p)
+    return peaks
+
+def get_clusters(bonds):
+    """Returns a list of clusters"""
+    gr = graph()
+    gr.add_nodes(np.unique1d(bonds.ravel()))
+    for b in bonds:
+            gr.add_edge(b)
+    clmap = connected_components(gr)
+    clusters = [[] for i in range(max(clmap.values()))]
+    for p, c in connected_components(gr).iteritems():
+            clusters[c-1].append(p)
+    return clusters
