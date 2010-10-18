@@ -26,23 +26,36 @@ using namespace std;
 using namespace Colloids;
 
 //Class extending voro++ container, in order to use protected data
+#ifdef use_periodic
+class VoroContainer : public container_poly
+#else
 class VoroContainer : public container
+#endif
 {
     public:
 		vector< vector<int> > neighbours;
+		#ifdef use_periodic
+        VoroContainer(Particles &parts, vector<double> &radii, bool periodic) :
+            container_poly(
+        #else
         VoroContainer(Particles &parts, bool periodic) :
-        container(
-            parts.bb.edges[0].first,parts.bb.edges[0].second,
-            parts.bb.edges[1].first,parts.bb.edges[1].second,
-            parts.bb.edges[2].first,parts.bb.edges[2].second,
-            (parts.bb.edges[0].second - parts.bb.edges[0].first)*0.9/parts.radius + 1,
-            (parts.bb.edges[1].second - parts.bb.edges[1].first)*0.9/parts.radius + 1,
-            (parts.bb.edges[2].second - parts.bb.edges[2].first)*0.9/parts.radius + 1,
-            periodic, periodic, periodic, 8
-            )
+            container(
+        #endif
+                parts.bb.edges[0].first,parts.bb.edges[0].second,
+                parts.bb.edges[1].first,parts.bb.edges[1].second,
+                parts.bb.edges[2].first,parts.bb.edges[2].second,
+                (parts.bb.edges[0].second - parts.bb.edges[0].first)*0.9/parts.radius + 1,
+                (parts.bb.edges[1].second - parts.bb.edges[1].first)*0.9/parts.radius + 1,
+                (parts.bb.edges[2].second - parts.bb.edges[2].first)*0.9/parts.radius + 1,
+                periodic, periodic, periodic, 8
+                )
         {
-            for(int p=0; p<parts.size(); ++p)
+            for(size_t p=0; p<parts.size(); ++p)
+                #ifdef use_periodic
+                this->put(p, parts[p][0], parts[p][1], parts[p][2], radii[p]);
+                #else
                 this->put(p, parts[p][0], parts[p][1], parts[p][2]);
+                #endif
         };
 
         void get_cgVolumes(vector<double> &cgVolumes)
@@ -118,7 +131,7 @@ class VoroContainer : public container
         {
         	outside.clear();
         	secondOutside.clear();
-        	for(ssize_t p=0; p<neighbours.size(); ++p)
+        	for(size_t p=0; p<neighbours.size(); ++p)
         		if(neighbours[p].front()<0)
         		{
         			outside.push_back(p);
@@ -136,7 +149,7 @@ class VoroContainer : public container
         /** print the bonds between centers (not walls) to a stream */
         void print_bonds(ostream &out)
         {
-        	for(ssize_t p=0; p<neighbours.size(); ++p)
+        	for(size_t p=0; p<neighbours.size(); ++p)
 				for(
 					vector<int>::const_iterator q = lower_bound(neighbours[p].begin(), neighbours[p].end(), p);
 					q!=neighbours[p].end();	++q)
@@ -148,9 +161,9 @@ class VoroContainer : public container
 int main(int argc, char ** argv)
 {
     #ifdef use_periodic
-	if(argc<6)
+	if(argc<7)
 	{
-		cerr<<"Syntax : cgVoro [path]filename.grv Nb Dx Dy Dz [token size [offset]]" << endl;
+		cerr<<"Syntax : cgVoro [path]filename.grv radiiFile Nb Dx Dy Dz [token size [offset]]" << endl;
 		return EXIT_FAILURE;
 	}
     #else
@@ -169,14 +182,22 @@ int main(int argc, char ** argv)
 		const string path = filename.substr(0, filename.find_last_of("/\\")+1);
 
 		#ifdef use_periodic
-		const size_t Nb = atoi(argv[2]);
+		const size_t Nb = atoi(argv[3]);
+		vector<double> radii(Nb);
+		//load radii from file
+		{
+		    ifstream radiiFile(argv[2]);
+		    if(!radiiFile.good())
+                throw invalid_argument("No such file as "+string(argv[2]));
+            copy(istream_iterator<double>(radiiFile), istream_iterator<double>(), radii.begin());
+		}
 		BoundingBox b;
 		for(size_t d=0;d<3;++d)
 		{
 			b.edges[d].first=0.0;
-			b.edges[d].second = atof(argv[3+d]);
+			b.edges[d].second = atof(argv[4+d]);
 		}
-		if(argc>7)
+		if(argc>8)
 		#else
 		if(argc>2 || ext==".traj")
 		#endif
@@ -184,9 +205,9 @@ int main(int argc, char ** argv)
 			double radius = 5.0;
 			size_t offset, size;
 			#ifdef use_periodic
-			size = atol(argv[7]);
-			offset = (argc<9)?0:atol(argv[8]);
-            FileSerie datSerie(filename, string(argv[6]), size, offset);
+			size = atol(argv[8]);
+			offset = (argc<10)?0:atol(argv[9]);
+            FileSerie datSerie(filename, string(argv[7]), size, offset);
             #else
             string pattern, token;
             if(ext==".traj")
@@ -231,7 +252,7 @@ int main(int argc, char ** argv)
                     }
                 	#ifdef use_periodic
 					PeriodicParticles parts(Nb,b,datfile,radius);
-					VoroContainer con(parts, true);
+					VoroContainer con(parts, radii, true);
 					#else
                     Particles parts(datfile,radius);
                     valarray<double> maxi = parts.front(), mini = parts.front();
@@ -281,7 +302,7 @@ int main(int argc, char ** argv)
 		{
             #ifdef use_periodic
             PeriodicParticles parts(Nb,b,filename,5.0);
-            VoroContainer con(parts, true);
+            VoroContainer con(parts, radii, true);
             #else
             Particles parts(filename,5.0);
             valarray<double> maxi = parts.front(), mini = parts.front();
