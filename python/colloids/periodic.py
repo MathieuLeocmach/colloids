@@ -115,6 +115,30 @@ from start, start+1,...,start+av-1
         isf[0]=1
         return isf
 
+def ngp(A, av=10, L=203):
+    """
+    Non Gaussian parameter in a cubic box of size L
+    """
+    msd = np.zeros(len(A)-av+1)
+    mqd = np.zeros(len(A)-av+1)
+    if av==0:
+        for t0, a in enumerate(A):
+            for dt, b in enumerate(A[t0+1:]):
+                #average is done over all trajectories and the 3 dimensions
+                diff = get_displ(a,b, L)**2
+                msd[dt+1] += diff.sum()
+                mqd[dt+1] += (diff.sum(axis=-1)**2).sum()
+        for dt in range(len(A)):
+            mqd[dt] *= len(A)-dt
+        return A.shape[1] * A.shape[2] * mqd / (2*msd**2) -1
+    else:
+        for t0, a in enumerate(A[:av]):
+            for dt, b in enumerate(A[t0+1:len(A)-av+t0+1]):
+                diff = get_displ(a,b, L)**2
+                msd[dt+1] += diff.sum()
+                mqd[dt+1] += (diff.sum(axis=-1)**2).sum()
+        return av * A.shape[1] * A.shape[2] * mqd / (2*msd**2) -1
+
 def loadXbonds(fname, Q6, thr=0.25):
     """Load the bonds linking two MRCO particles"""
     #load all bonds
