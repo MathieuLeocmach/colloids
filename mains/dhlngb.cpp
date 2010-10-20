@@ -24,6 +24,45 @@
 using namespace std;
 using namespace Colloids;
 
+typedef vector<size_t>	Ngbs;
+typedef boost::ptr_vector<Ngbs> NgbFrame;
+//typedef boost::ptr_vector<NgbFrame> DynNgbs;
+typedef list<size_t> ListNgb;
+typedef vector<ListNgb> ListNgbFrame;
+
+void fillNgbFrame(NgbFrame &out, const vector<size_t> &pos2traj, const string &bondfile)
+{
+    //initialize output
+    out.reserve(pos2traj.size());
+    for(size_t p=0; p<pos2traj.size();++p)
+        out.push_back(new Ngbs());
+
+    //Easily filled, disordered but easy to sort container. Bad memory perf. But it's just one frame.
+    ListNgbFrame easy(pos2traj.size());
+
+    //load bonds from file and bin their ends to neighbour list
+    ifstream f(bondfile.c_str());
+    size_t a,b;
+    while(f.good())
+    {
+        f>>a>>b;
+        easy[a].push_back(pos2traj[b]);
+        easy[b].push_back(pos2traj[a]);
+    }
+    f.close();
+
+    //#pragma omp parallel for shared(easy, dyn) schedule(dynamic)
+    for(size_t p=0;p<easy.size();++p)
+    {
+        //sort each neighbour list
+        easy[p].sort();
+        //ensure uniqueness (could be asserted, but anyway...)
+        easy[p].unique();
+        //fill in the memory-efficient container
+        out[p].assign(easy[p].begin(), easy[p].end());
+    }
+}
+
 int main(int argc, char ** argv)
 {
     if(argc<3)
@@ -67,62 +106,20 @@ int main(int argc, char ** argv)
 			bondSerie = datSerie.changeExt(".bonds"),
 			lngbSerie = datSerie.addPostfix("_"+string(argv[2])+"dynhet", ".lngb");
 
-        typedef vector<size_t>	Ngbs;
-        typedef boost::ptr_vector<Ngbs> NgbFrame;
-        typedef boost::ptr_vector<NgbFrame> DynNgbs;
-        typedef list<size_t> ListNgb;
-        typedef vector<ListNgb> ListNgbFrame;
 
-        //what are the trajectories neighbouring the position p at time t
-        DynNgbs dyn(size-initial);
-        for(size_t t=initial; t<size;++t)
-        {
-            dyn.push_back(new NgbFrame(trajectories.inverse[t].size()));
-            for(size_t p=0; p<trajectories.inverse[t].size();++p)
-                dyn[t].push_back(new Ngbs());
-        }
-        {
-            boost::progress_timer ti;
-            #pragma omp parallel for schedule(static)
-            for(size_t t=initial; t<size;++t)
-            {
-                //Easily filled, disordered but easy to sort container. Bad memory perf. But it's just one frame.
-                ListNgbFrame easy(dyn[t-size].size());
-                //load bonds from file and bin their ends to neighbour list
-                string bondfile;
-                #pragma omp critical
-                {
-                    bondfile = bondSerie%t;
-                }
-                ifstream f(bondfile.c_str());
-                size_t a,b;
-                while(f.good())
-                {
-                    f>>a>>b;
-                    easy[a].push_back(trajectories.inverse[t][b]);
-                    easy[b].push_back(trajectories.inverse[t][a]);
-                }
-                f.close();
-
-                //#pragma omp parallel for shared(easy, dyn) schedule(dynamic)
-                for(size_t p=0;p<easy.size();++p)
-                {
-                    //sort each neighbour list
-                    easy[p].sort();
-                    //ensure uniqueness (could be asserted, but anyway...)
-                    easy[p].unique();
-                    //fill in the memory-efficient container
-                    dyn[t-initial][p].assign(easy[p].begin(), easy[p].end());
-                }
-            }
-            cout<<"input & assignement\t";
-        }
+        //reference frame
+        NgbFrame initialFrame;
+        fillNgbFrame(initialFrame, trajectories.inverse[0], bondSerie%0);
 
         //calculate and export the neighbourhood difference between initial and t>initial
         for(size_t t=initial+1; t<size; ++t)
         {
+            //load the neighbours at time t
+            NgbFrame actualFrame;
+            fillNgbFrame(actualFrame, trajectories.inverse[t], bondSerie%t);
+
             //trajectories starting after initial time step get a -1
-            vector<int> lngb(trajectories.inverse[initial].size(),-1);
+            vector<int> lngb(initialFrame.size(),-1);
             #pragma omp parallel for shared(trajectories, lngb, t) schedule(dynamic)
             for(size_t p=0;p<trajectories.inverse[initial].size(); ++p)
             {
@@ -132,8 +129,8 @@ int main(int argc, char ** argv)
                     ListNgb lost;
                     //how many neighbours have been lost by trajectory tr (pth particle of initial time step) at time t ?
                     set_difference(
-                        dyn[t-initial][tr[t-initial]].begin(), dyn[t-initial][tr[t-initial]].end(),
-                        dyn[0][p].begin(), dyn[0][p].end(),
+                        actualFrame[tr[t]].begin(), actualFrame[tr[t]].end(),
+                        initialFrame[p].begin(), initialFrame[p].end(),
                         back_inserter(lost)
                         );
                     lngb[p] = lost.size();
