@@ -1,8 +1,8 @@
 ACLOCAL_AMFLAGS = -I m4
 LDADD = ../lib/libcolloids.la
-AM_CPPFLAGS = -I$(srcdir)/../lib 
+AM_CPPFLAGS = -I$(srcdir)/../lib
 
-bin_PROGRAMS = bonds boo boo_flip cage2vtk cutter dat2vtk drift dynamics g6 ISF linkboo linker lostngb MSD percolation rdf sp5c totalRdf traj2vtk periodic_rdf periodic_boo periodic_g6 $(binvoro)
+bin_PROGRAMS = bonds boo boo_flip cage2vtk cutter dat2vtk dhlngb drift dynamics g6 ISF linkboo linker lostngb MSD percolation rdf sp5c totalRdf traj2vtk periodic_rdf periodic_boo periodic_g6 $(binvoro)
 
 EXTRA_PROGRAMS = cgVoro periodic_cgVoro
 
@@ -21,6 +21,7 @@ cgVoro_SOURCES = cgVoro.cpp
 periodic_cgVoro_SOURCES = cgVoro.cpp
 cutter_SOURCES = cutter.cpp
 dat2vtk_SOURCES = dat2vtk.cpp
+dhlngb_SOURCES = dhlngb.cpp
 drift_SOURCES = drift.cpp
 dynamics_SOURCES = dynamics.cpp
 g6_SOURCES = g6.cpp

@@ -36,9 +36,9 @@ build_triplet = @build@
 host_triplet = @host@
 bin_PROGRAMS = bonds$(EXEEXT) boo$(EXEEXT) boo_flip$(EXEEXT) \
 	cage2vtk$(EXEEXT) cutter$(EXEEXT) dat2vtk$(EXEEXT) \
-	drift$(EXEEXT) dynamics$(EXEEXT) g6$(EXEEXT) ISF$(EXEEXT) \
-	linkboo$(EXEEXT) linker$(EXEEXT) lostngb$(EXEEXT) MSD$(EXEEXT) \
-	percolation$(EXEEXT) rdf$(EXEEXT) sp5c$(EXEEXT) \
+	dhlngb$(EXEEXT) drift$(EXEEXT) dynamics$(EXEEXT) g6$(EXEEXT) \
+	ISF$(EXEEXT) linkboo$(EXEEXT) linker$(EXEEXT) lostngb$(EXEEXT) \
+	MSD$(EXEEXT) percolation$(EXEEXT) rdf$(EXEEXT) sp5c$(EXEEXT) \
 	totalRdf$(EXEEXT) traj2vtk$(EXEEXT) periodic_rdf$(EXEEXT) \
 	periodic_boo$(EXEEXT) periodic_g6$(EXEEXT) $(binvoro)
 EXTRA_PROGRAMS = cgVoro$(EXEEXT) periodic_cgVoro$(EXEEXT)
@@ -100,6 +100,10 @@ am_dat2vtk_OBJECTS = dat2vtk.$(OBJEXT)
 dat2vtk_OBJECTS = $(am_dat2vtk_OBJECTS)
 dat2vtk_LDADD = $(LDADD)
 dat2vtk_DEPENDENCIES = ../lib/libcolloids.la
+am_dhlngb_OBJECTS = dhlngb.$(OBJEXT)
+dhlngb_OBJECTS = $(am_dhlngb_OBJECTS)
+dhlngb_LDADD = $(LDADD)
+dhlngb_DEPENDENCIES = ../lib/libcolloids.la
 am_drift_OBJECTS = drift.$(OBJEXT)
 drift_OBJECTS = $(am_drift_OBJECTS)
 drift_LDADD = $(LDADD)
@@ -176,21 +180,21 @@ CXXLINK = $(LIBTOOL) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 SOURCES = $(ISF_SOURCES) $(MSD_SOURCES) $(bonds_SOURCES) \
 	$(boo_SOURCES) $(boo_flip_SOURCES) $(cage2vtk_SOURCES) \
 	$(cgVoro_SOURCES) $(cutter_SOURCES) $(dat2vtk_SOURCES) \
-	$(drift_SOURCES) $(dynamics_SOURCES) $(g6_SOURCES) \
-	$(linkboo_SOURCES) $(linker_SOURCES) $(lostngb_SOURCES) \
-	$(percolation_SOURCES) $(periodic_boo_SOURCES) \
-	$(periodic_cgVoro_SOURCES) $(periodic_g6_SOURCES) \
-	$(periodic_rdf_SOURCES) $(rdf_SOURCES) $(sp5c_SOURCES) \
-	$(totalRdf_SOURCES) $(traj2vtk_SOURCES)
+	$(dhlngb_SOURCES) $(drift_SOURCES) $(dynamics_SOURCES) \
+	$(g6_SOURCES) $(linkboo_SOURCES) $(linker_SOURCES) \
+	$(lostngb_SOURCES) $(percolation_SOURCES) \
+	$(periodic_boo_SOURCES) $(periodic_cgVoro_SOURCES) \
+	$(periodic_g6_SOURCES) $(periodic_rdf_SOURCES) $(rdf_SOURCES) \
+	$(sp5c_SOURCES) $(totalRdf_SOURCES) $(traj2vtk_SOURCES)
 DIST_SOURCES = $(ISF_SOURCES) $(MSD_SOURCES) $(bonds_SOURCES) \
 	$(boo_SOURCES) $(boo_flip_SOURCES) $(cage2vtk_SOURCES) \
 	$(cgVoro_SOURCES) $(cutter_SOURCES) $(dat2vtk_SOURCES) \
-	$(drift_SOURCES) $(dynamics_SOURCES) $(g6_SOURCES) \
-	$(linkboo_SOURCES) $(linker_SOURCES) $(lostngb_SOURCES) \
-	$(percolation_SOURCES) $(periodic_boo_SOURCES) \
-	$(periodic_cgVoro_SOURCES) $(periodic_g6_SOURCES) \
-	$(periodic_rdf_SOURCES) $(rdf_SOURCES) $(sp5c_SOURCES) \
-	$(totalRdf_SOURCES) $(traj2vtk_SOURCES)
+	$(dhlngb_SOURCES) $(drift_SOURCES) $(dynamics_SOURCES) \
+	$(g6_SOURCES) $(linkboo_SOURCES) $(linker_SOURCES) \
+	$(lostngb_SOURCES) $(percolation_SOURCES) \
+	$(periodic_boo_SOURCES) $(periodic_cgVoro_SOURCES) \
+	$(periodic_g6_SOURCES) $(periodic_rdf_SOURCES) $(rdf_SOURCES) \
+	$(sp5c_SOURCES) $(totalRdf_SOURCES) $(traj2vtk_SOURCES)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -325,7 +329,7 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 ACLOCAL_AMFLAGS = -I m4
 LDADD = ../lib/libcolloids.la
-AM_CPPFLAGS = -I$(srcdir)/../lib 
+AM_CPPFLAGS = -I$(srcdir)/../lib
 periodic_boo_CPPFLAGS = $(AM_CPPFLAGS) -Duse_periodic
 periodic_rdf_CPPFLAGS = $(AM_CPPFLAGS) -Duse_periodic
 periodic_g6_CPPFLAGS = $(AM_CPPFLAGS) -Duse_periodic
@@ -340,6 +344,7 @@ cgVoro_SOURCES = cgVoro.cpp
 periodic_cgVoro_SOURCES = cgVoro.cpp
 cutter_SOURCES = cutter.cpp
 dat2vtk_SOURCES = dat2vtk.cpp
+dhlngb_SOURCES = dhlngb.cpp
 drift_SOURCES = drift.cpp
 dynamics_SOURCES = dynamics.cpp
 g6_SOURCES = g6.cpp
@@ -481,6 +486,9 @@ cutter$(EXEEXT): $(cutter_OBJECTS) $(cutter_DEPENDENCIES)
 dat2vtk$(EXEEXT): $(dat2vtk_OBJECTS) $(dat2vtk_DEPENDENCIES) 
 	@rm -f dat2vtk$(EXEEXT)
 	$(CXXLINK) $(dat2vtk_OBJECTS) $(dat2vtk_LDADD) $(LIBS)
+dhlngb$(EXEEXT): $(dhlngb_OBJECTS) $(dhlngb_DEPENDENCIES) 
+	@rm -f dhlngb$(EXEEXT)
+	$(CXXLINK) $(dhlngb_OBJECTS) $(dhlngb_LDADD) $(LIBS)
 drift$(EXEEXT): $(drift_OBJECTS) $(drift_DEPENDENCIES) 
 	@rm -f drift$(EXEEXT)
 	$(CXXLINK) $(drift_OBJECTS) $(drift_LDADD) $(LIBS)
@@ -542,6 +550,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cgVoro-cgVoro.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cutter.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dat2vtk.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dhlngb.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/drift.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dynamics.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/g6.Po@am__quote@
