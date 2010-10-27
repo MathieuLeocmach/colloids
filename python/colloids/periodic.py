@@ -1,5 +1,5 @@
 import numpy as np
-from colloids import vtk
+from colloids import vtk, statistics
 import os, subprocess, shlex
 
 def get_displ(start, stop, L=203):
@@ -76,44 +76,12 @@ def msd(A, av=10, L=203):
         return msd
 
 def self_isf(positions, radius, av, L=203):
-    """
-    Self intermediate scattering function
-    If av is 0 (Default), the calculation will act greedily,
-    averaging over all the avilabe intervals of a given length.
-        Example : start=1 stop=4 av=0
-            ISF[0] = 1
-            ISF[1] = ( isf([1,2]) + isf([2,3]) + isf([3,4]))/3
-            ISF[2] = ( isf([1,3]) + isf([2,4]) )/2
-            ISF[3] = isf([1,4])
-If av>0, the average will be done over av time intervals starting
-from start, start+1,...,start+av-1
-        Example : start=1 stop=4 av=2
-            ISF[0] = 1
-            ISF[1] = ( isf([1,2]) + isf([2,3]) )/2
-            ISF[2] = ( isf([1,3]) + isf([2,4]) )/2
-            ISF[3] = ( isf([1,4]) + isf([2,5]) )/2
-"""
+    """Self intermediate scattering function in a cubic periodic box"""
     A = np.exp(
         positions * (1j * np.pi * np.floor(L/radius) / L)
         )
-    isf = np.zeros(len(A)-av+1)
-    if av==0:
-        for t0, a in enumerate(A):
-            for dt, b in enumerate(A[t0+1:]):
-                #average is done over all trajectories and the 3 dimensions
-                isf[dt+1] += np.real(a.conj()*b).sum()
-        isf /= A.shape[1] * A.shape[2]
-        isf[0]=1
-        for dt in range(len(A)):
-            isf[dt] /= len(A)-dt
-        return isf
-    else:
-        for t0, a in enumerate(A[:av]):
-            for dt, b in enumerate(A[t0+1:len(A)-av+t0+1]):
-                isf[dt+1] += np.real(a.conj()*b).sum()
-        isf /= av * A.shape[1] * A.shape[2]
-        isf[0]=1
-        return isf
+    return statistics.time_correlation(A, av)
+
 
 def ngp(A, av=10, L=203):
     """
@@ -130,14 +98,14 @@ def ngp(A, av=10, L=203):
                 mqd[dt+1] += (diff.sum(axis=-1)**2).sum()
         for dt in range(len(A)):
             mqd[dt] *= len(A)-dt
-        return A.shape[1] * A.shape[2] * mqd / (2*msd**2) -1
+        return A.shape[1] * A.shape[2] * 3 * mqd / (5*msd**2) -1
     else:
         for t0, a in enumerate(A[:av]):
             for dt, b in enumerate(A[t0+1:len(A)-av+t0+1]):
                 diff = get_displ(a,b, L)**2
                 msd[dt+1] += diff.sum()
                 mqd[dt+1] += (diff.sum(axis=-1)**2).sum()
-        return av * A.shape[1] * A.shape[2] * mqd / (2*msd**2) -1
+        return av * A.shape[1] * A.shape[2] * 3 * mqd / (5*msd**2) -1
 
 def loadXbonds(fname, Q6, thr=0.25):
     """Load the bonds linking two MRCO particles"""
