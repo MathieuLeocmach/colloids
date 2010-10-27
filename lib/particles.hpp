@@ -329,8 +329,8 @@ namespace Colloids
                 BOO[p++] = T();
             p=(*it)+1;
         }
-        for(size_t p=inside.back(); p<size(); ++p)
-            BOO[p] = T();
+        while(p<size())
+            BOO[p++] = T();
     }
 
 
