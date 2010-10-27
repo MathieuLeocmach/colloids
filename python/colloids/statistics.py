@@ -32,6 +32,11 @@ def plot2dhist(datax, datay, title=None, bins=50, normed=False, cbmax=None, cbmi
     g('set cbrange [%g:%g]' % (low-(cbmax-low)/100, cbmax))
     g.splot(Gnuplot.GridData(h2, bx2, by2, binary=0))
 
+def meanMap1D(x, y, values, bins=50):
+    number, b = np.histogram(x, y, bins)
+    total, b = np.histogram(x, y, bins=b, weights=values)
+    return np.where(number==0, -1, total/number), b[:-1]
+
 def meanMap(x, y, values, bins=50):
     number, bx, by = np.histogram2d(x, y, bins)
     total, bx, by = np.histogram2d(x, y, bins=[bx, by], weights=values)
@@ -64,6 +69,25 @@ def plotMeanMap(x, y, values, bins=50, cbmax=None, cbmin=None):
         )
     g('set cbrange [%g:%g]' % (low-(cbmax-low)/100, cbmax))
     g.splot(Gnuplot.GridData(h2, bx2, by2, binary=0))
+
+def timecorrel(data):
+    """time correlation of an array of size [time, particles"""
+    k = data
+    if not k.dtype.kind ='c':
+        k -= data.mean()
+    return (k*np.conj(k[0])).mean(axis=1)/(np.abs(k)**2).mean()
+
+def time_correlation(data, av=10):
+    """read the particle-wise scalar from a time serie of files and compute the time correlation"""
+    if av==0:
+        c = np.zeros_like(data.sum(axis=1))
+        for t0 in range(len(data)-1):
+            c[:len(data)-t0] += timecorrel(data[t0:])
+        for dt in range(len(c)):
+            c[dt] /= len(c)-dt
+        return c
+    else:
+        return np.mean([timecorrel(data[t0:len(data)+t0-av]) for t0 in range(av)], axis=0)
 
 def pca(data):
     cov = np.cov(data.T)
