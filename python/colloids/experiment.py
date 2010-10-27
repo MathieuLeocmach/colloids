@@ -26,7 +26,7 @@ from scipy import optimize
 import os, os.path, subprocess
 import re, string, math
 from math import exp
-from colloids import vtk
+from colloids import vtk, statistics
 from pygraph.classes.graph import graph
 from pygraph.algorithms.accessibility import connected_components
 
@@ -383,9 +383,9 @@ class Txp:
 
     def load_bonds(self, t):
         oldbonds = np.loadtxt(self.xp.get_format_string(ext='bonds')%t, dtype=int)
-        pos2traj = -np.ones((bonds.max()+1), dtype=int)
+        pos2traj = -np.ones((oldbonds.max()+1), dtype=int)
         pos2traj[self.trajs[:,t]] = range(self.trajs.shape[0])
-        newbonds = pos2traj[bonds]
+        newbonds = pos2traj[oldbonds]
         newbonds = newbonds[np.where(newbonds.min(axis=1)>-1)]
         newbonds.sort(axis=1)
         indices = np.lexsort((newbonds[:,1], newbonds[:,0]))
@@ -548,24 +548,7 @@ class Txp:
         A = np.exp(
             self.positions[start:stop+av-1] * (1j * np.pi / self.xp.radius)
             )
-        isf = np.zeros((stop-start+1))
-        if av==0:
-            for t0, a in enumerate(A):
-                for dt, b in enumerate(A[t0+1:]):
-                    #average is done over all trajectories and the 3 dimensions
-                    isf[dt+1] += np.real(a.conj()*b).sum()
-            isf /= A.shape[1] * A.shape[2]
-            isf[0]=1
-            for dt, n in enumerate(range(stop-start,0,-1)):
-                isf[dt+1] /= n
-            return isf
-        else:
-            for t0, a in enumerate(A[:av]):
-                for dt, b in enumerate(A[t0+1:-av+t0]):
-                    isf[dt+1] += np.real(a.conj()*b).sum()
-            isf /= av * A.shape[1] * A.shape[2]
-            isf[0]=1
-            return isf
+        return statistics.time_correlation(A, av)
         
     def export_self_isf(self,start,stop,av):
         np.savetxt(
@@ -602,21 +585,19 @@ class Txp:
             for t0, a in enumerate(A):
                 for dt, b in enumerate(A[t0+1:]):
                     #average is done over all trajectories and the 3 dimensions
-                    msd[dt+1] += ((b-a)**2).sum()
-                    mqd[dt+1] += ((b-a)**4).sum()
-            msd /= A.shape[1] * A.shape[2] * (self.xp.radius*2)**2
-            mqd /= A.shape[1] * A.shape[2] * (self.xp.radius*2)**4
-            for dt, n in enumerate(range(stop-start,0,-1)):
-                msd[dt+1] /= n
-                mqd[dt+1] /=n
+                    diff = (b-a)**2
+                    msd[dt+1] += diff.sum()
+                    mqd[dt+1] += (diff.sum(axis=-1)**2).sum()
+            for dt in range(len(mqd)):
+                mqd[dt] *= (len(mqd)-dt) * A.shape[1] * A.shape[2]
         else:
             for t0, a in enumerate(A[:av]):
                 for dt, b in enumerate(A[t0+1:-av+t0]):
-                    msd[dt+1] += ((b-a)**2).sum()
-                    mqd[dt+1] += ((b-a)**4).sum()
-            msd /= av * A.shape[1] * A.shape[2]  * (self.xp.radius*2)**2
-            mqd /= av * A.shape[1] * A.shape[2]  * (self.xp.radius*2)**4
-        mqd[1:] /= (3 * msd[1:]**2)
+                    diff = (b-a)**2
+                    msd[dt+1] += diff.sum()
+                    mqd[dt+1] += (diff.sum(axis=-1)**2).sum()
+            mqd *= av * A.shape[1] * A.shape[2]
+        mqd[1:] /= 3*(5 * msd[1:]**2)
         return mqd-1
 
     def export_dynamics(self,start,stop,av):
