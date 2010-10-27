@@ -64,9 +64,9 @@ double PeriodicParticles::getNumberDensity() const
 */
 vector<size_t> PeriodicParticles::selectInside(const double &margin) const
 {
-    vector<size_t> inside;
+    vector<size_t> inside(size());
     for(size_t i=0;i<size();++i)
-        inside.push_back(i);
+        inside[i]=i;
     return inside;
 }
 
