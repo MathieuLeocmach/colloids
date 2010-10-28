@@ -90,7 +90,7 @@ int main(int argc, char ** argv)
 
 		//spatially index each frame
 		cout<<"index ..."<<endl;
-		#pragma omp parallel for shared(positions) schedule(runtime)
+		#pragma omp parallel for schedule(runtime)
 		for(int t=0; t<(int)span; ++t)
 			positions[t].makeRTreeIndex();
 
@@ -154,7 +154,7 @@ int main(int argc, char ** argv)
 		//treat each file
 		cout<<"BOO at each time step"<<endl;
 		boost::progress_display *show_progress;
-		#pragma omp parallel shared(positions, show_progress) firstprivate(bondSerie, outsideSerie, secondOutsideSerie, cloudSerie, cgCloudSerie)
+		#pragma omp parallel firstprivate(bondSerie, outsideSerie, secondOutsideSerie, cloudSerie, cgCloudSerie)
 		{
 		#pragma omp single
 		show_progress = new boost::progress_display(span);
