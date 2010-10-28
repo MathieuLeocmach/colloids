@@ -129,7 +129,7 @@ Particles& Particles::operator*=(const double &mul)
 Particles& Particles::operator+=(const Coord &v)
 {
     bb+=v;
-    #pragma omp parallel for shared(v)
+    #pragma omp parallel for
     for(ssize_t p=0; p<size(); ++p)
         (*this)[p] += v;
 
@@ -758,7 +758,7 @@ Particles::Binner::~Binner(void){};
 /**	\brief Bin the particles given by selection (coupled to their neighbours). */
 void Particles::Binner::operator<<(const std::vector<size_t> &selection)
 {
-    #pragma omp parallel for shared(selection) schedule(dynamic)
+    #pragma omp parallel for schedule(dynamic)
     for(ssize_t p=0; p<(ssize_t)selection.size(); ++p)
     {
         std::vector<size_t> around = parts.getEuclidianNeighbours(selection[p],cutoff);
