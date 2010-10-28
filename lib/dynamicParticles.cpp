@@ -514,7 +514,7 @@ Coord DynamicParticles::getDiff(const size_t &tr_from,const size_t &t_from,const
 Coord DynamicParticles::getDrift(const vector<size_t>&selection,const size_t &t0,const size_t &t1) const
 {
     Coord drift(0.0,3);
-    #pragma omp parallel for shared(selection, t0, t1)
+    #pragma omp parallel for
     for(ssize_t tr=0;tr<selection.size();++tr)
         drift += getDiff(selection[tr],t0,selection[tr],t1);
 
@@ -668,7 +668,7 @@ vector<double> DynamicParticles::getMSD(const vector<size_t> &selection,const si
     {
     	for(size_t Dt=1;Dt<sumSD.size();++Dt)
     	{
-    	    #pragma omp parallel for schedule(runtime) shared(sumSD, t3, Dt)
+    	    #pragma omp parallel for schedule(runtime)
 			for(size_t start=0;start<t3;++start)
 				sumSD[Dt] += getSD(selection,start,start+Dt);
 			sumSD[Dt] /= t3 * nb_selection;
@@ -694,7 +694,7 @@ vector<double> DynamicParticles::getNonGaussian(const std::vector<size_t> &selec
     nb[0]=1.0;
     if(t3==0)
     {
-    	#pragma omp parallel for schedule(runtime) shared(sumSD, nb, t0, t1, t3, selection)
+    	#pragma omp parallel for schedule(runtime)
 		for(size_t start=t0;start<t1;++start)
 			for(size_t stop=start+1;stop<=t1;++stop)
 			{
@@ -715,7 +715,7 @@ vector<double> DynamicParticles::getNonGaussian(const std::vector<size_t> &selec
     {
     	for(size_t Dt=1;Dt<sumSD.size();++Dt)
     	{
-    	    #pragma omp parallel for schedule(runtime) shared(sumSD, t3, Dt)
+    	    #pragma omp parallel for schedule(runtime)
 			for(size_t start=0;start<t3;++start)
 				for(ssize_t tr=0;tr<selection.size();++tr)
 				{
@@ -746,7 +746,7 @@ void DynamicParticles::get_MSD_NGP(const std::vector<size_t> &selection, std::ve
     nb[0]=1.0;
     if(t3==0)
     {
-    	#pragma omp parallel for schedule(dynamic) shared(MSD, NGP, nb, t0, t1, t3, selection)
+    	#pragma omp parallel for schedule(dynamic)
 		for(size_t start=t0;start<t1;++start)
 			for(size_t stop=start+1;stop<=t1;++stop)
 			{
@@ -760,7 +760,7 @@ void DynamicParticles::get_MSD_NGP(const std::vector<size_t> &selection, std::ve
 				}
 				nb[stop-start] += 1.0;
 			}
-        #pragma omp parallel for schedule(static) shared(NGP, nb, MSD)
+        #pragma omp parallel for schedule(static)
 		for(size_t t=0;t<MSD.size();++t)
 		{
 			NGP[t] *= nb[t] * nb_selection / (3.0 * MSD[t] * MSD[t]);
@@ -772,7 +772,7 @@ void DynamicParticles::get_MSD_NGP(const std::vector<size_t> &selection, std::ve
     {
     	for(size_t Dt=1;Dt<MSD.size();++Dt)
     	{
-    	    #pragma omp parallel for schedule(dynamic) shared(MSD, NGP, t3, Dt)
+    	    #pragma omp parallel for schedule(dynamic)
 			for(size_t start=0;start<t3;++start)
 				for(ssize_t tr=0;tr<selection.size();++tr)
 				{
@@ -801,7 +801,7 @@ vector<double> DynamicParticles::getISF(const vector<size_t> &selection,const Co
     //boost::progress_display show_progress(2*(t1-t0));
     valarray<double> A(0.0,t1-t0+1),B(0.0,t1-t0+1);
     double innerProd;
-    #pragma omp parallel for schedule(runtime) shared(t0, t1, selection) private(innerProd)
+    #pragma omp parallel for schedule(runtime) private(innerProd)
     for(size_t t=t0;t<=t1;++t)
     {
         for(ssize_t tr=0;tr<selection.size();++tr)
@@ -815,7 +815,7 @@ vector<double> DynamicParticles::getISF(const vector<size_t> &selection,const Co
 
     //cout << "valarray created" << endl;
     nb_per_interval[0]=1.0;
-    #pragma omp parallel for schedule(runtime) shared(A, B, sumISF, t0, t1, selection, nb_per_interval)
+    #pragma omp parallel for schedule(runtime)
     for(size_t start=t0;start<t1;++start)
     {
         for(size_t stop=start+1;stop<=t1;++stop)
@@ -1113,7 +1113,7 @@ vector<double> DynamicParticles::getNbLostNgbs(const size_t &t, const size_t &ha
 void splitByCageJump(const vector<Coord> &positions, const double &threshold, const size_t &resolution, const Interval &in, list<size_t> &jumps)
 {
     vector<double> separation(in.second-in.first+1);
-    #pragma omp parallel for schedule(dynamic) shared(separation)
+    #pragma omp parallel for schedule(dynamic)
     for(ssize_t t=in.first; t<(ssize_t)in.second; ++t)
     {
         //center of mass of both sub intervals
@@ -1414,7 +1414,7 @@ void DynamicParticles::link()
         size_t nbTraj = tm.getNbTraj();
         vector< multimap<double,size_t> > followersByDist(positions[t].size());
 
-        #pragma omp parallel for schedule(runtime) shared(t, followersByDist)
+        #pragma omp parallel for schedule(runtime)
         for(ssize_t p=0;p<(ssize_t)positions[t].size();++p)
             followersByDist[p] = positions[t+1].getEuclidianNeighboursBySqDist(positions[t][p], range);
 
