@@ -90,8 +90,8 @@ int main(int argc, char ** argv)
 
 		//spatially index each frame
 		cout<<"index ..."<<endl;
-		#pragma omp parallel for schedule(runtime)
-		for(int t=0; t<(int)span; ++t)
+		#pragma omp parallel for
+		for(size_t t=0; t<span; ++t)
 			positions[t].makeRTreeIndex();
 
 		//get averaged g(r)
