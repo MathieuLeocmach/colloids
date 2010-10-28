@@ -125,7 +125,7 @@ namespace Colloids
 			const size_t t0 = std::max(actual_time,averaging/2)-averaging/2;
 			for(size_t t=t0; t<std::min(actual_time+(averaging/2)+1, values.size()); ++t)
 			{
-				#pragma omp parallel for schedule(runtime) shared(frame, t)
+				#pragma omp parallel for schedule(runtime)
 				for(int p=0; p<(int)trajectories.inverse[t].size();++p)
 				{
 					const Traj& tr = trajectories[trajectories.inverse[t][p]];
@@ -143,7 +143,7 @@ namespace Colloids
 				size_t front = actual_time - averaging/2;
 				do
 				{
-					#pragma omp parallel for schedule(runtime) shared(front)
+					#pragma omp parallel for schedule(runtime)
 					for(int p=0; p<(int)values[front].size(); ++p)
 						values[front][p] /= (double)std::max((size_t)1,divisors.front()[p]);
 
