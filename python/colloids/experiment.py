@@ -705,6 +705,10 @@ def average(field, bonds):
 
 OrnsteinZernike3D = lambda p, r: p[0]/r * np.exp(-r/p[1])
 singleExponentialDecay = lambda p, t: p[0] * np.exp(-(t/p[1])**p[2])
+multipleStrechedExp = lambda p, ts, ys: np.asarray([
+    u for t, y, tau, beta in zip(ts, ys, p[1::2], p[2::2])
+    for u in p[0] * np.exp(-(t/tau)**beta) - y
+    ])
 VogelFulcherTammann = lambda p, phi: p[0]*np.exp(p[1]*phi/(p[2]-phi))
 
 def fit_OrnsteinZernike(g6, envelope, p0=[1,1]):
@@ -724,6 +728,19 @@ def fit_decay(isf, p0 = [0.95, 100, 1]):
         data = isf
     p1, success = optimize.leastsq(errfunc, p0, args=(np.arange(len(data))+1, data))
     return p1
+
+def fit_multipleDecays(isfs, p0=None):
+    """fit simultaneously many steched exponential decays having the same prefactor (plateau)
+isfs - a list of 1D data to fit (not necessary the same length). The first value is not taken into account.
+p0 - parameters as [prefactor, tau1, beta1, tau2, beta2, ...]"""
+    if not p0:
+        p0 = [0.95]+len(isfs)*[10, 1]
+    p, success = optimize.leastsq(
+        multipleStrechedExp, p0,
+        ([np.arange(1, len(k)) for k in isfs], [k[1:] for k in isfs])
+        )
+    if not success==1: print "Fitting failure"
+    return p
 
 def fit_vft(tau, p0 = [30, 0.5, 0.62]):
     fitfunc = VogelFulcherTammann
