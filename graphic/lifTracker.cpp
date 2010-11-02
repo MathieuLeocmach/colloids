@@ -70,7 +70,9 @@ void LifTracker::setTimeStep(size_t t)
 /** @brief Fill the tracker's image with the next time step  */
 LifTracker & LifTracker::operator++()
 {
-    this->iterator = tracker->fillImage_charToUchar(this->iterator);
+    if(!quiet()) cout<<"to t="<<time_step+1<<endl;
+    if(this->iterator != std::istreambuf_iterator<char>())
+        this->iterator = tracker->fillImage_charToUchar(this->iterator);
     if(centers)
     {
         Particles* old_centers = this->centers;
