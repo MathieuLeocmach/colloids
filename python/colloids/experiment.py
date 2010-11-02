@@ -597,7 +597,7 @@ class Txp:
                     msd[dt+1] += diff.sum()
                     mqd[dt+1] += (diff**2).sum()
             mqd *= av * A.shape[1]
-        mqd[1:] /= 3*(5 * msd[1:]**2)
+        mqd[1:] /= (5 * msd[1:]**2)/3.
         return mqd-1
 
     def export_dynamics(self,start,stop,av):
