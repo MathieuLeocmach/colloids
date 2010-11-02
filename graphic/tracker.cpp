@@ -73,7 +73,8 @@ void Tracker::setDimensions(const boost::array<size_t,3> &dims)
 	size_t memsize = 1;
 	memsize = accumulate(paddedDims.begin(),paddedDims.end(),1,multiplies<size_t>());
 	cout<<"Allocating a block of "<<sizeof(float) * memsize<<" bytes ... ";
-	assert(data = (float*)fftwf_malloc(sizeof(float)* memsize));
+	data = (float*)fftwf_malloc(sizeof(float)* memsize);
+	assert(data);
 
 	//allocate memory.
 	centersMap.resize(dims);
