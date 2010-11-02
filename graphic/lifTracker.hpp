@@ -42,6 +42,7 @@ class LifTracker : public TrackerIterator
 		explicit LifTracker(LifSerie &serie, const size_t ch=0, const unsigned fs=FFTW_ESTIMATE);
 		/** \brief default constructor that should be used only to get an "end" iterator*/
 		LifTracker end(){return LifTracker(getLif().getNbTimeSteps());};
+		bool reachedEnd(){return getTimeStep()>=getLif().getNbTimeSteps();};
 
 		LifSerie& getLif() const {return *serie;};
 
@@ -51,7 +52,7 @@ class LifTracker : public TrackerIterator
 
 		LifTracker& operator++();
 		bool operator==(const LifTracker& rhs) {return time_step==rhs.time_step && serie==rhs.serie;}
-		//bool operator!=(const LifTracker& rhs) {return time_step!=rhs.time_step;}
+		bool operator!=(const LifTracker& rhs) {return time_step!=rhs.time_step;}
 
 
 	private:

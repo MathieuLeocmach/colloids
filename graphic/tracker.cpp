@@ -722,14 +722,22 @@ Particles& TrackerIterator::operator*()
 {
     if(!centers)
     {
-        //Get the coordinate of the centers expressed in pixel units
-        centers = new Particles(tracker->trackXYZ(this->threshold));
-        //The real size of the pixel in z is not in general the same as the size in x or y
-        //conversion to real size
-        valarray<double> v(1.0,3);
-        v[2] = getZXratio();
-        (*centers) *= v;
-        if(!getTracker().quiet) cout <<"z multiplied by "<<v[2]<<endl;
+        if(reachedEnd())
+        {
+            cout<<"reached end"<<endl;
+            centers = new Particles();
+        }
+        else
+        {
+            //Get the coordinate of the centers expressed in pixel units
+            centers = new Particles(tracker->trackXYZ(this->threshold));
+            //The real size of the pixel in z is not in general the same as the size in x or y
+            //conversion to real size
+            valarray<double> v(1.0,3);
+            v[2] = getZXratio();
+            (*centers) *= v;
+            if(!getTracker().quiet) cout <<"z multiplied by "<<v[2]<<endl;
+        }
     }
     return *centers;
 }

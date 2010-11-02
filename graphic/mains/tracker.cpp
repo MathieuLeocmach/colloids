@@ -56,7 +56,7 @@ namespace po = boost::program_options;
 using namespace std;
 using namespace Colloids;
 
-/** \brief test the existence og tracker.ini, create it if necessary  */
+/** \brief test the existence of tracker.ini, create it if necessary  */
 string testTrackerIni()
 {
     const string dir = string(getenv("HOME"))+"/.colloids",
@@ -108,10 +108,16 @@ struct ParticlesExporter : public unary_function<const Particles&, void>
         t=0;
         outputFileName = new FileSerie(FileSerie::get0th(outputPath, size)+".dat", "_t", size, 0);
         if(quiet)
-            show_progress = new boost::progress_display(size-1);
+            show_progress = new boost::progress_display(size);
         else
             show_progress = 0;
         nbs = new ofstream((outputPath+".nb").c_str(), ios::out | ios::trunc);
+    }
+    void close()
+    {
+        if(nbs) delete nbs;
+        if(outputFileName) delete outputFileName;
+        if(show_progress) delete show_progress;
     }
 
     /** \brief  Export the Particles object to the next file of the serie.
@@ -119,9 +125,8 @@ struct ParticlesExporter : public unary_function<const Particles&, void>
     */
     void operator()(const Particles& parts)
     {
-        if(!show_progress) cout<<"open file"<<endl;
+        if(!show_progress) cout<<"export to "<<(*outputFileName % t)<<endl;
         parts.exportToFile(*outputFileName % (t++));
-        if(!show_progress) cout<<"export to "<<(*outputFileName % (t++))<<endl;
         (*nbs) << parts.size() << endl;
         if(show_progress)
             ++(*show_progress);
@@ -151,10 +156,17 @@ struct RadiiExporter : public unary_function<const Particles&, void>
     */
     void operator()(const vector<double>& radii)
     {
-        ofstream outputFile((*outputFileName % (t++)).c_str());
-        copy(radii.begin(), radii.end(), ostream_iterator<double>(outputFile, "\n"));
-        if(show_progress)
-            ++(*show_progress);
+        #pragma omp parallel
+        {
+            #pragma omp single nowait
+            {
+            ofstream outputFile((*outputFileName % (t++)).c_str());
+            copy(radii.begin(), radii.end(), ostream_iterator<double>(outputFile, "\n"));
+            }
+            if(show_progress)
+                ++(*show_progress);
+
+        }
     }
 };
 
@@ -291,9 +303,11 @@ int main(int ac, char* av[])
 
             if(!vm.count("serie") || serie >= reader.getNbSeries())
                 serie = reader.chooseSerieNumber();
+            cout<<"You choose "<<reader.getSerie(serie).getName()<<endl;
 
             if(vm.count("extractRadii"))
             {
+                cout<<"Extract radius"<<endl;
                 LifRadiiTracker track(reader.getSerie(serie), outputPath);
                 Tracker::saveWisdom(config_path+"/wisdom.fftw");
                 cout << "tracker ok"<<endl;
@@ -307,6 +321,7 @@ int main(int ac, char* av[])
             }
             else
             {
+                cout<<"track particles"<<endl;
                 LifTracker track(reader.getSerie(serie));
                 cout << "tracker ok"<<endl;
                 /*ofstream out((outputPath+"img.raw").c_str(), ios_base::out | ios_base::trunc);
@@ -321,7 +336,12 @@ int main(int ac, char* av[])
                 //track.getTracker().maskToFile(maskoutput);
 
                 boost::progress_timer ptimer;
-                for_each(track, track.end(), ParticlesExporter(outputPath, track.getLif().getNbTimeSteps(), track.quiet()));
+                ParticlesExporter pe(outputPath, track.getLif().getNbTimeSteps(), track.quiet());
+                for_each(track, track.end(), pe);
+                pe.close();
+
+                //Destroy the inner data
+                track.close();
 
                 //display radius no more in use
                 //track.displayRadius = displayRadius;

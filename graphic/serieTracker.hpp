@@ -41,6 +41,7 @@ class SerieTracker : public TrackerIterator
             const size_t ch=0,
             const unsigned fs=FFTW_ESTIMATE);
 		SerieTracker end(){return SerieTracker(length);};
+		bool reachedEnd(){return getTimeStep()>=length;};
 
 		void setTimeStep(size_t t);
 		double getZXratio(){return ZXratio;};

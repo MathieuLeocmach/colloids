@@ -150,6 +150,7 @@ class TrackerIterator : public std::iterator<std::input_iterator_tag, Particles>
 		size_t getChannel(){return channel;};
 		virtual void setTimeStep(size_t t)=0;
 		size_t getTimeStep(){return this->time_step;};
+		virtual bool reachedEnd(){};
 		virtual double getZXratio()=0;
 
 		virtual TrackerIterator& operator++()=0;
