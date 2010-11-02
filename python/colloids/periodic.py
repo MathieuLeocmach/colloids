@@ -64,7 +64,7 @@ def msd(A, av=10, L=203):
             for dt, b in enumerate(A[t0+1:]):
                 #average is done over all trajectories and the 3 dimensions
                 msd[dt+1] += (get_displ(a,b, L)**2).sum()
-        msd /= A.shape[1] * A.shape[2]
+        msd /= A.shape[1]
         for dt in range(len(A)):
             msd[dt] /= len(A)-dt
         return msd
@@ -72,7 +72,7 @@ def msd(A, av=10, L=203):
         for t0, a in enumerate(A[:av]):
             for dt, b in enumerate(A[t0+1:len(A)-av+t0+1]):
                 msd[dt+1] += (get_displ(a,b, L)**2).sum()
-        msd /= av * A.shape[1] * A.shape[2]
+        msd /= av * A.shape[1]
         return msd
 
 def self_isf(positions, radius, av, L=203):
@@ -80,7 +80,7 @@ def self_isf(positions, radius, av, L=203):
     A = np.exp(
         positions * (1j * np.pi * np.floor(L/radius) / L)
         )
-    return statistics.time_correlation(A, av)
+    return statistics.time_correlation(A, av).mean(axis=-1)
 
 
 def ngp(A, av=10, L=203):
@@ -93,19 +93,21 @@ def ngp(A, av=10, L=203):
         for t0, a in enumerate(A):
             for dt, b in enumerate(A[t0+1:]):
                 #average is done over all trajectories and the 3 dimensions
-                diff = get_displ(a,b, L)**2
+                diff = (get_displ(a,b, L)**2).sum(axis=-1)
                 msd[dt+1] += diff.sum()
-                mqd[dt+1] += (diff.sum(axis=-1)**2).sum()
+                mqd[dt+1] += (diff**2).sum()
         for dt in range(len(A)):
             mqd[dt] *= len(A)-dt
-        return A.shape[1] * A.shape[2] * 3 * mqd / (5*msd**2) -1
+        msd[0]=1
+        return A.shape[1] * 3 * mqd / (5*msd**2) -1
     else:
         for t0, a in enumerate(A[:av]):
             for dt, b in enumerate(A[t0+1:len(A)-av+t0+1]):
-                diff = get_displ(a,b, L)**2
+                diff = (get_displ(a,b, L)**2).sum(axis=-1)
                 msd[dt+1] += diff.sum()
-                mqd[dt+1] += (diff.sum(axis=-1)**2).sum()
-        return av * A.shape[1] * A.shape[2] * 3 * mqd / (5*msd**2) -1
+                mqd[dt+1] += (diff**2).sum()
+        msd[0]=1
+        return av * A.shape[1] * 3 * mqd / (5*msd**2) -1
 
 def loadXbonds(fname, Q6, thr=0.25):
     """Load the bonds linking two MRCO particles"""

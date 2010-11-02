@@ -505,7 +505,7 @@ class Txp:
                 for dt, b in enumerate(A[t0+1:]):
                     #average is done over all trajectories and the 3 dimensions
                     msd[dt+1] += ((b-a)**2).sum()
-            msd /= A.shape[1] * A.shape[2] * (self.xp.radius*2)**2
+            msd /= A.shape[1] * (self.xp.radius*2)**2
             for dt, n in enumerate(range(stop-start,0,-1)):
                 msd[dt+1] /= n
             return msd
@@ -513,7 +513,7 @@ class Txp:
             for t0, a in enumerate(A[:av]):
                 for dt, b in enumerate(A[t0+1:-av+t0]):
                     msd[dt+1] += ((b-a)**2).sum()
-            msd /= av * A.shape[1] * A.shape[2]  * (self.xp.radius*2)**2
+            msd /= av * A.shape[1] * (self.xp.radius*2)**2
             return msd
 
     def export_msd(self,start,stop,av):
@@ -548,7 +548,7 @@ class Txp:
         A = np.exp(
             self.positions[start:stop+av-1] * (1j * np.pi / self.xp.radius)
             )
-        return statistics.time_correlation(A, av)
+        return statistics.time_correlation(A, av).mean(axis=-1)
         
     def export_self_isf(self,start,stop,av):
         np.savetxt(
@@ -585,18 +585,18 @@ class Txp:
             for t0, a in enumerate(A):
                 for dt, b in enumerate(A[t0+1:]):
                     #average is done over all trajectories and the 3 dimensions
-                    diff = (b-a)**2
+                    diff = ((b-a)**2).sum(axis=-1)
                     msd[dt+1] += diff.sum()
-                    mqd[dt+1] += (diff.sum(axis=-1)**2).sum()
+                    mqd[dt+1] += (diff**2).sum()
             for dt in range(len(mqd)):
-                mqd[dt] *= (len(mqd)-dt) * A.shape[1] * A.shape[2]
+                mqd[dt] *= (len(mqd)-dt) * A.shape[1]
         else:
             for t0, a in enumerate(A[:av]):
                 for dt, b in enumerate(A[t0+1:-av+t0]):
-                    diff = (b-a)**2
+                    diff = ((b-a)**2).sum(axis=-1)
                     msd[dt+1] += diff.sum()
-                    mqd[dt+1] += (diff.sum(axis=-1)**2).sum()
-            mqd *= av * A.shape[1] * A.shape[2]
+                    mqd[dt+1] += (diff**2).sum()
+            mqd *= av * A.shape[1]
         mqd[1:] /= 3*(5 * msd[1:]**2)
         return mqd-1
 
