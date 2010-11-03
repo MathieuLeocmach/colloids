@@ -80,7 +80,7 @@ def self_isf(positions, radius, av, L=203):
     A = np.exp(
         positions * (1j * np.pi * np.floor(L/radius) / L)
         )
-    return statistics.time_correlation(A, av).mean(axis=-1)
+    return statistics.time_correlation(A, av).mean(axis=-1).real
 
 
 def ngp(A, av=10, L=203):

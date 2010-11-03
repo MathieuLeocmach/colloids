@@ -558,7 +558,7 @@ class Txp:
         A = np.exp(
             self.positions[start:stop+av-1] * (1j * np.pi / self.xp.radius)
             )
-        return statistics.time_correlation(A, av).mean(axis=-1)
+        return statistics.time_correlation(A, av).mean(axis=-1).real
         
     def export_self_isf(self,start,stop,av):
         np.savetxt(
