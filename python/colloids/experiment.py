@@ -446,6 +446,16 @@ class Txp:
         selection = np.where(field.min(axis=0)!=0.0)[0]
         self.trajs = self.trajs[selection]
         self.positions = self.positions[:,selection]
+
+    def get_Nb_density(self, t):
+        """Get the number density (px**-3) in the volume actually used in the time experiment"""
+        pos = np.loadtxt(self.xp.get_format_string()%t, skiprows=2)
+        inself = pos[self.trajs[:,t]]
+        inside = pos[np.bitwise_and(
+            (pos>=inself.min(axis=0)).min(axis=-1),
+            (pos<=inself.max(axis=0)).min(axis=-1)
+            )]
+        return len(inside)/inside.ptp(axis=0).prod()
         
 
     def get_vtk(self, t):
