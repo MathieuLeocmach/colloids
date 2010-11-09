@@ -8,6 +8,8 @@ AC_CONFIG_HEADERS([config.h])
 #AC_CONFIG_SUBDIRS([mains graphic])
 AC_CONFIG_FILES([Makefile lib/Makefile mains/Makefile graphic/Makefile graphic/tinyxml/Makefile graphic/mains/Makefile])
 LT_INIT
+AM_MAINTAINER_MODE([disable])
+#AX_MAINTAINER_MODE_AUTO_SILENT
 
 dnl get the flags
 CXXFLAGS="${CXXFLAGS=}"
