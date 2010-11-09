@@ -662,7 +662,7 @@ vector<double> DynamicParticles::getMSD(const vector<size_t> &selection,const si
 				nbSD[stop-start] += 1.0;
 			}
 		for(size_t t=0;t<sumSD.size();++t)
-			sumSD[t]/=nbSD[t]* pow(2.0*radius,2.0)*selection.size();
+			sumSD[t]/=nbSD[t] * selection.size();
     }
     else
     {
@@ -670,17 +670,44 @@ vector<double> DynamicParticles::getMSD(const vector<size_t> &selection,const si
     	{
     	    #pragma omp parallel for schedule(runtime)
 			for(size_t start=0;start<t3;++start)
-				sumSD[Dt] += getSD(selection,start,start+Dt);
+				sumSD[Dt] += getSD(selection,t0+start,t0+start+Dt);
 			sumSD[Dt] /= t3 * nb_selection;
     	}
     }
     return sumSD;
 }
 
-/** \brief Mean square displacement function of time between t0 and t1 */
-vector<double> DynamicParticles::getMSD(const size_t &t0,const size_t &t1,const size_t &t3) const
+/** \brief Mean square displacement function of lag time.
+    \param t0 begining of the interval of interest
+    \param t1 so that t1-t0 is the maximum lag time
+    \param t2 the averaging. t1+t2 is the end of the interval of interest.
+    \return MSD in the same unit length as the coordinates squared.
+
+    If t2>0, averaging is made over t2 intervals: [t0, t1], [t0+1, t1+1], ..., [t0+t2, t1+t2]. Signal to noise ratio is uniform.
+    If t2==0, averaging is made on every accessible intervals. Short lag times are averaged over many intervals so the signal to noise ratio is high.
+    Long lag times are averaged on very few intervals (minimum is one interval for the maximum lag time), so have a poor signal to noise ratio.
+
+    Here we use only trajectories that are at least as long as the maximum lag time inside the interval of interest
+*/
+vector<double> DynamicParticles::getMSD(const size_t &t0,const size_t &t1,const size_t &t2) const
 {
-    return getMSD(selectSpanning(Interval(t0,t1+t3)),t0,t1,t3);
+    if(t2==0)
+        return getMSD(selectSpanning(Interval(t0,t1+t2)),t0,t1,t2);
+
+    vector<double> MSD(t1-t0+1, 0.0);
+    size_t count=0;
+    for(size_t start=t0; start<t2; ++start)
+    {
+        const vector<size_t> selection = selectSpanning(Interval(start, start+t1-t0));
+        const vector<double> singleMSD = getMSD(selection, start, start+t1-t0, 1);
+        const double coef = selection.size();
+        for(size_t t=0; t<MSD.size();++t)
+            MSD[t] += coef * singleMSD[t];
+        count += selection.size();
+    }
+    for(size_t t=0; t<MSD.size();++t)
+        MSD[t] /= count;
+    return MSD;
 }
 
 /** @brief get Non Gaussian parameter function of time between t0 and t1  */
