@@ -12,8 +12,29 @@
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
 
+/* Define to 1 if you have the `fftw3f' library (-lfftw3f). */
+#undef HAVE_LIBFFTW3F
+
+/* Define to 1 if you have the `fftw3f_threads' library (-lfftw3f_threads). */
+#undef HAVE_LIBFFTW3F_THREADS
+
+/* Define to 1 if you have the `gdi32' library (-lgdi32). */
+#undef HAVE_LIBGDI32
+
+/* Define to 1 if you have the `m' library (-lm). */
+#undef HAVE_LIBM
+
+/* Define to 1 if you have the 'pthread' library (-lpthread). */
+#undef HAVE_LIBNCURSES
+
+/* Define to 1 if you have the `X11' library (-lX11). */
+#undef HAVE_LIBX11
+
 /* Define to 1 if you have the <memory.h> header file. */
 #undef HAVE_MEMORY_H
+
+/* Define to 1 if you have the <pthread.h> header file. */
+#undef HAVE_PTHREAD_H
 
 /* Define to 1 if you have the <stdint.h> header file. */
 #undef HAVE_STDINT_H
