@@ -73,6 +73,7 @@ class Tracker
         void unsetRefBrightness(){hasRefBrightness=false;};*/
 
         Particles trackXYZ(const float &threshold=0.0f);
+        void trackVariousThresholds(const std::list<float> &thresholds, std::list<Particles> &results);
 
         //std::vector<Particles*> granulometry(const double &radiusMin, const double &radiusMax);
         static bool loadWisdom(const std::string & filename);

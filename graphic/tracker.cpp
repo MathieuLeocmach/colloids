@@ -343,6 +343,30 @@ Particles Tracker::trackXYZ(const float &threshold)
     return getSubPixel();
 }
 
+/** @brief track particles for the same band passed image but various thresholds  */
+void Tracker::trackVariousThresholds(const std::list<float> &thresholds, std::list<Particles> &results)
+{
+    boost::progress_display *show_progress;
+    if(!quiet) cout << "band-passing ... ";
+    FFTapplyMask();
+    if(!quiet) cout << "done!" << endl;
+
+    if(!quiet)
+    {
+        cout << "pixel centers and sub-pixel resolution"<<endl;
+        show_progress = new boost::progress_display(thresholds.size());
+    }
+    for(list<float>::const_iterator thr=thresholds.begin(); thr!=thresholds.end(); ++thr)
+    {
+        findPixelCenters(*thr);
+        results.push_back(getSubPixel());
+        if(!quiet) ++(*show_progress);
+    }
+
+}
+
+
+
 /** @brief load FFTW wisdom from file
   * \return	false if the file isn't found
   */
