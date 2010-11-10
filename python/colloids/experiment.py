@@ -324,6 +324,36 @@ class Experiment:
             self.get_format_string('_lngb','hist')%t,
             np.column_stack((xedges[:-1], H))
             )
+    def vtk_tracking(self):
+        #read all trajectories
+        trajs = []
+        with open(os.path.join(self.path,self.trajfile),'r') as f:
+            for l, line in enumerate(f):
+                if l==3:
+                    break
+            for line in f:
+                t0 = int(line[:-1])
+                pos = string.split(f.next()[:-1],'\t')
+                trajs.append((t0, map(int, pos)))
+        #mapping (t, pos)->traj
+        framesizes = np.zeros(self.size, dtype=int)
+        for t0, pos in trajs:
+            framesizes[t0:t0+len(pos)]+=1
+        pos2traj = [np.empty(s, dtype=int) for s in framesizes]
+        for tr, (t0, pos) in enumerate(trajs):
+            for t, p in enumerate(pos):
+                pos2traj[t0+t][p]=tr
+        #creating and saving vtk
+        for t, fname in self.enum():
+            v = vtk.Polydata()
+            v.bonds = []
+            v.points = np.loadtxt(fname, skiprows=2)
+            v.scalars.append((
+                'traj_length',
+                np.asarray([len(trajs[tr][1]) for tr in pos2traj[t]])
+                ))
+            v.save(self.get_format_string('_check', ext='vtk')%t)
+            
 
 class Txp:
     """Implementig time algorithms in python"""
@@ -683,9 +713,9 @@ Return a dictionary (particle id -> cluster id)
     
 
 
-def br(sigma, T=310, eta=2.22e-3):
-        """Brownian time for a particle of diameter sigma (in meters)"""
-        return 3 * const.pi * eta * (sigma**3) / (4 * const.k * T)
+def br(radius, T=28, eta28C=2.00139e-3, detadT=-0.03):
+        """Brownian time is the time for a particle to diffuse over it\'s own radius (in meters)"""
+        return const.pi * (eta28C+(T-28)*detadT) * (radius**3) / (const.k * const.C2K(T))
 
 def histz(f):
     """export the density histogram of a .dat file into a .z file"""
@@ -755,6 +785,11 @@ p0 - parameters as [prefactor, tau1, beta1, tau2, beta2, ...]"""
 def fit_vft(tau, p0 = [30, 0.5, 0.62]):
     fitfunc = VogelFulcherTammann
     errfunc = lambda p, x, y: np.log(fitfunc(p, x)) - np.log(y)
+    p1, success = optimize.leastsq(errfunc, p0[:], args=(tau[:,0], tau[:,1]))
+    return p1
+
+def fit_normaized_vft(tau, p0 = [0.5, 0.62]):
+    errfunc = lambda p, phi, y: p[0]*phi/(p[1]-phi) - np.log(y)
     p1, success = optimize.leastsq(errfunc, p0[:], args=(tau[:,0], tau[:,1]))
     return p1
 
