@@ -126,9 +126,9 @@ class TrackerIterator : public std::iterator<std::input_iterator_tag, Particles>
 {
  	protected:
         Tracker *tracker;
-        Particles *centers;
+        std::list<Particles> centers;
         size_t channel, time_step;
-        float threshold;
+        std::list<float> thresholds;
 
  	public:
 		/** \brief default constructor that should be used only to get an "end" iterator*/
@@ -140,8 +140,11 @@ class TrackerIterator : public std::iterator<std::input_iterator_tag, Particles>
 
 		virtual void setIsotropicBandPass(double radiusMin, double radiusMax);
 		virtual void setAnisotropicBandPass(double radiusMin, double radiusMax, double zRadiusMin, double zRadiusMax);
-		void setThreshold(const float thr=0.0f) {this->threshold=thr;};
-		const float& getThreshold() const {return this->threshold;};
+		void setThreshold(const float thr=0.0f) {this->thresholds=std::list<float>(1, thr);};
+		template<class InputIterator> void setThresholds(InputIterator first, InputIterator last){this->thresholds=std::list<float>(first, last);};
+		const float& getThreshold() const {return this->thresholds.front();};
+		const std::list<float>& getThresholds() const {return this->thresholds;};
+		bool hasThresholds() const {return this->thresholds.size()>1;}
 		void setView(bool v){tracker->view=v;}
 		bool view() const {return tracker->view;}
 		void setQuiet(bool v){tracker->quiet=v;}
@@ -155,7 +158,7 @@ class TrackerIterator : public std::iterator<std::input_iterator_tag, Particles>
 		virtual double getZXratio()=0;
 
 		virtual TrackerIterator& operator++()=0;
-		virtual Particles& operator*();
+		virtual std::list<Particles>& operator*();
 		bool operator!=(const TrackerIterator& rhs) {return time_step!=rhs.time_step;}
 };
 

@@ -715,7 +715,6 @@ void Tracker::markCenters()
 void TrackerIterator::close()
 {
     if(tracker) delete tracker;
-    if(centers) delete centers;
 }
 
 /** @brief set the band pass filter in order to select the same real sizes in x, y and z directions  */
@@ -742,27 +741,28 @@ void TrackerIterator::setAnisotropicBandPass(double radiusMin, double radiusMax,
   * Contrary to the dereferencement operator for standard iterator, this is a heavy operation.
   * The result is cached until the next incrementation or setTimeStep
   */
-Particles& TrackerIterator::operator*()
+std::list<Particles>& TrackerIterator::operator*()
 {
-    if(!centers)
+    if(centers.empty())
     {
         if(reachedEnd())
         {
             cout<<"reached end"<<endl;
-            centers = new Particles();
+            centers.clear();
         }
         else
         {
             //Get the coordinate of the centers expressed in pixel units
-            centers = new Particles(tracker->trackXYZ(this->threshold));
+            tracker->trackVariousThresholds(this->getThresholds(), this->centers);
             //The real size of the pixel in z is not in general the same as the size in x or y
             //conversion to real size
             valarray<double> v(1.0,3);
             v[2] = getZXratio();
-            (*centers) *= v;
+            for(list<Particles>::iterator c=centers.begin(); c!=centers.end(); ++c)
+                (*c) *= v;
             if(!getTracker().quiet) cout <<"z multiplied by "<<v[2]<<endl;
         }
     }
-    return *centers;
+    return centers;
 }
 

@@ -50,7 +50,6 @@
 #include "radiiTracker.hpp"
 #include <boost/progress.hpp>
 #include <boost/format.hpp>
-#include "config.h"
 
 namespace po = boost::program_options;
 using namespace std;
@@ -95,7 +94,7 @@ string testTrackerIni()
 }
 
 /** \brief Functor to save a serie of particles to file */
-struct ParticlesExporter : public unary_function<const Particles&, void>
+struct ParticlesExporter : public unary_function<const list<Particles>&, void>
 {
     size_t t;
     ofstream * nbs;
@@ -123,11 +122,11 @@ struct ParticlesExporter : public unary_function<const Particles&, void>
     /** \brief  Export the Particles object to the next file of the serie.
         For example outputDir/30s_t025.dat
     */
-    void operator()(const Particles& parts)
+    void operator()(const list<Particles>& parts)
     {
         if(!show_progress) cout<<"export to "<<(*outputFileName % t)<<endl;
-        parts.exportToFile(*outputFileName % (t++));
-        (*nbs) << parts.size() << endl;
+        parts.front().exportToFile(*outputFileName % (t++));
+        (*nbs) << parts.front().size() << endl;
         if(show_progress)
             ++(*show_progress);
     }
@@ -176,7 +175,8 @@ int main(int ac, char* av[])
         string inputFile,outputPath;
         //double Zratio=1.0,displayRadius,radiusMin, radiusMax, zradiusMin, zradiusMax,threshold;
         double Zratio=1.0,radiusMin, radiusMax, threshold;
-        size_t serie, cores;
+        size_t serie, cores,onlyTimeStep;
+        vector<double> thresholds;
 
         // Declare a group of options that will be
         // allowed only on command line
@@ -190,6 +190,7 @@ int main(int ac, char* av[])
             ("quiet", "Display only a progression bar")
 #if (TRACKER_N_THREADS>1)
             ("cores", po::value<size_t>(&cores)->default_value(TRACKER_N_THREADS), "Number of Cores to use")
+            ("onlyTimeStep", po::value<size_t>(&onlyTimeStep)->default_value(-1), "Track only the given time step (default: track all time steps)")
 #endif
             ;
 
@@ -207,6 +208,7 @@ int main(int ac, char* av[])
             //("zradiusMin", po::value<double>(&zradiusMin), "Minimum radius of the band pass filter in z")
             //("zradiusMax", po::value<double>(&zradiusMax), "Maximum radius of the band pass filter in z")
             ("threshold", po::value<double>(&threshold)->default_value(0.0), "Minimum intensity of a center after band passing (0,255)")
+            ("thresholds", po::value< vector<double> >(&thresholds), "Minimum intensity of a center after band passing (0,255)")
             ;
 
         // Options specific to file serie mode, accessible for both config file and command line
@@ -244,6 +246,9 @@ int main(int ac, char* av[])
         po::store(parse_config_file(ifs, config_file_options), vm);
         notify(vm);
         ifs.close();
+
+        if(thresholds.empty())
+            thresholds.push_back(threshold);
 
         //makes sure the last character of outputpath is not an underscore, because we will add one anyway
         //because the last 't' of "seriet000.dat" is not equivalent to the last '_t' of "serie_t000.dat"
@@ -330,15 +335,35 @@ int main(int ac, char* av[])
                 Tracker::saveWisdom(config_path+"/wisdom.fftw");
                 track.setView(!!vm.count("view"));
                 track.setQuiet(!!vm.count("quiet"));
-                track.setThreshold(threshold);
+                track.setThresholds(thresholds.begin(), thresholds.end());
                 track.setIsotropicBandPass(radiusMin, radiusMax); //not using zradius for the moment
                 //string maskoutput = outputPath+"mask.txt";
                 //track.getTracker().maskToFile(maskoutput);
 
-                boost::progress_timer ptimer;
-                ParticlesExporter pe(outputPath, track.getLif().getNbTimeSteps(), track.quiet());
-                for_each(track, track.end(), pe);
-                pe.close();
+                if(onlyTimeStep==-1)
+                {
+                    boost::progress_timer ptimer;
+                    ParticlesExporter pe(outputPath, track.getLif().getNbTimeSteps(), track.quiet());
+                    for_each(track, track.end(), pe);
+                    pe.close();
+                }
+                else
+                {
+                    track.setTimeStep(onlyTimeStep);
+                    string nothrName = FileSerie
+                    (
+                        FileSerie::get0th(outputPath, track.getLif().getNbTimeSteps())+".dat",
+                        "_t", track.getLif().getNbTimeSteps(), 0
+                    ) % onlyTimeStep;
+                    nothrName.insert(outputPath.size(), "_thr%g");
+                    boost::format outputFileName(nothrName);
+
+                    const list<Particles> & parts = *track;
+                    vector<double>::const_iterator thr = thresholds.begin();
+                    for(list<Particles>::const_iterator p=parts.begin(); p!=parts.end(); ++p)
+                        p->exportToFile((outputFileName % (*thr++)).str( ));
+
+                }
 
                 //Destroy the inner data
                 track.close();
