@@ -176,7 +176,13 @@ int main(int ac, char* av[])
         //double Zratio=1.0,displayRadius,radiusMin, radiusMax, zradiusMin, zradiusMax,threshold;
         double Zratio=1.0,radiusMin, radiusMax;
         size_t serie, cores,onlyTimeStep;
+        unsigned fftFlags =FFTW_ESTIMATE;
         vector<double> thresholds;
+
+        //concatenate properly the docstring of fftPlanning option
+        ostringstream fftoptions;
+        fftoptions << "These flags control the rigor (and time) of the planning process, and can also impose (or lift) restrictions on the type of transform algorithm that is employed.\n";
+        fftoptions << FFTW_ESTIMATE<<": FFTW_ESTIMATE\n"<<FFTW_MEASURE<<": FFTW_MEASURE\n"<<FFTW_PATIENT<<": FFTW_PATIENT\n"<<FFTW_EXHAUSTIVE<<": FFTW_EXHAUSTIVE";
 
         // Declare a group of options that will be
         // allowed only on command line
@@ -190,8 +196,9 @@ int main(int ac, char* av[])
             ("quiet", "Display only a progression bar")
 #if (TRACKER_N_THREADS>1)
             ("cores", po::value<size_t>(&cores)->default_value(TRACKER_N_THREADS), "Number of Cores to use")
-            ("onlyTimeStep", po::value<size_t>(&onlyTimeStep)->default_value(-1), "Track only the given time step (default: track all time steps)")
 #endif
+            ("fftPlanning", po::value<unsigned>(&fftFlags)->default_value((unsigned)FFTW_ESTIMATE), fftoptions.str().c_str())
+            ("onlyTimeStep", po::value<size_t>(&onlyTimeStep)->default_value(-1), "Track only the given time step (default: track all time steps)")
             ;
 
         // Declare a group of options that will be
@@ -287,7 +294,7 @@ int main(int ac, char* av[])
                 vm["zsize"].as<size_t>(),
                 vm["tsize"].as<size_t>()
             }};
-            SerieTracker track(inputFile, xyzt, Zratio, vm["channel"].as<size_t>());
+            SerieTracker track(inputFile, xyzt, Zratio, vm["channel"].as<size_t>(), fftFlags);
             cout << "tracker ok"<<endl;
             Tracker::saveWisdom(config_path+"/wisdom.fftw");
             track.setView(!!vm.count("view"));
@@ -316,7 +323,7 @@ int main(int ac, char* av[])
             if(vm.count("extractRadii"))
             {
                 cout<<"Extract radius"<<endl;
-                LifRadiiTracker track(reader.getSerie(serie), outputPath);
+                LifRadiiTracker track(reader.getSerie(serie), outputPath, vm["channel"].as<size_t>(), fftFlags);
                 Tracker::saveWisdom(config_path+"/wisdom.fftw");
                 cout << "tracker ok"<<endl;
 
@@ -330,7 +337,7 @@ int main(int ac, char* av[])
             else
             {
                 cout<<"track particles"<<endl;
-                LifTracker track(reader.getSerie(serie));
+                LifTracker track(reader.getSerie(serie), vm["channel"].as<size_t>(), fftFlags);
                 cout << "tracker ok"<<endl;
                 /*ofstream out((outputPath+"img.raw").c_str(), ios_base::out | ios_base::trunc);
                 track.getTracker().copyImage(ostream_iterator<int>(out,"\t"));
