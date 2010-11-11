@@ -14,6 +14,9 @@
 # PARTICULAR PURPOSE.
 
 @SET_MAKE@
+
+
+
 VPATH = @srcdir@
 pkgdatadir = $(datadir)/@PACKAGE@
 pkgincludedir = $(includedir)/@PACKAGE@
@@ -33,11 +36,20 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
+bin_PROGRAMS = bonds$(EXEEXT) boo$(EXEEXT) boo_flip$(EXEEXT) \
+	cage2vtk$(EXEEXT) cutter$(EXEEXT) dat2vtk$(EXEEXT) \
+	dhlngb$(EXEEXT) drift$(EXEEXT) dynamics$(EXEEXT) g6$(EXEEXT) \
+	ISF$(EXEEXT) linkboo$(EXEEXT) linker$(EXEEXT) lostngb$(EXEEXT) \
+	MSD$(EXEEXT) percolation$(EXEEXT) rdf$(EXEEXT) sp5c$(EXEEXT) \
+	totalRdf$(EXEEXT) traj2vtk$(EXEEXT) periodic_rdf$(EXEEXT) \
+	periodic_boo$(EXEEXT) periodic_g6$(EXEEXT) $(binvoro) \
+	aquireWisdom$(EXEEXT) tracker$(EXEEXT)
+EXTRA_PROGRAMS = cgVoro$(EXEEXT) periodic_cgVoro$(EXEEXT)
 subdir = .
-DIST_COMMON = $(am__configure_deps) $(srcdir)/Makefile.am \
-	$(srcdir)/Makefile.in $(srcdir)/config.h.in \
-	$(top_srcdir)/configure COPYING config.guess config.sub \
-	depcomp install-sh ltmain.sh missing
+DIST_COMMON = $(am__configure_deps) $(include_HEADERS) \
+	$(srcdir)/Makefile.am $(srcdir)/Makefile.in \
+	$(srcdir)/config.h.in $(top_srcdir)/configure COPYING \
+	config.guess config.sub depcomp install-sh ltmain.sh missing
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/libtool.m4 \
 	$(top_srcdir)/m4/ltoptions.m4 $(top_srcdir)/m4/ltsugar.m4 \
@@ -51,23 +63,204 @@ mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = config.h
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
-SOURCES =
-DIST_SOURCES =
-RECURSIVE_TARGETS = all-recursive check-recursive dvi-recursive \
-	html-recursive info-recursive install-data-recursive \
-	install-dvi-recursive install-exec-recursive \
-	install-html-recursive install-info-recursive \
-	install-pdf-recursive install-ps-recursive install-recursive \
-	installcheck-recursive installdirs-recursive pdf-recursive \
-	ps-recursive uninstall-recursive
-RECURSIVE_CLEAN_TARGETS = mostlyclean-recursive clean-recursive	\
-  distclean-recursive maintainer-clean-recursive
-AM_RECURSIVE_TARGETS = $(RECURSIVE_TARGETS:-recursive=) \
-	$(RECURSIVE_CLEAN_TARGETS:-recursive=) tags TAGS ctags CTAGS \
-	distdir dist dist-all distcheck
+am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
+am__vpath_adj = case $$p in \
+    $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \
+    *) f=$$p;; \
+  esac;
+am__strip_dir = f=`echo $$p | sed -e 's|^.*/||'`;
+am__install_max = 40
+am__nobase_strip_setup = \
+  srcdirstrip=`echo "$(srcdir)" | sed 's/[].[^$$\\*|]/\\\\&/g'`
+am__nobase_strip = \
+  for p in $$list; do echo "$$p"; done | sed -e "s|$$srcdirstrip/||"
+am__nobase_list = $(am__nobase_strip_setup); \
+  for p in $$list; do echo "$$p $$p"; done | \
+  sed "s| $$srcdirstrip/| |;"' / .*\//!s/ .*/ ./; s,\( .*\)/[^/]*$$,\1,' | \
+  $(AWK) 'BEGIN { files["."] = "" } { files[$$2] = files[$$2] " " $$1; \
+    if (++n[$$2] == $(am__install_max)) \
+      { print $$2, files[$$2]; n[$$2] = 0; files[$$2] = "" } } \
+    END { for (dir in files) print dir, files[dir] }'
+am__base_list = \
+  sed '$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;s/\n/ /g' | \
+  sed '$$!N;$$!N;$$!N;$$!N;s/\n/ /g'
+am__installdirs = "$(DESTDIR)$(libdir)" "$(DESTDIR)$(bindir)" \
+	"$(DESTDIR)$(includedir)"
+LTLIBRARIES = $(lib_LTLIBRARIES)
+libcolloids_graphic_la_LIBADD =
+am__dirstamp = $(am__leading_dot)dirstamp
+am_libcolloids_graphic_la_OBJECTS = graphic/lifFile.lo \
+	graphic/lifTracker.lo graphic/radiiTracker.lo \
+	graphic/serieTracker.lo graphic/tracker.lo \
+	graphic/tinyxml/tinyxmlerror.lo \
+	graphic/tinyxml/tinyxmlparser.lo graphic/tinyxml/tinystr.lo \
+	graphic/tinyxml/tinyxml.lo
+libcolloids_graphic_la_OBJECTS = $(am_libcolloids_graphic_la_OBJECTS)
+libcolloids_la_LIBADD =
+am_libcolloids_la_OBJECTS = lib/boo_data.lo lib/fields.lo \
+	lib/particles.lo lib/dynamicClusters.lo lib/files_series.lo \
+	lib/periodic.lo lib/dynamicParticles.lo lib/index.lo \
+	lib/traj.lo
+libcolloids_la_OBJECTS = $(am_libcolloids_la_OBJECTS)
+PROGRAMS = $(bin_PROGRAMS)
+am_ISF_OBJECTS = mains/ISF.$(OBJEXT)
+ISF_OBJECTS = $(am_ISF_OBJECTS)
+ISF_LDADD = $(LDADD)
+ISF_DEPENDENCIES = libcolloids.la libcolloids-graphic.la
+am_MSD_OBJECTS = mains/MSD.$(OBJEXT)
+MSD_OBJECTS = $(am_MSD_OBJECTS)
+MSD_LDADD = $(LDADD)
+MSD_DEPENDENCIES = libcolloids.la libcolloids-graphic.la
+am_aquireWisdom_OBJECTS = graphic/mains/aquireWisdom.$(OBJEXT)
+aquireWisdom_OBJECTS = $(am_aquireWisdom_OBJECTS)
+aquireWisdom_LDADD = $(LDADD)
+aquireWisdom_DEPENDENCIES = libcolloids.la libcolloids-graphic.la
+am_bonds_OBJECTS = mains/bonds.$(OBJEXT)
+bonds_OBJECTS = $(am_bonds_OBJECTS)
+bonds_LDADD = $(LDADD)
+bonds_DEPENDENCIES = libcolloids.la libcolloids-graphic.la
+am_boo_OBJECTS = mains/boo.$(OBJEXT)
+boo_OBJECTS = $(am_boo_OBJECTS)
+boo_LDADD = $(LDADD)
+boo_DEPENDENCIES = libcolloids.la libcolloids-graphic.la
+am_boo_flip_OBJECTS = mains/boo_flip.$(OBJEXT)
+boo_flip_OBJECTS = $(am_boo_flip_OBJECTS)
+boo_flip_LDADD = $(LDADD)
+boo_flip_DEPENDENCIES = libcolloids.la libcolloids-graphic.la
+am_cage2vtk_OBJECTS = mains/cage2vtk.$(OBJEXT)
+cage2vtk_OBJECTS = $(am_cage2vtk_OBJECTS)
+cage2vtk_LDADD = $(LDADD)
+cage2vtk_DEPENDENCIES = libcolloids.la libcolloids-graphic.la
+am_cgVoro_OBJECTS = mains/cgVoro-cgVoro.$(OBJEXT)
+cgVoro_OBJECTS = $(am_cgVoro_OBJECTS)
+cgVoro_LDADD = $(LDADD)
+cgVoro_DEPENDENCIES = libcolloids.la libcolloids-graphic.la
+am_cutter_OBJECTS = mains/cutter.$(OBJEXT)
+cutter_OBJECTS = $(am_cutter_OBJECTS)
+cutter_LDADD = $(LDADD)
+cutter_DEPENDENCIES = libcolloids.la libcolloids-graphic.la
+am_dat2vtk_OBJECTS = mains/dat2vtk.$(OBJEXT)
+dat2vtk_OBJECTS = $(am_dat2vtk_OBJECTS)
+dat2vtk_LDADD = $(LDADD)
+dat2vtk_DEPENDENCIES = libcolloids.la libcolloids-graphic.la
+am_dhlngb_OBJECTS = mains/dhlngb.$(OBJEXT)
+dhlngb_OBJECTS = $(am_dhlngb_OBJECTS)
+dhlngb_LDADD = $(LDADD)
+dhlngb_DEPENDENCIES = libcolloids.la libcolloids-graphic.la
+am_drift_OBJECTS = mains/drift.$(OBJEXT)
+drift_OBJECTS = $(am_drift_OBJECTS)
+drift_LDADD = $(LDADD)
+drift_DEPENDENCIES = libcolloids.la libcolloids-graphic.la
+am_dynamics_OBJECTS = mains/dynamics.$(OBJEXT)
+dynamics_OBJECTS = $(am_dynamics_OBJECTS)
+dynamics_LDADD = $(LDADD)
+dynamics_DEPENDENCIES = libcolloids.la libcolloids-graphic.la
+am_g6_OBJECTS = mains/g6.$(OBJEXT)
+g6_OBJECTS = $(am_g6_OBJECTS)
+g6_LDADD = $(LDADD)
+g6_DEPENDENCIES = libcolloids.la libcolloids-graphic.la
+am_linkboo_OBJECTS = mains/linkboo.$(OBJEXT)
+linkboo_OBJECTS = $(am_linkboo_OBJECTS)
+linkboo_LDADD = $(LDADD)
+linkboo_DEPENDENCIES = libcolloids.la libcolloids-graphic.la
+am_linker_OBJECTS = mains/linker.$(OBJEXT)
+linker_OBJECTS = $(am_linker_OBJECTS)
+linker_LDADD = $(LDADD)
+linker_DEPENDENCIES = libcolloids.la libcolloids-graphic.la
+am_lostngb_OBJECTS = mains/lostngb.$(OBJEXT)
+lostngb_OBJECTS = $(am_lostngb_OBJECTS)
+lostngb_LDADD = $(LDADD)
+lostngb_DEPENDENCIES = libcolloids.la libcolloids-graphic.la
+am_percolation_OBJECTS = mains/percolation.$(OBJEXT)
+percolation_OBJECTS = $(am_percolation_OBJECTS)
+percolation_LDADD = $(LDADD)
+percolation_DEPENDENCIES = libcolloids.la libcolloids-graphic.la
+am_periodic_boo_OBJECTS = mains/periodic_boo-boo.$(OBJEXT)
+periodic_boo_OBJECTS = $(am_periodic_boo_OBJECTS)
+periodic_boo_LDADD = $(LDADD)
+periodic_boo_DEPENDENCIES = libcolloids.la libcolloids-graphic.la
+am_periodic_cgVoro_OBJECTS = mains/periodic_cgVoro-cgVoro.$(OBJEXT)
+periodic_cgVoro_OBJECTS = $(am_periodic_cgVoro_OBJECTS)
+periodic_cgVoro_LDADD = $(LDADD)
+periodic_cgVoro_DEPENDENCIES = libcolloids.la libcolloids-graphic.la
+am_periodic_g6_OBJECTS = mains/periodic_g6-g6.$(OBJEXT)
+periodic_g6_OBJECTS = $(am_periodic_g6_OBJECTS)
+periodic_g6_LDADD = $(LDADD)
+periodic_g6_DEPENDENCIES = libcolloids.la libcolloids-graphic.la
+am_periodic_rdf_OBJECTS = mains/periodic_rdf-rdf.$(OBJEXT)
+periodic_rdf_OBJECTS = $(am_periodic_rdf_OBJECTS)
+periodic_rdf_LDADD = $(LDADD)
+periodic_rdf_DEPENDENCIES = libcolloids.la libcolloids-graphic.la
+am_rdf_OBJECTS = mains/rdf.$(OBJEXT)
+rdf_OBJECTS = $(am_rdf_OBJECTS)
+rdf_LDADD = $(LDADD)
+rdf_DEPENDENCIES = libcolloids.la libcolloids-graphic.la
+am_sp5c_OBJECTS = mains/sp5c.$(OBJEXT)
+sp5c_OBJECTS = $(am_sp5c_OBJECTS)
+sp5c_LDADD = $(LDADD)
+sp5c_DEPENDENCIES = libcolloids.la libcolloids-graphic.la
+am_totalRdf_OBJECTS = mains/totalRdf.$(OBJEXT)
+totalRdf_OBJECTS = $(am_totalRdf_OBJECTS)
+totalRdf_LDADD = $(LDADD)
+totalRdf_DEPENDENCIES = libcolloids.la libcolloids-graphic.la
+am_tracker_OBJECTS = graphic/mains/tracker.$(OBJEXT)
+tracker_OBJECTS = $(am_tracker_OBJECTS)
+tracker_LDADD = $(LDADD)
+tracker_DEPENDENCIES = libcolloids.la libcolloids-graphic.la
+tracker_LINK = $(LIBTOOL) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+	--mode=link $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) \
+	$(tracker_LDFLAGS) $(LDFLAGS) -o $@
+am_traj2vtk_OBJECTS = mains/traj2vtk.$(OBJEXT)
+traj2vtk_OBJECTS = $(am_traj2vtk_OBJECTS)
+traj2vtk_LDADD = $(LDADD)
+traj2vtk_DEPENDENCIES = libcolloids.la libcolloids-graphic.la
+DEFAULT_INCLUDES = -I.@am__isrc@
+depcomp = $(SHELL) $(top_srcdir)/depcomp
+am__depfiles_maybe = depfiles
+am__mv = mv -f
+CXXCOMPILE = $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
+	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS)
+LTCXXCOMPILE = $(LIBTOOL) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+	--mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
+	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS)
+CXXLD = $(CXX)
+CXXLINK = $(LIBTOOL) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+	--mode=link $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) $(AM_LDFLAGS) \
+	$(LDFLAGS) -o $@
+COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
+	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
+LTCOMPILE = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+	--mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
+	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
+CCLD = $(CC)
+LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
+	$(LDFLAGS) -o $@
+SOURCES = $(libcolloids_graphic_la_SOURCES) $(libcolloids_la_SOURCES) \
+	$(ISF_SOURCES) $(MSD_SOURCES) $(aquireWisdom_SOURCES) \
+	$(bonds_SOURCES) $(boo_SOURCES) $(boo_flip_SOURCES) \
+	$(cage2vtk_SOURCES) $(cgVoro_SOURCES) $(cutter_SOURCES) \
+	$(dat2vtk_SOURCES) $(dhlngb_SOURCES) $(drift_SOURCES) \
+	$(dynamics_SOURCES) $(g6_SOURCES) $(linkboo_SOURCES) \
+	$(linker_SOURCES) $(lostngb_SOURCES) $(percolation_SOURCES) \
+	$(periodic_boo_SOURCES) $(periodic_cgVoro_SOURCES) \
+	$(periodic_g6_SOURCES) $(periodic_rdf_SOURCES) $(rdf_SOURCES) \
+	$(sp5c_SOURCES) $(totalRdf_SOURCES) $(tracker_SOURCES) \
+	$(traj2vtk_SOURCES)
+DIST_SOURCES = $(libcolloids_graphic_la_SOURCES) \
+	$(libcolloids_la_SOURCES) $(ISF_SOURCES) $(MSD_SOURCES) \
+	$(aquireWisdom_SOURCES) $(bonds_SOURCES) $(boo_SOURCES) \
+	$(boo_flip_SOURCES) $(cage2vtk_SOURCES) $(cgVoro_SOURCES) \
+	$(cutter_SOURCES) $(dat2vtk_SOURCES) $(dhlngb_SOURCES) \
+	$(drift_SOURCES) $(dynamics_SOURCES) $(g6_SOURCES) \
+	$(linkboo_SOURCES) $(linker_SOURCES) $(lostngb_SOURCES) \
+	$(percolation_SOURCES) $(periodic_boo_SOURCES) \
+	$(periodic_cgVoro_SOURCES) $(periodic_g6_SOURCES) \
+	$(periodic_rdf_SOURCES) $(rdf_SOURCES) $(sp5c_SOURCES) \
+	$(totalRdf_SOURCES) $(tracker_SOURCES) $(traj2vtk_SOURCES)
+HEADERS = $(include_HEADERS)
 ETAGS = etags
 CTAGS = ctags
-DIST_SUBDIRS = $(SUBDIRS)
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 distdir = $(PACKAGE)-$(VERSION)
 top_distdir = $(distdir)
@@ -75,31 +268,6 @@ am__remove_distdir = \
   { test ! -d "$(distdir)" \
     || { find "$(distdir)" -type d ! -perm -200 -exec chmod u+w {} ';' \
          && rm -fr "$(distdir)"; }; }
-am__relativize = \
-  dir0=`pwd`; \
-  sed_first='s,^\([^/]*\)/.*$$,\1,'; \
-  sed_rest='s,^[^/]*/*,,'; \
-  sed_last='s,^.*/\([^/]*\)$$,\1,'; \
-  sed_butlast='s,/*[^/]*$$,,'; \
-  while test -n "$$dir1"; do \
-    first=`echo "$$dir1" | sed -e "$$sed_first"`; \
-    if test "$$first" != "."; then \
-      if test "$$first" = ".."; then \
-        dir2=`echo "$$dir0" | sed -e "$$sed_last"`/"$$dir2"; \
-        dir0=`echo "$$dir0" | sed -e "$$sed_butlast"`; \
-      else \
-        first2=`echo "$$dir2" | sed -e "$$sed_first"`; \
-        if test "$$first2" = "$$first"; then \
-          dir2=`echo "$$dir2" | sed -e "$$sed_rest"`; \
-        else \
-          dir2="../$$dir2"; \
-        fi; \
-        dir0="$$dir0"/"$$first"; \
-      fi; \
-    fi; \
-    dir1=`echo "$$dir1" | sed -e "$$sed_rest"`; \
-  done; \
-  reldir="$$dir2"
 DIST_ARCHIVES = $(distdir).tar.gz
 GZIP_ENV = --best
 distuninstallcheck_listfiles = find . -type f -print
@@ -229,11 +397,50 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 ACLOCAL_AMFLAGS = -I m4
-SUBDIRS = lib mains graphic
+lib_LTLIBRARIES = libcolloids.la libcolloids-graphic.la
+include_HEADERS = lib/boo_data.hpp lib/fields.hpp lib/particles.hpp lib/dynamicClusters.hpp lib/files_series.hpp lib/periodic.hpp lib/dynamicParticles.hpp lib/index.hpp lib/traj.hpp graphic/lifFile.hpp graphic/lifTracker.hpp graphic/radiiTracker.hpp graphic/serieTracker.hpp graphic/tracker.hpp
+libcolloids_la_SOURCES = lib/boo_data.cpp lib/fields.cpp lib/particles.cpp lib/dynamicClusters.cpp lib/files_series.cpp lib/periodic.cpp lib/dynamicParticles.cpp lib/index.cpp lib/traj.cpp lib/boo_data.hpp lib/fields.hpp lib/particles.hpp lib/dynamicClusters.hpp lib/files_series.hpp lib/periodic.hpp lib/dynamicParticles.hpp lib/index.hpp lib/traj.hpp lib/RStarTree/RStarBoundingBox.h lib/RStarTree/RStarTree.h lib/RStarTree/RStarVisitor.h
+LDADD = libcolloids.la libcolloids-graphic.la
+AM_CPPFLAGS = -I$(srcdir)/lib -I$(srcdir)/graphic -DTIXML_USE_STL
+periodic_boo_CPPFLAGS = $(AM_CPPFLAGS) -Duse_periodic
+periodic_rdf_CPPFLAGS = $(AM_CPPFLAGS) -Duse_periodic
+periodic_g6_CPPFLAGS = $(AM_CPPFLAGS) -Duse_periodic
+cgVoro_CPPFLAGS = $(AM_CPPFLAGS) -I$(VORO_SRC)
+periodic_cgVoro_CPPFLAGS = $(cgVoro_CPPFLAGS) -Duse_periodic
+bonds_SOURCES = mains/bonds.cpp
+boo_SOURCES = mains/boo.cpp
+periodic_boo_SOURCES = mains/boo.cpp
+boo_flip_SOURCES = mains/boo_flip.cpp
+cage2vtk_SOURCES = mains/cage2vtk.cpp
+cgVoro_SOURCES = mains/cgVoro.cpp
+periodic_cgVoro_SOURCES = mains/cgVoro.cpp
+cutter_SOURCES = mains/cutter.cpp
+dat2vtk_SOURCES = mains/dat2vtk.cpp
+dhlngb_SOURCES = mains/dhlngb.cpp
+drift_SOURCES = mains/drift.cpp
+dynamics_SOURCES = mains/dynamics.cpp
+g6_SOURCES = mains/g6.cpp
+periodic_g6_SOURCES = mains/g6.cpp
+ISF_SOURCES = mains/ISF.cpp
+linkboo_SOURCES = mains/linkboo.cpp
+linker_SOURCES = mains/linker.cpp
+lostngb_SOURCES = mains/lostngb.cpp
+MSD_SOURCES = mains/MSD.cpp
+percolation_SOURCES = mains/percolation.cpp
+rdf_SOURCES = mains/rdf.cpp
+periodic_rdf_SOURCES = mains/rdf.cpp
+sp5c_SOURCES = mains/sp5c.cpp
+totalRdf_SOURCES = mains/totalRdf.cpp
+traj2vtk_SOURCES = mains/traj2vtk.cpp
+libcolloids_graphic_la_SOURCES = graphic/lifFile.cpp graphic/lifFile.hpp graphic/lifTracker.cpp graphic/lifTracker.hpp graphic/radiiTracker.cpp graphic/radiiTracker.hpp graphic/serieTracker.cpp graphic/serieTracker.hpp graphic/tracker.cpp graphic/tracker.hpp graphic/tinyxml/tinystr.h graphic/tinyxml/tinyxmlerror.cpp graphic/tinyxml/tinyxmlparser.cpp graphic/tinyxml/tinystr.cpp graphic/tinyxml/tinyxml.cpp graphic/tinyxml/tinyxml.h
+aquireWisdom_SOURCES = graphic/mains/aquireWisdom.cpp
+tracker_SOURCES = graphic/mains/tracker.cpp
+tracker_LDFLAGS = $(BOOST_LDFLAGS) $(BOOST_PROGRAM_OPTIONS_LIB)
 all: config.h
-	$(MAKE) $(AM_MAKEFLAGS) all-recursive
+	$(MAKE) $(AM_MAKEFLAGS) all-am
 
 .SUFFIXES:
+.SUFFIXES: .cpp .lo .o .obj
 am--refresh:
 	@:
 $(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am  $(am__configure_deps)
@@ -285,85 +492,519 @@ $(srcdir)/config.h.in: @MAINTAINER_MODE_TRUE@ $(am__configure_deps)
 
 distclean-hdr:
 	-rm -f config.h stamp-h1
+install-libLTLIBRARIES: $(lib_LTLIBRARIES)
+	@$(NORMAL_INSTALL)
+	test -z "$(libdir)" || $(MKDIR_P) "$(DESTDIR)$(libdir)"
+	@list='$(lib_LTLIBRARIES)'; test -n "$(libdir)" || list=; \
+	list2=; for p in $$list; do \
+	  if test -f $$p; then \
+	    list2="$$list2 $$p"; \
+	  else :; fi; \
+	done; \
+	test -z "$$list2" || { \
+	  echo " $(LIBTOOL) $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=install $(INSTALL) $(INSTALL_STRIP_FLAG) $$list2 '$(DESTDIR)$(libdir)'"; \
+	  $(LIBTOOL) $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=install $(INSTALL) $(INSTALL_STRIP_FLAG) $$list2 "$(DESTDIR)$(libdir)"; \
+	}
+
+uninstall-libLTLIBRARIES:
+	@$(NORMAL_UNINSTALL)
+	@list='$(lib_LTLIBRARIES)'; test -n "$(libdir)" || list=; \
+	for p in $$list; do \
+	  $(am__strip_dir) \
+	  echo " $(LIBTOOL) $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=uninstall rm -f '$(DESTDIR)$(libdir)/$$f'"; \
+	  $(LIBTOOL) $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=uninstall rm -f "$(DESTDIR)$(libdir)/$$f"; \
+	done
+
+clean-libLTLIBRARIES:
+	-test -z "$(lib_LTLIBRARIES)" || rm -f $(lib_LTLIBRARIES)
+	@list='$(lib_LTLIBRARIES)'; for p in $$list; do \
+	  dir="`echo $$p | sed -e 's|/[^/]*$$||'`"; \
+	  test "$$dir" != "$$p" || dir=.; \
+	  echo "rm -f \"$${dir}/so_locations\""; \
+	  rm -f "$${dir}/so_locations"; \
+	done
+graphic/$(am__dirstamp):
+	@$(MKDIR_P) graphic
+	@: > graphic/$(am__dirstamp)
+graphic/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) graphic/$(DEPDIR)
+	@: > graphic/$(DEPDIR)/$(am__dirstamp)
+graphic/lifFile.lo: graphic/$(am__dirstamp) \
+	graphic/$(DEPDIR)/$(am__dirstamp)
+graphic/lifTracker.lo: graphic/$(am__dirstamp) \
+	graphic/$(DEPDIR)/$(am__dirstamp)
+graphic/radiiTracker.lo: graphic/$(am__dirstamp) \
+	graphic/$(DEPDIR)/$(am__dirstamp)
+graphic/serieTracker.lo: graphic/$(am__dirstamp) \
+	graphic/$(DEPDIR)/$(am__dirstamp)
+graphic/tracker.lo: graphic/$(am__dirstamp) \
+	graphic/$(DEPDIR)/$(am__dirstamp)
+graphic/tinyxml/$(am__dirstamp):
+	@$(MKDIR_P) graphic/tinyxml
+	@: > graphic/tinyxml/$(am__dirstamp)
+graphic/tinyxml/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) graphic/tinyxml/$(DEPDIR)
+	@: > graphic/tinyxml/$(DEPDIR)/$(am__dirstamp)
+graphic/tinyxml/tinyxmlerror.lo: graphic/tinyxml/$(am__dirstamp) \
+	graphic/tinyxml/$(DEPDIR)/$(am__dirstamp)
+graphic/tinyxml/tinyxmlparser.lo: graphic/tinyxml/$(am__dirstamp) \
+	graphic/tinyxml/$(DEPDIR)/$(am__dirstamp)
+graphic/tinyxml/tinystr.lo: graphic/tinyxml/$(am__dirstamp) \
+	graphic/tinyxml/$(DEPDIR)/$(am__dirstamp)
+graphic/tinyxml/tinyxml.lo: graphic/tinyxml/$(am__dirstamp) \
+	graphic/tinyxml/$(DEPDIR)/$(am__dirstamp)
+libcolloids-graphic.la: $(libcolloids_graphic_la_OBJECTS) $(libcolloids_graphic_la_DEPENDENCIES) 
+	$(CXXLINK) -rpath $(libdir) $(libcolloids_graphic_la_OBJECTS) $(libcolloids_graphic_la_LIBADD) $(LIBS)
+lib/$(am__dirstamp):
+	@$(MKDIR_P) lib
+	@: > lib/$(am__dirstamp)
+lib/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) lib/$(DEPDIR)
+	@: > lib/$(DEPDIR)/$(am__dirstamp)
+lib/boo_data.lo: lib/$(am__dirstamp) lib/$(DEPDIR)/$(am__dirstamp)
+lib/fields.lo: lib/$(am__dirstamp) lib/$(DEPDIR)/$(am__dirstamp)
+lib/particles.lo: lib/$(am__dirstamp) lib/$(DEPDIR)/$(am__dirstamp)
+lib/dynamicClusters.lo: lib/$(am__dirstamp) \
+	lib/$(DEPDIR)/$(am__dirstamp)
+lib/files_series.lo: lib/$(am__dirstamp) lib/$(DEPDIR)/$(am__dirstamp)
+lib/periodic.lo: lib/$(am__dirstamp) lib/$(DEPDIR)/$(am__dirstamp)
+lib/dynamicParticles.lo: lib/$(am__dirstamp) \
+	lib/$(DEPDIR)/$(am__dirstamp)
+lib/index.lo: lib/$(am__dirstamp) lib/$(DEPDIR)/$(am__dirstamp)
+lib/traj.lo: lib/$(am__dirstamp) lib/$(DEPDIR)/$(am__dirstamp)
+libcolloids.la: $(libcolloids_la_OBJECTS) $(libcolloids_la_DEPENDENCIES) 
+	$(CXXLINK) -rpath $(libdir) $(libcolloids_la_OBJECTS) $(libcolloids_la_LIBADD) $(LIBS)
+install-binPROGRAMS: $(bin_PROGRAMS)
+	@$(NORMAL_INSTALL)
+	test -z "$(bindir)" || $(MKDIR_P) "$(DESTDIR)$(bindir)"
+	@list='$(bin_PROGRAMS)'; test -n "$(bindir)" || list=; \
+	for p in $$list; do echo "$$p $$p"; done | \
+	sed 's/$(EXEEXT)$$//' | \
+	while read p p1; do if test -f $$p || test -f $$p1; \
+	  then echo "$$p"; echo "$$p"; else :; fi; \
+	done | \
+	sed -e 'p;s,.*/,,;n;h' -e 's|.*|.|' \
+	    -e 'p;x;s,.*/,,;s/$(EXEEXT)$$//;$(transform);s/$$/$(EXEEXT)/' | \
+	sed 'N;N;N;s,\n, ,g' | \
+	$(AWK) 'BEGIN { files["."] = ""; dirs["."] = 1 } \
+	  { d=$$3; if (dirs[d] != 1) { print "d", d; dirs[d] = 1 } \
+	    if ($$2 == $$4) files[d] = files[d] " " $$1; \
+	    else { print "f", $$3 "/" $$4, $$1; } } \
+	  END { for (d in files) print "f", d, files[d] }' | \
+	while read type dir files; do \
+	    if test "$$dir" = .; then dir=; else dir=/$$dir; fi; \
+	    test -z "$$files" || { \
+	    echo " $(INSTALL_PROGRAM_ENV) $(LIBTOOL) $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=install $(INSTALL_PROGRAM) $$files '$(DESTDIR)$(bindir)$$dir'"; \
+	    $(INSTALL_PROGRAM_ENV) $(LIBTOOL) $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=install $(INSTALL_PROGRAM) $$files "$(DESTDIR)$(bindir)$$dir" || exit $$?; \
+	    } \
+	; done
+
+uninstall-binPROGRAMS:
+	@$(NORMAL_UNINSTALL)
+	@list='$(bin_PROGRAMS)'; test -n "$(bindir)" || list=; \
+	files=`for p in $$list; do echo "$$p"; done | \
+	  sed -e 'h;s,^.*/,,;s/$(EXEEXT)$$//;$(transform)' \
+	      -e 's/$$/$(EXEEXT)/' `; \
+	test -n "$$list" || exit 0; \
+	echo " ( cd '$(DESTDIR)$(bindir)' && rm -f" $$files ")"; \
+	cd "$(DESTDIR)$(bindir)" && rm -f $$files
+
+clean-binPROGRAMS:
+	@list='$(bin_PROGRAMS)'; test -n "$$list" || exit 0; \
+	echo " rm -f" $$list; \
+	rm -f $$list || exit $$?; \
+	test -n "$(EXEEXT)" || exit 0; \
+	list=`for p in $$list; do echo "$$p"; done | sed 's/$(EXEEXT)$$//'`; \
+	echo " rm -f" $$list; \
+	rm -f $$list
+mains/$(am__dirstamp):
+	@$(MKDIR_P) mains
+	@: > mains/$(am__dirstamp)
+mains/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) mains/$(DEPDIR)
+	@: > mains/$(DEPDIR)/$(am__dirstamp)
+mains/ISF.$(OBJEXT): mains/$(am__dirstamp) \
+	mains/$(DEPDIR)/$(am__dirstamp)
+ISF$(EXEEXT): $(ISF_OBJECTS) $(ISF_DEPENDENCIES) 
+	@rm -f ISF$(EXEEXT)
+	$(CXXLINK) $(ISF_OBJECTS) $(ISF_LDADD) $(LIBS)
+mains/MSD.$(OBJEXT): mains/$(am__dirstamp) \
+	mains/$(DEPDIR)/$(am__dirstamp)
+MSD$(EXEEXT): $(MSD_OBJECTS) $(MSD_DEPENDENCIES) 
+	@rm -f MSD$(EXEEXT)
+	$(CXXLINK) $(MSD_OBJECTS) $(MSD_LDADD) $(LIBS)
+graphic/mains/$(am__dirstamp):
+	@$(MKDIR_P) graphic/mains
+	@: > graphic/mains/$(am__dirstamp)
+graphic/mains/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) graphic/mains/$(DEPDIR)
+	@: > graphic/mains/$(DEPDIR)/$(am__dirstamp)
+graphic/mains/aquireWisdom.$(OBJEXT): graphic/mains/$(am__dirstamp) \
+	graphic/mains/$(DEPDIR)/$(am__dirstamp)
+aquireWisdom$(EXEEXT): $(aquireWisdom_OBJECTS) $(aquireWisdom_DEPENDENCIES) 
+	@rm -f aquireWisdom$(EXEEXT)
+	$(CXXLINK) $(aquireWisdom_OBJECTS) $(aquireWisdom_LDADD) $(LIBS)
+mains/bonds.$(OBJEXT): mains/$(am__dirstamp) \
+	mains/$(DEPDIR)/$(am__dirstamp)
+bonds$(EXEEXT): $(bonds_OBJECTS) $(bonds_DEPENDENCIES) 
+	@rm -f bonds$(EXEEXT)
+	$(CXXLINK) $(bonds_OBJECTS) $(bonds_LDADD) $(LIBS)
+mains/boo.$(OBJEXT): mains/$(am__dirstamp) \
+	mains/$(DEPDIR)/$(am__dirstamp)
+boo$(EXEEXT): $(boo_OBJECTS) $(boo_DEPENDENCIES) 
+	@rm -f boo$(EXEEXT)
+	$(CXXLINK) $(boo_OBJECTS) $(boo_LDADD) $(LIBS)
+mains/boo_flip.$(OBJEXT): mains/$(am__dirstamp) \
+	mains/$(DEPDIR)/$(am__dirstamp)
+boo_flip$(EXEEXT): $(boo_flip_OBJECTS) $(boo_flip_DEPENDENCIES) 
+	@rm -f boo_flip$(EXEEXT)
+	$(CXXLINK) $(boo_flip_OBJECTS) $(boo_flip_LDADD) $(LIBS)
+mains/cage2vtk.$(OBJEXT): mains/$(am__dirstamp) \
+	mains/$(DEPDIR)/$(am__dirstamp)
+cage2vtk$(EXEEXT): $(cage2vtk_OBJECTS) $(cage2vtk_DEPENDENCIES) 
+	@rm -f cage2vtk$(EXEEXT)
+	$(CXXLINK) $(cage2vtk_OBJECTS) $(cage2vtk_LDADD) $(LIBS)
+mains/cgVoro-cgVoro.$(OBJEXT): mains/$(am__dirstamp) \
+	mains/$(DEPDIR)/$(am__dirstamp)
+cgVoro$(EXEEXT): $(cgVoro_OBJECTS) $(cgVoro_DEPENDENCIES) 
+	@rm -f cgVoro$(EXEEXT)
+	$(CXXLINK) $(cgVoro_OBJECTS) $(cgVoro_LDADD) $(LIBS)
+mains/cutter.$(OBJEXT): mains/$(am__dirstamp) \
+	mains/$(DEPDIR)/$(am__dirstamp)
+cutter$(EXEEXT): $(cutter_OBJECTS) $(cutter_DEPENDENCIES) 
+	@rm -f cutter$(EXEEXT)
+	$(CXXLINK) $(cutter_OBJECTS) $(cutter_LDADD) $(LIBS)
+mains/dat2vtk.$(OBJEXT): mains/$(am__dirstamp) \
+	mains/$(DEPDIR)/$(am__dirstamp)
+dat2vtk$(EXEEXT): $(dat2vtk_OBJECTS) $(dat2vtk_DEPENDENCIES) 
+	@rm -f dat2vtk$(EXEEXT)
+	$(CXXLINK) $(dat2vtk_OBJECTS) $(dat2vtk_LDADD) $(LIBS)
+mains/dhlngb.$(OBJEXT): mains/$(am__dirstamp) \
+	mains/$(DEPDIR)/$(am__dirstamp)
+dhlngb$(EXEEXT): $(dhlngb_OBJECTS) $(dhlngb_DEPENDENCIES) 
+	@rm -f dhlngb$(EXEEXT)
+	$(CXXLINK) $(dhlngb_OBJECTS) $(dhlngb_LDADD) $(LIBS)
+mains/drift.$(OBJEXT): mains/$(am__dirstamp) \
+	mains/$(DEPDIR)/$(am__dirstamp)
+drift$(EXEEXT): $(drift_OBJECTS) $(drift_DEPENDENCIES) 
+	@rm -f drift$(EXEEXT)
+	$(CXXLINK) $(drift_OBJECTS) $(drift_LDADD) $(LIBS)
+mains/dynamics.$(OBJEXT): mains/$(am__dirstamp) \
+	mains/$(DEPDIR)/$(am__dirstamp)
+dynamics$(EXEEXT): $(dynamics_OBJECTS) $(dynamics_DEPENDENCIES) 
+	@rm -f dynamics$(EXEEXT)
+	$(CXXLINK) $(dynamics_OBJECTS) $(dynamics_LDADD) $(LIBS)
+mains/g6.$(OBJEXT): mains/$(am__dirstamp) \
+	mains/$(DEPDIR)/$(am__dirstamp)
+g6$(EXEEXT): $(g6_OBJECTS) $(g6_DEPENDENCIES) 
+	@rm -f g6$(EXEEXT)
+	$(CXXLINK) $(g6_OBJECTS) $(g6_LDADD) $(LIBS)
+mains/linkboo.$(OBJEXT): mains/$(am__dirstamp) \
+	mains/$(DEPDIR)/$(am__dirstamp)
+linkboo$(EXEEXT): $(linkboo_OBJECTS) $(linkboo_DEPENDENCIES) 
+	@rm -f linkboo$(EXEEXT)
+	$(CXXLINK) $(linkboo_OBJECTS) $(linkboo_LDADD) $(LIBS)
+mains/linker.$(OBJEXT): mains/$(am__dirstamp) \
+	mains/$(DEPDIR)/$(am__dirstamp)
+linker$(EXEEXT): $(linker_OBJECTS) $(linker_DEPENDENCIES) 
+	@rm -f linker$(EXEEXT)
+	$(CXXLINK) $(linker_OBJECTS) $(linker_LDADD) $(LIBS)
+mains/lostngb.$(OBJEXT): mains/$(am__dirstamp) \
+	mains/$(DEPDIR)/$(am__dirstamp)
+lostngb$(EXEEXT): $(lostngb_OBJECTS) $(lostngb_DEPENDENCIES) 
+	@rm -f lostngb$(EXEEXT)
+	$(CXXLINK) $(lostngb_OBJECTS) $(lostngb_LDADD) $(LIBS)
+mains/percolation.$(OBJEXT): mains/$(am__dirstamp) \
+	mains/$(DEPDIR)/$(am__dirstamp)
+percolation$(EXEEXT): $(percolation_OBJECTS) $(percolation_DEPENDENCIES) 
+	@rm -f percolation$(EXEEXT)
+	$(CXXLINK) $(percolation_OBJECTS) $(percolation_LDADD) $(LIBS)
+mains/periodic_boo-boo.$(OBJEXT): mains/$(am__dirstamp) \
+	mains/$(DEPDIR)/$(am__dirstamp)
+periodic_boo$(EXEEXT): $(periodic_boo_OBJECTS) $(periodic_boo_DEPENDENCIES) 
+	@rm -f periodic_boo$(EXEEXT)
+	$(CXXLINK) $(periodic_boo_OBJECTS) $(periodic_boo_LDADD) $(LIBS)
+mains/periodic_cgVoro-cgVoro.$(OBJEXT): mains/$(am__dirstamp) \
+	mains/$(DEPDIR)/$(am__dirstamp)
+periodic_cgVoro$(EXEEXT): $(periodic_cgVoro_OBJECTS) $(periodic_cgVoro_DEPENDENCIES) 
+	@rm -f periodic_cgVoro$(EXEEXT)
+	$(CXXLINK) $(periodic_cgVoro_OBJECTS) $(periodic_cgVoro_LDADD) $(LIBS)
+mains/periodic_g6-g6.$(OBJEXT): mains/$(am__dirstamp) \
+	mains/$(DEPDIR)/$(am__dirstamp)
+periodic_g6$(EXEEXT): $(periodic_g6_OBJECTS) $(periodic_g6_DEPENDENCIES) 
+	@rm -f periodic_g6$(EXEEXT)
+	$(CXXLINK) $(periodic_g6_OBJECTS) $(periodic_g6_LDADD) $(LIBS)
+mains/periodic_rdf-rdf.$(OBJEXT): mains/$(am__dirstamp) \
+	mains/$(DEPDIR)/$(am__dirstamp)
+periodic_rdf$(EXEEXT): $(periodic_rdf_OBJECTS) $(periodic_rdf_DEPENDENCIES) 
+	@rm -f periodic_rdf$(EXEEXT)
+	$(CXXLINK) $(periodic_rdf_OBJECTS) $(periodic_rdf_LDADD) $(LIBS)
+mains/rdf.$(OBJEXT): mains/$(am__dirstamp) \
+	mains/$(DEPDIR)/$(am__dirstamp)
+rdf$(EXEEXT): $(rdf_OBJECTS) $(rdf_DEPENDENCIES) 
+	@rm -f rdf$(EXEEXT)
+	$(CXXLINK) $(rdf_OBJECTS) $(rdf_LDADD) $(LIBS)
+mains/sp5c.$(OBJEXT): mains/$(am__dirstamp) \
+	mains/$(DEPDIR)/$(am__dirstamp)
+sp5c$(EXEEXT): $(sp5c_OBJECTS) $(sp5c_DEPENDENCIES) 
+	@rm -f sp5c$(EXEEXT)
+	$(CXXLINK) $(sp5c_OBJECTS) $(sp5c_LDADD) $(LIBS)
+mains/totalRdf.$(OBJEXT): mains/$(am__dirstamp) \
+	mains/$(DEPDIR)/$(am__dirstamp)
+totalRdf$(EXEEXT): $(totalRdf_OBJECTS) $(totalRdf_DEPENDENCIES) 
+	@rm -f totalRdf$(EXEEXT)
+	$(CXXLINK) $(totalRdf_OBJECTS) $(totalRdf_LDADD) $(LIBS)
+graphic/mains/tracker.$(OBJEXT): graphic/mains/$(am__dirstamp) \
+	graphic/mains/$(DEPDIR)/$(am__dirstamp)
+tracker$(EXEEXT): $(tracker_OBJECTS) $(tracker_DEPENDENCIES) 
+	@rm -f tracker$(EXEEXT)
+	$(tracker_LINK) $(tracker_OBJECTS) $(tracker_LDADD) $(LIBS)
+mains/traj2vtk.$(OBJEXT): mains/$(am__dirstamp) \
+	mains/$(DEPDIR)/$(am__dirstamp)
+traj2vtk$(EXEEXT): $(traj2vtk_OBJECTS) $(traj2vtk_DEPENDENCIES) 
+	@rm -f traj2vtk$(EXEEXT)
+	$(CXXLINK) $(traj2vtk_OBJECTS) $(traj2vtk_LDADD) $(LIBS)
+
+mostlyclean-compile:
+	-rm -f *.$(OBJEXT)
+	-rm -f graphic/lifFile.$(OBJEXT)
+	-rm -f graphic/lifFile.lo
+	-rm -f graphic/lifTracker.$(OBJEXT)
+	-rm -f graphic/lifTracker.lo
+	-rm -f graphic/mains/aquireWisdom.$(OBJEXT)
+	-rm -f graphic/mains/tracker.$(OBJEXT)
+	-rm -f graphic/radiiTracker.$(OBJEXT)
+	-rm -f graphic/radiiTracker.lo
+	-rm -f graphic/serieTracker.$(OBJEXT)
+	-rm -f graphic/serieTracker.lo
+	-rm -f graphic/tinyxml/tinystr.$(OBJEXT)
+	-rm -f graphic/tinyxml/tinystr.lo
+	-rm -f graphic/tinyxml/tinyxml.$(OBJEXT)
+	-rm -f graphic/tinyxml/tinyxml.lo
+	-rm -f graphic/tinyxml/tinyxmlerror.$(OBJEXT)
+	-rm -f graphic/tinyxml/tinyxmlerror.lo
+	-rm -f graphic/tinyxml/tinyxmlparser.$(OBJEXT)
+	-rm -f graphic/tinyxml/tinyxmlparser.lo
+	-rm -f graphic/tracker.$(OBJEXT)
+	-rm -f graphic/tracker.lo
+	-rm -f lib/boo_data.$(OBJEXT)
+	-rm -f lib/boo_data.lo
+	-rm -f lib/dynamicClusters.$(OBJEXT)
+	-rm -f lib/dynamicClusters.lo
+	-rm -f lib/dynamicParticles.$(OBJEXT)
+	-rm -f lib/dynamicParticles.lo
+	-rm -f lib/fields.$(OBJEXT)
+	-rm -f lib/fields.lo
+	-rm -f lib/files_series.$(OBJEXT)
+	-rm -f lib/files_series.lo
+	-rm -f lib/index.$(OBJEXT)
+	-rm -f lib/index.lo
+	-rm -f lib/particles.$(OBJEXT)
+	-rm -f lib/particles.lo
+	-rm -f lib/periodic.$(OBJEXT)
+	-rm -f lib/periodic.lo
+	-rm -f lib/traj.$(OBJEXT)
+	-rm -f lib/traj.lo
+	-rm -f mains/ISF.$(OBJEXT)
+	-rm -f mains/MSD.$(OBJEXT)
+	-rm -f mains/bonds.$(OBJEXT)
+	-rm -f mains/boo.$(OBJEXT)
+	-rm -f mains/boo_flip.$(OBJEXT)
+	-rm -f mains/cage2vtk.$(OBJEXT)
+	-rm -f mains/cgVoro-cgVoro.$(OBJEXT)
+	-rm -f mains/cutter.$(OBJEXT)
+	-rm -f mains/dat2vtk.$(OBJEXT)
+	-rm -f mains/dhlngb.$(OBJEXT)
+	-rm -f mains/drift.$(OBJEXT)
+	-rm -f mains/dynamics.$(OBJEXT)
+	-rm -f mains/g6.$(OBJEXT)
+	-rm -f mains/linkboo.$(OBJEXT)
+	-rm -f mains/linker.$(OBJEXT)
+	-rm -f mains/lostngb.$(OBJEXT)
+	-rm -f mains/percolation.$(OBJEXT)
+	-rm -f mains/periodic_boo-boo.$(OBJEXT)
+	-rm -f mains/periodic_cgVoro-cgVoro.$(OBJEXT)
+	-rm -f mains/periodic_g6-g6.$(OBJEXT)
+	-rm -f mains/periodic_rdf-rdf.$(OBJEXT)
+	-rm -f mains/rdf.$(OBJEXT)
+	-rm -f mains/sp5c.$(OBJEXT)
+	-rm -f mains/totalRdf.$(OBJEXT)
+	-rm -f mains/traj2vtk.$(OBJEXT)
+
+distclean-compile:
+	-rm -f *.tab.c
+
+@AMDEP_TRUE@@am__include@ @am__quote@graphic/$(DEPDIR)/lifFile.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@graphic/$(DEPDIR)/lifTracker.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@graphic/$(DEPDIR)/radiiTracker.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@graphic/$(DEPDIR)/serieTracker.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@graphic/$(DEPDIR)/tracker.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@graphic/mains/$(DEPDIR)/aquireWisdom.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@graphic/mains/$(DEPDIR)/tracker.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@graphic/tinyxml/$(DEPDIR)/tinystr.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@graphic/tinyxml/$(DEPDIR)/tinyxml.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@graphic/tinyxml/$(DEPDIR)/tinyxmlerror.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@graphic/tinyxml/$(DEPDIR)/tinyxmlparser.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/$(DEPDIR)/boo_data.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/$(DEPDIR)/dynamicClusters.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/$(DEPDIR)/dynamicParticles.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/$(DEPDIR)/fields.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/$(DEPDIR)/files_series.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/$(DEPDIR)/index.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/$(DEPDIR)/particles.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/$(DEPDIR)/periodic.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/$(DEPDIR)/traj.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@mains/$(DEPDIR)/ISF.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@mains/$(DEPDIR)/MSD.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@mains/$(DEPDIR)/bonds.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@mains/$(DEPDIR)/boo.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@mains/$(DEPDIR)/boo_flip.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@mains/$(DEPDIR)/cage2vtk.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@mains/$(DEPDIR)/cgVoro-cgVoro.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@mains/$(DEPDIR)/cutter.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@mains/$(DEPDIR)/dat2vtk.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@mains/$(DEPDIR)/dhlngb.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@mains/$(DEPDIR)/drift.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@mains/$(DEPDIR)/dynamics.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@mains/$(DEPDIR)/g6.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@mains/$(DEPDIR)/linkboo.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@mains/$(DEPDIR)/linker.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@mains/$(DEPDIR)/lostngb.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@mains/$(DEPDIR)/percolation.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@mains/$(DEPDIR)/periodic_boo-boo.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@mains/$(DEPDIR)/periodic_cgVoro-cgVoro.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@mains/$(DEPDIR)/periodic_g6-g6.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@mains/$(DEPDIR)/periodic_rdf-rdf.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@mains/$(DEPDIR)/rdf.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@mains/$(DEPDIR)/sp5c.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@mains/$(DEPDIR)/totalRdf.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@mains/$(DEPDIR)/traj2vtk.Po@am__quote@
+
+.cpp.o:
+@am__fastdepCXX_TRUE@	depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.o$$||'`;\
+@am__fastdepCXX_TRUE@	$(CXXCOMPILE) -MT $@ -MD -MP -MF $$depbase.Tpo -c -o $@ $< &&\
+@am__fastdepCXX_TRUE@	$(am__mv) $$depbase.Tpo $$depbase.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXXCOMPILE) -c -o $@ $<
+
+.cpp.obj:
+@am__fastdepCXX_TRUE@	depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.obj$$||'`;\
+@am__fastdepCXX_TRUE@	$(CXXCOMPILE) -MT $@ -MD -MP -MF $$depbase.Tpo -c -o $@ `$(CYGPATH_W) '$<'` &&\
+@am__fastdepCXX_TRUE@	$(am__mv) $$depbase.Tpo $$depbase.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXXCOMPILE) -c -o $@ `$(CYGPATH_W) '$<'`
+
+.cpp.lo:
+@am__fastdepCXX_TRUE@	depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.lo$$||'`;\
+@am__fastdepCXX_TRUE@	$(LTCXXCOMPILE) -MT $@ -MD -MP -MF $$depbase.Tpo -c -o $@ $< &&\
+@am__fastdepCXX_TRUE@	$(am__mv) $$depbase.Tpo $$depbase.Plo
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='$<' object='$@' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(LTCXXCOMPILE) -c -o $@ $<
+
+mains/cgVoro-cgVoro.o: mains/cgVoro.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(cgVoro_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT mains/cgVoro-cgVoro.o -MD -MP -MF mains/$(DEPDIR)/cgVoro-cgVoro.Tpo -c -o mains/cgVoro-cgVoro.o `test -f 'mains/cgVoro.cpp' || echo '$(srcdir)/'`mains/cgVoro.cpp
+@am__fastdepCXX_TRUE@	$(am__mv) mains/$(DEPDIR)/cgVoro-cgVoro.Tpo mains/$(DEPDIR)/cgVoro-cgVoro.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='mains/cgVoro.cpp' object='mains/cgVoro-cgVoro.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(cgVoro_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o mains/cgVoro-cgVoro.o `test -f 'mains/cgVoro.cpp' || echo '$(srcdir)/'`mains/cgVoro.cpp
+
+mains/cgVoro-cgVoro.obj: mains/cgVoro.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(cgVoro_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT mains/cgVoro-cgVoro.obj -MD -MP -MF mains/$(DEPDIR)/cgVoro-cgVoro.Tpo -c -o mains/cgVoro-cgVoro.obj `if test -f 'mains/cgVoro.cpp'; then $(CYGPATH_W) 'mains/cgVoro.cpp'; else $(CYGPATH_W) '$(srcdir)/mains/cgVoro.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(am__mv) mains/$(DEPDIR)/cgVoro-cgVoro.Tpo mains/$(DEPDIR)/cgVoro-cgVoro.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='mains/cgVoro.cpp' object='mains/cgVoro-cgVoro.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(cgVoro_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o mains/cgVoro-cgVoro.obj `if test -f 'mains/cgVoro.cpp'; then $(CYGPATH_W) 'mains/cgVoro.cpp'; else $(CYGPATH_W) '$(srcdir)/mains/cgVoro.cpp'; fi`
+
+mains/periodic_boo-boo.o: mains/boo.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(periodic_boo_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT mains/periodic_boo-boo.o -MD -MP -MF mains/$(DEPDIR)/periodic_boo-boo.Tpo -c -o mains/periodic_boo-boo.o `test -f 'mains/boo.cpp' || echo '$(srcdir)/'`mains/boo.cpp
+@am__fastdepCXX_TRUE@	$(am__mv) mains/$(DEPDIR)/periodic_boo-boo.Tpo mains/$(DEPDIR)/periodic_boo-boo.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='mains/boo.cpp' object='mains/periodic_boo-boo.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(periodic_boo_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o mains/periodic_boo-boo.o `test -f 'mains/boo.cpp' || echo '$(srcdir)/'`mains/boo.cpp
+
+mains/periodic_boo-boo.obj: mains/boo.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(periodic_boo_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT mains/periodic_boo-boo.obj -MD -MP -MF mains/$(DEPDIR)/periodic_boo-boo.Tpo -c -o mains/periodic_boo-boo.obj `if test -f 'mains/boo.cpp'; then $(CYGPATH_W) 'mains/boo.cpp'; else $(CYGPATH_W) '$(srcdir)/mains/boo.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(am__mv) mains/$(DEPDIR)/periodic_boo-boo.Tpo mains/$(DEPDIR)/periodic_boo-boo.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='mains/boo.cpp' object='mains/periodic_boo-boo.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(periodic_boo_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o mains/periodic_boo-boo.obj `if test -f 'mains/boo.cpp'; then $(CYGPATH_W) 'mains/boo.cpp'; else $(CYGPATH_W) '$(srcdir)/mains/boo.cpp'; fi`
+
+mains/periodic_cgVoro-cgVoro.o: mains/cgVoro.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(periodic_cgVoro_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT mains/periodic_cgVoro-cgVoro.o -MD -MP -MF mains/$(DEPDIR)/periodic_cgVoro-cgVoro.Tpo -c -o mains/periodic_cgVoro-cgVoro.o `test -f 'mains/cgVoro.cpp' || echo '$(srcdir)/'`mains/cgVoro.cpp
+@am__fastdepCXX_TRUE@	$(am__mv) mains/$(DEPDIR)/periodic_cgVoro-cgVoro.Tpo mains/$(DEPDIR)/periodic_cgVoro-cgVoro.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='mains/cgVoro.cpp' object='mains/periodic_cgVoro-cgVoro.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(periodic_cgVoro_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o mains/periodic_cgVoro-cgVoro.o `test -f 'mains/cgVoro.cpp' || echo '$(srcdir)/'`mains/cgVoro.cpp
+
+mains/periodic_cgVoro-cgVoro.obj: mains/cgVoro.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(periodic_cgVoro_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT mains/periodic_cgVoro-cgVoro.obj -MD -MP -MF mains/$(DEPDIR)/periodic_cgVoro-cgVoro.Tpo -c -o mains/periodic_cgVoro-cgVoro.obj `if test -f 'mains/cgVoro.cpp'; then $(CYGPATH_W) 'mains/cgVoro.cpp'; else $(CYGPATH_W) '$(srcdir)/mains/cgVoro.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(am__mv) mains/$(DEPDIR)/periodic_cgVoro-cgVoro.Tpo mains/$(DEPDIR)/periodic_cgVoro-cgVoro.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='mains/cgVoro.cpp' object='mains/periodic_cgVoro-cgVoro.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(periodic_cgVoro_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o mains/periodic_cgVoro-cgVoro.obj `if test -f 'mains/cgVoro.cpp'; then $(CYGPATH_W) 'mains/cgVoro.cpp'; else $(CYGPATH_W) '$(srcdir)/mains/cgVoro.cpp'; fi`
+
+mains/periodic_g6-g6.o: mains/g6.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(periodic_g6_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT mains/periodic_g6-g6.o -MD -MP -MF mains/$(DEPDIR)/periodic_g6-g6.Tpo -c -o mains/periodic_g6-g6.o `test -f 'mains/g6.cpp' || echo '$(srcdir)/'`mains/g6.cpp
+@am__fastdepCXX_TRUE@	$(am__mv) mains/$(DEPDIR)/periodic_g6-g6.Tpo mains/$(DEPDIR)/periodic_g6-g6.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='mains/g6.cpp' object='mains/periodic_g6-g6.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(periodic_g6_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o mains/periodic_g6-g6.o `test -f 'mains/g6.cpp' || echo '$(srcdir)/'`mains/g6.cpp
+
+mains/periodic_g6-g6.obj: mains/g6.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(periodic_g6_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT mains/periodic_g6-g6.obj -MD -MP -MF mains/$(DEPDIR)/periodic_g6-g6.Tpo -c -o mains/periodic_g6-g6.obj `if test -f 'mains/g6.cpp'; then $(CYGPATH_W) 'mains/g6.cpp'; else $(CYGPATH_W) '$(srcdir)/mains/g6.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(am__mv) mains/$(DEPDIR)/periodic_g6-g6.Tpo mains/$(DEPDIR)/periodic_g6-g6.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='mains/g6.cpp' object='mains/periodic_g6-g6.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(periodic_g6_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o mains/periodic_g6-g6.obj `if test -f 'mains/g6.cpp'; then $(CYGPATH_W) 'mains/g6.cpp'; else $(CYGPATH_W) '$(srcdir)/mains/g6.cpp'; fi`
+
+mains/periodic_rdf-rdf.o: mains/rdf.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(periodic_rdf_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT mains/periodic_rdf-rdf.o -MD -MP -MF mains/$(DEPDIR)/periodic_rdf-rdf.Tpo -c -o mains/periodic_rdf-rdf.o `test -f 'mains/rdf.cpp' || echo '$(srcdir)/'`mains/rdf.cpp
+@am__fastdepCXX_TRUE@	$(am__mv) mains/$(DEPDIR)/periodic_rdf-rdf.Tpo mains/$(DEPDIR)/periodic_rdf-rdf.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='mains/rdf.cpp' object='mains/periodic_rdf-rdf.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(periodic_rdf_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o mains/periodic_rdf-rdf.o `test -f 'mains/rdf.cpp' || echo '$(srcdir)/'`mains/rdf.cpp
+
+mains/periodic_rdf-rdf.obj: mains/rdf.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(periodic_rdf_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT mains/periodic_rdf-rdf.obj -MD -MP -MF mains/$(DEPDIR)/periodic_rdf-rdf.Tpo -c -o mains/periodic_rdf-rdf.obj `if test -f 'mains/rdf.cpp'; then $(CYGPATH_W) 'mains/rdf.cpp'; else $(CYGPATH_W) '$(srcdir)/mains/rdf.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(am__mv) mains/$(DEPDIR)/periodic_rdf-rdf.Tpo mains/$(DEPDIR)/periodic_rdf-rdf.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='mains/rdf.cpp' object='mains/periodic_rdf-rdf.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(periodic_rdf_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o mains/periodic_rdf-rdf.obj `if test -f 'mains/rdf.cpp'; then $(CYGPATH_W) 'mains/rdf.cpp'; else $(CYGPATH_W) '$(srcdir)/mains/rdf.cpp'; fi`
 
 mostlyclean-libtool:
 	-rm -f *.lo
 
 clean-libtool:
 	-rm -rf .libs _libs
+	-rm -rf graphic/.libs graphic/_libs
+	-rm -rf graphic/tinyxml/.libs graphic/tinyxml/_libs
+	-rm -rf lib/.libs lib/_libs
 
 distclean-libtool:
 	-rm -f libtool config.lt
-
-# This directory's subdirectories are mostly independent; you can cd
-# into them and run `make' without going through this Makefile.
-# To change the values of `make' variables: instead of editing Makefiles,
-# (1) if the variable is set in `config.status', edit `config.status'
-#     (which will cause the Makefiles to be regenerated when you run `make');
-# (2) otherwise, pass the desired values on the `make' command line.
-$(RECURSIVE_TARGETS):
-	@fail= failcom='exit 1'; \
-	for f in x $$MAKEFLAGS; do \
-	  case $$f in \
-	    *=* | --[!k]*);; \
-	    *k*) failcom='fail=yes';; \
-	  esac; \
-	done; \
-	dot_seen=no; \
-	target=`echo $@ | sed s/-recursive//`; \
-	list='$(SUBDIRS)'; for subdir in $$list; do \
-	  echo "Making $$target in $$subdir"; \
-	  if test "$$subdir" = "."; then \
-	    dot_seen=yes; \
-	    local_target="$$target-am"; \
-	  else \
-	    local_target="$$target"; \
-	  fi; \
-	  ($(am__cd) $$subdir && $(MAKE) $(AM_MAKEFLAGS) $$local_target) \
-	  || eval $$failcom; \
-	done; \
-	if test "$$dot_seen" = "no"; then \
-	  $(MAKE) $(AM_MAKEFLAGS) "$$target-am" || exit 1; \
-	fi; test -z "$$fail"
-
-$(RECURSIVE_CLEAN_TARGETS):
-	@fail= failcom='exit 1'; \
-	for f in x $$MAKEFLAGS; do \
-	  case $$f in \
-	    *=* | --[!k]*);; \
-	    *k*) failcom='fail=yes';; \
-	  esac; \
-	done; \
-	dot_seen=no; \
-	case "$@" in \
-	  distclean-* | maintainer-clean-*) list='$(DIST_SUBDIRS)' ;; \
-	  *) list='$(SUBDIRS)' ;; \
-	esac; \
-	rev=''; for subdir in $$list; do \
-	  if test "$$subdir" = "."; then :; else \
-	    rev="$$subdir $$rev"; \
-	  fi; \
-	done; \
-	rev="$$rev ."; \
-	target=`echo $@ | sed s/-recursive//`; \
-	for subdir in $$rev; do \
-	  echo "Making $$target in $$subdir"; \
-	  if test "$$subdir" = "."; then \
-	    local_target="$$target-am"; \
-	  else \
-	    local_target="$$target"; \
-	  fi; \
-	  ($(am__cd) $$subdir && $(MAKE) $(AM_MAKEFLAGS) $$local_target) \
-	  || eval $$failcom; \
-	done && test -z "$$fail"
-tags-recursive:
-	list='$(SUBDIRS)'; for subdir in $$list; do \
-	  test "$$subdir" = . || ($(am__cd) $$subdir && $(MAKE) $(AM_MAKEFLAGS) tags); \
+install-includeHEADERS: $(include_HEADERS)
+	@$(NORMAL_INSTALL)
+	test -z "$(includedir)" || $(MKDIR_P) "$(DESTDIR)$(includedir)"
+	@list='$(include_HEADERS)'; test -n "$(includedir)" || list=; \
+	for p in $$list; do \
+	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
+	  echo "$$d$$p"; \
+	done | $(am__base_list) | \
+	while read files; do \
+	  echo " $(INSTALL_HEADER) $$files '$(DESTDIR)$(includedir)'"; \
+	  $(INSTALL_HEADER) $$files "$(DESTDIR)$(includedir)" || exit $$?; \
 	done
-ctags-recursive:
-	list='$(SUBDIRS)'; for subdir in $$list; do \
-	  test "$$subdir" = . || ($(am__cd) $$subdir && $(MAKE) $(AM_MAKEFLAGS) ctags); \
-	done
+
+uninstall-includeHEADERS:
+	@$(NORMAL_UNINSTALL)
+	@list='$(include_HEADERS)'; test -n "$(includedir)" || list=; \
+	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
+	test -n "$$files" || exit 0; \
+	echo " ( cd '$(DESTDIR)$(includedir)' && rm -f" $$files ")"; \
+	cd "$(DESTDIR)$(includedir)" && rm -f $$files
 
 ID: $(HEADERS) $(SOURCES) $(LISP) $(TAGS_FILES)
 	list='$(SOURCES) $(HEADERS) $(LISP) $(TAGS_FILES)'; \
@@ -375,23 +1016,10 @@ ID: $(HEADERS) $(SOURCES) $(LISP) $(TAGS_FILES)
 	mkid -fID $$unique
 tags: TAGS
 
-TAGS: tags-recursive $(HEADERS) $(SOURCES) config.h.in $(TAGS_DEPENDENCIES) \
+TAGS:  $(HEADERS) $(SOURCES) config.h.in $(TAGS_DEPENDENCIES) \
 		$(TAGS_FILES) $(LISP)
 	set x; \
 	here=`pwd`; \
-	if ($(ETAGS) --etags-include --version) >/dev/null 2>&1; then \
-	  include_option=--etags-include; \
-	  empty_fix=.; \
-	else \
-	  include_option=--include; \
-	  empty_fix=; \
-	fi; \
-	list='$(SUBDIRS)'; for subdir in $$list; do \
-	  if test "$$subdir" = .; then :; else \
-	    test ! -f $$subdir/TAGS || \
-	      set "$$@" "$$include_option=$$here/$$subdir/TAGS"; \
-	  fi; \
-	done; \
 	list='$(SOURCES) $(HEADERS) config.h.in $(LISP) $(TAGS_FILES)'; \
 	unique=`for i in $$list; do \
 	    if test -f "$$i"; then echo $$i; else echo $(srcdir)/$$i; fi; \
@@ -410,7 +1038,7 @@ TAGS: tags-recursive $(HEADERS) $(SOURCES) config.h.in $(TAGS_DEPENDENCIES) \
 	  fi; \
 	fi
 ctags: CTAGS
-CTAGS: ctags-recursive $(HEADERS) $(SOURCES) config.h.in $(TAGS_DEPENDENCIES) \
+CTAGS:  $(HEADERS) $(SOURCES) config.h.in $(TAGS_DEPENDENCIES) \
 		$(TAGS_FILES) $(LISP)
 	list='$(SOURCES) $(HEADERS) config.h.in $(LISP) $(TAGS_FILES)'; \
 	unique=`for i in $$list; do \
@@ -460,34 +1088,6 @@ distdir: $(DISTFILES)
 	    test -f "$(distdir)/$$file" \
 	    || cp -p $$d/$$file "$(distdir)/$$file" \
 	    || exit 1; \
-	  fi; \
-	done
-	@list='$(DIST_SUBDIRS)'; for subdir in $$list; do \
-	  if test "$$subdir" = .; then :; else \
-	    test -d "$(distdir)/$$subdir" \
-	    || $(MKDIR_P) "$(distdir)/$$subdir" \
-	    || exit 1; \
-	  fi; \
-	done
-	@list='$(DIST_SUBDIRS)'; for subdir in $$list; do \
-	  if test "$$subdir" = .; then :; else \
-	    dir1=$$subdir; dir2="$(distdir)/$$subdir"; \
-	    $(am__relativize); \
-	    new_distdir=$$reldir; \
-	    dir1=$$subdir; dir2="$(top_distdir)"; \
-	    $(am__relativize); \
-	    new_top_distdir=$$reldir; \
-	    echo " (cd $$subdir && $(MAKE) $(AM_MAKEFLAGS) top_distdir="$$new_top_distdir" distdir="$$new_distdir" \\"; \
-	    echo "     am__remove_distdir=: am__skip_length_check=: am__skip_mode_fix=: distdir)"; \
-	    ($(am__cd) $$subdir && \
-	      $(MAKE) $(AM_MAKEFLAGS) \
-	        top_distdir="$$new_top_distdir" \
-	        distdir="$$new_distdir" \
-		am__remove_distdir=: \
-		am__skip_length_check=: \
-		am__skip_mode_fix=: \
-	        distdir) \
-	      || exit 1; \
 	  fi; \
 	done
 	-test -n "$(am__skip_mode_fix)" \
@@ -606,19 +1206,23 @@ distcleancheck: distclean
 	       $(distcleancheck_listfiles) ; \
 	       exit 1; } >&2
 check-am: all-am
-check: check-recursive
-all-am: Makefile config.h
-installdirs: installdirs-recursive
-installdirs-am:
-install: install-recursive
-install-exec: install-exec-recursive
-install-data: install-data-recursive
-uninstall: uninstall-recursive
+check: check-am
+all-am: Makefile $(LTLIBRARIES) $(PROGRAMS) $(HEADERS) config.h
+install-binPROGRAMS: install-libLTLIBRARIES
+
+installdirs:
+	for dir in "$(DESTDIR)$(libdir)" "$(DESTDIR)$(bindir)" "$(DESTDIR)$(includedir)"; do \
+	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
+	done
+install: install-am
+install-exec: install-exec-am
+install-data: install-data-am
+uninstall: uninstall-am
 
 install-am: all-am
 	@$(MAKE) $(AM_MAKEFLAGS) install-exec-am install-data-am
 
-installcheck: installcheck-recursive
+installcheck: installcheck-am
 install-strip:
 	$(MAKE) $(AM_MAKEFLAGS) INSTALL_PROGRAM="$(INSTALL_STRIP_PROGRAM)" \
 	  install_sh_PROGRAM="$(INSTALL_STRIP_PROGRAM)" INSTALL_STRIP_FLAG=-s \
@@ -631,98 +1235,115 @@ clean-generic:
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
 	-test . = "$(srcdir)" || test -z "$(CONFIG_CLEAN_VPATH_FILES)" || rm -f $(CONFIG_CLEAN_VPATH_FILES)
+	-rm -f graphic/$(DEPDIR)/$(am__dirstamp)
+	-rm -f graphic/$(am__dirstamp)
+	-rm -f graphic/mains/$(DEPDIR)/$(am__dirstamp)
+	-rm -f graphic/mains/$(am__dirstamp)
+	-rm -f graphic/tinyxml/$(DEPDIR)/$(am__dirstamp)
+	-rm -f graphic/tinyxml/$(am__dirstamp)
+	-rm -f lib/$(DEPDIR)/$(am__dirstamp)
+	-rm -f lib/$(am__dirstamp)
+	-rm -f mains/$(DEPDIR)/$(am__dirstamp)
+	-rm -f mains/$(am__dirstamp)
 
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
 	@echo "it deletes files that may require special tools to rebuild."
-clean: clean-recursive
+clean: clean-am
 
-clean-am: clean-generic clean-libtool mostlyclean-am
+clean-am: clean-binPROGRAMS clean-generic clean-libLTLIBRARIES \
+	clean-libtool mostlyclean-am
 
-distclean: distclean-recursive
+distclean: distclean-am
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
+	-rm -rf graphic/$(DEPDIR) graphic/mains/$(DEPDIR) graphic/tinyxml/$(DEPDIR) lib/$(DEPDIR) mains/$(DEPDIR)
 	-rm -f Makefile
-distclean-am: clean-am distclean-generic distclean-hdr \
-	distclean-libtool distclean-tags
+distclean-am: clean-am distclean-compile distclean-generic \
+	distclean-hdr distclean-libtool distclean-tags
 
-dvi: dvi-recursive
+dvi: dvi-am
 
 dvi-am:
 
-html: html-recursive
+html: html-am
 
 html-am:
 
-info: info-recursive
+info: info-am
 
 info-am:
 
-install-data-am:
+install-data-am: install-includeHEADERS
 
-install-dvi: install-dvi-recursive
+install-dvi: install-dvi-am
 
 install-dvi-am:
 
-install-exec-am:
+install-exec-am: install-binPROGRAMS install-libLTLIBRARIES
 
-install-html: install-html-recursive
+install-html: install-html-am
 
 install-html-am:
 
-install-info: install-info-recursive
+install-info: install-info-am
 
 install-info-am:
 
 install-man:
 
-install-pdf: install-pdf-recursive
+install-pdf: install-pdf-am
 
 install-pdf-am:
 
-install-ps: install-ps-recursive
+install-ps: install-ps-am
 
 install-ps-am:
 
 installcheck-am:
 
-maintainer-clean: maintainer-clean-recursive
+maintainer-clean: maintainer-clean-am
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
 	-rm -rf $(top_srcdir)/autom4te.cache
+	-rm -rf graphic/$(DEPDIR) graphic/mains/$(DEPDIR) graphic/tinyxml/$(DEPDIR) lib/$(DEPDIR) mains/$(DEPDIR)
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 
-mostlyclean: mostlyclean-recursive
+mostlyclean: mostlyclean-am
 
-mostlyclean-am: mostlyclean-generic mostlyclean-libtool
+mostlyclean-am: mostlyclean-compile mostlyclean-generic \
+	mostlyclean-libtool
 
-pdf: pdf-recursive
+pdf: pdf-am
 
 pdf-am:
 
-ps: ps-recursive
+ps: ps-am
 
 ps-am:
 
-uninstall-am:
+uninstall-am: uninstall-binPROGRAMS uninstall-includeHEADERS \
+	uninstall-libLTLIBRARIES
 
-.MAKE: $(RECURSIVE_CLEAN_TARGETS) $(RECURSIVE_TARGETS) all \
-	ctags-recursive install-am install-strip tags-recursive
+.MAKE: all install-am install-strip
 
-.PHONY: $(RECURSIVE_CLEAN_TARGETS) $(RECURSIVE_TARGETS) CTAGS GTAGS \
-	all all-am am--refresh check check-am clean clean-generic \
-	clean-libtool ctags ctags-recursive dist dist-all dist-bzip2 \
-	dist-gzip dist-lzma dist-shar dist-tarZ dist-xz dist-zip \
-	distcheck distclean distclean-generic distclean-hdr \
+.PHONY: CTAGS GTAGS all all-am am--refresh check check-am clean \
+	clean-binPROGRAMS clean-generic clean-libLTLIBRARIES \
+	clean-libtool ctags dist dist-all dist-bzip2 dist-gzip \
+	dist-lzma dist-shar dist-tarZ dist-xz dist-zip distcheck \
+	distclean distclean-compile distclean-generic distclean-hdr \
 	distclean-libtool distclean-tags distcleancheck distdir \
 	distuninstallcheck dvi dvi-am html html-am info info-am \
-	install install-am install-data install-data-am install-dvi \
-	install-dvi-am install-exec install-exec-am install-html \
-	install-html-am install-info install-info-am install-man \
-	install-pdf install-pdf-am install-ps install-ps-am \
-	install-strip installcheck installcheck-am installdirs \
-	installdirs-am maintainer-clean maintainer-clean-generic \
-	mostlyclean mostlyclean-generic mostlyclean-libtool pdf pdf-am \
-	ps ps-am tags tags-recursive uninstall uninstall-am
+	install install-am install-binPROGRAMS install-data \
+	install-data-am install-dvi install-dvi-am install-exec \
+	install-exec-am install-html install-html-am \
+	install-includeHEADERS install-info install-info-am \
+	install-libLTLIBRARIES install-man install-pdf install-pdf-am \
+	install-ps install-ps-am install-strip installcheck \
+	installcheck-am installdirs maintainer-clean \
+	maintainer-clean-generic mostlyclean mostlyclean-compile \
+	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
+	tags uninstall uninstall-am uninstall-binPROGRAMS \
+	uninstall-includeHEADERS uninstall-libLTLIBRARIES
 
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.

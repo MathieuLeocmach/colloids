@@ -3685,7 +3685,7 @@ ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
 ac_config_headers="$ac_config_headers config.h"
 
 #AC_CONFIG_SUBDIRS([mains graphic])
-ac_config_files="$ac_config_files Makefile lib/Makefile mains/Makefile graphic/Makefile graphic/tinyxml/Makefile graphic/mains/Makefile"
+ac_config_files="$ac_config_files Makefile"
 
 case `pwd` in
   *\ * | *\	*)
@@ -16802,11 +16802,6 @@ do
     "depfiles") CONFIG_COMMANDS="$CONFIG_COMMANDS depfiles" ;;
     "config.h") CONFIG_HEADERS="$CONFIG_HEADERS config.h" ;;
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
-    "lib/Makefile") CONFIG_FILES="$CONFIG_FILES lib/Makefile" ;;
-    "mains/Makefile") CONFIG_FILES="$CONFIG_FILES mains/Makefile" ;;
-    "graphic/Makefile") CONFIG_FILES="$CONFIG_FILES graphic/Makefile" ;;
-    "graphic/tinyxml/Makefile") CONFIG_FILES="$CONFIG_FILES graphic/tinyxml/Makefile" ;;
-    "graphic/mains/Makefile") CONFIG_FILES="$CONFIG_FILES graphic/mains/Makefile" ;;
     "libtool") CONFIG_COMMANDS="$CONFIG_COMMANDS libtool" ;;
 
   *) as_fn_error "invalid argument: \`$ac_config_target'" "$LINENO" 5;;

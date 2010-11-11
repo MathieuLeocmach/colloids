@@ -27,7 +27,7 @@ import os, os.path, subprocess
 import re, string, math
 from math import exp
 from colloids import vtk, statistics
-from pygraph.classes.graph import graph
+from pygraph.classes.Graph import graph
 from pygraph.algorithms.accessibility import connected_components
 
 

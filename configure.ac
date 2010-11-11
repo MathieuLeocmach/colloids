@@ -1,12 +1,12 @@
 AC_INIT([colloids], [1.0], [mathieu@iis.u-tokyo.ac.jp])
 AC_CONFIG_MACRO_DIR([m4])
-AM_INIT_AUTOMAKE([foreign -Wall -Werror])
+AM_INIT_AUTOMAKE([subdir-objects foreign -Wall -Werror])
 AC_PROG_CXX
 AC_LANG([C++])
 AC_CONFIG_SRCDIR([lib/particles.hpp])
 AC_CONFIG_HEADERS([config.h])
 #AC_CONFIG_SUBDIRS([mains graphic])
-AC_CONFIG_FILES([Makefile lib/Makefile mains/Makefile graphic/Makefile graphic/tinyxml/Makefile graphic/mains/Makefile])
+AC_CONFIG_FILES([Makefile])
 LT_INIT
 AM_MAINTAINER_MODE([disable])
 #AX_MAINTAINER_MODE_AUTO_SILENT
