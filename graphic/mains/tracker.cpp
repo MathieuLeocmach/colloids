@@ -174,7 +174,7 @@ int main(int ac, char* av[])
     try {
         string inputFile,outputPath;
         //double Zratio=1.0,displayRadius,radiusMin, radiusMax, zradiusMin, zradiusMax,threshold;
-        double Zratio=1.0,radiusMin, radiusMax, threshold;
+        double Zratio=1.0,radiusMin, radiusMax;
         size_t serie, cores,onlyTimeStep;
         vector<double> thresholds;
 
@@ -207,8 +207,7 @@ int main(int ac, char* av[])
             ("radiusMax", po::value<double>(&radiusMax), "Maximum radius of the band pass filter in xy")
             //("zradiusMin", po::value<double>(&zradiusMin), "Minimum radius of the band pass filter in z")
             //("zradiusMax", po::value<double>(&zradiusMax), "Maximum radius of the band pass filter in z")
-            ("threshold", po::value<double>(&threshold)->default_value(0.0), "Minimum intensity of a center after band passing (0,255)")
-            ("thresholds", po::value< vector<double> >(&thresholds), "Minimum intensity of a center after band passing (0,255)")
+            ("threshold", po::value< vector<double> >(&thresholds), "Minimum intensity of a center after band passing (0,255). You can have this options N times to try N different thresholds.")
             ;
 
         // Options specific to file serie mode, accessible for both config file and command line
@@ -247,8 +246,12 @@ int main(int ac, char* av[])
         notify(vm);
         ifs.close();
 
+        cout<<"thresholds: ";
+        copy(thresholds.begin(), thresholds.end(), ostream_iterator<double>(cout, "\t"));
+        cout<<endl;
+
         if(thresholds.empty())
-            thresholds.push_back(threshold);
+            thresholds.push_back(0.0);
 
         //makes sure the last character of outputpath is not an underscore, because we will add one anyway
         //because the last 't' of "seriet000.dat" is not equivalent to the last '_t' of "serie_t000.dat"
@@ -289,7 +292,7 @@ int main(int ac, char* av[])
             Tracker::saveWisdom(config_path+"/wisdom.fftw");
             track.setView(!!vm.count("view"));
             track.setQuiet(!!vm.count("quiet"));
-            track.setThreshold(threshold);
+            track.setThresholds(thresholds.begin(), thresholds.end());
             track.setIsotropicBandPass(radiusMin, radiusMax); //not using zradius for the moment
 
             boost::progress_timer ptimer;
