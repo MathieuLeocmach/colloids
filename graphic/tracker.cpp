@@ -343,6 +343,25 @@ Particles Tracker::trackXYZ(const float &threshold)
     return getSubPixel();
 }
 
+/** @brief get the central pixel brightess for each coordinate in centers.  */
+vector<float> Tracker::getIntensities(const Particles &centers)
+{
+    vector<float> ret(centers.size());
+    for(size_t p=0; p<centers.size(); ++p)
+    {
+        //convert real coordinates to integer strides
+        boost::array<size_t, 3> tmp;
+        for(size_t d=0; d<tmp.size(); ++d)
+            tmp[d] = centersMap.strides()[d] * (size_t)centers[p][(fortran_order)?(2-d):d];
+
+        //normlize the value by the size of the image to get rid of the FTTW unnormalization and be in the same unit as the threshold parameter
+        ret[p] = (*(data+accumulate(tmp.begin(), tmp.end(), 0)))/centersMap.num_elements();
+    }
+    return ret;
+}
+
+
+
 /** @brief load FFTW wisdom from file
   * \return	false if the file isn't found
   */
@@ -712,6 +731,15 @@ void TrackerIterator::setAnisotropicBandPass(double radiusMin, double radiusMax,
     this->tracker->makeBandPassMask(radiiMin, radiiMax);
 }
 
+/** @brief get the file name to export the intensity to at the present time step.  */
+string TrackerIterator::getIntensityFile()
+{
+    assert(!!this->IntensitySerie);
+    return (*this->IntensitySerie)%this->time_step;
+}
+
+
+
 
 /** @brief track particles and return the result.
   *
@@ -731,6 +759,19 @@ Particles& TrackerIterator::operator*()
         {
             //Get the coordinate of the centers expressed in pixel units
             centers = new Particles(tracker->trackXYZ(this->threshold));
+
+            //export intensities if asked
+            if(!!this->IntensitySerie)
+            {
+                if(!getTracker().quiet) cout <<"export intensities"<<endl;
+                ofstream out(getIntensityFile().c_str());
+                vector<float> intensities = tracker->getIntensities(*centers);
+                copy(
+                    intensities.begin(), intensities.end(),
+                    ostream_iterator<float>(out,"\n")
+                    );
+            }
+
             //The real size of the pixel in z is not in general the same as the size in x or y
             //conversion to real size
             valarray<double> v(1.0,3);

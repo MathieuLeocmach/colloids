@@ -73,6 +73,7 @@ class Tracker
         void unsetRefBrightness(){hasRefBrightness=false;};*/
 
         Particles trackXYZ(const float &threshold=0.0f);
+        std::vector<float> getIntensities(const Particles &centers);
 
         //std::vector<Particles*> granulometry(const double &radiusMin, const double &radiusMax);
         static bool loadWisdom(const std::string & filename);
@@ -128,6 +129,7 @@ class TrackerIterator : public std::iterator<std::input_iterator_tag, Particles>
         Particles *centers;
         size_t channel, time_step;
         float threshold;
+        FileSerie *IntensitySerie;
 
  	public:
 		/** \brief default constructor that should be used only to get an "end" iterator*/
@@ -141,6 +143,8 @@ class TrackerIterator : public std::iterator<std::input_iterator_tag, Particles>
 		virtual void setAnisotropicBandPass(double radiusMin, double radiusMax, double zRadiusMin, double zRadiusMax);
 		void setThreshold(const float thr=0.0f) {this->threshold=thr;};
 		const float& getThreshold() const {return this->threshold;};
+		void setIntensitySerie(FileSerie &is){this->IntensitySerie=&is;};
+		std::string getIntensityFile();
 		void setView(bool v){tracker->view=v;}
 		bool view() const {return tracker->view;}
 		void setQuiet(bool v){tracker->quiet=v;}
@@ -150,7 +154,7 @@ class TrackerIterator : public std::iterator<std::input_iterator_tag, Particles>
 		size_t getChannel(){return channel;};
 		virtual void setTimeStep(size_t t)=0;
 		size_t getTimeStep(){return this->time_step;};
-		virtual bool reachedEnd(){};
+		virtual bool reachedEnd()=0;
 		virtual double getZXratio()=0;
 
 		virtual TrackerIterator& operator++()=0;

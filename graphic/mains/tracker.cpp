@@ -199,6 +199,7 @@ int main(int ac, char* av[])
 #endif
             ("fftPlanning", po::value<unsigned>(&fftFlags)->default_value((unsigned)FFTW_ESTIMATE), fftoptions.str().c_str())
             ("onlyTimeStep", po::value<size_t>(&onlyTimeStep)->default_value(-1), "Track only the given time step (default: track all time steps)")
+            ("exportIntensities", "Export pixel intensity (after filtering) at each tracked center")
             ;
 
         // Declare a group of options that will be
@@ -295,6 +296,11 @@ int main(int ac, char* av[])
             track.setThreshold(threshold);
             track.setIsotropicBandPass(radiusMin, radiusMax); //not using zradius for the moment
 
+            //create the intensity output file serie anyway
+            FileSerie intensitySerie(FileSerie::get0th(outputPath, vm["tsize"].as<size_t>())+".intensity", "_t", vm["tsize"].as<size_t>(), 0);
+            if(vm.count("exportIntensities"))
+                    track.setIntensitySerie(intensitySerie);
+
             boost::progress_timer ptimer;
             for_each(track, track.end(), ParticlesExporter(outputPath, vm["tsize"].as<size_t>(), track.quiet()));
 
@@ -343,10 +349,28 @@ int main(int ac, char* av[])
                 //string maskoutput = outputPath+"mask.txt";
                 //track.getTracker().maskToFile(maskoutput);
 
-                boost::progress_timer ptimer;
-                ParticlesExporter pe(outputPath, track.getLif().getNbTimeSteps(), track.quiet());
-                for_each(track, track.end(), pe);
-                pe.close();
+                //create the intensity output file serie anyway
+                FileSerie intensitySerie(FileSerie::get0th(outputPath, track.getLif().getNbTimeSteps())+".intensity", "_t", track.getLif().getNbTimeSteps(), 0);
+                if(vm.count("exportIntensities"))
+                    track.setIntensitySerie(intensitySerie);
+
+                if(onlyTimeStep==-1)
+                {
+                    boost::progress_timer ptimer;
+                    ParticlesExporter pe(outputPath, track.getLif().getNbTimeSteps(), track.quiet());
+                    for_each(track, track.end(), pe);
+                    pe.close();
+                }
+                else
+                {
+                    track.setTimeStep(onlyTimeStep);
+                    string fileName = FileSerie
+                    (
+                        FileSerie::get0th(outputPath, track.getLif().getNbTimeSteps())+".dat",
+                        "_t", track.getLif().getNbTimeSteps(), 0
+                    ) % onlyTimeStep;
+                    (*track).exportToFile(fileName);
+                }
 
                 //Destroy the inner data
                 track.close();
