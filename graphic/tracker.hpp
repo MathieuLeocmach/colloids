@@ -52,6 +52,7 @@ class Tracker
 		//size_t channel;
 		bool view, quiet, fortran_order;
 		array_type_b FFTmask, centersMap;
+		double mean;
 		//double displayRadius;
 		//double Zratio;
 
@@ -130,6 +131,7 @@ class TrackerIterator : public std::iterator<std::input_iterator_tag, Particles>
         size_t channel, time_step;
         float threshold;
         FileSerie *IntensitySerie;
+        bool noThreshold;
 
  	public:
 		/** \brief default constructor that should be used only to get an "end" iterator*/
@@ -141,7 +143,8 @@ class TrackerIterator : public std::iterator<std::input_iterator_tag, Particles>
 
 		virtual void setIsotropicBandPass(double radiusMin, double radiusMax);
 		virtual void setAnisotropicBandPass(double radiusMin, double radiusMax, double zRadiusMin, double zRadiusMax);
-		void setThreshold(const float thr=0.0f) {this->threshold=thr;};
+		void setThreshold(const float thr=0.0f) {this->threshold=thr; this->noThreshold=false;};
+		void unsetThreshold() {this->noThreshold=true;};
 		const float& getThreshold() const {return this->threshold;};
 		void setIntensitySerie(FileSerie &is){this->IntensitySerie=&is;};
 		std::string getIntensityFile();
@@ -174,16 +177,21 @@ template <class InputIterator>
 InputIterator Tracker::fillImage(InputIterator first)
 {
 	float *d = data;
+	long double sum;
 	for(size_t i=0; i<centersMap.shape()[0];++i)
 		for(size_t j=0; j<centersMap.shape()[1];++j)
 		{
 			for(size_t k=0; k<centersMap.shape()[2];++k)
-				*d++ = *first++;
+			{
+				*d = *first++;
+				sum += *d++;
+			}
 			//padding the last dimension
 			for(size_t k=centersMap.shape()[2]; k< 2 * FFTmask.shape()[2];++k)
 				d++;
 		}
 	this->padded = true;
+	this->mean = sum/centersMap.num_elements();
 	return first;
 }
 
@@ -202,17 +210,22 @@ InputIterator Tracker::fillImage_charToUchar(InputIterator first)
     //using namespace boost::accumulators;
     //accumulator_set<long double, features<tag::min, tag::max, tag::mean> > acc;
 	float *d = data;
+	long double sum=0;
 	for(size_t i=0; i<centersMap.shape()[0];++i)
 		for(size_t j=0; j<centersMap.shape()[1];++j)
 		{
 			for(size_t k=0; k<centersMap.shape()[2];++k)
-				*d++ = static_cast<unsigned char>(*first++);
+			{
+				*d = static_cast<unsigned char>(*first++);
+				sum += *d++;
+			}
 
 			//padding the last dimension
 			for(size_t k=centersMap.shape()[2]; k< 2 * FFTmask.shape()[2];++k)
 				*d++ = 0.0f;
 		}
 	this->padded = true;
+	this->mean = sum/centersMap.num_elements();
 	//std::cout<< " original image min="<<min(acc)<<" max="<<max(acc)<<" sum="<<mean(acc)<<" ... first pixel: "<<*data<<" ... ";
 	return first;
 }
@@ -225,7 +238,10 @@ InputIterator Tracker::fillSlice(const size_t slice, InputIterator first)
     for(size_t j=0; j<centersMap.shape()[1];++j)
     {
         for(size_t k=0; k<centersMap.shape()[2];++k)
-            *d++ = *first++;
+        {
+            *d = *first++;
+            this->mean += *d++;
+        }
         //padding the last dimension
         for(size_t k=centersMap.shape()[2]; k< 2 * FFTmask.shape()[2];++k)
             d++;

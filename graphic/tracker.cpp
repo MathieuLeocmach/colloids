@@ -758,7 +758,11 @@ Particles& TrackerIterator::operator*()
         else
         {
             //Get the coordinate of the centers expressed in pixel units
-            centers = new Particles(tracker->trackXYZ(this->threshold));
+            if(this->noThreshold)
+                centers = new Particles(tracker->trackXYZ(tracker->mean));
+            else
+                centers = new Particles(tracker->trackXYZ(this->threshold));
+
 
             //export intensities if asked
             if(!!this->IntensitySerie)

@@ -80,7 +80,6 @@ string testTrackerIni()
         ofs <<"outputPath = "<<getenv("HOME")<<"/Code_output/liftest/test_"<<endl;
         ofs <<"radiusMin = 3.48"<<endl;
         ofs <<"radiusMax = 64"<<endl;
-        ofs <<"threshold = 90"<<endl;
         ofs <<""<<endl;
         ofs <<"# Specific to file serie mode"<<endl;
         ofs <<"channel = 1"<<endl;
@@ -175,7 +174,7 @@ int main(int ac, char* av[])
     try {
         string inputFile,outputPath;
         //double Zratio=1.0,displayRadius,radiusMin, radiusMax, zradiusMin, zradiusMax,threshold;
-        double Zratio=1.0,radiusMin, radiusMax, threshold;
+        double Zratio=1.0,radiusMin, radiusMax;
         size_t serie, cores,onlyTimeStep;
         unsigned fftFlags =FFTW_ESTIMATE;
 
@@ -191,6 +190,7 @@ int main(int ac, char* av[])
             ("help", "produce help message")
             ("modeLIF,L", "Read from a Leica LIF file")
             ("modeSerie,S", "Read from a 2D image files serie")
+            ("threshold", po::value<double>(), "Minimum intensity of a center after band passing (0,255). Default is the mean value of the input image.")
             ("extractRadii,R", "Extract radii from image data and already tracked coordinates (from a previous run without the -R option).")
             ("view", "Display intermediate images")
             ("quiet", "Display only a progression bar")
@@ -215,7 +215,6 @@ int main(int ac, char* av[])
             ("radiusMax", po::value<double>(&radiusMax), "Maximum radius of the band pass filter in xy")
             //("zradiusMin", po::value<double>(&zradiusMin), "Minimum radius of the band pass filter in z")
             //("zradiusMax", po::value<double>(&zradiusMax), "Maximum radius of the band pass filter in z")
-            ("threshold", po::value<double>(&threshold)->default_value(0.0), "Minimum intensity of a center after band passing (0,255)")
             ;
 
         // Options specific to file serie mode, accessible for both config file and command line
@@ -293,7 +292,8 @@ int main(int ac, char* av[])
             Tracker::saveWisdom(config_path+"/wisdom.fftw");
             track.setView(!!vm.count("view"));
             track.setQuiet(!!vm.count("quiet"));
-            track.setThreshold(threshold);
+            if(vm.count("threshold"))
+                track.setThreshold(vm["threshold"].as<double>());
             track.setIsotropicBandPass(radiusMin, radiusMax); //not using zradius for the moment
 
             //create the intensity output file serie anyway
@@ -344,7 +344,8 @@ int main(int ac, char* av[])
                 Tracker::saveWisdom(config_path+"/wisdom.fftw");
                 track.setView(!!vm.count("view"));
                 track.setQuiet(!!vm.count("quiet"));
-                track.setThreshold(threshold);
+                if(vm.count("threshold"))
+                    track.setThreshold(vm["threshold"].as<double>());
                 track.setIsotropicBandPass(radiusMin, radiusMax); //not using zradius for the moment
                 //string maskoutput = outputPath+"mask.txt";
                 //track.getTracker().maskToFile(maskoutput);

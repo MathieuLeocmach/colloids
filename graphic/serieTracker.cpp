@@ -228,6 +228,7 @@ void SerieTracker::setTimeStep(size_t t)
         delete old_centers;
     }
     CImg<unsigned char> buffer(tracker->centersMap.shape()[2],tracker->centersMap.shape()[1]);
+    tracker->mean=0;
     if(!hasTime)
     {
         if(!hasDepth)
@@ -256,6 +257,7 @@ void SerieTracker::setTimeStep(size_t t)
                 tracker->fillSlice(z, buffer.data()+buffer.offset(0,0,0,channel));
             }
     }
+    tracker->mean /= tracker->centersMap.num_elements();
 }
 
 
