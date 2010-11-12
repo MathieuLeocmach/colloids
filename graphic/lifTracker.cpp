@@ -38,6 +38,7 @@ LifTracker::LifTracker(LifSerie &serie, const size_t ch, const unsigned fs)
     setChannel(ch);
     tracker = new Tracker(getTrackerDims(), fs);
 	tracker->fortran_order=true;
+	this->centers=0;
 	setTimeStep(0);
 	setThreshold(0);
 	return;
@@ -54,8 +55,12 @@ void LifTracker::setTimeStep(size_t t)
 {
     this->iterator = serie->begin(t);
     this->time_step = t;
-    if(!centers.empty())
-        centers.clear();
+    if(centers)
+    {
+        Particles* old_centers = this->centers;
+        this->centers = 0;
+        delete old_centers;
+    }
     tracker->fillImage_charToUchar(this->iterator);
 }
 
@@ -68,8 +73,12 @@ LifTracker & LifTracker::operator++()
     if(!quiet()) cout<<"to t="<<time_step+1<<endl;
     if(this->iterator != std::istreambuf_iterator<char>())
         this->iterator = tracker->fillImage_charToUchar(this->iterator);
-    if(!centers.empty())
-        centers.clear();
+    if(centers)
+    {
+        Particles* old_centers = this->centers;
+        this->centers = 0;
+        delete old_centers;
+    }
     this->time_step++;
     return *this;
 }

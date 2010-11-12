@@ -211,6 +211,7 @@ SerieTracker::SerieTracker(const std::string &namePattern, boost::array<size_t, 
     os<<tail;
     this->serie.parse(os.str());
 
+	this->centers=0;
 	setTimeStep(0);
 
 	return;
@@ -220,8 +221,12 @@ SerieTracker::SerieTracker(const std::string &namePattern, boost::array<size_t, 
 void SerieTracker::setTimeStep(size_t t)
 {
     this->time_step = t;
-    if(!centers.empty())
-        centers.clear();
+    if(centers)
+    {
+        Particles* old_centers = this->centers;
+        this->centers = 0;
+        delete old_centers;
+    }
     CImg<unsigned char> buffer(tracker->centersMap.shape()[2],tracker->centersMap.shape()[1]);
     if(!hasTime)
     {

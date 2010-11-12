@@ -343,30 +343,6 @@ Particles Tracker::trackXYZ(const float &threshold)
     return getSubPixel();
 }
 
-/** @brief track particles for the same band passed image but various thresholds  */
-void Tracker::trackVariousThresholds(const std::list<float> &thresholds, std::list<Particles> &results)
-{
-    boost::progress_display *show_progress;
-    if(!quiet) cout << "band-passing ... ";
-    FFTapplyMask();
-    if(!quiet) cout << "done!" << endl;
-
-    if(!quiet)
-    {
-        cout << "pixel centers and sub-pixel resolution"<<endl;
-        show_progress = new boost::progress_display(thresholds.size());
-    }
-    for(list<float>::const_iterator thr=thresholds.begin(); thr!=thresholds.end(); ++thr)
-    {
-        findPixelCenters(*thr);
-        results.push_back(getSubPixel());
-        if(!quiet) ++(*show_progress);
-    }
-
-}
-
-
-
 /** @brief load FFTW wisdom from file
   * \return	false if the file isn't found
   */
@@ -715,6 +691,7 @@ void Tracker::markCenters()
 void TrackerIterator::close()
 {
     if(tracker) delete tracker;
+    if(centers) delete centers;
 }
 
 /** @brief set the band pass filter in order to select the same real sizes in x, y and z directions  */
@@ -741,28 +718,27 @@ void TrackerIterator::setAnisotropicBandPass(double radiusMin, double radiusMax,
   * Contrary to the dereferencement operator for standard iterator, this is a heavy operation.
   * The result is cached until the next incrementation or setTimeStep
   */
-std::list<Particles>& TrackerIterator::operator*()
+Particles& TrackerIterator::operator*()
 {
-    if(centers.empty())
+    if(!centers)
     {
         if(reachedEnd())
         {
             cout<<"reached end"<<endl;
-            centers.clear();
+            centers = new Particles();
         }
         else
         {
             //Get the coordinate of the centers expressed in pixel units
-            tracker->trackVariousThresholds(this->getThresholds(), this->centers);
+            centers = new Particles(tracker->trackXYZ(this->threshold));
             //The real size of the pixel in z is not in general the same as the size in x or y
             //conversion to real size
             valarray<double> v(1.0,3);
             v[2] = getZXratio();
-            for(list<Particles>::iterator c=centers.begin(); c!=centers.end(); ++c)
-                (*c) *= v;
+            (*centers) *= v;
             if(!getTracker().quiet) cout <<"z multiplied by "<<v[2]<<endl;
         }
     }
-    return centers;
+    return *centers;
 }
 
