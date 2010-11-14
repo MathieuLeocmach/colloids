@@ -591,8 +591,13 @@ valarray<double> centroid::operator()(const size_t& l) const
 				[image.shape()[1]<3 ? range() : range(j-1, j+2)]
 				[image.shape()[2]<3 ? range() : range(k-1, k+2)]
 			];
+    //Find the extrema of the neighbourhood.
+    std::pair<float*, float*> minmax = boost::minmax_element(ngb.origin(), ngb.origin()+ngb.num_elements());
+    //If the neighbourhood contains a negative pixel, we are at the edge of a Fourier filtering artefact that should not be considered a particle
+    if(*minmax.first < 0)
+        return valarray<double>(-1.0, 3);
 	//marking non local maxima (including diagonals)
-	if(image.origin()[l] != *max_element(ngb.origin(), ngb.origin()+ngb.num_elements()))
+	if(image.origin()[l] != *minmax.second)
         return valarray<double>(-1.0, 3);
 
 	//double sum = accumulate(ngb.origin(),ngb.origin()+ngb.num_elements(),0.0);
