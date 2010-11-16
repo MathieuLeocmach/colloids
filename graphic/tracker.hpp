@@ -135,7 +135,7 @@ class TrackerIterator : public std::iterator<std::input_iterator_tag, Particles>
 
  	public:
 		/** \brief default constructor that should be used only to get an "end" iterator*/
-		TrackerIterator(){};
+		TrackerIterator(){unsetThreshold();};
 		virtual ~TrackerIterator(){};
 		virtual void close();
 

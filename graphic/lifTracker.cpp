@@ -39,8 +39,8 @@ LifTracker::LifTracker(LifSerie &serie, const size_t ch, const unsigned fs)
     tracker = new Tracker(getTrackerDims(), fs);
 	tracker->fortran_order=true;
 	this->centers=0;
+	unsetThreshold();
 	setTimeStep(0);
-	setThreshold(0);
 	return;
 }
 

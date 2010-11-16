@@ -165,7 +165,7 @@ SerieTracker::SerieTracker(const std::string &namePattern, boost::array<size_t, 
     tracker = new Tracker(dims, fs);
 	tracker->fortran_order=true;
 	setChannel(ch);
-	setThreshold(0);
+	unsetThreshold();
 	this->ZXratio = Zratio;
 
 	//parse the name pattern
