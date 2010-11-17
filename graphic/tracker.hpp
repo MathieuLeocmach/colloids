@@ -73,7 +73,7 @@ class Tracker
         /*void setRefBrightness();
         void unsetRefBrightness(){hasRefBrightness=false;};*/
 
-        Particles trackXYZ(const float &threshold=0.0f);
+        Particles trackXYZ(const float &threshold=0.0f, bool autoThreshold=false);
         std::vector<float> getIntensities(const Particles &centers);
 
         //std::vector<Particles*> granulometry(const double &radiusMin, const double &radiusMax);
@@ -112,7 +112,7 @@ class Tracker
 
 		//void FFTapplyMask();
 		//void findPixelCenters(const float &threshold=0);
-		Particles getSubPixel();
+		Particles getSubPixel(bool autoThreshold=false);
 
 
 		//bool compIntensities(size_t i, size_t j);

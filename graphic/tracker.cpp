@@ -327,7 +327,7 @@ void Tracker::normalize()
 	- After making the FFTmask (once) and loading the image data (every time step)
 	- Before scaling the coordinates by Zratio
   */
-Particles Tracker::trackXYZ(const float &threshold)
+Particles Tracker::trackXYZ(const float &threshold, bool autoThreshold)
 {
     if(view) display("original stack");
 	if(!quiet) cout << "band-passing ... ";
@@ -340,7 +340,7 @@ Particles Tracker::trackXYZ(const float &threshold)
     if(view) displayCenters();
 
     if(!quiet) cout << "sub-pixel resolution ... ";
-    return getSubPixel();
+    return getSubPixel(autoThreshold);
 }
 
 /** @brief get the central pixel brightess for each coordinate in centers.  */
@@ -638,7 +638,7 @@ struct markedPositionRemover : public unary_function<Coordinates& ,bool>
   *
   * Local maxima are taken as the bright pixels of centersMap
   */
-Particles Tracker::getSubPixel()
+Particles Tracker::getSubPixel(bool autoThreshold)
 {
     //boost::progress_timer ptimer;
 	//get the positions of the bright centers from flatten centersMap
@@ -652,6 +652,41 @@ Particles Tracker::getSubPixel()
 	//sort by increasing pixel intensity
 	if(!quiet) cout<<flat_positions.size()<<" potential centers ... ";
 	flat_positions.sort(compIntensities(data));
+
+	//Find the best intensity threshold
+	if(autoThreshold)
+	{
+	    //construct the centers intensity histogram
+	    const long double minhist = *(data+flat_positions.front()),
+            maxhist = *(data+flat_positions.back());
+        const long double scale = 100.0/(maxhist-minhist);
+	    vector<size_t> hist(100, 0);
+	    for(list<size_t>::const_iterator c = flat_positions.begin(); c!= flat_positions.end(); ++c)
+            hist[floor((*(data + (*c)) - minhist) * scale)]++;
+
+        //find the population global maximum
+        vector<size_t>::iterator peak = max_element(hist.begin(), hist.end());
+        if(!quiet) cout<<"peak ="<<distance(hist.begin(), peak)<<" ... ";
+
+        //find the last non-null bin before the peak, and at the same time the bin with the minimum population between it and the peak
+        vector<size_t>::iterator non_z = lower_bound(hist.begin(), peak, 1);
+        vector<size_t>::iterator lowest = min_element(non_z, peak);
+        //cout<<"non_z="<<distance(hist.begin(),non_z)<<"\tlowest="<<distance(hist.begin(),lowest)<<endl;
+        while((*lowest)==0)
+        {
+            non_z = lowest;
+            lowest = min_element(lowest, peak);
+            //cout<<"non_z="<<distance(hist.begin(),non_z)<<"\tlowest="<<distance(hist.begin(),lowest)<<endl;
+        }
+
+        //lowest gives the position of the valley of the histogram, ie the best threshold
+        if(!quiet) cout<<"best threshold = "<<distance(hist.begin(), lowest)/scale + minhist<<" ("<<distance(hist.begin(), lowest)<<"%) ... ";
+        //We remove all centers that have lower intensity than the best threshold
+        list<size_t>::iterator i = flat_positions.begin();
+        advance(i, accumulate(hist.begin(), lowest, (size_t)0));
+        flat_positions.erase(flat_positions.begin(), i);
+        if(!quiet) cout<<flat_positions.size()<<" centers after auto thresholding ... ";
+	}
 
 	//centroid binning
 	if(!quiet) cout<<"centroid ... ";
@@ -764,7 +799,7 @@ Particles& TrackerIterator::operator*()
         {
             //Get the coordinate of the centers expressed in pixel units
             if(this->noThreshold)
-                centers = new Particles(tracker->trackXYZ(tracker->mean));
+                centers = new Particles(tracker->trackXYZ(tracker->mean, true));
             else
                 centers = new Particles(tracker->trackXYZ(this->threshold));
 
