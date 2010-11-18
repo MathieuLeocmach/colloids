@@ -17,7 +17,7 @@
 #    along with Colloids.  If not, see <http://www.gnu.org/licenses/>.
 #
 from __future__ import with_statement #for python 2.5, useless in 2.6
-import struct, StringIO, re
+import struct, StringIO, re, os.path, subprocess, shlex
 from xml.dom.minidom import parse
 
 dimName = {1: "X",
@@ -492,3 +492,59 @@ def getRadius(ngb, center, zratio=1, rmin=3, rmax=10, precision=0.1):
             fi*np.exp(-np.arange(len(fi))/13.5))
                    )[rmin/precision:]
         )
+
+def bestParams(inputPath, outputPath, radMins=np.arange(2.5, 5, 0.5), radMaxs=np.arange(6, 32, 4), t=0, serie=None):
+    if serie==None:
+        serie = Reader(inputPath).chooseSerieIndex()
+    s = Reader(inputPath).getSeries()[serie]
+    out_head = outputPath+'_thr0_radMin%(m)g_radMax%(M)g_'
+    if s.getNbFrames>1:
+        dt = s.getTimeLapse()
+        dt_min, dt_sec = divmod(dt, 60)
+        dt_sec, dt_msec = divmod(dt_sec, 1)
+        if dt_min > 0:
+            out_head += '%dmin_'%dt_min
+            dt_msec=0
+        if dt_sec > 1:
+            out_head += '%ds'%dt_sec
+            if dt_msec > 0.01:
+                out_head += '%d'%np.floor(dt_msec*100)
+            out_head +='_'
+    out_noext = out_head+'t%(t)0'+('%d'%len('%d'%s.getNbFrames()))+'d'
+    for radMin in radMins:
+	for radMax in radMaxs:
+            if not os.path.exists(
+                (out_noext+'.intensity')%{'m':radMin, 'M':radMax, 't':t}
+                ):
+                p = subprocess.Popen(
+                    shlex.split(
+                        (
+                            ('/home/mathieu/test/bin/tracker -L -i %(lif)s -o %(out)s --serie %(serie)d'%{
+                                'lif':inputPath,
+                                'out':out_head,
+                                'serie':serie,
+                                }) +
+                            ' --radiusMin %(m)g --radiusMax %(M)g --threshold 0 --onlyTimeStep %(t)d --exportIntensities --fftPlanning 32'
+                        )%{
+                            'm':radMin,
+                            'M':radMax, 't':t
+                            }
+                        ),
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE
+                    )
+                out, err = p.communicate()
+                if not p.returncode==0:
+                    print 'At radMin=%(m)g and radMax=%(M)g'%{'m':radMin, 'M':radMax}
+                    print stdout
+                    print stderr
+                    return
+    hists = np.asarray([[
+	np.histogram(
+		np.loadtxt(
+                    (out_noext+'.intensity')%{'m':radMin, 'M':radMax, 't':t}
+                    ),
+		bins=range(300)
+		)[0]
+	for radMax in radMaxs] for radMin in radMins])
+    return hists
