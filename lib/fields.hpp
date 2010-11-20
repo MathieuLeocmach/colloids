@@ -73,12 +73,12 @@ namespace Colloids
 
 			DynamicField(const TrajIndex &ti, const size_t &averaging, const std::string &name="") :
 				name(name), trajectories(ti), actual_time(0),
-				values(ti.inverse.size()), averaging(averaging)
+				values(ti.nbFrames()), averaging(averaging)
 			{
-				for(size_t t=0; t<ti.inverse.size(); ++t)
-					this->values.push_back(new std::vector<V>(ti.inverse[t].size(), getNull()));
-				for(size_t t=0; t<(averaging/2)+1 && t<ti.inverse.size(); ++t)
-					divisors.push_back(std::vector<size_t>(ti.inverse[t].size(), 0));
+				for(size_t t=0; t<ti.nbFrames(); ++t)
+					this->values.push_back(new std::vector<V>(ti.getInverse(t).size(), getNull()));
+				for(size_t t=0; t<(averaging/2)+1 && t<ti.nbFrames(); ++t)
+					divisors.push_back(std::vector<size_t>(ti.getInverse(t).size(), 0));
 			};
 			DynamicField(const TrajIndex &ti, boost::ptr_vector< std::vector<V> > &values, const std::string &name="")
 				: trajectories(ti), name(name) {this->values.swap(values);};
@@ -126,9 +126,9 @@ namespace Colloids
 			for(size_t t=t0; t<std::min(actual_time+(averaging/2)+1, values.size()); ++t)
 			{
 				#pragma omp parallel for schedule(runtime)
-				for(int p=0; p<(int)trajectories.inverse[t].size();++p)
+				for(int p=0; p<(int)trajectories.getInverse(t).size();++p)
 				{
-					const Traj& tr = trajectories[trajectories.inverse[t][p]];
+					const Traj& tr = trajectories[trajectories.getInverse(t)[p]];
 					if(tr.exist(actual_time) && !isNull(frame[tr[actual_time]]))
 					{
 						values[t][p] += frame[tr[actual_time]];
@@ -156,7 +156,7 @@ namespace Colloids
 
 			//averaging on less and less time steps on the upper boundary
 			if(1+actual_time + averaging/2 < values.size())
-				divisors.push_back(std::vector<size_t>(trajectories.inverse[1+actual_time+averaging/2].size()));
+				divisors.push_back(std::vector<size_t>(trajectories.getInverse(1+actual_time+averaging/2).size()));
 		}
 		actual_time++;
 

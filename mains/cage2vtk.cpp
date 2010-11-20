@@ -26,18 +26,18 @@ using namespace Colloids;
 
 void export_jump(const TrajIndex &trajectories, const size_t &tau, const TrajIndex &cages, FileSerie &jumpSerie)
 {
-    const size_t size = trajectories.inverse.size();
+    const size_t size = trajectories.nbFrames();
     //container of number of jumps
     boost::ptr_vector< vector<size_t> > jumps(size);
     for(size_t t=0; t<size; ++t)
-        jumps.push_back(new vector<size_t>(trajectories.inverse[t].size(), 0));
+        jumps.push_back(new vector<size_t>(trajectories.getInverse(t).size(), 0));
     for(TrajIndex::const_iterator tr=trajectories.begin(); tr!=trajectories.end(); ++tr)
     {
         size_t t = tr->start_time;
         while(t<tr->last_time()+1)
         {
             //find what is the present cage
-            const Traj &c = cages[cages.inverse[t][(*tr)[t]]];
+            const Traj &c = cages[cages.getInverse(t)[(*tr)[t]]];
             //go to the next jump
             t = c.last_time();
             //what is the interval seeing the jump ?
@@ -65,7 +65,7 @@ void export_jump(const TrajIndex &trajectories, const size_t &tau, const TrajInd
 
 void export_timeBoo(const TrajIndex& trajectories, const size_t& tau, FileSerie &timeBooSerie, const string &prefix="")
 {
-	const size_t size = trajectories.inverse.size();
+	const size_t size = trajectories.nbFrames();
 	FileSerie booSerie = timeBooSerie.changeExt(".cloud");
 	boost::multi_array<double, 2> qw;
 	vector<ScalarDynamicField> scalars(4, ScalarDynamicField(trajectories, tau));
@@ -74,7 +74,7 @@ void export_timeBoo(const TrajIndex& trajectories, const size_t& tau, FileSerie 
 	for(size_t t=0; t<size; ++t)
 	{
 		//read qw from file
-		boost::array<size_t, 2> shape = {{trajectories.inverse[t].size(), 4}};
+		boost::array<size_t, 2> shape = {{trajectories.getInverse(t).size(), 4}};
 		qw.resize(shape);
 		ifstream cloud((booSerie%t).c_str(), ios::in);
 		string trash;
@@ -91,7 +91,7 @@ void export_timeBoo(const TrajIndex& trajectories, const size_t& tau, FileSerie 
 	//export
 	for(size_t t=0; t<size; ++t)
 	{
-		vector<ScalarField> s(4, ScalarField("", trajectories.inverse[t].size()));
+		vector<ScalarField> s(4, ScalarField("", trajectories.getInverse(t).size()));
 		for(int i=0; i<4; ++i)
 			s[i] = scalars[i][t];
 		ofstream f((timeBooSerie%t).c_str(), ios::out | ios::trunc);
@@ -108,12 +108,12 @@ void export_timeBoo(const TrajIndex& trajectories, const size_t& tau, FileSerie 
 
 void export_phi(const TrajIndex& trajectories, const double &radius, const size_t& tau, FileSerie &volSerie, FileSerie &phiSerie)
 {
-	const size_t size = trajectories.inverse.size();
+	const size_t size = trajectories.nbFrames();
 	const double unitVolume = 4/3*pow(radius, 3.0)*M_PI;
 	ScalarDynamicField phi(trajectories, tau, "phi");
 	for(size_t t=0; t<size; ++t)
 	{
-		vector<double> vol(trajectories.inverse[t].size());
+		vector<double> vol(trajectories.getInverse(t).size());
 		ifstream f((volSerie%t).c_str(), ios::in);
 		copy(
 			istream_iterator<double>(f), istream_iterator<double>(),

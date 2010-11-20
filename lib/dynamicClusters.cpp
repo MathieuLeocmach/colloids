@@ -172,13 +172,13 @@ DynamicClusters& DynamicClusters::assign(DynamicParticles &dynParts, std::set<si
 /** @brief save cluster information into a file serie  */
 void DynamicClusters::save(FileSerie &serie) const
 {
-	for(size_t t=0; t<trajectories.inverse.size(); ++t)
+	for(size_t t=0; t<trajectories.nbFrames(); ++t)
 	{
 		ofstream output((serie%t).c_str(), ios::out | ios::trunc);
-		output<<trajectories.inverse[t].size()<<"\n";
-		for(size_t K=0; K<trajectories.inverse[t].size(); ++K)
+		output<<trajectories.getInverse(t).size()<<"\n";
+		for(size_t K=0; K<trajectories.getInverse(t).size(); ++K)
 		{
-			output<<trajectories.inverse[t][K]<<"\t"<<members[t][K].size()<<"\t";
+			output<<trajectories.getInverse(t)[K]<<"\t"<<members[t][K].size()<<"\t";
 			transform(
 				members[t][K].begin(), members[t][K].end(),
 				ostream_iterator<size_t>(output, "\t"),

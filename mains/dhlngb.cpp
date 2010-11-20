@@ -109,28 +109,28 @@ int main(int argc, char ** argv)
 
         //reference frame
         NgbFrame initialFrame;
-        fillNgbFrame(initialFrame, trajectories.inverse[0], bondSerie%0);
+        fillNgbFrame(initialFrame, trajectories.getInverse(initial), bondSerie%initial);
 
         //calculate and export the neighbourhood difference between initial and t>initial
         for(size_t t=initial+1; t<size; ++t)
         {
             //load the neighbours at time t
             NgbFrame actualFrame;
-            fillNgbFrame(actualFrame, trajectories.inverse[t], bondSerie%t);
+            fillNgbFrame(actualFrame, trajectories.getInverse(t), bondSerie%t);
 
             //trajectories starting after initial time step get a -1
             vector<int> lngb(initialFrame.size(),-1);
             #pragma omp parallel for shared(trajectories, lngb, t) schedule(dynamic)
-            for(size_t p=0;p<trajectories.inverse[initial].size(); ++p)
+            for(size_t p=0;p<trajectories.getInverse(initial).size(); ++p)
             {
-                const Traj &tr = trajectories[trajectories.inverse[initial][p]];
+                const Traj &tr = trajectories[trajectories.getInverse(initial)[p]];
                 if(tr.last_time()>=t)
                 {
                     ListNgb lost;
                     //how many neighbours have been lost by trajectory tr (pth particle of initial time step) at time t ?
                     set_difference(
-                        actualFrame[tr[t]].begin(), actualFrame[tr[t]].end(),
                         initialFrame[p].begin(), initialFrame[p].end(),
+                        actualFrame[tr[t]].begin(), actualFrame[tr[t]].end(),
                         back_inserter(lost)
                         );
                     lngb[p] = lost.size();

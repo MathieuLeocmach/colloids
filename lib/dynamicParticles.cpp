@@ -469,15 +469,15 @@ vector<size_t> DynamicParticles::selectSpanning(const Interval &in) const
 	{
 		list<size_t> a, b;
     	copy(
-			trajectories.inverse[in.first].begin(),
-			trajectories.inverse[in.first].end(),
+			trajectories.getInverse(in.first).begin(),
+			trajectories.getInverse(in.first).end(),
 			back_inserter(a)
 			);
 		a.sort();
 		a.unique();
 		copy(
-			trajectories.inverse[in.second].begin(),
-			trajectories.inverse[in.second].end(),
+			trajectories.getInverse(in.second).begin(),
+			trajectories.getInverse(in.second).end(),
 			back_inserter(b)
 			);
 		b.sort();
@@ -514,6 +514,8 @@ Coord DynamicParticles::getDiff(const size_t &tr_from,const size_t &t_from,const
 Coord DynamicParticles::getDrift(const vector<size_t>&selection,const size_t &t0,const size_t &t1) const
 {
     Coord drift(0.0,3);
+    if(selection.size()<2)
+        return drift;
     #pragma omp parallel for
     for(ssize_t tr=0;tr<selection.size();++tr)
         drift += getDiff(selection[tr],t0,selection[tr],t1);
@@ -1067,11 +1069,11 @@ void DynamicParticles::exportDynamics(const string &inputPath) const
  */
 vector<Coord> DynamicParticles::velocities(const size_t &t, const size_t &halfInterval) const
 {
-	vector<Coord> vel(trajectories.inverse[t].size(), Coord(0.0, 3));
+	vector<Coord> vel(trajectories.getInverse(t).size(), Coord(0.0, 3));
 	size_t start, stop;
-	for(size_t p=0; p<trajectories.inverse[t].size(); ++p)
+	for(size_t p=0; p<trajectories.getInverse(t).size(); ++p)
 	{
-		const Traj &tr = trajectories[trajectories.inverse[t][p]];
+		const Traj &tr = trajectories[trajectories.getInverse(t)[p]];
 		if(tr.steps.size()>1)
 		{
 			start = max((int)(t-halfInterval), (int)tr.start_time);
@@ -1093,14 +1095,14 @@ vector<size_t> DynamicParticles::getLostNgbs(const size_t &tr,const size_t &t_fr
 	list<size_t> ngb_from, ngb_to;
 	const vector<size_t>& n_from = positions[t_from].getNgbList()[trajectories[tr][t_from]];
 	for(ssize_t p=0; p<n_from.size(); ++p)
-		ngb_from.push_back(trajectories.inverse[t_from][n_from[p]]);
+		ngb_from.push_back(trajectories.getInverse(t_from)[n_from[p]]);
 	ngb_from.sort();
 	ngb_from.unique();
 
 	//same for t_to
 	const vector<size_t>& n_to = positions[t_to].getNgbList()[trajectories[tr][t_to]];
 	for(ssize_t p=0; p<n_to.size(); ++p)
-		ngb_to.push_back(trajectories.inverse[t_to][n_to[p]]);
+		ngb_to.push_back(trajectories.getInverse(t_to)[n_to[p]]);
 	ngb_to.sort();
 	ngb_to.unique();
 
@@ -1121,11 +1123,11 @@ vector<size_t> DynamicParticles::getLostNgbs(const size_t &tr,const size_t &t_fr
  */
 vector<double> DynamicParticles::getNbLostNgbs(const size_t &t, const size_t &halfInterval) const
 {
-	vector<double> nb(trajectories.inverse[t].size());
+	vector<double> nb(trajectories.getInverse(t).size());
 	size_t tr, start, stop;
-	for(size_t p=0; p<trajectories.inverse[t].size(); ++p)
+	for(size_t p=0; p<trajectories.getInverse(t).size(); ++p)
 	{
-		tr = trajectories.inverse[t][p];
+		tr = trajectories.getInverse(t)[p];
 		if(trajectories[tr].steps.size()>1)
 		{
 			start = max((int)(t-halfInterval), (int)trajectories[tr].start_time);

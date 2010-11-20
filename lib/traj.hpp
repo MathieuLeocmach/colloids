@@ -96,27 +96,32 @@ namespace Colloids
             typedef Frame::value_type Link;
 
         /** \brief associate time t and position p to trajectory tr(left), or t and tr to p (right)*/
-        private : std::vector<Frame> bm;
+        private :
+            std::vector<Frame> bm;
+            size_t nbTraj;
 
         public:
             explicit TrajMap(const size_t &firstFrameSize=0);
 
             void push_back(const std::vector< std::multimap<double, size_t> > &followersByDist, const size_t &frameSize);
             size_t size() const {return bm.size();}
-            size_t getNbTraj()const {return bm.empty()?0: 1+bm.back().by<Traj>().rbegin()->first;}
+            size_t getNbTraj()const {return nbTraj;}
             const Frame& operator[](const size_t &t) const {return bm[t];}
             std::vector<size_t> getFrameSizes() const;
     };
 
     class TrajIndex : public std::deque<Traj>
     {
-        public:
+        private:
             boost::ptr_vector< std::vector<size_t> >inverse;
 
+        public:
             TrajIndex():std::deque<Traj>(){return;};
             TrajIndex(const TrajMap &tm);
 
             size_t & getTraj(const size_t &t,const size_t &p);
+            const std::vector<size_t>& getInverse(const size_t &t) const {return inverse[t];};
+            size_t nbFrames(void) const {return inverse.size();};
             void makeInverse(const std::vector<size_t> &frameSizes);
             size_t getMaxTime() const;
             std::vector<size_t> getFrameSizes(const size_t &length=0) const;

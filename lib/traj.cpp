@@ -35,6 +35,7 @@ TrajMap::TrajMap(const size_t &firstFrameSize)
     bm.assign(1,Frame());
     for(size_t i=0;i<firstFrameSize;++i)
         bm.back().insert(Link(i,i));
+    nbTraj = firstFrameSize;
 }
 
 /** @brief Create a new frame by attributing (if possible) a follower to all the trajectories existing in previous frame.
@@ -51,8 +52,6 @@ void Colloids::TrajMap::push_back(const vector< multimap<double, size_t> > &foll
         for(FolMap::const_iterator dist_fol=followersByDist[p_tr->first].begin();dist_fol!=followersByDist[p_tr->first].end();++dist_fol)
             potential_links.insert(make_pair(dist_fol->first, Link(dist_fol->second, p_tr->second)));
 
-    //remember what was the last existing trajectory
-    size_t nbTraj = getNbTraj();
     //create the new frame
     bm.push_back(Frame());
 
@@ -135,15 +134,22 @@ const char* IdTrajError::what() const throw()
 /** @brief Constructor from a TrajMap  */
 TrajIndex::TrajIndex(const TrajMap &tm)
 {
+    typedef TrajMap::Frame::map_by<Traj>::const_iterator TrajP_it;
     for(size_t t=0; t<tm.size();++t)
-        for(TrajMap::Frame::map_by<Traj>::const_iterator tr_p = tm[t].by<Traj>().begin(); tr_p!=tm[t].by<Traj>().end(); ++tr_p)
-            if(tr_p->first < this->size())
-                (*this)[tr_p->first].push_back(tr_p->second);
-            else
-            {
-                assert(tr_p->first == this->size()); //the new traj is always the next traj to be constructed
-                this->push_back(Traj(t, tr_p->second));
-            }
+    {
+        //Delimitate already existing trajectories (tr<this.size()) for the trajectories that we have to make start now
+        TrajP_it last_tr;
+        if(this->empty())
+            last_tr = tm[t].by<Traj>().begin();
+        else
+            last_tr = tm[t].by<Traj>().upper_bound(this->size()-1);
+        //prolongating existing trajectories
+        for(TrajP_it tr_p = tm[t].by<Traj>().begin(); tr_p!=last_tr; ++tr_p)
+            (*this)[tr_p->first].push_back(tr_p->second);
+        //starting new trajectories
+        for(TrajP_it tr_p = last_tr; tr_p!=tm[t].by<Traj>().end(); ++tr_p)
+            this->push_back(Traj(t, tr_p->second));
+    }
     makeInverse(tm.getFrameSizes());
 }
 

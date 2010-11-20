@@ -26,7 +26,7 @@ using namespace Colloids;
 
 void export_post_lostNgb(const TrajIndex &trajectories, const size_t &tau, FileSerie &bondSerie, FileSerie &lngbSerie)
 {
-    const size_t size = trajectories.inverse.size();
+    const size_t size = trajectories.nbFrames();
     typedef vector<size_t>	Ngbs;
     typedef boost::ptr_vector<Ngbs> NgbFrame;
     typedef boost::ptr_vector<NgbFrame> DynNgbs;
@@ -37,8 +37,8 @@ void export_post_lostNgb(const TrajIndex &trajectories, const size_t &tau, FileS
     DynNgbs dyn(size);
     for(size_t t=0; t<size;++t)
 	{
-		dyn.push_back(new NgbFrame(trajectories.inverse[t].size()));
-		for(size_t p=0; p<trajectories.inverse[t].size();++p)
+		dyn.push_back(new NgbFrame(trajectories.getInverse(t).size()));
+		for(size_t p=0; p<trajectories.getInverse(t).size();++p)
 			dyn[t].push_back(new Ngbs());
 	}
 	{
@@ -59,8 +59,8 @@ void export_post_lostNgb(const TrajIndex &trajectories, const size_t &tau, FileS
 		while(f.good())
 		{
 			f>>a>>b;
-			easy[a].push_back(trajectories.inverse[t][b]);
-			easy[b].push_back(trajectories.inverse[t][a]);
+			easy[a].push_back(trajectories.getInverse(t)[b]);
+			easy[b].push_back(trajectories.getInverse(t)[a]);
 		}
 		f.close();
 
@@ -82,11 +82,11 @@ void export_post_lostNgb(const TrajIndex &trajectories, const size_t &tau, FileS
 	//look at the neighbourhood difference between t0 and t0+tau
     for(size_t t0=0; t0<size-tau; ++t0)
 	{
-	    vector<int> lngb(trajectories.inverse[t0].size(),-1);
+	    vector<int> lngb(trajectories.getInverse(t0).size(),-1);
 	    #pragma omp parallel for shared(trajectories, lngb, t0) schedule(dynamic)
-	    for(size_t p=0;p<trajectories.inverse[t0].size(); ++p)
+	    for(size_t p=0;p<trajectories.getInverse(t0).size(); ++p)
 	    {
-	        const Traj &tr = trajectories[trajectories.inverse[t0][p]];
+	        const Traj &tr = trajectories[trajectories.getInverse(t0)[p]];
 	        if(tr.last_time()>=t0+tau)
 	        {
 	        	ListNgb lost;

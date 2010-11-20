@@ -26,7 +26,7 @@ using namespace Colloids;
 
 void export_lostNgb(const TrajIndex &trajectories, const size_t &tau, FileSerie &bondSerie, FileSerie &lngbSerie)
 {
-    const size_t size = trajectories.inverse.size();
+    const size_t size = trajectories.nbFrames();
     typedef vector<size_t>	Ngbs;
     typedef boost::ptr_vector<Ngbs> NgbFrame;
     typedef boost::ptr_vector<NgbFrame> DynNgbs;
@@ -37,8 +37,8 @@ void export_lostNgb(const TrajIndex &trajectories, const size_t &tau, FileSerie 
     DynNgbs dyn(size);
     for(size_t t=0; t<size;++t)
 	{
-		dyn.push_back(new NgbFrame(trajectories.inverse[t].size()));
-		for(size_t p=0; p<trajectories.inverse[t].size();++p)
+		dyn.push_back(new NgbFrame(trajectories.getInverse(t).size()));
+		for(size_t p=0; p<trajectories.getInverse(t).size();++p)
 			dyn[t].push_back(new Ngbs());
 	}
 
@@ -58,8 +58,8 @@ void export_lostNgb(const TrajIndex &trajectories, const size_t &tau, FileSerie 
 		while(f.good())
 		{
 			f>>a>>b;
-			easy[a].push_back(trajectories.inverse[t][b]);
-			easy[b].push_back(trajectories.inverse[t][a]);
+			easy[a].push_back(trajectories.getInverse(t)[b]);
+			easy[b].push_back(trajectories.getInverse(t)[a]);
 		}
 		f.close();
 
@@ -77,11 +77,11 @@ void export_lostNgb(const TrajIndex &trajectories, const size_t &tau, FileSerie 
 
     for(size_t t0=0; t0<size; ++t0)
 	{
-	    vector<double> lngb(trajectories.inverse[t0].size(),0);
+	    vector<double> lngb(trajectories.getInverse(t0).size(),0);
 	    #pragma omp parallel for shared(trajectories, lngb, t0) schedule(dynamic)
-	    for(size_t p=0;p<trajectories.inverse[t0].size(); ++p)
+	    for(size_t p=0;p<trajectories.getInverse(t0).size(); ++p)
 	    {
-	        const Traj &tr = trajectories[trajectories.inverse[t0][p]];
+	        const Traj &tr = trajectories[trajectories.getInverse(t0)[p]];
 	        const size_t start = max(tr.start_time+tau/2, (size_t)t0)-tau/2,
 					stop = min(tr.last_time(), (size_t)t0+tau/2);
             if(start!=stop)
@@ -106,7 +106,7 @@ void export_lostNgb(const TrajIndex &trajectories, const size_t &tau, FileSerie 
 
 void export_post_lostNgb(const TrajIndex &trajectories, const size_t &tau, FileSerie &bondSerie, FileSerie &lngbSerie)
 {
-    const size_t size = trajectories.inverse.size();
+    const size_t size = trajectories.nbFrames();
     typedef vector<size_t>	Ngbs;
     typedef boost::ptr_vector<Ngbs> NgbFrame;
     typedef boost::ptr_vector<NgbFrame> DynNgbs;
@@ -117,8 +117,8 @@ void export_post_lostNgb(const TrajIndex &trajectories, const size_t &tau, FileS
     DynNgbs dyn(size);
     for(size_t t=0; t<size;++t)
 	{
-		dyn.push_back(new NgbFrame(trajectories.inverse[t].size()));
-		for(size_t p=0; p<trajectories.inverse[t].size();++p)
+		dyn.push_back(new NgbFrame(trajectories.getInverse(t).size()));
+		for(size_t p=0; p<trajectories.getInverse(t).size();++p)
 			dyn[t].push_back(new Ngbs());
 	}
 	for(size_t t=0; t<size;++t)
@@ -131,8 +131,8 @@ void export_post_lostNgb(const TrajIndex &trajectories, const size_t &tau, FileS
 		while(f.good())
 		{
 			f>>a>>b;
-			easy[a].push_back(trajectories.inverse[t][b]);
-			easy[b].push_back(trajectories.inverse[t][a]);
+			easy[a].push_back(trajectories.getInverse(t)[b]);
+			easy[b].push_back(trajectories.getInverse(t)[a]);
 		}
 		f.close();
 
@@ -151,11 +151,11 @@ void export_post_lostNgb(const TrajIndex &trajectories, const size_t &tau, FileS
 	//look at the neighbourhood difference between t0 and t0+tau
     for(size_t t0=0; t0<size-tau; ++t0)
 	{
-	    vector<int> lngb(trajectories.inverse[t0].size(),-1);
+	    vector<int> lngb(trajectories.getInverse(t0).size(),-1);
 	    #pragma omp parallel for shared(trajectories, lngb, t0) schedule(dynamic)
-	    for(size_t p=0;p<trajectories.inverse[t0].size(); ++p)
+	    for(size_t p=0;p<trajectories.getInverse(t0).size(); ++p)
 	    {
-	        const Traj &tr = trajectories[trajectories.inverse[t0][p]];
+	        const Traj &tr = trajectories[trajectories.getInverse(t0)[p]];
 	        if(tr.last_time()>=t0+tau)
 	        {
 	        	ListNgb lost;
@@ -178,7 +178,7 @@ void export_post_lostNgb(const TrajIndex &trajectories, const size_t &tau, FileS
 
 void export_timeBoo(const TrajIndex& trajectories, const size_t& tau, FileSerie &timeBooSerie, const string &prefix="")
 {
-	const size_t size = trajectories.inverse.size();
+	const size_t size = trajectories.nbFrames();
 	FileSerie booSerie = timeBooSerie.changeExt(".cloud");
 	boost::multi_array<double, 2> qw;
 	vector<ScalarDynamicField> scalars(8, ScalarDynamicField(trajectories, tau));
@@ -191,7 +191,7 @@ void export_timeBoo(const TrajIndex& trajectories, const size_t& tau, FileSerie 
 	for(size_t t=0; t<size; ++t)
 	{
 		//read qw from file
-		boost::array<size_t, 2> shape = {{trajectories.inverse[t].size(), scalars.size()}};
+		boost::array<size_t, 2> shape = {{trajectories.getInverse(t).size(), scalars.size()}};
 		qw.resize(shape);
 		ifstream cloud((booSerie%t).c_str(), ios::in);
 		string trash;
@@ -208,7 +208,7 @@ void export_timeBoo(const TrajIndex& trajectories, const size_t& tau, FileSerie 
 	//export
 	for(size_t t=0; t<size; ++t)
 	{
-		vector<ScalarField> s(scalars.size(), ScalarField("", trajectories.inverse[t].size()));
+		vector<ScalarField> s(scalars.size(), ScalarField("", trajectories.getInverse(t).size()));
 		for(int i=0; i<s.size(); ++i)
 			s[i] = scalars[i][t];
 		ofstream f((timeBooSerie%t).c_str(), ios::out | ios::trunc);
@@ -225,12 +225,12 @@ void export_timeBoo(const TrajIndex& trajectories, const size_t& tau, FileSerie 
 
 void export_phi(const TrajIndex& trajectories, const double &radius, const size_t& tau, FileSerie &volSerie, FileSerie &phiSerie)
 {
-	const size_t size = trajectories.inverse.size();
+	const size_t size = trajectories.nbFrames();
 	const double unitVolume = 4/3*pow(radius, 3.0)*M_PI;
 	ScalarDynamicField phi(trajectories, tau, "phi");
 	for(size_t t=0; t<size; ++t)
 	{
-		vector<double> vol(trajectories.inverse[t].size());
+		vector<double> vol(trajectories.getInverse(t).size());
 		ifstream f((volSerie%t).c_str(), ios::in);
 		copy(
 			istream_iterator<double>(f), istream_iterator<double>(),

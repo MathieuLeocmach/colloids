@@ -20,7 +20,6 @@
 #include "dynamicParticles.hpp"
 
 #include <boost/progress.hpp>
-#include <dir.h>
 
 using namespace std;
 using namespace Colloids;
@@ -44,11 +43,11 @@ int main(int argc, char ** argv)
     {
     	ostringstream os;
 		os<<"av"<<tau<<"/";
-		mkdir((path+os.str()).c_str());
+		system(("mkdir "+path+os.str()).c_str());
 
     	double radius, dt;
 		string pattern, token;
-		size_t offset, size, tau;
+		size_t offset, size;
 		{
 			ifstream trajfile(filename.c_str(), ios::in);
 			if(!trajfile.good())
@@ -72,10 +71,7 @@ int main(int argc, char ** argv)
     	cout<<"create VectorDynamicField"<<endl;
     	VectorDynamicField pos(parts.trajectories, tau, "positions");
     	for(size_t t=0; t<size; ++t)
-    	{
-    		cout<<"t="<<t<<endl;
 			pos.push_back(VectorField(parts.positions[t].begin(), parts.positions[t].end()));
-    	}
 		//export
 		for(size_t t=0; t<size; ++t)
 		{
