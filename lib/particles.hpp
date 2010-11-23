@@ -115,7 +115,8 @@ namespace Colloids
 
             void push_back(const Coord &p);
 
-            Particles cut(const double &sep);
+            Particles cut(const double &sep) const;
+            Particles removeShortRange(const double &sep) const;
 
             /** Geometric transforms    */
             Particles& operator*=(const Coord &v);

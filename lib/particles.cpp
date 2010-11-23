@@ -90,18 +90,32 @@ void Particles::push_back(const Coord &p)
     First in first served
     The copy is indexed by a R*Tree
   */
-Particles Particles::cut(const double &sep)
+Particles Particles::cut(const double &sep) const
 {
     Particles out;
     out.bb = this->bb;
     out.reserve(this->size());
     out.setIndex(new RStarIndex_S(vector<BoundingBox>()));
-    for(iterator p = this->begin(); p!=this->end();++p)
+    for(const_iterator p = this->begin(); p!=this->end();++p)
         if(out.getEuclidianNeighbours(*p,sep).empty())
             out.push_back(*p);
     return out;
 }
 
+/** @brief return a copy with no particle closer than sep.
+    If two particles are closer than sep, BOTH are discarded.
+    The copy is not indexed.
+  */
+Particles Particles::removeShortRange(const double &sep) const
+{
+    Particles out;
+    out.bb = this->bb;
+    out.reserve(this->size());
+    for(const_iterator p = this->begin(); p!=this->end();++p)
+        if(getEuclidianNeighbours(*p, sep).empty())
+            out.push_back(*p);
+    return out;
+}
 
 
 /** \brief resizing the box and rescaling the coordinates */
