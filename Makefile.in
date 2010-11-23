@@ -139,6 +139,9 @@ am_cutter_OBJECTS = mains/cutter.$(OBJEXT)
 cutter_OBJECTS = $(am_cutter_OBJECTS)
 cutter_LDADD = $(LDADD)
 cutter_DEPENDENCIES = libcolloids.la libcolloids-graphic.la
+cutter_LINK = $(LIBTOOL) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+	--mode=link $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) \
+	$(cutter_LDFLAGS) $(LDFLAGS) -o $@
 am_dat2vtk_OBJECTS = mains/dat2vtk.$(OBJEXT)
 dat2vtk_OBJECTS = $(am_dat2vtk_OBJECTS)
 dat2vtk_LDADD = $(LDADD)
@@ -401,7 +404,7 @@ lib_LTLIBRARIES = libcolloids.la libcolloids-graphic.la
 include_HEADERS = lib/boo_data.hpp lib/fields.hpp lib/particles.hpp lib/dynamicClusters.hpp lib/files_series.hpp lib/periodic.hpp lib/dynamicParticles.hpp lib/index.hpp lib/traj.hpp graphic/lifFile.hpp graphic/lifTracker.hpp graphic/radiiTracker.hpp graphic/serieTracker.hpp graphic/tracker.hpp
 libcolloids_la_SOURCES = lib/boo_data.cpp lib/fields.cpp lib/particles.cpp lib/dynamicClusters.cpp lib/files_series.cpp lib/periodic.cpp lib/dynamicParticles.cpp lib/index.cpp lib/traj.cpp lib/boo_data.hpp lib/fields.hpp lib/particles.hpp lib/dynamicClusters.hpp lib/files_series.hpp lib/periodic.hpp lib/dynamicParticles.hpp lib/index.hpp lib/traj.hpp lib/RStarTree/RStarBoundingBox.h lib/RStarTree/RStarTree.h lib/RStarTree/RStarVisitor.h
 LDADD = libcolloids.la libcolloids-graphic.la
-AM_CPPFLAGS = -I$(srcdir)/lib -I$(srcdir)/graphic -DTIXML_USE_STL
+AM_CPPFLAGS = -I$(srcdir)/lib -I$(srcdir)/graphic -DTIXML_USE_STL 
 periodic_boo_CPPFLAGS = $(AM_CPPFLAGS) -Duse_periodic
 periodic_rdf_CPPFLAGS = $(AM_CPPFLAGS) -Duse_periodic
 periodic_g6_CPPFLAGS = $(AM_CPPFLAGS) -Duse_periodic
@@ -432,6 +435,7 @@ periodic_rdf_SOURCES = mains/rdf.cpp
 sp5c_SOURCES = mains/sp5c.cpp
 totalRdf_SOURCES = mains/totalRdf.cpp
 traj2vtk_SOURCES = mains/traj2vtk.cpp
+cutter_LDFLAGS = $(BOOST_LDFLAGS) $(BOOST_PROGRAM_OPTIONS_LIB)
 libcolloids_graphic_la_SOURCES = graphic/lifFile.cpp graphic/lifFile.hpp graphic/lifTracker.cpp graphic/lifTracker.hpp graphic/radiiTracker.cpp graphic/radiiTracker.hpp graphic/serieTracker.cpp graphic/serieTracker.hpp graphic/tracker.cpp graphic/tracker.hpp graphic/tinyxml/tinystr.h graphic/tinyxml/tinyxmlerror.cpp graphic/tinyxml/tinyxmlparser.cpp graphic/tinyxml/tinystr.cpp graphic/tinyxml/tinyxml.cpp graphic/tinyxml/tinyxml.h
 aquireWisdom_SOURCES = graphic/mains/aquireWisdom.cpp
 tracker_SOURCES = graphic/mains/tracker.cpp
@@ -673,7 +677,7 @@ mains/cutter.$(OBJEXT): mains/$(am__dirstamp) \
 	mains/$(DEPDIR)/$(am__dirstamp)
 cutter$(EXEEXT): $(cutter_OBJECTS) $(cutter_DEPENDENCIES) 
 	@rm -f cutter$(EXEEXT)
-	$(CXXLINK) $(cutter_OBJECTS) $(cutter_LDADD) $(LIBS)
+	$(cutter_LINK) $(cutter_OBJECTS) $(cutter_LDADD) $(LIBS)
 mains/dat2vtk.$(OBJEXT): mains/$(am__dirstamp) \
 	mains/$(DEPDIR)/$(am__dirstamp)
 dat2vtk$(EXEEXT): $(dat2vtk_OBJECTS) $(dat2vtk_DEPENDENCIES) 

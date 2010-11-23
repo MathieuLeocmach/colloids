@@ -7,7 +7,7 @@ include_HEADERS = lib/boo_data.hpp lib/fields.hpp lib/particles.hpp lib/dynamicC
 libcolloids_la_SOURCES = lib/boo_data.cpp lib/fields.cpp lib/particles.cpp lib/dynamicClusters.cpp lib/files_series.cpp lib/periodic.cpp lib/dynamicParticles.cpp lib/index.cpp lib/traj.cpp lib/boo_data.hpp lib/fields.hpp lib/particles.hpp lib/dynamicClusters.hpp lib/files_series.hpp lib/periodic.hpp lib/dynamicParticles.hpp lib/index.hpp lib/traj.hpp lib/RStarTree/RStarBoundingBox.h lib/RStarTree/RStarTree.h lib/RStarTree/RStarVisitor.h
 
 LDADD = libcolloids.la
-AM_CPPFLAGS = -I$(srcdir)/lib -I$(srcdir)/graphic -DTIXML_USE_STL
+AM_CPPFLAGS = -I$(srcdir)/lib -I$(srcdir)/graphic -DTIXML_USE_STL 
 bin_PROGRAMS = bonds boo boo_flip cage2vtk cutter dat2vtk dhlngb drift dynamics g6 ISF linkboo linker lostngb MSD percolation rdf sp5c totalRdf traj2vtk periodic_rdf periodic_boo periodic_g6 $(binvoro) aquireWisdom tracker
 
 EXTRA_PROGRAMS = cgVoro periodic_cgVoro
@@ -42,6 +42,8 @@ periodic_rdf_SOURCES = mains/rdf.cpp
 sp5c_SOURCES = mains/sp5c.cpp
 totalRdf_SOURCES = mains/totalRdf.cpp
 traj2vtk_SOURCES = mains/traj2vtk.cpp
+
+cutter_LDFLAGS = $(BOOST_LDFLAGS) $(BOOST_PROGRAM_OPTIONS_LIB)
 
 
 libcolloids_graphic_la_SOURCES = graphic/lifFile.cpp graphic/lifFile.hpp graphic/lifTracker.cpp graphic/lifTracker.hpp graphic/radiiTracker.cpp graphic/radiiTracker.hpp graphic/serieTracker.cpp graphic/serieTracker.hpp graphic/tracker.cpp graphic/tracker.hpp graphic/tinyxml/tinystr.h graphic/tinyxml/tinyxmlerror.cpp graphic/tinyxml/tinyxmlparser.cpp graphic/tinyxml/tinystr.cpp graphic/tinyxml/tinyxml.cpp graphic/tinyxml/tinyxml.h
