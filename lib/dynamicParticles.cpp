@@ -890,12 +890,13 @@ vector<double> DynamicParticles::getISF(const Coord &q,const size_t &t0,const si
 */
 vector<double> DynamicParticles::getSelfISF(const vector<size_t> &selection,const Coord &q,const size_t &t0,const size_t &t1,const size_t &t3) const
 {
+    //cout<<t0<<"\t"<<t1<<"\t"<<t3<<endl;
     const size_t nb_selection = selection.size();
     //boost::progress_display show_progress(2*(t1-t0));
 
     //fill in the basic data used for calculation
-    vector< vector<double> > A(t1+t3-t0+1,vector<double>(nb_selection,0.0)), B=A;
-    vector<double> sumISF(t1-t0+1,0.0);
+    vector< vector<double> > A(t1+t3-t0,vector<double>(nb_selection,0.0)), B=A;
+    vector<double> sumISF(t1-t0,0.0);
     //#pragma omp parallel for shared(selection, t0, t3, q)
     for(ssize_t t=0;t<A.size();++t)
     {
@@ -936,29 +937,67 @@ vector<double> DynamicParticles::getSelfISF(const vector<size_t> &selection,cons
 }
 
 /** \brief Self part of intermediate scatering function of time between t0 and t1 */
-vector<double> DynamicParticles::getSelfISF(const Coord &q,const size_t &t0,const size_t &t1,const size_t &t3) const
+vector<double> DynamicParticles::getSelfISF(const Coord &q,const size_t &t0,const size_t &t1,const size_t &t2) const
 {
-    return getSelfISF(selectSpanning(Interval(t0,t1+t3)),q,t0,t1,t3);
+    if(t2==0)
+        return getSelfISF(selectSpanning(Interval(t0,t1+t2)),q,t0,t1,t2);
+
+    vector<double> ISF(t1-t0, 0.0);
+    size_t count=0;
+    for(size_t start=t0; start<t2; ++start)
+    {
+        const vector<size_t> selection = selectSpanning(Interval(start, start+t1-t0));
+        const vector<double> singleISF = getSelfISF(selection, q, start, start+t1-t0, 1);
+        const double coef = selection.size();
+        for(size_t t=0; t<ISF.size();++t)
+            ISF[t] += coef * singleISF[t];
+        count += selection.size();
+    }
+    for(size_t t=0; t<ISF.size();++t)
+        ISF[t] /= count;
+    return ISF;
 }
 
 /** \brief Get Self ISF averaged over the three axis */
-vector<double> DynamicParticles::getSelfISF(const size_t &t0,const size_t &t1,const size_t &t3) const
+vector<double> DynamicParticles::getSelfISF(const size_t &t0,const size_t &t1,const size_t &t2) const
 {
-	vector<size_t> sp = selectSpanning(Interval(t0,t1+t3));
-	vector< vector<double> >ISF(4,vector<double>(t1-t0+1));
-	vector< Coord > q(3, Coord(0.0,3));
+    vector< Coord > q(3, Coord(0.0,3));
     for(size_t d=0;d<3;++d)
         q[d][d] = M_PI/radius;
 
-	for(size_t d=0;d<3;++d)
-		ISF[d] = getSelfISF(sp, q[d], t0, t1, t3);
-	for(size_t t=0;t<ISF[3].size();++t)
-	{
-		for(size_t d=0;d<3;++d)
-			ISF[3][t] += ISF[d][t];
-		ISF[3][t] /= 3.0;
-	}
-	return ISF[3];
+    vector<double>ISF(t1-t0);
+    if(t2==0)
+    {
+        const vector<size_t> sp = selectSpanning(Interval(t0,t1+t2));
+        for(size_t d=0;d<3;++d)
+        {
+            const vector<double> singleISF = getSelfISF(sp, q[d], t0, t1, t2);
+            for(size_t t=0; t<singleISF.size();++t)
+                    ISF[t] += singleISF[t]/3.0;
+        }
+    }
+    else
+    {
+        size_t count=0;
+        for(size_t start=t0; start<t2; ++start)
+        {
+            //cout<<"select"<<endl;
+            const vector<size_t> selection = selectSpanning(Interval(start, start+t1-t0));
+            //cout<<selection.size()<<" trajectories selected"<<endl;
+            const double coef = selection.size();
+            for(size_t d=0;d<3;++d)
+            {
+                const vector<double> singleISF = getSelfISF(selection, q[d], start, start+t1-t0, 1);
+                //cout<<singleISF.size()<<"\t"<<ISF.size()<<endl;
+                for(size_t t=0; t<ISF.size();++t)
+                    ISF[t] += coef * singleISF[t];
+            }
+            count += selection.size();
+        }
+        for(size_t t=0;t<ISF.size();++t)
+            ISF[t] /= count*3.0;
+    }
+	return ISF;
 }
 
 /**
