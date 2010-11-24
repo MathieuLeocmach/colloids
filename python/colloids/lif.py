@@ -146,6 +146,12 @@ class SerieHeader:
                 "DimensionDescription")
         return self.__dimensions
 
+    def hasZ(self):
+        for d in self.getDimensions():
+                if dimName[int(d.getAttribute("DimID"))] == "Z":
+                    return True
+        return False
+
     def getMemorySize(self):
         if not hasattr(self, '__memorySize'):
             for m in self.root.getElementsByTagName("Memory"):
@@ -178,6 +184,12 @@ class SerieHeader:
 
     def getVoxelSize(self,dimension):
         return float(self.getScannerSetting("dblVoxel%s" % dimName[dimension]))
+
+    def getZXratio(self):
+        if self.hasZ():
+            return float(self.getScannerSetting("dblVoxelZ"))/float(self.getScannerSetting("dblVoxelX"))
+        else:
+            return 1.0
 
     def getTotalDuration(self):
         """Get total duration of the experiment"""
@@ -411,6 +423,23 @@ class Serie(SerieHeader):
             dtype=np.ubyte,
             count=self.getNbPixelsPerFrame()
             ).reshape(shape).transpose()
+
+    def getVTK(self, fname, T=0):
+        """Export the frame at time T to a vtk file"""
+        with open(fname, 'wb') as f:
+            f.write(
+                ('# vtk DataFile Version 3.0\n%s\n' % self.getName)+
+                'BINARY\nDATASET STRUCTURED_POINTS\n'+
+                ('DIMENSIONS %d %d %d\n'%tuple(self.getFrameShape()))+
+                'ORIGIN 0 0 0\n'+
+                ('SPACING 1 1 %g\n'%self.getZXratio())+
+                ('POINT_DATA %d\n'%self.getNbPixelsPerFrame())+
+                'SCALARS Intensity unsigned_char\nLOOKUP_TABLE default\n'
+                )
+            self.f.seek(self.getOffset(**dict({'T':T})))
+            f.write(self.f.read(self.getNbPixelsPerFrame()))
+            
+        
         
     def getDisplacements2D(self):
         """
