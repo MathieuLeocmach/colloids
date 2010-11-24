@@ -27,8 +27,8 @@ class Polydata:
     def __init__(self, fileName=None):
         """Constructor from vtk legacy format"""
         self.name = ''
-        self.points = np.array((0,3))
-        self.bonds = np.array((0,2))
+        self.points = np.empty((0,3))
+        self.bonds = np.empty((0,2), dtype=int)
         self.scalars = []
         self.vectors = []
         self.bondsScalars = []
