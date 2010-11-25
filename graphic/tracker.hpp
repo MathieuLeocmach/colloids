@@ -62,6 +62,8 @@ class Tracker
 		void setFlags(const unsigned fs=FFTW_ESTIMATE){flags = fs;};
         void setDimensions(const boost::array<size_t,3> &dims);
         void makeBandPassMask(const boost::array<double,3> &radiiMin, const boost::array<double,3> &radiiMax);
+        void makeLowPassMask(const boost::array<double,3> &radiiMin);
+        void mirrorMask();
         void FFTapplyMask();
         void findPixelCenters(float threshold=0);
 
@@ -143,6 +145,7 @@ class TrackerIterator : public std::iterator<std::input_iterator_tag, Particles>
 
 		virtual void setIsotropicBandPass(double radiusMin, double radiusMax);
 		virtual void setAnisotropicBandPass(double radiusMin, double radiusMax, double zRadiusMin, double zRadiusMax);
+		virtual void setIsotropicLowPass(double radiusMin);
 		void setThreshold(const float thr=0.0f) {this->threshold=thr; this->noThreshold=false;};
 		void unsetThreshold() {this->noThreshold=true;};
 		const float& getThreshold() const {return this->threshold;};

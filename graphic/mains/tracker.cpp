@@ -190,6 +190,7 @@ int main(int ac, char* av[])
             ("modeLIF,L", "Read from a Leica LIF file")
             ("modeSerie,S", "Read from a 2D image files serie")
             ("threshold", po::value<double>(), "Minimum intensity of a center after band passing (0,255). Default is the mean value of the input image.")
+            ("no-BG-removal", "Disable the background removal.\n The filter switches to low pass instead of band pass. radiusMax parameter is ignored.")
             ("extractRadii,R", "Extract radii from image data and already tracked coordinates (from a previous run without the -R option).")
             ("view", "Display intermediate images")
             ("quiet", "Display only a progression bar")
@@ -293,7 +294,10 @@ int main(int ac, char* av[])
             track.setQuiet(!!vm.count("quiet"));
             if(vm.count("threshold"))
                 track.setThreshold(vm["threshold"].as<double>());
-            track.setIsotropicBandPass(radiusMin, radiusMax); //not using zradius for the moment
+            if(vm.count("no-BG-removal"))
+                track.setIsotropicLowPass(radiusMin);
+            else
+                track.setIsotropicBandPass(radiusMin, radiusMax); //not using zradius for the moment
 
             //create the intensity output file serie anyway
             FileSerie intensitySerie(FileSerie::get0th(outputPath, vm["tsize"].as<size_t>())+".intensity", "_t", vm["tsize"].as<size_t>(), 0);
@@ -345,7 +349,10 @@ int main(int ac, char* av[])
                 track.setQuiet(!!vm.count("quiet"));
                 if(vm.count("threshold"))
                     track.setThreshold(vm["threshold"].as<double>());
-                track.setIsotropicBandPass(radiusMin, radiusMax); //not using zradius for the moment
+                if(vm.count("no-BG-removal"))
+                    track.setIsotropicLowPass(radiusMin);
+                else
+                    track.setIsotropicBandPass(radiusMin, radiusMax); //not using zradius for the moment
                 //string maskoutput = outputPath+"mask.txt";
                 //track.getTracker().maskToFile(maskoutput);
 

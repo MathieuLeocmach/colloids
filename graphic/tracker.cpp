@@ -102,8 +102,8 @@ void Tracker::makeBandPassMask(const boost::array<double,3> &radiiMin, const boo
 		cout<<") ... ";
     }
 
-    if(!equal(radiiMin.begin(),radiiMin.end(),radiiMax.begin(),less_equal<double>()))
-		throw invalid_argument("For each dimension we must have radiusMin <= radiusMax ");
+    if(!equal(radiiMin.begin(),radiiMin.end(),radiiMax.begin(),less<double>()))
+		throw invalid_argument("For each dimension we must have radiusMin < radiusMax ");
 
     boost::array<double,3> freqMax, freqMin;
     transform(centersMap.shape(),centersMap.shape()+centersMap.num_dimensions(),radiiMin.begin(), freqMax.begin(), divides<double>());
@@ -184,7 +184,98 @@ void Tracker::makeBandPassMask(const boost::array<double,3> &radiiMin, const boo
 		di++;
 	}
 
-	//mirror in first direction
+	this->mirrorMask();
+
+	if(view) displayMask();
+}
+
+/** @brief make a low pass filter mask in Fourier space (to remove high frequency noise
+    \param radiiMin Real space mimimum radiii in each dimension, supposed in row major order
+*/
+void Tracker::makeLowPassMask(const boost::array<double,3> &radiiMin)
+{
+    if(!quiet)
+    {
+    	cout << "making the high-pass filter (";
+		copy(FFTmask.shape(),FFTmask.shape()+FFTmask.num_dimensions(),ostream_iterator<size_t>(cout,","));
+		cout<<") ... ";
+    }
+
+    boost::array<double,3> freqMax;
+    transform(centersMap.shape(),centersMap.shape()+centersMap.num_dimensions(),radiiMin.begin(), freqMax.begin(), divides<double>());
+    transform(freqMax.begin(), freqMax.end(), freqMax.begin(), bind2nd(divides<double>(), 2.0));
+    if(!quiet)
+    {
+        cout << "Size min (";
+		copy(radiiMin.begin(),radiiMin.end(),ostream_iterator<double>(cout,","));
+		cout<<") ... ";
+    	cout << "Freq max (";
+		copy(freqMax.begin(),freqMax.end(),ostream_iterator<double>(cout,","));
+		cout<<") ... ";
+    }
+
+    //The spectrum output of FFT is centered on (0,0,0), not in the center of the image.
+    //The last dimension is only (n/2+1), with n the last dimension of the real-space image
+    //So the band pass mask is half on a 3D-ellipsoidal shell centered on (0,0,0).
+    //Moreover, the symetry planes allow to draw only 1/2^d th of the mask and then mirror it.
+
+    //get a view of 1/2^d th of the mask
+
+    boost::array<size_t,3> halfdims;
+    for(int d=0;d<3;++d)
+		halfdims[d] = centersMap.shape()[d] / 2 + 1;
+    array_type_b::array_view<3>::type portion = FFTmask[
+		boost::indices[range(0,halfdims[0])][range(0,halfdims[1])][range(0,halfdims[2])]
+		];
+	if(!quiet)
+    {
+    	cout<<"portion (";
+		copy(portion.shape(),portion.shape()+portion.num_dimensions(),ostream_iterator<size_t>(cout,","));
+		cout<<") ... ";
+    }
+    //boost::multi_array_ref<bool, 3>portion(data, halfdims);
+    double imin, imax, jmin, jmax;
+    size_t di=0,dj=0;
+    //array_type_b::array_view<3>::type::array_view<1>::type line;
+
+	//draw a 1/2^d th of the mask
+	//not the best efficiency if z is flat, but then the number of pixels is small so no problem
+	for(array_type_b::iterator i = portion.begin();i!=portion.end();++i)
+	{
+		dj=0;
+		imax = pow(di / freqMax[0], 2.0);
+		for(array_type_b::value_type::iterator j = i->begin();j!=i->end();++j)
+		{
+		    //cout<<(j-i->begin())<<endl;
+		    jmax = pow(dj / freqMax[1], 2.0);
+			size_t kmax = min(
+				j->size(),
+				(imax+jmax>1.0)?0:
+				(size_t)(1+freqMax[2]*sqrt(1.0 - imax - jmax))
+				);
+			//cout<<" 0->"<<kmax;
+			fill_n(j->begin(), kmax, true);
+			//cout<<"->"<<j->size()<<endl;
+			fill(j->begin() + kmax, j->end(), false);
+			dj++;
+		}
+		di++;
+	}
+
+	this->mirrorMask();
+
+
+	if(view) displayMask();
+}
+
+/** @brief mirror the first 1/2^d th of the FFT Mask in order to form the full mask  */
+void Tracker::mirrorMask()
+{
+    boost::array<size_t,3> halfdims;
+    for(int d=0;d<3;++d)
+		halfdims[d] = centersMap.shape()[d] / 2 + 1;
+
+    //mirror in first direction
 	if(halfdims[0] >=3)
 	{
         size_t parity = 1-(int)(FFTmask.shape()[0] % 2);
@@ -225,8 +316,9 @@ void Tracker::makeBandPassMask(const boost::array<double,3> &radiiMin, const boo
         }
         mirror2 = original2;
 	}
-	if(view) displayMask();
 }
+
+
 
 /** @brief Get a view of the main data array, including padding  */
 Tracker::array_type_r Tracker::get_padded_image(const boost::array<size_t,3>& ordering)
@@ -769,6 +861,14 @@ void TrackerIterator::setAnisotropicBandPass(double radiusMin, double radiusMax,
         radiiMin = {{zRadiusMin, radiusMin, radiusMin}},
         radiiMax = {{zRadiusMax, radiusMax, radiusMax}};
     this->tracker->makeBandPassMask(radiiMin, radiiMax);
+}
+
+/** @brief set the band pass filter in order to select the same real sizes in x, y and z directions  */
+void TrackerIterator::setIsotropicLowPass(double radiusMin)
+{
+    boost::array<double,3>
+        radiiMin = {{radiusMin/getZXratio(), radiusMin, radiusMin}};
+    this->tracker->makeLowPassMask(radiiMin);
 }
 
 /** @brief get the file name to export the intensity to at the present time step.  */
