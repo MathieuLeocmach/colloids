@@ -209,7 +209,7 @@ void export_timeBoo(const TrajIndex& trajectories, const size_t& tau, FileSerie 
 	for(size_t t=0; t<size; ++t)
 	{
 		vector<ScalarField> s(scalars.size(), ScalarField("", trajectories.getInverse(t).size()));
-		for(int i=0; i<s.size(); ++i)
+		for(size_t i=0; i<s.size(); ++i)
 			s[i] = scalars[i][t];
 		ofstream f((timeBooSerie%t).c_str(), ios::out | ios::trunc);
 		f<<"#Q4\tQ6\tQ8\tQ10\tW4\tW6\tW8\tW10"<<endl;
@@ -374,7 +374,7 @@ int main(int argc, char ** argv)
                 cout<<"relaxation time is "<<tau<<" steps, ie "<<tau*dt<<"s"<<endl;
 				cout<<"calculate velocities"<<endl;
 				#pragma omp parallel for schedule(runtime) shared(parts, tau, velSerie)
-				for(ssize_t t=0; t<parts.getNbTimeSteps(); ++t)
+				for(size_t t=0; t<parts.getNbTimeSteps(); ++t)
 				{
 				    string velfile;
 				    #pragma omp critical

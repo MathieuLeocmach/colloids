@@ -256,7 +256,7 @@ int main(int argc, char ** argv)
 					tau = atoi(argv[2]);
 				cout<<"calculate velocities"<<endl;
 				#pragma omp parallel for schedule(runtime) shared(parts, tau, velSerie)
-				for(ssize_t t=0; t<parts.getNbTimeSteps(); ++t)
+				for(size_t t=0; t<parts.getNbTimeSteps(); ++t)
 				{
 					vector<Coord> vel = parts.velocities(t, (tau+1)/2);
 					ofstream v_f((velSerie%t).c_str(), ios::out | ios::trunc);

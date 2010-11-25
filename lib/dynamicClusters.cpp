@@ -32,7 +32,7 @@ using namespace Colloids;
   */
 void Colloids::growCluster(std::set<size_t> &population, std::set<size_t> &cluster, size_t center, const NgbList &ngbs)
 {
-    for(ssize_t n=0;n<ngbs[center].size();++n)
+    for(size_t n=0;n<ngbs[center].size();++n)
     {
         //are we able to use this particle ?
         set<size_t>::iterator toBeRemoved = population.find(ngbs[center][n]);

@@ -72,8 +72,7 @@ namespace Colloids
 			std::string name;
 
 			DynamicField(const TrajIndex &ti, const size_t &averaging, const std::string &name="") :
-				name(name), trajectories(ti), actual_time(0),
-				values(ti.nbFrames()), averaging(averaging)
+				values(ti.nbFrames()), trajectories(ti), averaging(averaging), actual_time(0), name(name)
 			{
 				for(size_t t=0; t<ti.nbFrames(); ++t)
 					this->values.push_back(new std::vector<V>(ti.getInverse(t).size(), getNull()));
@@ -83,8 +82,8 @@ namespace Colloids
 			DynamicField(const TrajIndex &ti, boost::ptr_vector< std::vector<V> > &values, const std::string &name="")
 				: trajectories(ti), name(name) {this->values.swap(values);};
 			DynamicField(const DynamicField &d)
-				: name(d.name), trajectories(d.trajectories), divisors(d.divisors),
-				values(d.values), averaging(d.averaging), actual_time(d.actual_time) {};
+				: values(d.values), divisors(d.divisors), trajectories(d.trajectories),
+				averaging(d.averaging), actual_time(d.actual_time), name(d.name) {};
 
 			void push_back(const Field<V> &frame);
 			void assign(boost::ptr_vector< std::vector<V> > &values){this->values.swap(values);};

@@ -234,7 +234,7 @@ void Tracker::makeLowPassMask(const boost::array<double,3> &radiiMin)
 		cout<<") ... ";
     }
     //boost::multi_array_ref<bool, 3>portion(data, halfdims);
-    double imin, imax, jmin, jmax;
+    double imax, jmax;
     size_t di=0,dj=0;
     //array_type_b::array_view<3>::type::array_view<1>::type line;
 

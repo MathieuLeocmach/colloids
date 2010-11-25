@@ -180,7 +180,7 @@ int main(int argc, char ** argv)
 		        #pragma omp single
                 show_progress = new boost::progress_display(atoi(argv[7]));
                 #pragma omp for
-                for(size_t t=0; t<atoi(argv[7]); t++)
+                for(size_t t=0; t<(size_t)atoi(argv[7]); t++)
                 {
                     string fname;
                     #pragma omp critical

@@ -35,14 +35,14 @@ using namespace Colloids;
 
 /** @brief Constructor from data. Take the ownership of the positions. No linking necessary  */
 DynamicParticles::DynamicParticles(const TrajMap &trajs, boost::ptr_vector<Particles>& positions, const double &rad,const double &time_step) :
-    trajectories(trajs), radius(rad), dt(time_step)
+    trajectories(trajs), dt(time_step), radius(rad)
 {
     this->positions.swap(positions);
 }
 
 /** @brief Constructor from data. Take the ownership of the positions and link them into trajectories.  */
 DynamicParticles::DynamicParticles(boost::ptr_vector<Particles>& positions, const double &rad,const double &time_step, const string &displFile, const size_t &offset) :
-    radius(rad), dt(time_step)
+    dt(time_step), radius(rad)
 {
     this->positions.swap(positions);
     removeDrift(displFile, offset);
@@ -51,14 +51,14 @@ DynamicParticles::DynamicParticles(boost::ptr_vector<Particles>& positions, cons
 
 /** @brief Constructor from files. Load the positions. No linking necessary  */
 DynamicParticles::DynamicParticles(const TrajMap &trajs, FileSerie &files, const double &rad,const double &time_step) :
-    trajectories(trajs), radius(rad), dt(time_step)
+    trajectories(trajs), dt(time_step), radius(rad)
 {
     fill(files);
 }
 
 /** @brief Constructor from files. Load the positions and link them into trajectories.  */
 DynamicParticles::DynamicParticles(FileSerie &files, const double &rad,const double &time_step) :
-    radius(rad), dt(time_step)
+    dt(time_step), radius(rad)
 {
     fill(files);
     removeDrift(files.head()+".displ", files.get_offset());
@@ -517,7 +517,7 @@ Coord DynamicParticles::getDrift(const vector<size_t>&selection,const size_t &t0
     if(selection.size()<2)
         return drift;
     #pragma omp parallel for
-    for(ssize_t tr=0;tr<selection.size();++tr)
+    for(size_t tr=0;tr<selection.size();++tr)
         drift += getDiff(selection[tr],t0,selection[tr],t1);
 
     drift/=(double)selection.size();
@@ -614,7 +614,7 @@ double DynamicParticles::getSD(const vector<size_t>&selection,const size_t &t0,c
     double result=0.0;
     Coord diff(3);
 
-    for(ssize_t tr=0;tr<selection.size();++tr)
+    for(size_t tr=0;tr<selection.size();++tr)
     {
         diff = getDiff(selection[tr],t0,selection[tr],t1);
         result += dot(diff, diff);
@@ -732,7 +732,7 @@ vector<double> DynamicParticles::getNonGaussian(const std::vector<size_t> &selec
 		for(size_t start=t0;start<t1;++start)
 			for(size_t stop=start+1;stop<=t1;++stop)
 			{
-				for(ssize_t tr=0;tr<selection.size();++tr)
+				for(size_t tr=0;tr<selection.size();++tr)
 				{
 					Coord diff(3);
 					diff = getDiff(selection[tr],t0,selection[tr],t1);
@@ -751,7 +751,7 @@ vector<double> DynamicParticles::getNonGaussian(const std::vector<size_t> &selec
     	{
     	    #pragma omp parallel for schedule(runtime)
 			for(size_t start=0;start<t3;++start)
-				for(ssize_t tr=0;tr<selection.size();++tr)
+				for(size_t tr=0;tr<selection.size();++tr)
 				{
 					Coord diff(3);
 					diff = getDiff(selection[tr],t0,selection[tr],t1);
@@ -784,7 +784,7 @@ void DynamicParticles::get_MSD_NGP(const std::vector<size_t> &selection, std::ve
 		for(size_t start=t0;start<t1;++start)
 			for(size_t stop=start+1;stop<=t1;++stop)
 			{
-				for(ssize_t tr=0;tr<selection.size();++tr)
+				for(size_t tr=0;tr<selection.size();++tr)
 				{
 					Coord diff(3);
 					diff = getDiff(selection[tr],t0,selection[tr],t1);
@@ -808,7 +808,7 @@ void DynamicParticles::get_MSD_NGP(const std::vector<size_t> &selection, std::ve
     	{
     	    #pragma omp parallel for schedule(dynamic)
 			for(size_t start=0;start<t3;++start)
-				for(ssize_t tr=0;tr<selection.size();++tr)
+				for(size_t tr=0;tr<selection.size();++tr)
 				{
 					Coord diff(3);
 					diff = getDiff(selection[tr],t0,selection[tr],t1);
@@ -838,7 +838,7 @@ vector<double> DynamicParticles::getISF(const vector<size_t> &selection,const Co
     #pragma omp parallel for schedule(runtime) private(innerProd)
     for(size_t t=t0;t<=t1;++t)
     {
-        for(ssize_t tr=0;tr<selection.size();++tr)
+        for(size_t tr=0;tr<selection.size();++tr)
         {
             innerProd = dot((*this)(selection[tr],t),q);
             A[t]+=cos(innerProd);
@@ -854,7 +854,7 @@ vector<double> DynamicParticles::getISF(const vector<size_t> &selection,const Co
     {
         for(size_t stop=start+1;stop<=t1;++stop)
         {
-            for(ssize_t tr=0;tr<selection.size();++tr)
+            for(size_t tr=0;tr<selection.size();++tr)
                 sumISF[stop-start] += A[stop]*A[start]+B[stop]*B[start];
             nb_per_interval[stop-start] += 1.0;
         }
@@ -903,9 +903,9 @@ vector<double> DynamicParticles::getSelfISF(const vector<size_t> &selection,cons
     vector< vector<double> > A(t1+t3-t0,vector<double>(nb_selection,0.0)), B=A;
     vector<double> sumISF(t1-t0,0.0);
     //#pragma omp parallel for shared(selection, t0, t3, q)
-    for(ssize_t t=0;t<A.size();++t)
+    for(size_t t=0;t<A.size();++t)
     {
-        for(ssize_t tr=0;tr<selection.size();++tr)
+        for(size_t tr=0;tr<selection.size();++tr)
         {
             const double innerProd = dot((*this)(selection[tr],t+t0), q);
             A[t][tr]=cos(innerProd);
@@ -1144,14 +1144,14 @@ vector<size_t> DynamicParticles::getLostNgbs(const size_t &tr,const size_t &t_fr
 	//convert the position index of the neighbours in time t_from to trajectory index
 	list<size_t> ngb_from, ngb_to;
 	const vector<size_t>& n_from = positions[t_from].getNgbList()[trajectories[tr][t_from]];
-	for(ssize_t p=0; p<n_from.size(); ++p)
+	for(size_t p=0; p<n_from.size(); ++p)
 		ngb_from.push_back(trajectories.getInverse(t_from)[n_from[p]]);
 	ngb_from.sort();
 	ngb_from.unique();
 
 	//same for t_to
 	const vector<size_t>& n_to = positions[t_to].getNgbList()[trajectories[tr][t_to]];
-	for(ssize_t p=0; p<n_to.size(); ++p)
+	for(size_t p=0; p<n_to.size(); ++p)
 		ngb_to.push_back(trajectories.getInverse(t_to)[n_to[p]]);
 	ngb_to.sort();
 	ngb_to.unique();
@@ -1193,7 +1193,7 @@ void splitByCageJump(const vector<Coord> &positions, const double &threshold, co
 {
     vector<double> separation(in.second-in.first+1);
     #pragma omp parallel for schedule(dynamic)
-    for(ssize_t t=in.first; t<(ssize_t)in.second; ++t)
+    for(size_t t=in.first; t<in.second; ++t)
     {
         //center of mass of both sub intervals
         Coord c1(3), c2(3);
@@ -1369,7 +1369,7 @@ void DynamicParticles::makeBoo(const size_t &t, const std::vector<size_t> &selec
 {
     allBoo.clear();
     size_t p;
-    for(ssize_t tr=0;tr<selection.size();++tr)
+    for(size_t tr=0;tr<selection.size();++tr)
         if(trajectories[selection[tr]].exist(t))
         {
             p = trajectories[selection[tr]][t];
@@ -1384,14 +1384,14 @@ void DynamicParticles::makeSBoo(const size_t &t, const std::vector<size_t> &sele
     SallBoo.clear();
     size_t p;
     map<size_t,BooData>::iterator it;
-    for(ssize_t tr=0;tr<selection.size();++tr)
+    for(size_t tr=0;tr<selection.size();++tr)
         if(trajectories[selection[tr]].exist(t))
         {
             p = trajectories[selection[tr]][t];
             it = SallBoo.insert(SallBoo.end(),make_pair(p,BooData()));
             vector<size_t> EuNgb = positions[t].getEuclidianNeighbours(positions[t][p],1.3*2.0*radius);
             //sum up the contribution of each neighbour including the particle itself.
-            for(ssize_t n=0;n<EuNgb.size();++n)
+            for(size_t n=0;n<EuNgb.size();++n)
                 (*it).second += (*allBoo.find(EuNgb[n])).second;
 
             (*it).second /= (double)(EuNgb.size());
@@ -1411,7 +1411,7 @@ void DynamicParticles::makeTimeAverage(const std::vector<size_t> &selection, con
     map<size_t,double>::iterator it;
     timeAveraged.assign((size_t)max(getNbTimeSteps()/(double)avgInterval,1.0),map<size_t,double>());
     for(size_t avt=0;avt<timeAveraged.size();++avt)
-        for(ssize_t tr=0;tr<selection.size();++tr)
+        for(size_t tr=0;tr<selection.size();++tr)
             if(trajectories[selection[tr]].span(avt*avgInterval,(avt+1)*avgInterval-1))
             {
                 it = timeAveraged[avt].insert(timeAveraged[avt].end(),std::make_pair(selection[tr],0.0));
@@ -1442,7 +1442,7 @@ void DynamicParticles::makeSlidingTimeAverage(
     for(size_t avt=0;avt<timeAveraged.size();++avt)
     {
     	//cout<<"avt="<<avt<<" keep trajectories spanning between "<<avt<<" and "<<avt+avgInterval-1<<endl;
-        for(ssize_t tr=0;tr<selection.size();++tr)
+        for(size_t tr=0;tr<selection.size();++tr)
             if(trajectories[selection[tr]].span(avt,avt+avgInterval-1))
             {
                 it = timeAveraged[avt].insert(timeAveraged[avt].end(),std::make_pair(selection[tr],0.0));
