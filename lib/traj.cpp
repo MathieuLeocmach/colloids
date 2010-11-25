@@ -165,6 +165,20 @@ size_t TrajIndex::getMaxTime() const
     return max;
 }
 
+/** @brief longest_span return the number of time steps that spans the longest trajectory  */
+size_t TrajIndex::longest_span() const
+{
+    vector<size_t> lengths(size());
+    transform(
+        this->begin(), this->end(),
+        lengths.begin(),
+        mem_fun_ref(&Traj::size)
+        );
+    return *max_element(lengths.begin(), lengths.end());
+}
+
+
+
 /** @brief count the number of trajectories in each time step  */
 vector<size_t> TrajIndex::getFrameSizes(const size_t &length) const
 {

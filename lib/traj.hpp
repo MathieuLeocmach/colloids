@@ -76,6 +76,7 @@ namespace Colloids
             size_t last_time() const;
             bool exist(const size_t &t) const;
             bool span(const size_t &t0,const size_t &t1) const;
+            size_t size() const {return steps.size();};
             size_t &operator[](const size_t &t) throw (TrajError);
             const size_t &operator[](const size_t &t) const throw (TrajError);
             void push_back(const size_t &pos);
@@ -124,6 +125,7 @@ namespace Colloids
             size_t nbFrames(void) const {return inverse.size();};
             void makeInverse(const std::vector<size_t> &frameSizes);
             size_t getMaxTime() const;
+            size_t longest_span() const;
             std::vector<size_t> getFrameSizes(const size_t &length=0) const;
 
             template<typename T>

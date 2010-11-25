@@ -693,6 +693,9 @@ vector<double> DynamicParticles::getMSD(const vector<size_t> &selection,const si
 */
 vector<double> DynamicParticles::getMSD(const size_t &t0,const size_t &t1,const size_t &t2) const
 {
+    if(trajectories.longest_span()<t1-t0)
+        throw invalid_argument("No trajectory is long enough ! Choose a shorter interval.");
+
     if(t2==0)
         return getMSD(selectSpanning(Interval(t0,t1+t2)),t0,t1,t2);
 
@@ -701,6 +704,8 @@ vector<double> DynamicParticles::getMSD(const size_t &t0,const size_t &t1,const 
     for(size_t start=t0; start<t2; ++start)
     {
         const vector<size_t> selection = selectSpanning(Interval(start, start+t1-t0));
+        if(selection.empty())
+            cerr<<"WARNING: no trajectory spanning ["<<start<<", "<<start+t1-t0<<"]"<<endl;
         const vector<double> singleMSD = getMSD(selection, start, start+t1-t0, 1);
         const double coef = selection.size();
         for(size_t t=0; t<MSD.size();++t)
@@ -939,6 +944,9 @@ vector<double> DynamicParticles::getSelfISF(const vector<size_t> &selection,cons
 /** \brief Self part of intermediate scatering function of time between t0 and t1 */
 vector<double> DynamicParticles::getSelfISF(const Coord &q,const size_t &t0,const size_t &t1,const size_t &t2) const
 {
+    if(trajectories.longest_span()<t1-t0)
+        throw invalid_argument("No trajectory is long enough ! Choose a shorter interval.");
+
     if(t2==0)
         return getSelfISF(selectSpanning(Interval(t0,t1+t2)),q,t0,t1,t2);
 
@@ -961,6 +969,9 @@ vector<double> DynamicParticles::getSelfISF(const Coord &q,const size_t &t0,cons
 /** \brief Get Self ISF averaged over the three axis */
 vector<double> DynamicParticles::getSelfISF(const size_t &t0,const size_t &t1,const size_t &t2) const
 {
+    if(trajectories.longest_span()<t1-t0)
+        throw invalid_argument("No trajectory is long enough ! Choose a shorter interval.");
+
     vector< Coord > q(3, Coord(0.0,3));
     for(size_t d=0;d<3;++d)
         q[d][d] = M_PI/radius;
