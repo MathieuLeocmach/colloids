@@ -50,7 +50,6 @@
 #include "radiiTracker.hpp"
 #include <boost/progress.hpp>
 #include <boost/format.hpp>
-#include "config.h"
 
 namespace po = boost::program_options;
 using namespace std;
