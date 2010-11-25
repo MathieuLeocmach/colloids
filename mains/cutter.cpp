@@ -20,60 +20,88 @@
 #include "particles.hpp"
 #include "files_series.hpp"
 #include <boost/progress.hpp>
+#include <boost/program_options.hpp>
 
+namespace po = boost::program_options;
 using namespace std;
 using namespace Colloids;
 
 int main(int argc, char ** argv)
 {
-    if(argc<4)
-    {
-        cout << "Syntax : cutter [path]filename radius minSep" << endl;
-        cout << "OR : cutter [path]filename token radius t_span t_offset minSep" << endl;
-        cout << " minSep is in diameter unit" << endl;
-        return EXIT_FAILURE;
-    }
-
-    const string filename(argv[1]);
-    const string inputPath = filename.substr(0,filename.find_last_of("."));
-    const string ext = filename.substr(filename.find_last_of(".")+1);
-    double radius,minSep;
-
     try
     {
-        if(argc>4)
+        string filename, token, outputPostfix;
+        double minSep;
+        size_t t_offset;
+        po::options_description
+            compulsory_options("Compulsory options"),
+            additional_options("Additional options"),
+            cmdline_options("Command-line options");
+        compulsory_options.add_options()
+            ("input", po::value<string>(&filename), "input file or pattern")
+            ("minSep", po::value<double>(&minSep), "Minimum separation between particles (in pixels)")
+            ;
+        po::positional_options_description pd;
+        pd.add("input", 1);
+        pd.add("minSep", 2);
+        additional_options.add_options()
+            ("help", "produce help message")
+            ("token", po::value<string>(&token)->default_value("_t"), "Token delimiting time step number (for time series only)")
+            ("span", po::value<size_t>(), "Number of time steps to process (compulsory for time series)")
+            ("offset", po::value<size_t>(&t_offset)->default_value(0), "Starting time step")
+            ("both", "Removes both particles if they are closer than minSep (removes only the second one by default, ie the dimmer one)")
+            ("outputPostfix,o", po::value<string>(&outputPostfix)->default_value(""), "If empty output prefix is given, overwrites the files.")
+            ;
+
+        cmdline_options.add(compulsory_options).add(additional_options);
+
+        po::variables_map vm;
+        po::store(po::command_line_parser(argc, argv).
+                  options(cmdline_options).positional(pd).run(), vm);
+
+        if (vm.count("help") || (!vm.count("input") && !vm.count("minSep")))
+        {
+            cout << "cutter input minSep [options]\n";
+            cout << cmdline_options << "\n";
+            return EXIT_SUCCESS;
+        }
+        po::notify(vm);
+
+        const string inputPath = filename.substr(0,filename.find_last_of("."));
+        const string ext = filename.substr(filename.find_last_of(".")+1);
+
+        if(vm.count("span"))
         {
             cout<<"file serie"<<endl;
-            const string token(argv[2]);
-            radius = atof(argv[3]);
-            const size_t t_span = atoi(argv[4]),
-					t_offset = atoi(argv[5]);
-            minSep = atof(argv[6]);
-            const double sep = 2.0*radius*minSep;
-
-            FileSerie datSerie(filename, token, t_span, t_offset);
-            boost::progress_display show_progress(t_span);
-            for(size_t t=0; t<t_span; ++t)
-            {
-                Particles(datSerie%t).cut(sep).exportToFile(datSerie%t);
-                ++show_progress;
-            }
+            FileSerie datSerie(filename, token, vm["span"].as<size_t>(), t_offset),
+                outSerie = datSerie.addPostfix(outputPostfix, ".dat");
+            boost::progress_display show_progress(vm["span"].as<size_t>());
+            if(vm.count("both"))
+                for(size_t t=0; t<vm["span"].as<size_t>(); ++t)
+                {
+                    Particles parts(datSerie%t);
+                    parts.makeRTreeIndex();
+                    parts.removeShortRange(minSep).exportToFile(outSerie%t);
+                    ++show_progress;
+                }
+            else
+                for(size_t t=0; t<vm["span"].as<size_t>(); ++t)
+                {
+                    Particles(datSerie%t).cut(minSep).exportToFile(outSerie%t);
+                    ++show_progress;
+                }
         }
         else
-        {
-            if(argc<4)
+            if(vm.count("both"))
             {
-                cout << "Syntax : cutter [path]filename radius minSep" << endl;
-                cout << "OR : cutter [path]filename token radius t_span t_offset minSep" << endl;
-                cout << " minSep is in diameter unit" << endl;
-                return EXIT_FAILURE;
+                Particles parts(filename);
+                parts.makeRTreeIndex();
+                parts.removeShortRange(minSep).exportToFile(inputPath+outputPostfix+".dat");
             }
-            radius = atof(argv[2]);
-            minSep = atof(argv[3]);
+            else
+                Particles(filename).cut(minSep).exportToFile(inputPath+outputPostfix+".dat");
 
-            const double sep = 2.0*radius*minSep;
-            Particles(filename).cut(sep).exportToFile(filename);
-        }
+
     }
     catch(const exception &e)
     {

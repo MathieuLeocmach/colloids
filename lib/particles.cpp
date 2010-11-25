@@ -108,12 +108,14 @@ Particles Particles::cut(const double &sep) const
   */
 Particles Particles::removeShortRange(const double &sep) const
 {
+    if(!this->hasIndex())
+        throw std::logic_error("Set a spatial index before doing spatial queries !");
     Particles out;
     out.bb = this->bb;
     out.reserve(this->size());
-    for(const_iterator p = this->begin(); p!=this->end();++p)
-        if(getEuclidianNeighbours(*p, sep).empty())
-            out.push_back(*p);
+    for(size_t p = 0; p!=this->size();++p)
+        if(getEuclidianNeighbours(p, sep).empty())
+            out.push_back((*this)[p]);
     return out;
 }
 
@@ -144,7 +146,7 @@ Particles& Particles::operator+=(const Coord &v)
 {
     bb+=v;
     #pragma omp parallel for
-    for(ssize_t p=0; p<size(); ++p)
+    for(size_t p=0; p<size(); ++p)
         (*this)[p] += v;
 
     if(hasIndex())
