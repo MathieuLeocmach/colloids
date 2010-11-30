@@ -27,7 +27,7 @@ import os, os.path, subprocess
 import re, string, math
 from math import exp
 from colloids import vtk, statistics
-from pygraph.classes.Graph import graph
+from pygraph.classes.graph import graph
 from pygraph.algorithms.accessibility import connected_components
 
 
@@ -314,7 +314,7 @@ class Experiment:
 
     def lost_ngb_profile(self, t, Nbins=50, vf=False):
         """output the lost neighbour profile. Default unit is pixel^-3, or volume fraction"""
-        lngb = np.loadtxt(self.get_format_string(ext='lngb')%t)
+        lngb = np.loadtxt(self.get_format_string('_post', ext='lngb')%t)
         pos = np.loadtxt(self.get_format_string()%t, skiprows=2)
         H, xedges, yedges = np.histogram2d(pos[:,-1], lngb, bins=[Nbins,2])
         H /= pos.ptp(axis=0).prod()/Nbins
@@ -324,6 +324,21 @@ class Experiment:
             self.get_format_string('_lngb','hist')%t,
             np.column_stack((xedges[:-1], H))
             )
+        
+    def traj_crea_dest(self):
+        """The creation and destruction time for each trajectory"""
+        crea = []
+        dest = []
+        with open(os.path.join(self.path,self.trajfile),'r') as f:
+            for l, line in enumerate(f):
+                if l==3:
+                    break
+            for line in f:
+                t0 = int(line[:-1])
+                crea.append(t0)
+                dest.append(t0+len(string.split(f.next()[:-1],'\t')))
+        return np.column_stack((crea, dest))
+                            
     def vtk_tracking(self):
         #read all trajectories
         trajs = []
@@ -713,7 +728,7 @@ Return a dictionary (particle id -> cluster id)
     
 
 
-def br(radius, T=28, eta28C=2.00139e-3, detadT=-0.03):
+def br(radius, T=28, eta28C=2.00139e-3, detadT=-0.03e-3):
         """Brownian time is the time for a particle to diffuse over it\'s own radius (in meters)"""
         return const.pi * (eta28C+(T-28)*detadT) * (radius**3) / (const.k * const.C2K(T))
 
@@ -750,6 +765,7 @@ multipleStrechedExp = lambda p, ts, ys: np.asarray([
     for u in p[0] * np.exp(-(t/tau)**beta) - y
     ])
 VogelFulcherTammann = lambda p, phi: p[0]*np.exp(p[1]*phi/(p[2]-phi))
+errfun_msd = lambda D, t, y: np.log(6*D) + np.log(t) - np.log(y)
 
 def fit_OrnsteinZernike(g6, envelope, p0=[1,1]):
     fitfunc = OrnsteinZernike3D
