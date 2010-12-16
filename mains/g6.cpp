@@ -28,11 +28,11 @@ int main(int argc, char ** argv)
 	invalid_argument er(
 		"Bond angle correlation function\n"
 #ifdef use_periodic
-		"Syntax : periodic_g6 [path]filename radius NbOfBins range Nb dx dy dz [mode=0 [l=6]]\n"
+		"Syntax : periodic_g6 [path]filename NbOfBins Nb dx dy dz [mode=0 [l=6]]\n"
 #else
 		"Syntax : g6 [path]filename radius NbOfBins range [mode=0 [l=6 [zmin zmax]]]\n"
-#endif
 		" range is in diameter unit\n"
+#endif
 		" mode\t0 raw boo\n"
 		"     \t1 coarse grained boo\n"
 		);
@@ -40,31 +40,36 @@ int main(int argc, char ** argv)
     try
     {
 
-		if(argc<5) throw er;
+		if(argc<3) throw er;
 
 		const string filename(argv[1]);
 		const string inputPath = filename.substr(0,filename.find_last_of("."));
-		const double radius = atof(argv[2]),
-				nbDiameterCutOff = atof(argv[4]);
-		const size_t Nbins = atoi(argv[3]);
 
 		vector<size_t> inside;
 
 		//construct the particle container out of the datafile
 #ifdef use_periodic
-		if(argc<9) throw er;
-		const size_t Nb = atoi(argv[5]);
+		if(argc<7) throw er;
+		const size_t Nbins = atoi(argv[2]);
+		const size_t Nb = atoi(argv[3]);
+		double nbDiameterCutOff =atof(argv[4]);
 		BoundingBox b;
 		for(size_t d=0;d<3;++d)
 		{
 			b.edges[d].first=0.0;
-			b.edges[d].second = atof(argv[6+d]);
+			b.edges[d].second = atof(argv[4+d]);
+			if(nbDiameterCutOff>b.edges[d].second)
+                nbDiameterCutOff=b.edges[d].second;
 		}
-		const bool mode = (argc<10)?0:atoi(argv[9]);
-		const size_t l = (argc<11)?6:atoi(argv[10]);
-		PeriodicParticles Centers(Nb,b,filename,radius);
+		nbDiameterCutOff /=4.0;
+		const bool mode = (argc<8)?0:atoi(argv[7]);
+		const size_t l = (argc<9)?6:atoi(argv[8]);
+		PeriodicParticles Centers(Nb,b,filename,1.0);
 		cout << "With periodic boundary conditions"<<endl;
 #else
+        const double radius = atof(argv[2]),
+				nbDiameterCutOff = atof(argv[4]);
+        const size_t Nbins = atoi(argv[3]);
         const bool mode = (argc<6)?0:atoi(argv[5]);
         const size_t l = (argc<7)?0:atoi(argv[6]);
 		Particles Centers(filename,radius);
@@ -129,14 +134,15 @@ int main(int argc, char ** argv)
 #endif
         vector<size_t> nb(Nbins, 0);
         vector<double> gl(Nbins, 0.0);
+        const double maxdistsq = pow(2.0*nbDiameterCutOff, 2);
         for(size_t p=0; p<Centers.size(); ++p)
             for(size_t q=p+1; q<Centers.size(); ++q)
             {
                 Coord diff = Centers.getDiff(p, q);
                 const double distsq = (diff*diff).sum();
-                if(distsq<pow(2.0*radius*nbDiameterCutOff, 2))
+                if(distsq<maxdistsq)
                 {
-                    const size_t r = sqrt(distsq) / (2.0*radius*nbDiameterCutOff) * Nbins;
+                    const size_t r = sqrt(distsq) / (2.0*nbDiameterCutOff) * Nbins;
                     nb[r]++;
                     gl[r] += allBoo[p].innerProduct(allBoo[q], l);
                 }
