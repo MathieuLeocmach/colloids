@@ -487,7 +487,8 @@ class Txp:
         """Remove trajectories having at least a null value in the field given by postfix, ext and col"""
         field = np.zeros((self.trajs.shape[1], self.trajs.shape[0]))
         for t, fname in self.xp.enum(postfix=postfix, ext=ext):
-            field[t] = np.loadtxt(fname, usecols=[col])[self.trajs[:,t]]
+            if t<self.trajs.shape[1]:
+                field[t] = np.loadtxt(fname, usecols=[col])[self.trajs[:,t]]
         selection = np.where(field.min(axis=0)!=0.0)[0]
         self.trajs = self.trajs[selection]
         self.positions = self.positions[:,selection]
@@ -561,8 +562,8 @@ class Txp:
                     #average is done over all trajectories and the 3 dimensions
                     msd[dt+1] += ((b-a)**2).sum()
             msd /= A.shape[1] * (self.xp.radius*2)**2
-            for dt, n in enumerate(range(stop-start,0,-1)):
-                msd[dt+1] /= n
+            for dt in range(len(A)):
+                msd[dt] /= len(A)-dt
             return msd
         else:
             for t0, a in enumerate(A[:av]):
@@ -809,6 +810,16 @@ def fit_normaized_vft(tau, p0 = [0.5, 0.62]):
     p1, success = optimize.leastsq(errfunc, p0[:], args=(tau[:,0], tau[:,1]))
     return p1
 
+def normalize_rdf(a):
+    """Removes the linear component of the unnormalized rdf by fitting its second half"""
+    u, v = leastsq(
+            lambda p, x, y: p[0]+p[1]*x-y,
+            [40, 1],
+            args=(a[len(a)/2:,0], a[len(a)/2:,1]))[0]
+    b = np.copy(a)
+    b[:,1] /= (u + v * a[:,0])
+    return b
+
 def envelope(g6, smooth=1.0):
     #smooth g6
     sg6 = gaussian_filter1d(np.copy(g6[:,1]),smooth)
@@ -842,19 +853,16 @@ def rdf2Sq(rdf, rho, qmin=None, qmax=None):
     s[:,1] += 1
     return s
 
-def find_peaks(a):
+def find_peak_mins(a):
     """Find global maxima of decreasing intensity separated by a global minimum. Usefull for rdf"""
-    p=0
-    peaks = []
-    while p+1<len(a):
-            m = 1 +p + np.argmin(a[p+1:])
-            if m == len(a)-1:
+    peaks = [a.argmax()]
+    mins = []
+    while peaks[-1]<len(a)-1:
+            mins.append(peaks[-1] + a[peaks[-1]:].argmin())
+            if mins[-1]==len(a)-1:
                     break
-            p = 1 + m + np.argmax(a[m+1:])
-            if p == len(a)-1:
-                    break
-            peaks.append(p)
-    return peaks
+            peaks.append(mins[-1] + a[mins[-1]:].argmax())
+    return peaks, mins
 
 def get_clusters(bonds):
     """Returns a list of clusters"""
