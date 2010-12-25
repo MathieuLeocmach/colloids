@@ -670,6 +670,8 @@ centroid::centroid(const boost::multi_array_ref<float,3> & im) : image(im)
 /** \brief get the centroid of the neighbourhood of an image pixel given by it's offset */
 valarray<double> centroid::operator()(const size_t& l) const
 {
+    const int scope = 1;
+    //convert the raveled index to 3D indices
 	size_t
 		i = l / image.strides()[0],
 		j = (l % image.strides()[0]) / image.strides()[1],
@@ -679,9 +681,9 @@ valarray<double> centroid::operator()(const size_t& l) const
 	//the data of the neighbourhood view are copied together for the coder's sanity
 	boost::multi_array<float,3> ngb =
 		image[boost::indices
-				[image.shape()[0]<3 ? range() : range(i-1, i+2)]
-				[image.shape()[1]<3 ? range() : range(j-1, j+2)]
-				[image.shape()[2]<3 ? range() : range(k-1, k+2)]
+				[image.shape()[0]<2*scope+1 ? range() : range(i-scope, i+scope+1)]
+				[image.shape()[1]<2*scope+1 ? range() : range(j-scope, j+scope+1)]
+				[image.shape()[2]<2*scope+1 ? range() : range(k-scope, k+scope+1)]
 			];
     //Find the extrema of the neighbourhood.
     std::pair<float*, float*> minmax = boost::minmax_element(ngb.origin(), ngb.origin()+ngb.num_elements());
@@ -692,9 +694,30 @@ valarray<double> centroid::operator()(const size_t& l) const
 	if(image.origin()[l] != *minmax.second)
         return valarray<double>(-1.0, 3);
 
+	//calculation of the intensity centroid
+	valarray<double> c(0.0,3);
+	double total_w = 0.0;
+	float *px = ngb.origin();
+	for(int x=0; x<ngb.shape()[0];++x)
+        for(int y=0; y<ngb.shape()[1];++y)
+            for(int z=0; z<ngb.shape()[2];++z)
+            {
+                const double weight = pow(x-scope, 2) + pow(y-scope, 2) + pow(z-scope, 2) * (double)(*px);
+                c[0] += (x-scope)*weight;
+                c[1] += (y-scope)*weight;
+                c[2] += (z-scope)*weight;
+                total_w += weight ;
+                px++;
+            }
+    //cout<<c[0]<<"\t"<<c[1]<<"\t"<<c[2]<<endl;
+    //cout<<"divide by a weight of "<<total_w<<endl;
+    c /= total_w/pow(2*scope+1, 2);
+    //cout<<c[0]<<"\t"<<c[1]<<"\t"<<c[2]<<endl;
+    //c /= (double)accumulate(ngb.origin(), ngb.origin()+ngb.num_elements(), 0.0);
+
 	//double sum = accumulate(ngb.origin(),ngb.origin()+ngb.num_elements(),0.0);
 	//cout<<"valarrays ... ";
-	valarray<double> c(0.0,3), pos(0.0,3), middle(0.0,3);
+	/*valarray<double> c(0.0,3), pos(0.0,3), middle(0.0,3);
 	for(size_t d=0; d<3;++d)
 		middle[d] = ngb.shape()[d]/3;
 	float *v = ngb.origin();
@@ -705,7 +728,7 @@ valarray<double> centroid::operator()(const size_t& l) const
 	c /= image.origin()[l];//pow(image.origin()[l], 2.0f);
 
 	for(size_t d=0;d<3;++d)
-        c[d] = (c[d]<0?-1:1) * sqrt(abs(c[d]))/4.5;
+        c[d] = (c[d]<0?-1:1) * sqrt(abs(c[d]))/4.5;*/
 	c[0] += i;
 	c[1] += j;
 	c[2] += k;
