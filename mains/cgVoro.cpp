@@ -58,10 +58,9 @@ class VoroContainer : public container
                 #endif
         };
 
-        void get_cgVolumes(vector<double> &cgVolumes)
+        void get_volumes(vector<double> &volumes)
         {
-            vector<double> volumes(cgVolumes.size(),0.0);
-            neighbours.resize(cgVolumes.size());
+            neighbours.resize(volumes.size());
             {
                 //compute voronoi diagram and export it in a memory buffer (only way get data from voro++)
                 stringstream buffer;
@@ -81,6 +80,12 @@ class VoroContainer : public container
             //sort ngbs
             for(vector< vector<int> >::iterator p = neighbours.begin(); p!= neighbours.end(); ++p)
                 sort(p->begin(), p->end());
+        };
+
+        vector<double> get_cgVolumes(vector<double> &cgVolumes)
+        {
+            vector<double> volumes(cgVolumes.size());
+            this->get_volumes(volumes);
             //coarse grain the volumes
             vector<size_t> div(cgVolumes.size(),0);
             for(size_t p=0; p<cgVolumes.size(); ++p)
@@ -124,6 +129,7 @@ class VoroContainer : public container
                 else
                     secondChance.push_back(p);
             }
+            return volumes;
         }
 
         /**	\brief get the index of the particles neighbouring any wall and the index of the particles neighbouring them */
@@ -234,7 +240,8 @@ int main(int argc, char ** argv)
 				outsideSerie = datSerie.changeExt(".outside"),
 				secondOutsideSerie = datSerie.changeExt(".outside2");
 			#endif
-			FileSerie volSerie = datSerie.addPostfix("_space", ".vol"),
+			FileSerie volSerie = datSerie.changeExt(".vol"),
+                cgVolSerie = datSerie.addPostfix("_space", ".vol"),
 				bondSerie = datSerie.addPostfix("_voro", ".bonds");
 
             boost::progress_display *showProgress;
@@ -269,16 +276,22 @@ int main(int argc, char ** argv)
                     }
                     VoroContainer con(parts, false);
                     #endif
-                    vector<double> cgVolumes(parts.size(),0.0);
-                    con.get_cgVolumes(cgVolumes);
+                    vector<double> cgVolumes(parts.size(),0.0),
+                        volumes = con.get_cgVolumes(cgVolumes);
 
                     //export
                     ofstream out((volSerie%t).c_str(), ios::out | ios::trunc);
                     copy(
-                        cgVolumes.begin(), cgVolumes.end(),
+                        volumes.begin(), volumes.end(),
                         ostream_iterator<double>(out, "\n")
                         );
 					out.close();
+					ofstream outcg((cgVolSerie%t).c_str(), ios::out | ios::trunc);
+                    copy(
+                        cgVolumes.begin(), cgVolumes.end(),
+                        ostream_iterator<double>(outcg, "\n")
+                        );
+					outcg.close();
 
 					ofstream bondfile((bondSerie%t).c_str(), ios::out | ios::trunc);
 					con.print_bonds(bondfile);
