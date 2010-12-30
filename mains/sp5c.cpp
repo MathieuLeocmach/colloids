@@ -29,7 +29,10 @@ int main(int argc, char ** argv)
     {
 		if(argc<2)
 		{
-			cerr<<"syntax: sp5c [path]filename"<<endl;
+			cout<<"syntax: sp5c [path]filename"<<endl;
+			cout<<"Find the pairs of bounded particles sharing 5 neighbours in a ring. Export"<<endl;
+			cout<<"\t - filename.sp5c: the composition of the 7 particle cluster with the spindle particles first and then the ring"<<endl;
+			cout<<"\t - filename.n7a: the number of pairs each particle beongs to"<<endl;
 			return EXIT_FAILURE;
 		}
 
@@ -113,7 +116,15 @@ int main(int argc, char ** argv)
         assert(sp5c.size()%7==0);
         cout<<sp5c.size()/7<<" pairs with 5 common neighbours in a ring"<<endl;
 
-        cout<<"bond orientational order"<<endl;
+        ofstream out((inputPath+".sp5c").c_str());
+        copy(sp5c.begin(), sp5c.end(), ostream_iterator<size_t>(out, " "));
+        out.close();
+
+        ofstream out2((inputPath+".n7a").c_str());
+        copy(spindle.begin(), spindle.end(), ostream_iterator<size_t>(out2, "\n"));
+        out2.close();
+
+        /*cout<<"bond orientational order"<<endl;
         vector<BooData> qlm(parts.size());
         parts.getBOOs(qlm);
 
@@ -145,7 +156,7 @@ int main(int argc, char ** argv)
         copy(spindle.begin(), spindle.end(), ostream_iterator<size_t>(out, " "));
 
 
-        out.close();
+        out.close();*/
 
     }
     catch(const exception &e)
