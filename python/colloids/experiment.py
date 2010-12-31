@@ -23,6 +23,7 @@ import scipy.constants as const
 from scipy.ndimage.filters import gaussian_filter1d
 from scipy.ndimage.morphology import grey_dilation
 from scipy import optimize
+from scipy.optimize import leastsq
 import os, os.path, subprocess
 import re, string, math
 from math import exp
@@ -834,6 +835,29 @@ def envelope(g6, smooth=1.0):
     #sel = list(np.where(denv[1:]<0)[0])+[len(env)-1]
     #env = env[sel]
     return env
+
+def fit_cg6(infile, crop=None, rmin=2, rmax=10):
+	#a file.g6 has collums : r, N, N*g_6, N*G_6
+	data = np.loadtxt(infile)
+	#remove the begining of the table with N=0
+	blank = np.where(data[:,1]==0)[0][-1]
+	assert blank < len(data)-1
+	data = data[blank+1:]
+	if crop is not None and crop>0:
+		data = data[:-crop]
+	#smooth the data
+	cg6 = gaussian_filter1d(data[:,3]/data[:,1], rmin)
+	#high-pass filter to transform the function into an oscillatory decaying function
+	#extract peaks from it
+	peaks, mins = xp.find_peak_mins(cg6-gaussian_filter1d(cg6, rmax))
+	#remove the peaks with negative values
+	peaks = [p for p in peaks if cg6[p]>0]
+	params = leastsq(
+	    lambda p, x, y: np.log(p[0]/x*np.exp(-x/p[1]))-np.log(y),
+	    [2,3],
+	    args=(data[peaks,0], cg6[peaks])
+	    )[0]
+	return params, np.column_stack((data[:,0], cg6)), peaks
 
 def rdf2Sq(rdf, rho, qmin=None, qmax=None):
     """Calculate the radial Fourier transform of rdf(r) and normalize it to get the structure factor S(q)"""
