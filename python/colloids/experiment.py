@@ -836,22 +836,26 @@ def envelope(g6, smooth=1.0):
     #env = env[sel]
     return env
 
-def fit_cg6(infile, crop=None, rmin=2, rmax=10):
-	#a file.g6 has collums : r, N, N*g_6, N*G_6
+def fit_cg6(infile, crop=None, remove_peaks=[], rmin=2, rmax=10):
+	#a file.cg6 has 3 columns : r, N, N*G_6
 	data = np.loadtxt(infile)
+	#remove the end of the table if long time correlations are wrong
+	if crop is not None:
+		data = data[:crop]
 	#remove the begining of the table with N=0
-	blank = np.where(data[:,1]==0)[0][-1]
-	assert blank < len(data)-1
-	data = data[blank+1:]
-	if crop is not None and crop>0:
-		data = data[:-crop]
+	blank = np.where(data[:,1]==0)[0]
+	if len(blank)>0 and (blank[-1] < len(data)-1):
+            data = data[blank[-1]+1:]
+        #remove all values for r<1.5
+        data = data[np.searchsorted(data[:,0],1):]
 	#smooth the data
-	cg6 = gaussian_filter1d(data[:,3]/data[:,1], rmin)
+	cg6 = gaussian_filter1d(data[:,-1]/data[:,1], rmin)
 	#high-pass filter to transform the function into an oscillatory decaying function
 	#extract peaks from it
-	peaks, mins = xp.find_peak_mins(cg6-gaussian_filter1d(cg6, rmax))
+	peaks, mins = find_peak_mins(cg6*data[:,0]-gaussian_filter1d(cg6*data[:,0], rmax))
 	#remove the peaks with negative values
 	peaks = [p for p in peaks if cg6[p]>0]
+	peaks = [p for i,p in enumerate(peaks) if i not in remove_peaks]
 	params = leastsq(
 	    lambda p, x, y: np.log(p[0]/x*np.exp(-x/p[1]))-np.log(y),
 	    [2,3],
