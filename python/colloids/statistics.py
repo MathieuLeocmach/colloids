@@ -89,6 +89,21 @@ def time_correlation(data, av=10):
     else:
         return np.mean([timecorrel(data[t0:len(data)+t0-av]) for t0 in range(av)], axis=0)
 
+def space_correlation(positions, values, bins):
+    """spatial correlation of a scalar observable"""
+    v = values - values.mean()
+    total = np.zeros(len(bins)-1, values.dtype)
+    rdf = np.zeros_like(total)
+    for p, u in zip(positions, np.conjugate(v)):
+	distsq = np.sum((positions-p)**2, axis=-1)
+	h = np.histogram(distsq, bins=bins, weights=v*u)[0]
+	n = np.histogram(distsq, bins=bins)[0]
+	rdf += n
+	nonzero = n>0
+	total[nonzero] += h[nonzero]/n[nonzero]
+    return total/(v*np.conj(v)).sum(), rdf/bins[1:]**2
+
+
 def pca(data):
     cov = np.cov(data.T)
     evalues, evect = np.linalg.eig(cov)
