@@ -32,10 +32,11 @@ def plot2dhist(datax, datay, title=None, bins=50, normed=False, cbmax=None, cbmi
     g('set cbrange [%g:%g]' % (low-(cbmax-low)/100, cbmax))
     g.splot(Gnuplot.GridData(h2, bx2, by2, binary=0))
 
-def meanMap1D(x, y, values, bins=50):
-    number, b = np.histogram(x, y, bins)
-    total, b = np.histogram(x, y, bins=b, weights=values)
-    return np.where(number==0, -1, total/number), b[:-1]
+def meanMap1D(x, values, bins=50):
+    number, b = np.histogram(x, bins)
+    total, b = np.histogram(x, bins=b, weights=values)
+    selection = np.where(number>0)
+    return b[selection], total[selection]/number[selection], number[selection]
 
 def meanMap(x, y, values, bins=50):
     number, bx, by = np.histogram2d(x, y, bins)
@@ -88,6 +89,25 @@ def time_correlation(data, av=10):
         return c
     else:
         return np.mean([timecorrel(data[t0:len(data)+t0-av]) for t0 in range(av)], axis=0)
+
+def correlate_qlm(qlm, average=True):
+    qlm_cor = np.real(qlm*np.conj(qlm[0]))[:,:,[0]+2*range(1,qlm.shape[-1])].sum(axis=-1)
+    if average:
+            return (qlm_cor/qlm_cor[0]).mean(axis=-1)
+    else:
+            return qlm_cor/qlm_cor[0]
+
+def time_correlation_qlm(qlm, av=10):
+    if av==0:
+        c = np.zeros(len(qlm), float)
+        for t0 in range(len(qlm)-1):
+            c[:len(qlm)-t0] += correlate_qlm(qlm[t0:])
+        for dt in range(len(c)):
+            c[dt] /= len(c)-dt
+        return c
+    else:
+        return np.mean([correlate_qlm(qlm[t0:len(qlm)+t0-av]) for t0 in range(av)], axis=0)
+
 
 def space_correlation(positions, values, bins):
     """spatial correlation of a scalar observable"""
