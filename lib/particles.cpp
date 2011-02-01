@@ -412,6 +412,7 @@ void Particles::getBOOs(std::vector<BooData> &BOO) const
 
 /**
     \brief get the bond orientational order for a selection of particles
+    \callgraph
 */
 void Particles::getBOOs(const vector<size_t> &selection, std::vector<BooData> &BOO) const
 {
@@ -422,6 +423,7 @@ void Particles::getBOOs(const vector<size_t> &selection, std::vector<BooData> &B
 
 /**
     \brief get the coarse grained bond orientational order for all particles
+    \callgraph
 */
 void Particles::getCgBOOs(const vector<size_t> &selection, const std::vector<BooData> &BOO, std::vector<BooData> &cgBOO) const
 {

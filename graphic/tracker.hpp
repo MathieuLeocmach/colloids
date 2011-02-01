@@ -40,7 +40,9 @@ extern "C" {
 //#include <CImg.h>
 #include <boost/multi_array.hpp>
 namespace Colloids{
-/** \brief basic tracker class containing the tracking algorythm*/
+/** \brief basic tracker class containing the tracking algorythm
+    \ingroup graphic
+*/
 class Tracker
 {
     public:
@@ -123,6 +125,8 @@ class Tracker
 };
 
 /** \brief Virtual glue between Tracker and data source
+    \ingroup graphic
+
 Can be used as a stadard InputIterator
 */
 class TrackerIterator : public std::iterator<std::input_iterator_tag, Particles>
@@ -169,6 +173,8 @@ class TrackerIterator : public std::iterator<std::input_iterator_tag, Particles>
 };
 
 /** @brief fillImage (add the necessaray padding)
+    \ingroup graphic
+
 	Reading from formatted ascii input
 	\code
 	ifstream in("C:/Code_data/img.txt");
@@ -199,6 +205,8 @@ InputIterator Tracker::fillImage(InputIterator first)
 }
 
 /** @brief fill the Image from iterators thinking they are contening char when their content is in fact unsigned char
+    \ingroup graphic
+
 	Reading from a raw unsigned char image
 	(add the necessaray padding)
 	\code
@@ -233,7 +241,9 @@ InputIterator Tracker::fillImage_charToUchar(InputIterator first)
 	return first;
 }
 
-/** @brief fill a slice of the image (add the necessaray padding)*/
+/** @brief fill a slice of the image (add the necessaray padding)
+    \ingroup graphic
+    */
 template <class InputIterator>
 InputIterator Tracker::fillSlice(const size_t slice, InputIterator first)
 {
@@ -254,6 +264,8 @@ InputIterator Tracker::fillSlice(const size_t slice, InputIterator first)
 }
 
 /** @brief outputImage (removing the paddings)
+    \ingroup graphic
+
 	Writting to formatted ascii
 	\code
 		ofstream out("C:/Code_output/img.txt", ios_base::out | ios_base::trunc);
@@ -289,6 +301,7 @@ OutputIterator Tracker::copyImage(OutputIterator result) const
 }
 
 /** @brief output Image (with the paddings)
+    \ingroup graphic
 */
 template <class OutputIterator>
 OutputIterator Tracker::copyPaddedImage(OutputIterator result) const
@@ -297,6 +310,7 @@ OutputIterator Tracker::copyPaddedImage(OutputIterator result) const
 }
 
 /** @brief output Spectrum
+    \ingroup graphic
 */
 template <class OutputIterator>
 OutputIterator Tracker::copySpectrum(OutputIterator result) const

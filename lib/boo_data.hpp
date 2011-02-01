@@ -39,10 +39,14 @@ namespace Colloids
     //typedef tvmet::Vector<double, 3>            Coord;
 
     /** \brief Bond-Orientational-Order data
-     *  Coordinates qlm of the local symmetry on the pair spherical harmonics base Ylm(theta,phi)
+     *
+     *  Coordinates qlm of the local symmetry on the pair spherical harmonics base \f$Y_{lm}(\theta,\phi)\f$
+     *
      *   0 <= l <=10 (pair)
+     *
      *  -l <= m <=l
-     *  conjugate of Ylm is (-1)^m * Yl(-m) so only positive m coefficients are kept in memory
+     *
+     *  conjugate of \f$Y_{lm}\f$ is \f$(-1)^m Y_{l(-m)}\f$ so only positive m coefficients are kept in memory
     */
     class BooData : public std::valarray< std::complex<double> >
     {
