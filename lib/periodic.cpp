@@ -62,7 +62,7 @@ double PeriodicParticles::getNumberDensity() const
     \return list of all the particles
      Dummy function in the case of periodic boundary condition.
 */
-vector<size_t> PeriodicParticles::selectInside(const double &margin) const
+vector<size_t> PeriodicParticles::selectInside(const double &margin, const bool noZ) const
 {
     vector<size_t> inside(size());
     for(size_t i=0;i<size();++i)

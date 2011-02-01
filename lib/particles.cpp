@@ -168,7 +168,7 @@ double Particles::getAngle(const size_t &origin,const size_t &a,const size_t &b)
 }
 
 /** @brief Gives the indices of the particles inside a reduction of the total bonding box. Not using spatial index, thus slower.  */
-vector<size_t> Particles::selectInside_noindex(const double &margin) const
+vector<size_t> Particles::selectInside_noindex(const double &margin, const bool noZ) const
 {
 	Coord upper(0.0,3), lower = this->front();
 	for(const_iterator p=begin(); p!=end(); ++p)
@@ -177,8 +177,11 @@ vector<size_t> Particles::selectInside_noindex(const double &margin) const
 			upper[d] = max(upper[d], (*p)[d]);
 			lower[d] = min(lower[d], (*p)[d]);
 		}
-	upper -= margin;
-	lower += margin;
+    for(size_t d=0; d<3-noZ; ++d)
+    {
+        upper[d] -= margin;
+        lower[d] += margin;
+    }
 	vector<size_t> ret;
 	for(size_t p=0; p<size(); ++p)
 		if( ((*this)[p]<=upper).min() && (lower<=(*this)[p]).min() )

@@ -23,10 +23,10 @@ using namespace std;
 using namespace Colloids;
 
 /** @brief Get the indices of the objects contained inside a reduction of the maximum bounding box  */
-vector<size_t> SpatialIndex::getInside(const double &margin) const
+vector<size_t> SpatialIndex::getInside(const double &margin, const bool noZ) const
 {
     BoundingBox insideBox = getOverallBox();
-    for(size_t i=0;i<3;++i)
+    for(size_t i=0;i<3-noZ;++i)
         if(insideBox.edges[i].second-insideBox.edges[i].first>2*margin)
         {
             insideBox.edges[i].first  += margin;

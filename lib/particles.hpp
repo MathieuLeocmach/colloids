@@ -127,7 +127,7 @@ namespace Colloids
             virtual Coord getDiff(const Coord &from,const size_t &to) const;
             virtual Coord getDiff(const size_t &from,const size_t &to) const;
             virtual double getAngle(const size_t &origin,const size_t &a,const size_t &b) const;
-            virtual std::vector<size_t> selectInside_noindex(const double &margin) const;
+            virtual std::vector<size_t> selectInside_noindex(const double &margin, const bool noZ=false) const;
             void loadInside(std::vector<size_t> &inside) const;
 
             /** Index related   */
@@ -148,7 +148,7 @@ namespace Colloids
             const NgbList & getNgbList() const {return *this->neighboursList;};
             void delNgbList(){neighboursList.reset();};
             BondSet getBonds() const {return ngb2bonds(getNgbList());};
-            virtual std::vector<size_t> selectInside(const double &margin) const;
+            virtual std::vector<size_t> selectInside(const double &margin, const bool noZ=false) const;
 
 
             /**Bond Orientational Order related */
@@ -299,12 +299,12 @@ namespace Colloids
     }
 
     /** @brief get the indices of the particles inside a reduction of the maximum bounding box  */
-    inline std::vector<size_t> Particles::selectInside(const double &margin) const
+    inline std::vector<size_t> Particles::selectInside(const double &margin, const bool noZ) const
     {
         #ifndef NDEBUG
         if(!this->hasIndex()) throw std::logic_error("Set a spatial index before doing spatial queries !");
         #endif
-        return this->index->getInside(margin);
+        return this->index->getInside(margin, noZ);
     }
 
     /**	\brief Bin a couple of particles into the g and g6 histogram. */

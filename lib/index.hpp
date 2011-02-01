@@ -89,7 +89,7 @@ namespace Colloids
     class SpatialIndex : public BasicIndex<BoundingBox>
     {
         public:
-            virtual std::vector<size_t> getInside(const double &margin) const;
+            virtual std::vector<size_t> getInside(const double &margin, const bool noZ=false) const;
             /** @brief Translate index */
             virtual void operator+=(const Coord &v) = 0;
             virtual BoundingBox getOverallBox() const = 0;

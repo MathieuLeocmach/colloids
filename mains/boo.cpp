@@ -26,7 +26,7 @@
 using namespace std;
 using namespace Colloids;
 
-void calculateBoo(Particles &parts, const string& filename, bool quiet=false)
+void calculateBoo(Particles &parts, const string& filename, const bool noZ=false, bool quiet=false)
 {
     const string inputPath = filename.substr(0,filename.find_last_of("."));
     const string ext = filename.substr(filename.find_last_of(".")+1);
@@ -38,8 +38,8 @@ void calculateBoo(Particles &parts, const string& filename, bool quiet=false)
     {
         BondSet bonds = loadBonds(inputPath+".bonds");
         parts.makeNgbList(bonds);
-        inside = parts.selectInside_noindex(1.3*parts.radius);
-        secondInside = parts.selectInside_noindex(2.0*1.3*parts.radius);
+        inside = parts.selectInside_noindex(1.3*parts.radius, noZ);
+        secondInside = parts.selectInside_noindex(2.0*1.3*parts.radius, noZ);
     }
     catch(invalid_argument &e)
     {
@@ -52,8 +52,8 @@ void calculateBoo(Particles &parts, const string& filename, bool quiet=false)
         ofstream bondFile((inputPath+".bonds").c_str(), ios::out | ios::trunc);
         for(BondSet::const_iterator b=bonds.begin(); b!= bonds.end();++b)
             bondFile<<b->low()<<" "<<b->high()<<"\n";
-        inside = parts.selectInside(1.3*parts.radius);
-        secondInside = parts.selectInside(2.0*1.3*parts.radius);
+        inside = parts.selectInside(1.3*parts.radius, noZ);
+        secondInside = parts.selectInside(2.0*1.3*parts.radius, noZ);
         if(!quiet) delete ti;
     }
     const bool empty = inside.empty(), empty2 = secondInside.empty();
@@ -144,9 +144,10 @@ int main(int argc, char ** argv)
 #else
     if(argc<3)
 	{
-		cerr<<"Syntax : boo [path]filename.dat radius" << endl;
+		cerr<<"Syntax : boo [path]filename.dat radius [wall=0]" << endl;
 		return EXIT_FAILURE;
 	}
+	bool noZ = (argc>3) && atoi(argv[3]);
 #endif
 
 	try
@@ -156,6 +157,7 @@ int main(int argc, char ** argv)
 #ifdef use_periodic
 		const size_t Nb = atoi(argv[3]);
 		BoundingBox b;
+		bool noZ = false;
 		for(size_t d=0;d<3;++d)
 		{
 			b.edges[d].first=0.0;
@@ -196,7 +198,7 @@ int main(int argc, char ** argv)
 
 #else
 		Particles parts(filename, radius);
-		calculateBoo(parts, filename);
+		calculateBoo(parts, filename, noZ);
 #endif
 
     }

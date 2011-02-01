@@ -49,9 +49,9 @@ namespace Colloids
             Coord getDiff(const Coord &from,const size_t &to) const;
             Coord getDiff(const size_t &from,const size_t &to) const;
             double getNumberDensity() const;
-            std::vector<size_t> selectInside(const double &margin) const;
+            std::vector<size_t> selectInside(const double &margin, const bool noZ=false) const;
             std::vector<size_t> selectEnclosed(const BoundingBox &b) const;
-            std::vector<size_t> selectInside_noindex(const double &margin) const{return this->selectInside(margin);};
+            std::vector<size_t> selectInside_noindex(const double &margin, const bool noZ=false) const{return this->selectInside(margin, noZ);};
             //vector<size_t> getEuclidianNeighbours(const valarray<double> &center, const double &range) const;
     };
 
