@@ -169,7 +169,7 @@ int main(int argc, char ** argv)
     #ifdef use_periodic
 	if(argc<7)
 	{
-		cerr<<"Syntax : cgVoro [path]filename.grv radiiFile Nb Dx Dy Dz [token size [offset]]" << endl;
+		cerr<<"Syntax : cgVoro [path]filename.grv diameterFile Nb Dx Dy Dz [token size [offset]]" << endl;
 		return EXIT_FAILURE;
 	}
     #else
@@ -192,10 +192,10 @@ int main(int argc, char ** argv)
 		vector<double> radii(Nb);
 		//load radii from file
 		{
-		    ifstream radiiFile(argv[2]);
-		    if(!radiiFile.good())
+		    ifstream diameterFile(argv[2]);
+		    if(!diameterFile.good())
                 throw invalid_argument("No such file as "+string(argv[2]));
-            copy(istream_iterator<double>(radiiFile), istream_iterator<double>(), radii.begin());
+            transform(istream_iterator<double>(diameterFile), istream_iterator<double>(), radii.begin(), bind1st(multiplies<double>(), 0.5));
 		}
 		BoundingBox b;
 		for(size_t d=0;d<3;++d)
