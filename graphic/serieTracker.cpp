@@ -30,7 +30,7 @@
 using namespace std;
 using namespace cimg_library;
 using namespace Colloids;
-typedef boost::multi_array_types::index_range range;
+typedef boost::multi_array_types::index_range rnge;
 
 /** \brief display the 3D image as it is.
 
@@ -71,9 +71,9 @@ void Tracker::displaySlice(const size_t dim, const size_t position, const std::s
         boost::const_multi_array_ref<float,3>(data, shape)
         [
             boost::indices
-				[(dim==0) ? range(position, position+1) : range()]
-				[(dim==1) ? range(position, position+1) : range()]
-				[(dim==2) ? range(position, position+1) : range()]
+				[(dim==0) ? rnge(position, position+1) : rnge()]
+				[(dim==1) ? rnge(position, position+1) : rnge()]
+				[(dim==2) ? rnge(position, position+1) : rnge()]
 		]
     );
     remove_copy(
@@ -102,12 +102,12 @@ void Tracker::displaySpectrum(const std::string &windowName) const
     multi_array<complex<float> ,2> c_proj(proj_shape);
     multi_array<float,2> projections(proj_shape);
 
-    c_proj[indices[range(0,FFTmask.shape()[0])][range(0,FFTmask.shape()[1])]]
-        = c_spectrum[indices[range()][range()][0]];
-    c_proj[indices[range().start(FFTmask.shape()[0])][range().start(FFTmask.shape()[1])]]
-        = c_spectrum[indices[0][range()][range()]];
-    c_proj[indices[range(0,FFTmask.shape()[0])][range().start(FFTmask.shape()[1])]]
-        = c_spectrum[indices[range()][0][range()]];
+    c_proj[indices[rnge(0,FFTmask.shape()[0])][rnge(0,FFTmask.shape()[1])]]
+        = c_spectrum[indices[rnge()][rnge()][0]];
+    c_proj[indices[rnge().start(FFTmask.shape()[0])][rnge().start(FFTmask.shape()[1])]]
+        = c_spectrum[indices[0][rnge()][rnge()]];
+    c_proj[indices[rnge(0,FFTmask.shape()[0])][rnge().start(FFTmask.shape()[1])]]
+        = c_spectrum[indices[rnge()][0][rnge()]];
 
     transform(
         c_proj.origin(), c_proj.origin()+c_proj.num_elements(),
@@ -130,12 +130,12 @@ void Tracker::displayMask(const std::string &windowName) const
     proj_shape[0] = FFTmask.shape()[0] + FFTmask.shape()[1];
     proj_shape[1] = FFTmask.shape()[1] + FFTmask.shape()[2];
     multi_array<bool,2> projections(proj_shape);
-    projections[indices[range(0,FFTmask.shape()[0])][range(0,FFTmask.shape()[1])]]
-        = FFTmask[indices[range()][range()][0]];
-    projections[indices[range().start(FFTmask.shape()[0])][range().start(FFTmask.shape()[1])]]
-        = FFTmask[indices[0][range()][range()]];
-    projections[indices[range(0,FFTmask.shape()[0])][range().start(FFTmask.shape()[1])]]
-        = FFTmask[indices[range()][0][range()]];
+    projections[indices[rnge(0,FFTmask.shape()[0])][rnge(0,FFTmask.shape()[1])]]
+        = FFTmask[indices[rnge()][rnge()][0]];
+    projections[indices[rnge().start(FFTmask.shape()[0])][rnge().start(FFTmask.shape()[1])]]
+        = FFTmask[indices[0][rnge()][rnge()]];
+    projections[indices[rnge(0,FFTmask.shape()[0])][rnge().start(FFTmask.shape()[1])]]
+        = FFTmask[indices[rnge()][0][rnge()]];
 
     CImg<bool>(
             projections.origin(),

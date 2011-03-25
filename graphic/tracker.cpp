@@ -702,7 +702,7 @@ valarray<double> centroid::operator()(const size_t& l) const
         for(int y=0; y<ngb.shape()[1];++y)
             for(int z=0; z<ngb.shape()[2];++z)
             {
-                const double weight = pow(x-scope, 2) + pow(y-scope, 2) + pow(z-scope, 2) * (double)(*px);
+                const double weight = pow((double)(x-scope), 2) + pow((double)(y-scope), 2) + pow((double)(z-scope), 2) * (double)(*px);
                 c[0] += (x-scope)*weight;
                 c[1] += (y-scope)*weight;
                 c[2] += (z-scope)*weight;
@@ -711,7 +711,7 @@ valarray<double> centroid::operator()(const size_t& l) const
             }
     //cout<<c[0]<<"\t"<<c[1]<<"\t"<<c[2]<<endl;
     //cout<<"divide by a weight of "<<total_w<<endl;
-    c /= total_w/pow(2*scope+1, 2);
+    c /= total_w/pow(2.0*scope+1, 2);
     //cout<<c[0]<<"\t"<<c[1]<<"\t"<<c[2]<<endl;
     //c /= (double)accumulate(ngb.origin(), ngb.origin()+ngb.num_elements(), 0.0);
 
