@@ -7,7 +7,7 @@ include_HEADERS = lib/boo_data.hpp lib/fields.hpp lib/particles.hpp lib/dynamicC
 libcolloids_la_SOURCES = lib/boo_data.cpp lib/fields.cpp lib/particles.cpp lib/dynamicClusters.cpp lib/files_series.cpp lib/periodic.cpp lib/dynamicParticles.cpp lib/index.cpp lib/traj.cpp lib/boo_data.hpp lib/fields.hpp lib/particles.hpp lib/dynamicClusters.hpp lib/files_series.hpp lib/periodic.hpp lib/dynamicParticles.hpp lib/index.hpp lib/traj.hpp lib/RStarTree/RStarBoundingBox.h lib/RStarTree/RStarTree.h lib/RStarTree/RStarVisitor.h
 
 LDADD = libcolloids.la
-AM_CPPFLAGS = -I$(srcdir)/lib -I$(srcdir)/graphic -DTIXML_USE_STL 
+AM_CPPFLAGS = -I$(srcdir)/lib -I$(srcdir)/graphic -DTIXML_USE_STL
 bin_PROGRAMS = bonds boo boo_flip cage2vtk cutter dat2vtk dhlngb drift dynamics g6 ISF linkboo linker lostngb MSD percolation rdf sp5c totalRdf traj2vtk periodic_rdf periodic_boo periodic_g6 $(binvoro) aquireWisdom tracker
 
 EXTRA_PROGRAMS = cgVoro periodic_cgVoro

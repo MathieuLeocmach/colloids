@@ -18,9 +18,6 @@
 /* Define to 1 if you have the `fftw3f_threads' library (-lfftw3f_threads). */
 #undef HAVE_LIBFFTW3F_THREADS
 
-/* Define to 1 if you have the `gdi32' library (-lgdi32). */
-#undef HAVE_LIBGDI32
-
 /* Define to 1 if you have the `m' library (-lm). */
 #undef HAVE_LIBM
 

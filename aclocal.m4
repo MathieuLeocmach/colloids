@@ -13,49 +13,39 @@
 
 m4_ifndef([AC_AUTOCONF_VERSION],
   [m4_copy([m4_PACKAGE_VERSION], [AC_AUTOCONF_VERSION])])dnl
-m4_if(m4_defn([AC_AUTOCONF_VERSION]), [2.65],,
-[m4_warning([this file was generated for autoconf 2.65.
+m4_if(m4_defn([AC_AUTOCONF_VERSION]), [2.67],,
+[m4_warning([this file was generated for autoconf 2.67.
 You have another version of autoconf.  It may work, but is not guaranteed to.
 If you have problems, you may need to regenerate the build system entirely.
 To do so, use the procedure documented by the package, typically `autoreconf'.])])
 
-# ===========================================================================
-#             http://autoconf-archive.cryp.to/ax_boost_base.html
-# ===========================================================================
-#
-# SYNOPSIS
-#
-#   AX_BOOST_BASE([MINIMUM-VERSION])
-#
-# DESCRIPTION
-#
-#   Test for the Boost C++ libraries of a particular version (or newer)
-#
-#   If no path to the installed boost library is given the macro searchs
-#   under /usr, /usr/local, /opt and /opt/local and evaluates the
-#   $BOOST_ROOT environment variable. Further documentation is available at
-#   <http://randspringer.de/boost/index.html>.
-#
-#   This macro calls:
-#
-#     AC_SUBST(BOOST_CPPFLAGS) / AC_SUBST(BOOST_LDFLAGS)
-#
-#   And sets:
-#
-#     HAVE_BOOST
-#
-# LICENSE
-#
-#   Copyright (c) 2008 Thomas Porschberg <thomas@randspringer.de>
-#
-#   Copying and distribution of this file, with or without modification, are
-#   permitted in any medium without royalty provided the copyright notice
-#   and this notice are preserved.
+dnl @synopsis AX_BOOST([MINIMUM-VERSION])
+dnl
+dnl Test for the Boost C++ libraries of a particular version (or newer)
+dnl
+dnl If no path to the installed boost library is given the macro
+dnl searchs under /usr, /usr/local, and /opt, and evaluates the
+dnl $BOOST_ROOT environment variable. Further documentation is
+dnl available at <http://randspringer.de/boost/index.html>.
+dnl
+dnl This macro calls:
+dnl
+dnl   AC_SUBST(BOOST_CPPFLAGS) / AC_SUBST(BOOST_LDFLAGS)
+dnl
+dnl And sets:
+dnl
+dnl   HAVE_BOOST
+dnl
+dnl @category InstalledPackages
+dnl @category Cxx
+dnl @author Thomas Porschberg <thomas@randspringer.de>
+dnl @version 2006-06-15
+dnl @license AllPermissive
 
 AC_DEFUN([AX_BOOST_BASE],
 [
 AC_ARG_WITH([boost],
-	AS_HELP_STRING([--with-boost@<:@=DIR@:>@], [use boost (default is yes) - it is possible to specify the root directory for boost (optional)]),
+	AS_HELP_STRING([--with-boost@<:@=DIR@:>@], [use boost (default is No) - it is possible to specify the root directory for boost (optional)]),
 	[
     if test "$withval" = "no"; then
 		want_boost="no"
@@ -67,22 +57,7 @@ AC_ARG_WITH([boost],
         ac_boost_path="$withval"
 	fi
     ],
-    [want_boost="yes"])
-
-
-AC_ARG_WITH([boost-libdir],
-        AS_HELP_STRING([--with-boost-libdir=LIB_DIR],
-        [Force given directory for boost libraries. Note that this will overwrite library path detection, so use this parameter only if default library detection fails and you know exactly where your boost libraries are located.]),
-        [
-        if test -d $withval
-        then
-                ac_boost_lib_path="$withval"
-        else
-                AC_MSG_ERROR(--with-boost-libdir expected directory name)
-        fi
-        ],
-        [ac_boost_lib_path=""]
-)
+    [want_boost="no"])
 
 if test "x$want_boost" = "xyes"; then
 	boost_lib_version_req=ifelse([$1], ,1.20.0,$1)
@@ -104,7 +79,7 @@ if test "x$want_boost" = "xyes"; then
 		BOOST_LDFLAGS="-L$ac_boost_path/lib"
 		BOOST_CPPFLAGS="-I$ac_boost_path/include"
 	else
-		for ac_boost_path_tmp in /usr /usr/local /opt /opt/local ; do
+		for ac_boost_path_tmp in /usr /usr/local /opt ; do
 			if test -d "$ac_boost_path_tmp/include/boost" && test -r "$ac_boost_path_tmp/include/boost"; then
 				BOOST_LDFLAGS="-L$ac_boost_path_tmp/lib"
 				BOOST_CPPFLAGS="-I$ac_boost_path_tmp/include"
@@ -112,12 +87,6 @@ if test "x$want_boost" = "xyes"; then
 			fi
 		done
 	fi
-
-    dnl overwrite ld flags if we have required special directory with
-    dnl --with-boost-libdir parameter
-    if test "$ac_boost_lib_path" != ""; then
-       BOOST_LDFLAGS="-L$ac_boost_lib_path"
-    fi
 
 	CPPFLAGS_SAVED="$CPPFLAGS"
 	CPPFLAGS="$CPPFLAGS $BOOST_CPPFLAGS"
@@ -151,6 +120,7 @@ if test "x$want_boost" = "xyes"; then
 	if test "x$succeeded" != "xyes"; then
 		_version=0
 		if test "$ac_boost_path" != ""; then
+               		BOOST_LDFLAGS="-L$ac_boost_path/lib"
 			if test -d "$ac_boost_path" && test -r "$ac_boost_path"; then
 				for i in `ls -d $ac_boost_path/include/boost-* 2>/dev/null`; do
 					_version_tmp=`echo $i | sed "s#$ac_boost_path##" | sed 's/\/include\/boost-//' | sed 's/_/./'`
@@ -163,7 +133,7 @@ if test "x$want_boost" = "xyes"; then
 				done
 			fi
 		else
-			for ac_boost_path in /usr /usr/local /opt /opt/local ; do
+			for ac_boost_path in /usr /usr/local /opt ; do
 				if test -d "$ac_boost_path" && test -r "$ac_boost_path"; then
 					for i in `ls -d $ac_boost_path/include/boost-* 2>/dev/null`; do
 						_version_tmp=`echo $i | sed "s#$ac_boost_path##" | sed 's/\/include\/boost-//' | sed 's/_/./'`
@@ -178,10 +148,7 @@ if test "x$want_boost" = "xyes"; then
 
 			VERSION_UNDERSCORE=`echo $_version | sed 's/\./_/'`
 			BOOST_CPPFLAGS="-I$best_path/include/boost-$VERSION_UNDERSCORE"
-            if test "$ac_boost_lib_path" = ""
-            then
-               BOOST_LDFLAGS="-L$best_path/lib"
-            fi
+			BOOST_LDFLAGS="-L$best_path/lib"
 
 	    		if test "x$BOOST_ROOT" != "x"; then
 				if test -d "$BOOST_ROOT" && test -r "$BOOST_ROOT" && test -d "$BOOST_ROOT/stage/lib" && test -r "$BOOST_ROOT/stage/lib"; then
@@ -189,7 +156,7 @@ if test "x$want_boost" = "xyes"; then
 					stage_version=`echo $version_dir | sed 's/boost_//' | sed 's/_/./g'`
 			        	stage_version_shorten=`expr $stage_version : '\([[0-9]]*\.[[0-9]]*\)'`
 					V_CHECK=`expr $stage_version_shorten \>\= $_version`
-                    if test "$V_CHECK" = "1" -a "$ac_boost_lib_path" = "" ; then
+				        if test "$V_CHECK" = "1" ; then
 						AC_MSG_NOTICE(We will use a staged boost library from $BOOST_ROOT)
 						BOOST_CPPFLAGS="-I$BOOST_ROOT"
 						BOOST_LDFLAGS="-L$BOOST_ROOT/stage/lib"
@@ -239,35 +206,26 @@ fi
 
 ])
 
-# ===========================================================================
-#        http://autoconf-archive.cryp.to/ax_boost_program_options.html
-# ===========================================================================
-#
-# SYNOPSIS
-#
-#   AX_BOOST_PROGRAM_OPTIONS
-#
-# DESCRIPTION
-#
-#   Test for program options library from the Boost C++ libraries. The macro
-#   requires a preceding call to AX_BOOST_BASE. Further documentation is
-#   available at <http://randspringer.de/boost/index.html>.
-#
-#   This macro calls:
-#
-#     AC_SUBST(BOOST_PROGRAM_OPTIONS_LIB)
-#
-#   And sets:
-#
-#     HAVE_BOOST_PROGRAM_OPTIONS
-#
-# LICENSE
-#
-#   Copyright (c) 2009 Thomas Porschberg <thomas@randspringer.de>
-#
-#   Copying and distribution of this file, with or without modification, are
-#   permitted in any medium without royalty provided the copyright notice
-#   and this notice are preserved.
+dnl @synopsis AX_BOOST_PROGRAM_OPTIONS
+dnl
+dnl Test for program options library from the Boost C++ libraries. The
+dnl macro requires a preceding call to AX_BOOST_BASE. Further
+dnl documentation is available at
+dnl <http://randspringer.de/boost/index.html>.
+dnl
+dnl This macro calls:
+dnl
+dnl   AC_SUBST(BOOST_PROGRAM_OPTIONS_LIB)
+dnl
+dnl And sets:
+dnl
+dnl   HAVE_BOOST_PROGRAM_OPTIONS
+dnl
+dnl @category InstalledPackages
+dnl @category Cxx
+dnl @author Thomas Porschberg <thomas@randspringer.de>
+dnl @version 2006-06-15
+dnl @license AllPermissive
 
 AC_DEFUN([AX_BOOST_PROGRAM_OPTIONS],
 [
@@ -286,7 +244,7 @@ AC_DEFUN([AX_BOOST_PROGRAM_OPTIONS],
         	ax_boost_user_program_options_lib="$withval"
 		fi
         ],
-        [want_boost="yes"]
+        [want_boost="no"]
 	)
 
 	if test "x$want_boost" = "xyes"; then
@@ -310,30 +268,23 @@ AC_DEFUN([AX_BOOST_PROGRAM_OPTIONS],
 		])
 		if test "$ax_cv_boost_program_options" = yes; then
 				AC_DEFINE(HAVE_BOOST_PROGRAM_OPTIONS,,[define if the Boost::PROGRAM_OPTIONS library is available])
-                  BOOSTLIBDIR=`echo $BOOST_LDFLAGS | sed -e 's/@<:@^\/@:>@*//'`
+				  BN=boost_program_options
                 if test "x$ax_boost_user_program_options_lib" = "x"; then
-                for libextension in `ls $BOOSTLIBDIR/libboost_program_options*.so* 2>/dev/null | sed 's,.*/,,' | sed -e 's;^lib\(boost_program_options.*\)\.so.*$;\1;'` `ls $BOOSTLIBDIR/libboost_program_options*.a* 2>/dev/null | sed 's,.*/,,' | sed -e 's;^lib\(boost_program_options.*\)\.a*$;\1;'` ; do
-                     ax_lib=${libextension}
-				    AC_CHECK_LIB($ax_lib, exit,
-                                 [BOOST_PROGRAM_OPTIONS_LIB="-l$ax_lib"; AC_SUBST(BOOST_PROGRAM_OPTIONS_LIB) link_program_options="yes"; break],
-                                 [link_program_options="no"])
-  				done
-                if test "x$link_program_options" != "xyes"; then
-                for libextension in `ls $BOOSTLIBDIR/boost_program_options*.dll* 2>/dev/null | sed 's,.*/,,' | sed -e 's;^\(boost_program_options.*\)\.dll.*$;\1;'` `ls $BOOSTLIBDIR/boost_program_options*.a* 2>/dev/null | sed 's,.*/,,' | sed -e 's;^\(boost_program_options.*\)\.a*$;\1;'` ; do
-                     ax_lib=${libextension}
-				    AC_CHECK_LIB($ax_lib, exit,
-                                 [BOOST_PROGRAM_OPTIONS_LIB="-l$ax_lib"; AC_SUBST(BOOST_PROGRAM_OPTIONS_LIB) link_program_options="yes"; break],
-                                 [link_program_options="no"])
-  				done
-                fi
-                else
-                  for ax_lib in $ax_boost_user_program_options_lib boost_program_options-$ax_boost_user_program_options_lib; do
+				  for ax_lib in $BN $BN-$CC $BN-$CC-mt $BN-$CC-mt-s $BN-$CC-s \
+                                lib$BN lib$BN-$CC lib$BN-$CC-mt lib$BN-$CC-mt-s lib$BN-$CC-s \
+                                $BN-mgw $BN-mgw $BN-mgw-mt $BN-mgw-mt-s $BN-mgw-s ; do
 				      AC_CHECK_LIB($ax_lib, main,
-                                   [BOOST_PROGRAM_OPTIONS_LIB="-l$ax_lib"; AC_SUBST(BOOST_PROGRAM_OPTIONS_LIB) link_program_options="yes"; break],
+                                   [BOOST_PROGRAM_OPTIONS_LIB="-l$ax_lib" AC_SUBST(BOOST_PROGRAM_OPTIONS_LIB) link_program_options="yes" break],
+                                   [link_program_options="no"])
+  				  done
+                else
+                  for ax_lib in $ax_boost_user_program_options_lib $BN-$ax_boost_user_program_options_lib; do
+				      AC_CHECK_LIB($ax_lib, main,
+                                   [BOOST_PROGRAM_OPTIONS_LIB="-l$ax_lib" AC_SUBST(BOOST_PROGRAM_OPTIONS_LIB) link_program_options="yes" break],
                                    [link_program_options="no"])
                   done
                 fi
-				if test "x$link_program_options" != "xyes"; then
+				if test "x$link_program_options" = "xno"; then
 					AC_MSG_ERROR([Could not link against [$ax_lib] !])
 				fi
 		fi
@@ -342,73 +293,41 @@ AC_DEFUN([AX_BOOST_PROGRAM_OPTIONS],
 	fi
 ])
 
-# ===========================================================================
-#        http://autoconf-archive.cryp.to/ax_check_compiler_flags.html
-# ===========================================================================
-#
-# SYNOPSIS
-#
-#   AX_CHECK_COMPILER_FLAGS(FLAGS, [ACTION-SUCCESS], [ACTION-FAILURE])
-#
-# DESCRIPTION
-#
-#   Check whether the given compiler FLAGS work with the current language's
-#   compiler, or whether they give an error. (Warnings, however, are
-#   ignored.)
-#
-#   ACTION-SUCCESS/ACTION-FAILURE are shell commands to execute on
-#   success/failure.
-#
-# LICENSE
-#
-#   Copyright (c) 2009 Steven G. Johnson <stevenj@alum.mit.edu>
-#   Copyright (c) 2009 Matteo Frigo
-#
-#   This program is free software: you can redistribute it and/or modify it
-#   under the terms of the GNU General Public License as published by the
-#   Free Software Foundation, either version 3 of the License, or (at your
-#   option) any later version.
-#
-#   This program is distributed in the hope that it will be useful, but
-#   WITHOUT ANY WARRANTY; without even the implied warranty of
-#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
-#   Public License for more details.
-#
-#   You should have received a copy of the GNU General Public License along
-#   with this program. If not, see <http://www.gnu.org/licenses/>.
-#
-#   As a special exception, the respective Autoconf Macro's copyright owner
-#   gives unlimited permission to copy, distribute and modify the configure
-#   scripts that are the output of Autoconf when processing the Macro. You
-#   need not follow the terms of the GNU General Public License when using
-#   or distributing such scripts, even though portions of the text of the
-#   Macro appear in them. The GNU General Public License (GPL) does govern
-#   all other use of the material that constitutes the Autoconf Macro.
-#
-#   This special exception to the GPL applies to versions of the Autoconf
-#   Macro released by the Autoconf Archive. When you make and distribute a
-#   modified version of the Autoconf Macro, you may extend this special
-#   exception to the GPL to apply to your modified version as well.
+dnl @synopsis AX_CHECK_COMPILER_FLAGS(FLAGS, [ACTION-SUCCESS], [ACTION-FAILURE])
+dnl
+dnl @summary check whether FLAGS are accepted by the compiler
+dnl
+dnl Check whether the given compiler FLAGS work with the current
+dnl language's compiler, or whether they give an error. (Warnings,
+dnl however, are ignored.)
+dnl
+dnl ACTION-SUCCESS/ACTION-FAILURE are shell commands to execute on
+dnl success/failure.
+dnl
+dnl @category Misc
+dnl @author Steven G. Johnson <stevenj@alum.mit.edu> and Matteo Frigo.
+dnl @version 2005-05-30
+dnl @license GPLWithACException
 
 AC_DEFUN([AX_CHECK_COMPILER_FLAGS],
 [AC_PREREQ(2.59) dnl for _AC_LANG_PREFIX
 AC_MSG_CHECKING([whether _AC_LANG compiler accepts $1])
 dnl Some hackery here since AC_CACHE_VAL can't handle a non-literal varname:
 AS_LITERAL_IF([$1],
-  [AC_CACHE_VAL(AS_TR_SH(ax_cv_[]_AC_LANG_ABBREV[]_flags_[$1]), [
+  [AC_CACHE_VAL(AS_TR_SH(ax_cv_[]_AC_LANG_ABBREV[]_flags_$1), [
       ax_save_FLAGS=$[]_AC_LANG_PREFIX[]FLAGS
       _AC_LANG_PREFIX[]FLAGS="$1"
       AC_COMPILE_IFELSE([AC_LANG_PROGRAM()],
-        AS_TR_SH(ax_cv_[]_AC_LANG_ABBREV[]_flags_[$1])=yes,
-        AS_TR_SH(ax_cv_[]_AC_LANG_ABBREV[]_flags_[$1])=no)
+        AS_TR_SH(ax_cv_[]_AC_LANG_ABBREV[]_flags_$1)=yes,
+        AS_TR_SH(ax_cv_[]_AC_LANG_ABBREV[]_flags_$1)=no)
       _AC_LANG_PREFIX[]FLAGS=$ax_save_FLAGS])],
   [ax_save_FLAGS=$[]_AC_LANG_PREFIX[]FLAGS
    _AC_LANG_PREFIX[]FLAGS="$1"
    AC_COMPILE_IFELSE([AC_LANG_PROGRAM()],
-     eval AS_TR_SH(ax_cv_[]_AC_LANG_ABBREV[]_flags_[$1])=yes,
-     eval AS_TR_SH(ax_cv_[]_AC_LANG_ABBREV[]_flags_[$1])=no)
+     eval AS_TR_SH(ax_cv_[]_AC_LANG_ABBREV[]_flags_$1)=yes,
+     eval AS_TR_SH(ax_cv_[]_AC_LANG_ABBREV[]_flags_$1)=no)
    _AC_LANG_PREFIX[]FLAGS=$ax_save_FLAGS])
-eval ax_check_compiler_flags=$AS_TR_SH(ax_cv_[]_AC_LANG_ABBREV[]_flags_[$1])
+eval ax_check_compiler_flags=$AS_TR_SH(ax_cv_[]_AC_LANG_ABBREV[]_flags_$1)
 AC_MSG_RESULT($ax_check_compiler_flags)
 if test "x$ax_check_compiler_flags" = xyes; then
 	m4_default([$2], :)
@@ -417,45 +336,25 @@ else
 fi
 ])dnl AX_CHECK_COMPILER_FLAGS
 
-# ===========================================================================
-#             http://autoconf-archive.cryp.to/ax_count_cpus.html
-# ===========================================================================
-#
-# SYNOPSIS
-#
-#   AX_COUNT_CPUS
-#
-# DESCRIPTION
-#
-#   Attempt to count the number of processors present on the machine. If the
-#   detection fails, then a value of 1 is assumed.
-#
-#   The value is placed in the CPU_COUNT variable.
-#
-# LICENSE
-#
-#   Copyright (c) 2008 Michael Paul Bailey <jinxidoru@byu.net>
-#   Copyright (c) 2008 Christophe Tournayre <turn3r@users.sourceforge.net>
-#
-#   Copying and distribution of this file, with or without modification, are
-#   permitted in any medium without royalty provided the copyright notice
-#   and this notice are preserved.
+dnl @synopsis AX_COUNT_CPUS
+dnl
+dnl Attempt to count the number of processors present on the machine.
+dnl If the detection fails, then a value of 1 is assumed.
+dnl
+dnl The value is placed in the CPU_COUNT variable.
+dnl
+dnl @category Misc
+dnl @author Michael Paul Bailey <jinxidoru@byu.net>
+dnl @version 2006-10-13
+dnl @license AllPermissive
 
 AC_DEFUN([AX_COUNT_CPUS], [
     AC_REQUIRE([AC_PROG_EGREP])
-    AC_MSG_CHECKING(the number of available CPUs)
+    AC_MSG_CHECKING( cpu count )
     CPU_COUNT="0"
-
-    #On MacOS
-    if test -x /usr/sbin/sysctl -a `/sbin/sysctl -a 2>/dev/null| grep -c hw.cpu`; then
-        CPU_COUNT=`/usr/sbin/sysctl -n hw.ncpu`
-    fi
-
-    #On Linux
-    if test "x$CPU_COUNT" = "x0" -a -e /proc/cpuinfo; then
+    if test -e /proc/cpuinfo; then
         CPU_COUNT=`$EGREP -c '^processor' /proc/cpuinfo`
     fi
-
     if test "x$CPU_COUNT" = "x0"; then
         CPU_COUNT="1"
         AC_MSG_RESULT( [unable to detect (assuming 1)] )
@@ -464,70 +363,41 @@ AC_DEFUN([AX_COUNT_CPUS], [
     fi
 ])
 
-# ===========================================================================
-#            http://autoconf-archive.cryp.to/ax_gcc_archflag.html
-# ===========================================================================
-#
-# SYNOPSIS
-#
-#   AX_GCC_ARCHFLAG([PORTABLE?], [ACTION-SUCCESS], [ACTION-FAILURE])
-#
-# DESCRIPTION
-#
-#   This macro tries to guess the "native" arch corresponding to the target
-#   architecture for use with gcc's -march=arch or -mtune=arch flags. If
-#   found, the cache variable $ax_cv_gcc_archflag is set to this flag and
-#   ACTION-SUCCESS is executed; otherwise $ax_cv_gcc_archflag is is set to
-#   "unknown" and ACTION-FAILURE is executed. The default ACTION-SUCCESS is
-#   to add $ax_cv_gcc_archflag to the end of $CFLAGS.
-#
-#   PORTABLE? should be either [yes] (default) or [no]. In the former case,
-#   the flag is set to -mtune (or equivalent) so that the architecture is
-#   only used for tuning, but the instruction set used is still portable. In
-#   the latter case, the flag is set to -march (or equivalent) so that
-#   architecture-specific instructions are enabled.
-#
-#   The user can specify --with-gcc-arch=<arch> in order to override the
-#   macro's choice of architecture, or --without-gcc-arch to disable this.
-#
-#   When cross-compiling, or if $CC is not gcc, then ACTION-FAILURE is
-#   called unless the user specified --with-gcc-arch manually.
-#
-#   Requires macros: AX_CHECK_COMPILER_FLAGS, AX_GCC_X86_CPUID
-#
-#   (The main emphasis here is on recent CPUs, on the principle that doing
-#   high-performance computing on old hardware is uncommon.)
-#
-# LICENSE
-#
-#   Copyright (c) 2008 Steven G. Johnson <stevenj@alum.mit.edu>
-#   Copyright (c) 2008 Matteo Frigo
-#
-#   This program is free software: you can redistribute it and/or modify it
-#   under the terms of the GNU General Public License as published by the
-#   Free Software Foundation, either version 3 of the License, or (at your
-#   option) any later version.
-#
-#   This program is distributed in the hope that it will be useful, but
-#   WITHOUT ANY WARRANTY; without even the implied warranty of
-#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
-#   Public License for more details.
-#
-#   You should have received a copy of the GNU General Public License along
-#   with this program. If not, see <http://www.gnu.org/licenses/>.
-#
-#   As a special exception, the respective Autoconf Macro's copyright owner
-#   gives unlimited permission to copy, distribute and modify the configure
-#   scripts that are the output of Autoconf when processing the Macro. You
-#   need not follow the terms of the GNU General Public License when using
-#   or distributing such scripts, even though portions of the text of the
-#   Macro appear in them. The GNU General Public License (GPL) does govern
-#   all other use of the material that constitutes the Autoconf Macro.
-#
-#   This special exception to the GPL applies to versions of the Autoconf
-#   Macro released by the Autoconf Archive. When you make and distribute a
-#   modified version of the Autoconf Macro, you may extend this special
-#   exception to the GPL to apply to your modified version as well.
+dnl @synopsis AX_GCC_ARCHFLAG([PORTABLE?], [ACTION-SUCCESS], [ACTION-FAILURE])
+dnl
+dnl @summary find target architecture name for gcc -march/-mtune flags
+dnl
+dnl This macro tries to guess the "native" arch corresponding to the
+dnl target architecture for use with gcc's -march=arch or -mtune=arch
+dnl flags. If found, the cache variable $ax_cv_gcc_archflag is set to
+dnl this flag and ACTION-SUCCESS is executed; otherwise
+dnl $ax_cv_gcc_archflag is is set to "unknown" and ACTION-FAILURE is
+dnl executed. The default ACTION-SUCCESS is to add $ax_cv_gcc_archflag
+dnl to the end of $CFLAGS.
+dnl
+dnl PORTABLE? should be either [yes] (default) or [no]. In the former
+dnl case, the flag is set to -mtune (or equivalent) so that the
+dnl architecture is only used for tuning, but the instruction set used
+dnl is still portable. In the latter case, the flag is set to -march
+dnl (or equivalent) so that architecture-specific instructions are
+dnl enabled.
+dnl
+dnl The user can specify --with-gcc-arch=<arch> in order to override
+dnl the macro's choice of architecture, or --without-gcc-arch to
+dnl disable this.
+dnl
+dnl When cross-compiling, or if $CC is not gcc, then ACTION-FAILURE is
+dnl called unless the user specified --with-gcc-arch manually.
+dnl
+dnl Requires macros: AX_CHECK_COMPILER_FLAGS, AX_GCC_X86_CPUID
+dnl
+dnl (The main emphasis here is on recent CPUs, on the principle that
+dnl doing high-performance computing on old hardware is uncommon.)
+dnl
+dnl @category Misc
+dnl @author Steven G. Johnson <stevenj@alum.mit.edu> and Matteo Frigo.
+dnl @version 2006-01-04
+dnl @license GPLWithACException
 
 AC_DEFUN([AX_GCC_ARCHFLAG],
 [AC_REQUIRE([AC_PROG_CC])
@@ -678,62 +548,30 @@ else
 fi
 ])
 
-# ===========================================================================
-#            http://autoconf-archive.cryp.to/ax_gcc_x86_cpuid.html
-# ===========================================================================
-#
-# SYNOPSIS
-#
-#   AX_GCC_X86_CPUID(OP)
-#
-# DESCRIPTION
-#
-#   On Pentium and later x86 processors, with gcc or a compiler that has a
-#   compatible syntax for inline assembly instructions, run a small program
-#   that executes the cpuid instruction with input OP. This can be used to
-#   detect the CPU type.
-#
-#   On output, the values of the eax, ebx, ecx, and edx registers are stored
-#   as hexadecimal strings as "eax:ebx:ecx:edx" in the cache variable
-#   ax_cv_gcc_x86_cpuid_OP.
-#
-#   If the cpuid instruction fails (because you are running a
-#   cross-compiler, or because you are not using gcc, or because you are on
-#   a processor that doesn't have this instruction), ax_cv_gcc_x86_cpuid_OP
-#   is set to the string "unknown".
-#
-#   This macro mainly exists to be used in AX_GCC_ARCHFLAG.
-#
-# LICENSE
-#
-#   Copyright (c) 2008 Steven G. Johnson <stevenj@alum.mit.edu>
-#   Copyright (c) 2008 Matteo Frigo
-#
-#   This program is free software: you can redistribute it and/or modify it
-#   under the terms of the GNU General Public License as published by the
-#   Free Software Foundation, either version 3 of the License, or (at your
-#   option) any later version.
-#
-#   This program is distributed in the hope that it will be useful, but
-#   WITHOUT ANY WARRANTY; without even the implied warranty of
-#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
-#   Public License for more details.
-#
-#   You should have received a copy of the GNU General Public License along
-#   with this program. If not, see <http://www.gnu.org/licenses/>.
-#
-#   As a special exception, the respective Autoconf Macro's copyright owner
-#   gives unlimited permission to copy, distribute and modify the configure
-#   scripts that are the output of Autoconf when processing the Macro. You
-#   need not follow the terms of the GNU General Public License when using
-#   or distributing such scripts, even though portions of the text of the
-#   Macro appear in them. The GNU General Public License (GPL) does govern
-#   all other use of the material that constitutes the Autoconf Macro.
-#
-#   This special exception to the GPL applies to versions of the Autoconf
-#   Macro released by the Autoconf Archive. When you make and distribute a
-#   modified version of the Autoconf Macro, you may extend this special
-#   exception to the GPL to apply to your modified version as well.
+dnl @synopsis AX_GCC_X86_CPUID(OP)
+dnl
+dnl @summary run x86 cpuid instruction OP using gcc inline assembler
+dnl
+dnl On Pentium and later x86 processors, with gcc or a compiler that
+dnl has a compatible syntax for inline assembly instructions, run a
+dnl small program that executes the cpuid instruction with input OP.
+dnl This can be used to detect the CPU type.
+dnl
+dnl On output, the values of the eax, ebx, ecx, and edx registers are
+dnl stored as hexadecimal strings as "eax:ebx:ecx:edx" in the cache
+dnl variable ax_cv_gcc_x86_cpuid_OP.
+dnl
+dnl If the cpuid instruction fails (because you are running a
+dnl cross-compiler, or because you are not using gcc, or because you
+dnl are on a processor that doesn't have this instruction),
+dnl ax_cv_gcc_x86_cpuid_OP is set to the string "unknown".
+dnl
+dnl This macro mainly exists to be used in AX_GCC_ARCHFLAG.
+dnl
+dnl @category Misc
+dnl @author Steven G. Johnson <stevenj@alum.mit.edu> and Matteo Frigo.
+dnl @version 2005-05-30
+dnl @license GPLWithACException
 
 AC_DEFUN([AX_GCC_X86_CPUID],
 [AC_REQUIRE([AC_PROG_CC])

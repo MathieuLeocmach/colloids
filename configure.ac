@@ -1,6 +1,9 @@
 AC_INIT([colloids], [1.0], [mathieu@iis.u-tokyo.ac.jp])
+AC_CANONICAL_HOST
 AC_CONFIG_MACRO_DIR([m4])
 AM_INIT_AUTOMAKE([subdir-objects foreign -Wall -Werror])
+AC_LIBTOOL_WIN32_DLL
+
 AC_PROG_CXX
 AC_LANG([C++])
 AC_CONFIG_SRCDIR([lib/particles.hpp])
@@ -32,8 +35,20 @@ fi
 #Try to recognize the architecture
 AX_GCC_ARCHFLAG([yes], [CXXFLAGS="$CXXFLAGS $ax_cv_gcc_archflag"])
 
+lt_enable_auto_import=""
+case "$host_os" in
+   mingw* | cegcc*)
+      LDFLAGS="$LDFLAGS -Wl,--enable-auto-import -lgdi32"
+esac
+AC_SUBST(lt_enable_auto_import)
+
+
 AX_BOOST_BASE([1.35], , AC_MSG_ERROR('boost >1.35 is needed to calculate spherical harmonics'))
 AX_BOOST_PROGRAM_OPTIONS
+
+if test "x$want_boost" = "xno"; then
+    AC_MSG_ERROR('boost >1.35 is needed to calculate spherical harmonics. Use --with-boost and --with-boost-program-options.')
+fi
 
 AC_CHECK_HEADER([CImg.h], , AC_MSG_ERROR('CImg >1.32 is needed'))
 
@@ -63,17 +78,18 @@ fi
 #FFTW
 AC_CHECK_HEADER([fftw3.h], , AC_MSG_ERROR('FFTW >3 is needed'))
 AC_CHECK_LIB([fftw3f], [fftwf_free])
+#Under windows, fftw thread's functions are included into the main library, thus this will fail silently
 AC_CHECK_LIB([fftw3f_threads], [fftwf_init_threads])
 
 #Display Unix
 AC_CHECK_LIB([X11], [XOpenDisplay])
-#Display Windows
-AC_CHECK_LIB([gdi32],[GetPixel])
+#No need to check the display on Windows: the API is automatically linked
+#AC_CHECK_LIB([gdi32],[GetPixel])
 #Math library
 AC_CHECK_LIB([m], [sqrt])
 
 AC_ARG_WITH(voro-src, [  --with-voro-src=DIR   Voro++ source files are in DIR])
-if test $with_voro_src; then 	
+if test $with_voro_src; then
 	AC_CHECK_FILE(
 		[$with_voro_src/voro++.cc],
 		[
