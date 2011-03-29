@@ -167,6 +167,22 @@ class Polydata:
             Nbins,
             maxDist
             )
+
+def export_structured_points(fname, data, name="", spacing=np.ones(3)):
+    """Export grid data to a vtk file"""
+    shape = list(data.shape)
+    shape.reverse()
+    with open(fname, 'wb') as f:
+        f.write(
+            ('# vtk DataFile Version 3.0\n%s\n' % name)+
+            'BINARY\nDATASET STRUCTURED_POINTS\n'+
+            ('DIMENSIONS %d %d %d\n'%tuple(shape))+
+            'ORIGIN 0 0 0\n'+
+            ('SPACING %g %g %g\n'%tuple(list(spacing)))+
+            ('POINT_DATA %d\n'%data.size)+
+            'SCALARS Intensity unsigned_char\nLOOKUP_TABLE default\n'
+            )
+        data.tofile(f)
         
 
 def spatialCorelation(points, fields, vectorColumns=None, Nbins=200, maxDist=50.0):
