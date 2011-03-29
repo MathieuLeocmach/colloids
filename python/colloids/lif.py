@@ -45,22 +45,32 @@ Parse the usefull part of the xml header,
 stripping time stamps and non ascii characters
 """
         if not quick:
-            self.xmlHeader = parse(xmlHeaderFile)
-        else:
-            lightXML = StringIO.StringIO()
-            #to strip the time stamps
-            m = re.compile(
-                r'''<TimeStamp HighInteger="[0-9]*" LowInteger="[0-9]*"/>|'''
-                +r'''<RelTimeStamp Time="[0-9.]*" Frame="[0-9]*"/>|'''
-                +r'''<RelTimeStamp Frame="[0-9]*" Time="[0-9.]*"/>'''
+            #store all time stamps in a big array
+            timestamps = np.fromregex(
+                xmlHeaderFile,
+                r'<TimeStamp HighInteger="(\d+)" LowInteger="(\d+)"/>'
                 )
-            #to strip the non ascii characters
-            t = "".join(map(chr, range(256)))
-            d = "".join(map(chr, range(128,256)))
-            for line in xmlHeaderFile:
-                lightXML.write(''.join(m.split(line)).translate(t,d))
-            lightXML.seek(0)
-            self.xmlHeader = parse(lightXML)
+            xmlHeaderFile.seek(0)
+            relTimestamps = np.fromregex(
+                xmlHeaderFile,
+                r'<RelTimeStamp Time="(\f+)" Frame="(\d+)"/>|<RelTimeStamp Frame="[0-9]*" Time="[0-9.]*"/>'
+                )
+            xmlHeaderFile.seek(0)
+            
+        lightXML = StringIO.StringIO()
+        #to strip the time stamps
+        m = re.compile(
+            r'''<TimeStamp HighInteger="[0-9]*" LowInteger="[0-9]*"/>|'''
+            +r'''<RelTimeStamp Time="[0-9.]*" Frame="[0-9]*"/>|'''
+            +r'''<RelTimeStamp Frame="[0-9]*" Time="[0-9.]*"/>'''
+            )
+        #to strip the non ascii characters
+        t = "".join(map(chr, range(256)))
+        d = "".join(map(chr, range(128,256)))
+        for line in xmlHeaderFile:
+            lightXML.write(''.join(m.split(line)).translate(t,d))
+        lightXML.seek(0)
+        self.xmlHeader = parse(lightXML)
 
     def getVersion(self):
         if not hasattr(self, '__version'):
@@ -209,6 +219,29 @@ class SerieHeader:
         else:
             return self.getTotalDuration()/(self.getNbFrames()-1)
 
+    def getTimeStamps(self):
+        """if the timestamps are not empty, convert them into a more lightweight numpy array"""
+        if not hasattr(self, '__timeStamps'):
+            self.__timeStamps = np.asarray([
+                (int(c.getAttribute("HighInteger"))<<32)+int(c.getAttribute("LowInteger"))
+                for c in self.root.getElementsByTagName("TimeStamp")])
+            #remove the data from XML
+            for c in self.root.getElementsByTagName("TimeStamp"):
+                c.parentNode.removeChild(c).unlink()
+        return self.__timeStamps
+
+    def getRelativeTimeStamps(self):
+        """if the timestamps are not empty, convert them into a more lightweight numpy array"""
+        if not hasattr(self, '__relTimeStamps'):
+            self.__relTimeStamps = np.asarray([
+                float(c.getAttribute("Time"))
+                for c in self.root.getElementsByTagName("RelTimeStamp")])
+            #remove the data from XML
+            for c in self.root.getElementsByTagName("RelTimeStamp"):
+                c.parentNode.removeChild(c).unlink()
+        return self.__relTimeStamps
+                
+
     def getBytesInc(self,dimension):
         if isinstance(dimension,int):
             dim = dimName[dimension]
@@ -315,8 +348,15 @@ class Reader(Header):
             if memorysize >0:
                 self.offsets.append(self.f.tell())
                 self.f.seek(memorysize,1)
+        if not quick:
+            #convert immediately the time stamps in XML format to lighweight numpy array
+            for s in self:
+                s.getTimeStamps()
+                s.getRelativeTimeStamps()
             
         #self.offsets = [long(m.getAttribute("Size")) for m in self.xmlHEader.getElementsByTagName("Memory")]
+
+                
 
     def __readMemoryBlockHeader(self):
         memBlock, trash, testBlock = struct.unpack("iic",self.f.read(9))
