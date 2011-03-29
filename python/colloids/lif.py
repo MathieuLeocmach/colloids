@@ -19,6 +19,8 @@
 from __future__ import with_statement #for python 2.5, useless in 2.6
 import struct, StringIO, re, os.path, subprocess, shlex
 from xml.dom.minidom import parse
+import numpy as np
+from numpy.fft import rfft2, irfft2
 
 dimName = {1: "X",
             2: "Y",
@@ -342,8 +344,7 @@ class Reader(Header):
     def __iter__(self):
         return iter(self.getSeries())
 
-import numpy as np
-from numpy.fft import rfft2, irfft2
+
 
 class Serie(SerieHeader):
     """One on the datasets in a lif file"""
@@ -372,7 +373,7 @@ class Serie(SerieHeader):
 
         self.f.seek(self.getOffset(**dimensionsIncrements))
         shape = self.get2DShape()
-        shape.reverse;
+        shape.reverse
         return np.fromfile(
             self.f,
             dtype=np.ubyte,
@@ -410,19 +411,18 @@ class Serie(SerieHeader):
 
     def getFrame(self,T=0):
         """
-        Return a numpy array :
+        Return a numpy array (C order, thus last index is X):
          2D if XYT or XZT serie,
          3D if XYZ, XYZT or XZYT
          (ok if no T dependence)
         """
         self.f.seek(self.getOffset(**dict({'T':T})))
         shape = self.getFrameShape()
-        shape.reverse()
         return np.fromfile(
             self.f,
             dtype=np.ubyte,
             count=self.getNbPixelsPerFrame()
-            ).reshape(shape).transpose()
+            ).reshape(shape[::-1])
 
     def getVTK(self, fname, T=0):
         """Export the frame at time T to a vtk file"""
