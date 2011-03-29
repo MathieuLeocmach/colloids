@@ -493,9 +493,9 @@ class Serie(SerieHeader):
                     count=s.getNbPixelsPerSlice()
                     ).reshape(shape).transpose()
 
-def getNeighbourhood(point, image):
-    box = np.floor([np.maximum(0, point-10), np.minimum(im.shape, point+11)])
-    ngb = im[box[0,0]:box[1,0], box[0,1]:box[1,1], box[0,2]:box[1,2]]
+def getNeighbourhood(point, image, radius=10):
+    box = np.floor([np.maximum(0, point-radius), np.minimum(image.shape, point+radius+1)])
+    ngb = image[box[0,0]:box[1,0], box[0,1]:box[1,1], box[0,2]:box[1,2]]
     center = point-box[0]
     return ngb, center
 
