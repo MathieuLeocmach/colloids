@@ -12,6 +12,22 @@ def plothist(data, title=None, bins=50, normed=False):
         with_='steps'
         )
 
+def columnData(data, xvals=None, yvals=None, **keywords):
+    """Prepare the arguments needed for an usual Gnuplot grid data in order to have a column data (no interpolation)"""
+    if xvals is None:
+        xvals = np.arange(data.shape[0])
+    if yvals is None:
+        yvals = np.arange(data.shape[1])
+    data = np.repeat(np.repeat(data, 2, axis=0), 2, axis=1)
+    xvals2 = np.repeat(xvals, 2)
+    xvals2[1:-1:2] = xvals[1:]
+    xvals2[-1] = xvals[-1]+2*(xvals[-1]-xvals[-2])
+    yvals2 = np.repeat(yvals, 2)
+    yvals2[1:-1:2] = yvals[1:]
+    yvals2[-1] = yvals[-1]+2*(yvals[-1]-yvals[-2])
+    keywords['binary'] = False
+    return Gnuplot.GridData(data, xvals2, yvals2, **keywords)
+
 def plot2dhist(datax, datay, title=None, bins=50, normed=False, cbmax=None, cbmin=None, logscale=False):
     h, bx, by = np.histogram2d(datax, datay, bins=bins, normed=normed)
     h[np.where(h==0)] = -1
