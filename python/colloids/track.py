@@ -19,6 +19,9 @@ from __future__ import with_statement #for python 2.5, useless in 2.6
 import numpy as np
 import os.path, subprocess, shlex
 from colloids import lif, vtk
+from scipy.ndimage.filters import gaussian_filter, sobel
+from scipy.ndimage.morphology import grey_erosion, grey_dilation
+
 
 def bestParams(inputPath, outputPath, radMins=np.arange(2.5, 5, 0.5), radMaxs=np.arange(6, 32, 4), t=0, serie=None):
     if serie==None:
@@ -103,3 +106,103 @@ def saveIntensityVTK(fname):
 	n[-2]+='_test'
 	n[-1] = n[-1][:-3]+'vtk'
 	v.save('_t'.join(n))
+
+def diff_of_gaussians(im, k=1.6, n=3):
+    """
+Construct an octave of the scale space by the difference of gaussians [1].
+
+ im input image. Any dimension is correct. Only floating type of sufficient precision yeild coherent output (see scipy.ndimage.filters.gaussian_filter).
+ k minimum bluring.
+ n number of intervals to divide the octave into.
+
+Using this scale space, blobs can be detected between k*sqrt(2)*2**(1.0/n) and k*sqrt(2)*2
+
+[1] David G Lowe, International Journal Of Computer Vision 60, 91-110 (2004)."""
+    return np.diff([
+        gaussian_filter(im, s) for s in k*(2**(1.0/n))**np.arange(n+3)
+        ], axis=0)
+
+def pixel_centers_2Dscale(im, k=1.6, n=3):
+    """Blob finder : find the local maxima in an octave of the scale space"""
+    assert im.ndim==2, "work only with 2D images"
+    DoG2D = diff_of_gaussians(np.asarray(im, float), k, n)
+    centers_scale = np.bitwise_and(
+	    DoG2D[1:-1]==grey_erosion(DoG2D, [3]*3)[1:-1],
+	    DoG2D[1:-1]<0)
+    centers_scale[:,:,0] = 0
+    centers_scale[:,:,-1] = 0
+    centers_scale[:,0] = 0
+    centers_scale[:,-1] = 0
+    return centers_scale
+
+def pretty_2Dscale_track(im, k=1.6, n=3):
+    """Pretty display of the blobs localized in the input image
+
+The red channel is the original image.
+The green channel displays a bright pixel at the position of each blob.
+The crosses in the blue channel have the size of the detected blob."""
+    centers_scale = pixel_centers_2Dscale(im, k=1.6, n=3)
+    rads = np.asarray(2*np.sqrt(2)*k*(2**(1.0/n))**np.arange(1, n+1), int)/2
+    return np.dstack((
+        im, 255 * centers_scale.max(0),
+        255*np.max([
+            np.bitwise_or(
+                grey_dilation(d, [1,2*r+1]),
+                grey_dilation(d, [2*r+1,1]))
+            for r,d in zip(rads, centers_scale)], 0)
+        ))
+
+def local_disp(c, DoG):
+    """Interpolate the scale-space to find the extremum with subpixel resolution"""
+    m = np.maximum(np.zeros_like(c), c-2)
+    M = np.minimum(DoG.shape, c+3)
+    ngb = DoG[m[0]:M[0], m[1]:M[1], m[2]:M[2]]
+    grad = np.asarray([sobel(ngb, axis=a) for a in range(ngb.ndim)])
+    hess = np.asarray([
+            [sobel(ga, axis=a) for ga in grad] for a in range(ngb.ndim)])
+    s, y, x = c-m
+    dc = -4**(ngb.ndim-1)*np.dot(
+            np.linalg.inv(hess[:,:,s,y,x]),
+            grad[:,s,y,x])
+    value = DoG[s,y,x]+0.5*np.dot(grad[:,s,y,x],dc)
+    return dc, value
+
+def centers_2Dscale(im, k=1.6, n=3):
+    """Blob finder : find the local maxima in the scale space"""
+    assert im.ndim==2, "work only with 2D images"
+    DoG2D = diff_of_gaussians(np.asarray(im, float), k, n)
+    centers_scale = np.bitwise_and(
+	    DoG2D==grey_erosion(DoG2D, [3]*3),
+	    DoG2D<0)
+    #remove maxima on the borders
+    centers_scale[:,:,0] = 0
+    centers_scale[:,:,-1] = 0
+    centers_scale[:,0] = 0
+    centers_scale[:,-1] = 0
+    centers_scale[0] = 0
+    centers_scale[-1] = 0
+    #from array to coordinates
+    centers = np.transpose(np.where(centers_scale))
+    #subpixel resolution (first try)
+    dcenval = [local_disp(c, DoG2D) for c in centers]
+    dcenters = np.asarray([d[0] for d in dcenval])
+    vals = np.asarray([d[1] for d in dcenval])
+    #if the displacement is larger than 0.5 in any direction,
+    #the center is shifted to the neighbouring pixel
+    for p in range(len(dcenters)):
+	if np.absolute(dcenters[p]).max()>0.5:
+		nc = (centers[p]+(dcenters[p]>0.5))-(dcenters[p]<-0.5)
+		ndc, nv = local_disp(nc, DoG0)
+		#remove the center if it is moving out of its new pixel (unstable)
+		if np.absolute(ndc).max()>0.5:
+			centers[p] = -1
+			continue
+		centers[p] = nc
+		dcenters[p] = ndc
+		vals[p] = nv
+    
+    return (centers+dcenters)[np.where(np.bitwise_and(
+        centers[:,0]>-1,
+        vals<0))[0]]
+
+
