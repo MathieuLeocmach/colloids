@@ -403,7 +403,7 @@ class Serie(SerieHeader):
         return self.__offset+of
 
     def get2DSlice(self,**dimensionsIncrements):
-        """Use the two first dimensions as image dimension"""
+        """Use the two first dimensions as image dimension. Axis are in C order (last index is X)."""
         for d in self.getDimensions()[:2]:
             if dimensionsIncrements.has_key(dimName[int(d.getAttribute("DimID"))]):
                 raise Exception('You can\'t set %s in serie %s' % (
@@ -413,12 +413,11 @@ class Serie(SerieHeader):
 
         self.f.seek(self.getOffset(**dimensionsIncrements))
         shape = self.get2DShape()
-        shape.reverse
         return np.fromfile(
             self.f,
             dtype=np.ubyte,
             count=self.getNbPixelsPerSlice()
-            ).reshape(shape).transpose()
+            ).reshape(shape[::-1])
 
     def get2DString(self,**dimensionsIncrements):
         """Use the two first dimensions as image dimension"""
