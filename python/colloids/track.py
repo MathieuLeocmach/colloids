@@ -166,27 +166,23 @@ def local_disp(c, DoG):
     dc = -4**(ngb.ndim-1)*np.dot(
             np.linalg.inv(hess[sl]),
             grad[sl])
-    value = DoG[c-m]+0.5*np.dot(grad[sl],dc)
+    value = ngb[sl]+0.5*np.dot(grad[sl],dc)
     return dc, value
 
-def centers_2Dscale(im, k=1.6, n=3):
-    """Blob finder : find the local maxima in the scale space"""
-    assert im.ndim==2, "work only with 2D images"
-    DoG2D = diff_of_gaussians(np.asarray(im, float), k, n)
+def blob_finder(im, k=1.6, n=3):
+    """Blob finder : find the local maxima in an octave of the scale space"""
+    DoG = diff_of_gaussians(np.asarray(im, float), k, n)
     centers_scale = np.bitwise_and(
-	    DoG2D==grey_erosion(DoG2D, [3]*3),
-	    DoG2D<0)
+	    DoG==grey_erosion(DoG, [3]*DoG.ndim),
+	    DoG<0)
     #remove maxima on the borders
-    centers_scale[:,:,0] = 0
-    centers_scale[:,:,-1] = 0
-    centers_scale[:,0] = 0
-    centers_scale[:,-1] = 0
-    centers_scale[0] = 0
-    centers_scale[-1] = 0
+    for a in range(centers_scale.ndim):
+        centers_scale[tuple([slice(None)]*(centers_scale.ndim-1-a)+[0])]=0
+        centers_scale[tuple([slice(None)]*(centers_scale.ndim-1-a)+[-1])]=0
     #from array to coordinates
     centers = np.transpose(np.where(centers_scale))
     #subpixel resolution (first try)
-    dcenval = [local_disp(c, DoG2D) for c in centers]
+    dcenval = [local_disp(c, DoG) for c in centers]
     dcenters = np.asarray([d[0] for d in dcenval])
     vals = np.asarray([d[1] for d in dcenval])
     #if the displacement is larger than 0.5 in any direction,
@@ -194,7 +190,7 @@ def centers_2Dscale(im, k=1.6, n=3):
     for p in range(len(dcenters)):
         if np.absolute(dcenters[p]).max()>0.5:
             nc = (centers[p]+(dcenters[p]>0.5))-(dcenters[p]<-0.5)
-            ndc, nv = local_disp(nc, DoG2D)
+            ndc, nv = local_disp(nc, DoG)
             #remove the center if it is moving out of its new pixel (unstable)
             if np.absolute(ndc).max()>0.5:
                 centers[p] = -1
@@ -202,7 +198,6 @@ def centers_2Dscale(im, k=1.6, n=3):
             centers[p] = nc
             dcenters[p] = ndc
             vals[p] = nv
-    
     return (centers+dcenters)[np.where(np.bitwise_and(
         centers[:,0]>-1,
         vals<0))[0]]
