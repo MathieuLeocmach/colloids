@@ -169,7 +169,7 @@ def local_disp(c, DoG):
     value = ngb[sl]+0.5*np.dot(grad[sl],dc)
     return dc, value
 
-def blob_finder(im, k=1.6, n=3):
+def find_blob(im, k=1.6, n=3):
     """Blob finder : find the local maxima in an octave of the scale space"""
     DoG = diff_of_gaussians(np.asarray(im, float), k, n)
     centers_scale = np.bitwise_and(
@@ -181,6 +181,8 @@ def blob_finder(im, k=1.6, n=3):
         centers_scale[tuple([slice(None)]*(centers_scale.ndim-1-a)+[-1])]=0
     #from array to coordinates
     centers = np.transpose(np.where(centers_scale))
+    if len(centers)==0:
+        return centers
     #subpixel resolution (first try)
     dcenval = [local_disp(c, DoG) for c in centers]
     dcenters = np.asarray([d[0] for d in dcenval])
@@ -233,7 +235,7 @@ def load_clusters(trajfile):
         digits = len(m.group(2))
         recomposed = os.path.join(path, head+token+'%0'+str(digits)+'d'+ext)
         #load coordinates in the (x, y, r) space for each z
-        slices = [np.loadtxt(recomposed%z) for z in range(size)]
+        slices = [np.loadtxt(recomposed%z, skiprows=2) for z in range(size)]
         #parse cluster description
         for line in f:
             z0 = int(line[:-1])
