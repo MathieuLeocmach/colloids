@@ -17,10 +17,12 @@
 #
 from __future__ import with_statement #for python 2.5, useless in 2.6
 import numpy as np
-import os.path, subprocess, shlex
+import os.path, subprocess, shlex, string, re
 from colloids import lif, vtk
 from scipy.ndimage.filters import gaussian_filter, sobel
 from scipy.ndimage.morphology import grey_erosion, grey_dilation
+from scipy.ndimage import measurements
+from rtree import Rtree
 
 
 def bestParams(inputPath, outputPath, radMins=np.arange(2.5, 5, 0.5), radMaxs=np.arange(6, 32, 4), t=0, serie=None):
@@ -42,7 +44,7 @@ def bestParams(inputPath, outputPath, radMins=np.arange(2.5, 5, 0.5), radMaxs=np
             out_head +='_'
     out_noext = out_head+'t%(t)0'+('%d'%len('%d'%s.getNbFrames()))+'d'
     for radMin in radMins:
-	for radMax in radMaxs:
+        for radMax in radMaxs:
             if not os.path.exists(
                 (out_noext+'.intensity')%{'m':radMin, 'M':radMax, 't':t}
                 ):
@@ -156,15 +158,15 @@ def local_disp(c, DoG):
     """Interpolate the scale-space to find the extremum with subpixel resolution"""
     m = np.maximum(np.zeros_like(c), c-2)
     M = np.minimum(DoG.shape, c+3)
-    ngb = DoG[m[0]:M[0], m[1]:M[1], m[2]:M[2]]
+    ngb = DoG[tuple([slice(u,U) for u, U in zip(m,M)])]
     grad = np.asarray([sobel(ngb, axis=a) for a in range(ngb.ndim)])
     hess = np.asarray([
             [sobel(ga, axis=a) for ga in grad] for a in range(ngb.ndim)])
-    s, y, x = c-m
+    sl = tuple([Ellipsis]+(c-m).tolist())
     dc = -4**(ngb.ndim-1)*np.dot(
-            np.linalg.inv(hess[:,:,s,y,x]),
-            grad[:,s,y,x])
-    value = DoG[s,y,x]+0.5*np.dot(grad[:,s,y,x],dc)
+            np.linalg.inv(hess[sl]),
+            grad[sl])
+    value = DoG[c-m]+0.5*np.dot(grad[sl],dc)
     return dc, value
 
 def centers_2Dscale(im, k=1.6, n=3):
@@ -190,19 +192,86 @@ def centers_2Dscale(im, k=1.6, n=3):
     #if the displacement is larger than 0.5 in any direction,
     #the center is shifted to the neighbouring pixel
     for p in range(len(dcenters)):
-	if np.absolute(dcenters[p]).max()>0.5:
-		nc = (centers[p]+(dcenters[p]>0.5))-(dcenters[p]<-0.5)
-		ndc, nv = local_disp(nc, DoG0)
-		#remove the center if it is moving out of its new pixel (unstable)
-		if np.absolute(ndc).max()>0.5:
-			centers[p] = -1
-			continue
-		centers[p] = nc
-		dcenters[p] = ndc
-		vals[p] = nv
+        if np.absolute(dcenters[p]).max()>0.5:
+            nc = (centers[p]+(dcenters[p]>0.5))-(dcenters[p]<-0.5)
+            ndc, nv = local_disp(nc, DoG2D)
+            #remove the center if it is moving out of its new pixel (unstable)
+            if np.absolute(ndc).max()>0.5:
+                centers[p] = -1
+                continue
+            centers[p] = nc
+            dcenters[p] = ndc
+            vals[p] = nv
     
     return (centers+dcenters)[np.where(np.bitwise_and(
         centers[:,0]>-1,
         vals<0))[0]]
 
+def multiple_centers(centers):
+    """Remove overlapping centers (2D)"""
+    #sort the centers by decreasing radius
+    s = s[np.argsort(s[:,0])][::-1]
+    idx = Rtree()
+    for p,(r, y, x) in enumerate(s):
+        bb = (x-r, y-r, x+r, y+r)
+        inter = list(idx.intersection(bb))
+        #don't add centers that overlap
+        if len(inter)>0:
+            qs = s[inter]
+            if np.sum(np.sum((qs[:,1:]-s[p][1:])**2)<(qs[:,0]+r)**2)>0:
+                continue
+        idx.add(p, bb)
+    return s[list(idx.intersection(idx.bounds))]
 
+def load_clusters(trajfile):
+    """Load the piles of 2D centers as formed by linker"""
+    clusters = []
+    path = os.path.split(trajfile)[0]
+    with open(trajfile) as f:
+        #parsing header
+        ZXratio = float(f.next()[0])
+        pattern, ext = os.path.splitext(f.next()[:-1].split("\t")[0])
+        token, = f.next()[:-1].split("\t")
+        offset,size = map(int, f.next()[:-1].split("\t"))
+        m = re.match('(.*)'+token+'([0-9]*)',pattern)
+        head = m.group(1)
+        digits = len(m.group(2))
+        recomposed = os.path.join(path, head+token+'%0'+str(digits)+'d'+ext)
+        #load coordinates in the (x, y, r) space for each z
+        slices = [np.loadtxt(recomposed%z) for z in range(size)]
+        #parse cluster description
+        for line in f:
+            z0 = int(line[:-1])
+            pos = map(int, string.split(f.next()[:-1],'\t'))
+            clusters.append(np.asarray([
+                [s[p,0], s[p,1], z*ZXratio, s[p,-1]] for z, s, p in zip(
+                    range(z0, z0+len(pos)),
+                    slices[z0:],
+                    pos)
+                ]))
+    return clusters
+
+def label_clusters(centers):
+    """Group 2D centers by proximity.
+centers is a (N,3) array of the coordinates"""
+    dom = np.zeros(centers.max(0)+1, bool)
+    dom[tuple(np.asarray(centers.T, int))] = True
+    lab, nlab = measurements.label(dom, np.ones([3]*3))
+    clusters = [[] for l in range(nlab+1)]
+    for p, (x,y,z) in enumerate(centers):
+        clusters[lab[x, y, z]].append(p)
+    return clusters
+
+def split_clusters(clusters, centers):
+    for i, k in enumerate(clusters):
+        if len(k)==0:
+            continue
+        cl = centers[k]
+        M = cl[cl[:,-1].argmax()]
+        core = np.sum((cl[:,:-1]-M[:-1])**2, -1)<(cl[:,-1]+M[-1])**2
+        if core.sum()==len(core):
+            continue
+        out = [p for p,c in zip(k, core) if not c]
+        clusters.append(out)
+        clusters[i] = [p for p,c in zip(k, core) if c]
+    return clusters
