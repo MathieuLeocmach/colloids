@@ -302,15 +302,17 @@ def cluster2radgrad(cluster, k=1.6):
     """Enhance the cusps between stacked particles in the radius(z) curve
 by substracting the magnitude of the gradient of x(z) and y(z) ;
 and adding the intensity"""
-    return cluster[:,3]-np.sqrt(np.sum(gaussian_filter1d(
+    return cluster[:,3] - np.sqrt(np.sum(gaussian_filter1d(
         cluster[:,:1], 1.6, axis=0, order=1
-        )**2, axis=-1))+cluster[:,4]/cluster[:,4].mean()
+        )**2, axis=-1)) + gaussian_filter1d(
+            cluster[:,4]/cluster[:,4].max(),
+            k, mode='constant')
     
 def clusters2particles(clusters):
     particles = []
     for cl in clusters:
         blobs = np.vstack((
-            find_blob(np.repeat(cluster2radgrad(cl),2,0))*[1, 0.5, 1],
+            find_blob(cluster2radgrad(np.repeat(cl,2,0)))*[1, 0.5, 1],
             find_blob(cluster2radgrad(cl))+[3, 0, 0],
             (find_blob(cluster2radgrad(cl[::2]))*[1,2,1])+[6, 0, 0]
             ))
