@@ -19,7 +19,7 @@ from __future__ import with_statement #for python 2.5, useless in 2.6
 import numpy as np
 import os.path, subprocess, shlex, string, re
 from colloids import lif, vtk
-from scipy.ndimage.filters import gaussian_filter, sobel
+from scipy.ndimage.filters import gaussian_filter, gaussian_filter1d, sobel
 from scipy.ndimage.morphology import grey_erosion, grey_dilation
 from scipy.ndimage import measurements
 from rtree import Rtree
@@ -169,6 +169,23 @@ def local_disp(c, DoG):
     value = ngb[sl]+0.5*np.dot(grad[sl],dc)
     return dc, value
 
+def elongated(c, DoG, elong_max=10):
+    """Tell if a point of interest describes an elongated structure"""
+    assert DoG.ndim==3, """Works only for 2D images"""
+    m = np.maximum(np.zeros_like(c), c-2)[1:]
+    M = np.minimum(DoG.shape, c+3)[1:]
+    ngb = DoG[tuple([c[0]]+[slice(u,U) for u, U in zip(m,M)])]
+    grad = np.asarray([sobel(ngb, axis=a) for a in range(ngb.ndim)])
+    hess = np.asarray([
+            [sobel(ga, axis=a) for ga in grad] for a in range(ngb.ndim)])
+    sl = tuple([Ellipsis]+(c[1:]-m).tolist())
+    det = np.linalg.det(hess[sl])
+    if det<0:
+        #the point is not a maximum
+        return True
+    return np.trace(hess[sl])**2/det > (elong_max+1.0)**2/elong_max
+    
+
 def find_blob(im, k=1.6, n=3):
     """Blob finder : find the local maxima in an octave of the scale space"""
     DoG = diff_of_gaussians(np.asarray(im, float), k, n)
@@ -182,7 +199,7 @@ def find_blob(im, k=1.6, n=3):
     #from array to coordinates
     centers = np.transpose(np.where(centers_scale))
     if len(centers)==0:
-        return centers
+        return np.zeros([0, DoG.ndim+1])
     #subpixel resolution (first try)
     dcenval = [local_disp(c, DoG) for c in centers]
     dcenters = np.asarray([d[0] for d in dcenval])
@@ -200,9 +217,18 @@ def find_blob(im, k=1.6, n=3):
             centers[p] = nc
             dcenters[p] = ndc
             vals[p] = nv
-    return (centers+dcenters)[np.where(np.bitwise_and(
-        centers[:,0]>-1,
-        vals<0))[0]]
+    #filter out the unstable or dim centers
+    good = np.bitwise_and(centers[:,0]>-1, vals<0)
+    if not good.max():
+        return np.zeros([0, DoG.ndim+1])
+    centers = centers[good]
+    dcenters = dcenters[good]
+    #remove elongated features (2D image only)
+##    if im.ndim == 2:
+##        good = [not elongated(c, DoG, elong_max) for c in centers]
+##        centers = centers[good]
+##        dcenters = dcenters[good]
+    return np.column_stack((centers+dcenters, vals[good]))
 
 def multiple_centers(centers):
     """Remove overlapping centers (2D)"""
@@ -220,33 +246,83 @@ def multiple_centers(centers):
         idx.add(p, bb)
     return s[list(idx.intersection(idx.bounds))]
 
+def save_2Dcenters(file_pattern, frame):
+    for z, im in enumerate(frame):
+	centers = np.vstack((
+		find_blob(np.repeat(np.repeat(im, 2, 0), 2,1))*[1, 0.5, 0.5,1],
+		find_blob(im)+[3,0,0,0]
+	))[:,[2,1,0,3]]
+	centers[:,2] = 1.6/np.sqrt(2)*2**(centers[:,2]/3)
+	np.savetxt(
+		file_pattern%(z, 'dat'),
+		np.vstack((
+			[1, len(centers), 1],
+			[256, 256, 1.6*np.sqrt(2)*2**(7.0/3)],
+			centers[:,:-1]
+			)), fmt='%g'
+		)
+	np.savetxt(file_pattern%(z, 'intensity'), centers[:,-1], fmt='%g')
+    
+
 def load_clusters(trajfile):
     """Load the piles of 2D centers as formed by linker"""
     clusters = []
     path = os.path.split(trajfile)[0]
     with open(trajfile) as f:
         #parsing header
-        ZXratio = float(f.next()[0])
+        ZXratio = float(f.next()[:-1].split("\t")[1])
         pattern, ext = os.path.splitext(f.next()[:-1].split("\t")[0])
         token, = f.next()[:-1].split("\t")
         offset,size = map(int, f.next()[:-1].split("\t"))
         m = re.match('(.*)'+token+'([0-9]*)',pattern)
         head = m.group(1)
         digits = len(m.group(2))
-        recomposed = os.path.join(path, head+token+'%0'+str(digits)+'d'+ext)
+        recomposed = os.path.join(path, head+token+'%0'+str(digits)+'d%s')
         #load coordinates in the (x, y, r) space for each z
-        slices = [np.loadtxt(recomposed%z, skiprows=2) for z in range(size)]
+        slices = [np.hstack((
+            np.loadtxt(recomposed%(z,ext), skiprows=2),
+            -np.loadtxt(recomposed%(z,'.intensity'))[:, np.newaxis]
+            ))
+            for z in range(size)]
         #parse cluster description
         for line in f:
             z0 = int(line[:-1])
             pos = map(int, string.split(f.next()[:-1],'\t'))
             clusters.append(np.asarray([
-                [s[p,0], s[p,1], z*ZXratio, s[p,-1]] for z, s, p in zip(
+                [s[p,0], s[p,1], z*ZXratio,
+                 s[p,-2],
+                 s[p,-1]] for z, s, p in zip(
                     range(z0, z0+len(pos)),
                     slices[z0:],
                     pos)
                 ]))
     return clusters
+
+def cluster2radgrad(cluster, k=1.6):
+    """Enhance the cusps between stacked particles in the radius(z) curve
+by substracting the magnitude of the gradient of x(z) and y(z) ;
+and adding the intensity"""
+    return cluster[:,3]-np.sqrt(np.sum(gaussian_filter1d(
+        cluster[:,:1], 1.6, axis=0, order=1
+        )**2, axis=-1))+cluster[:,4]/cluster[:,4].mean()
+    
+def clusters2particles(clusters):
+    particles = []
+    for cl in clusters:
+        blobs = np.vstack((
+            find_blob(np.repeat(cluster2radgrad(cl),2,0))*[1, 0.5, 1],
+            find_blob(cluster2radgrad(cl))+[3, 0, 0],
+            (find_blob(cluster2radgrad(cl[::2]))*[1,2,1])+[6, 0, 0]
+            ))
+        grad = gaussian_filter1d(cl, 1.6/2, axis=0, order=1)
+        for s, z, v in blobs:
+            #smoothed = (gaussian_filter1d(cl, 1.6*2**(s/3-1), axis=0)-cl.mean(0))*np.sqrt(2)+cl.mean(0)
+            #grad = gaussian_filter1d(cl, 1.6*2**(s/3-1), axis=0, order=1)
+            k = np.rint(z)
+            dz = z-k
+            particles.append(cl[k]+grad[k]*dz)
+    return np.asarray(particles)
+
 
 def label_clusters(centers):
     """Group 2D centers by proximity.
