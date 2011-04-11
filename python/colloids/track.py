@@ -308,22 +308,38 @@ and adding the intensity"""
     smoothI = gaussian_filter1d(cluster[:,4], k)
     pos_maxratio = np.argmax(cluster[:,3]/smoothI)
     return cluster[:,3] - grad + smoothI/smoothI[pos_maxratio]
+
+def filter_blobs1d(blobs, k=1.6, n=3):
+    """Remove overlapping centers than may appear at different scales.
+Keeps the center with the strongest (negative) signal."""
+    #sort by intensity
+    inb = blobs[np.argsort(blobs[:,-1])]
+    out = []
+    for i in inb:
+            for j in out:
+                    if (i[1]-j[1])**2 < (k*(2**(i[0]/n)+2**(j[0]/3)))**2/2:
+                            break
+            else:
+                    out.append(i)
+    return np.asarray(out)
     
-def clusters2particles(clusters):
+def clusters2particles(clusters, k=1.6, n=3, noDuplicate=True):
     particles = []
     for cl in clusters:
         blobs = np.vstack((
-            find_blob(cluster2radgrad(np.repeat(cl,2,0)))*[1, 0.5, 1],
-            find_blob(cluster2radgrad(cl))+[3, 0, 0],
-            (find_blob(cluster2radgrad(cl[::2]))*[1,2,1])+[6, 0, 0]
+            find_blob(cluster2radgrad(np.repeat(cl,2,0)), k, n)*[1, 0.5, 1],
+            find_blob(cluster2radgrad(cl), k, n)+[n, 0, 0],
+            (find_blob(cluster2radgrad(cl[::2]), k, n)*[1,2,1])+[2*n, 0, 0]
             ))
-        grad = gaussian_filter1d(cl, 1.6/2, axis=0, order=1)
+        if noDuplicate:
+            blobs = filter_blobs1d(blobs)
+        grad = gaussian_filter1d(cl, k/2, axis=0, order=1)
         for s, z, v in blobs:
             #smoothed = (gaussian_filter1d(cl, 1.6*2**(s/3-1), axis=0)-cl.mean(0))*np.sqrt(2)+cl.mean(0)
             #grad = gaussian_filter1d(cl, 1.6*2**(s/3-1), axis=0, order=1)
-            k = np.rint(z)
-            dz = z-k
-            particles.append(cl[k]+grad[k]*dz)
+            zi = np.rint(z)
+            dz = z-zi
+            particles.append(cl[zi]+grad[zi]*dz)
     return np.asarray(particles)
 
 
