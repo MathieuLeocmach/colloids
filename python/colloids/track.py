@@ -312,6 +312,8 @@ and adding the intensity"""
 def filter_blobs1d(blobs, k=1.6, n=3):
     """Remove overlapping centers than may appear at different scales.
 Keeps the center with the strongest (negative) signal."""
+    if len(blobs)==0:
+        return blobs
     #sort by intensity
     inb = blobs[np.argsort(blobs[:,-1])]
     out = []
