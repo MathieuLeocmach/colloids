@@ -71,7 +71,7 @@ int main(int argc, char ** argv)
 				nbDiameterCutOff = atof(argv[4]);
         const size_t Nbins = atoi(argv[3]);
         const bool mode = (argc<6)?0:atoi(argv[5]);
-        const size_t l = (argc<7)?0:atoi(argv[6]);
+        const size_t l = (argc<7)?6:atoi(argv[6]);
 		Particles Centers(filename,radius);
 #endif
 		cout << Centers.size() << " particles ... ";
