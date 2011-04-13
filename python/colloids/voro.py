@@ -112,10 +112,12 @@ def load_vorobonds(fname):
 	int(line.split()[0])*np.ones(int(line.split()[2]), int),
 	map(int, line.split()[3:])
 	)) for line in open(fname)])
+    walls = np.signbit(bonds.min(axis=-1))
+    outside = np.unique1d(bonds[walls].max(axis=-1))
     #remove the walls and the duplicates
     bonds = bonds[np.bitwise_and(
 	np.diff(bonds, axis=-1)[:,0]>0,
-	np.bitwise_not(np.signbit(bonds.min(axis=-1)))
+	np.bitwise_not(walls)
 	)]
     #sort by second then first column
-    return bonds[np.lexsort(bonds.T[::-1].tolist())]
+    return bonds[np.lexsort(bonds.T[::-1].tolist())], outside
