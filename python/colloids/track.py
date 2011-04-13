@@ -340,6 +340,10 @@ def clusters2particles(clusters, k=1.6, n=3, noDuplicate=True):
             #smoothed = (gaussian_filter1d(cl, 1.6*2**(s/3-1), axis=0)-cl.mean(0))*np.sqrt(2)+cl.mean(0)
             #grad = gaussian_filter1d(cl, 1.6*2**(s/3-1), axis=0, order=1)
             zi = np.rint(z)
+            if zi==len(cl):
+                zi = len(cl)-1
+            if zi<0:
+                zi = 0
             dz = z-zi
             particles.append(cl[zi]+grad[zi]*dz)
     return np.asarray(particles)
