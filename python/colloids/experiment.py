@@ -151,7 +151,7 @@ class Experiment:
             V=0
             for t,name in self.enum():
                 V += np.ptp(
-                    np.loadtxt(name, delimiter='\t', skiprows=2),
+                    np.loadtxt(name, skiprows=2),
                     axis=0).prod()
             self.__mean_V = V / self.size
         return self.__mean_V
@@ -178,7 +178,7 @@ class Experiment:
         nbs = np.empty((self.size))
         Vs = np.empty((self.size))
         for t,fname in self.enum():
-            coords = np.loadtxt(fname,delimiter='\t', skiprows=2)
+            coords = np.loadtxt(fname, skiprows=2)
             nbs[t-self.offset] = len(coords)
             Vs[t-self.offset] = np.ptp(coords, axis=0).prod()
         if averaged:
@@ -191,7 +191,7 @@ class Experiment:
         nbs = np.empty((self.size))
         Vs = np.empty((self.size))
         for t,fname in self.enum():
-            coords = np.loadtxt(fname,delimiter='\t', skiprows=2)
+            coords = np.loadtxt(fname, skiprows=2)
             m = np.amin(coords[:,-1])+lowerMargin
             M = np.amax(coords[:,-1])-upperMargin
             coords = coords[np.bitwise_and(m>coords[:,-1], coords[:,-1]<M)]
@@ -212,7 +212,7 @@ class Experiment:
                    os.path.join(self.path,self.head + '.traj'),
                    '1']
                    )
-            t,isf = np.loadtxt(name, delimiter="\t",usecols=[0,4],unpack=True)
+            t,isf = np.loadtxt(name,usecols=[0,4],unpack=True)
             below = np.argwhere(isf<thr)
             if len(below)>0:
                 self.__tau = t[below.min()]
@@ -423,7 +423,7 @@ class Txp:
         for t, fname in self.xp.enum():
             if t<start or t>= start+size:
                 continue
-            raw_pos = np.loadtxt(fname,delimiter='\t',skiprows=2)
+            raw_pos = np.loadtxt(fname, skiprows=2)
             pos[t-start] = raw_pos[self.trajs[:,t-start]]
         return pos
 
@@ -736,7 +736,7 @@ def br(radius, T=28, eta28C=2.00139e-3, detadT=-0.03e-3):
 
 def histz(f):
     """export the density histogram of a .dat file into a .z file"""
-    hist, bins = np.histogram(np.loadtxt(f, delimiter='\t', skiprows=2, usecols=[2]))
+    hist, bins = np.histogram(np.loadtxt(f, skiprows=2, usecols=[2]))
     np.savetxt(f[:-3]+'z', hist/(bins[1]-bins[0]), fmt='%f', delimiter='\t')
 
 def dilate(field, bonds):
