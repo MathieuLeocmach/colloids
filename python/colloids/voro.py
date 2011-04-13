@@ -104,3 +104,18 @@ def cgVolume(fname, Return=False):
     os.remove(outName)
     if Return :
         return np.column_stack((dat,vol))
+
+def load_vorobonds(fname):
+    """load the bond network from a custom output of Voro++ '%i %v %s %n'"""
+    #load all bonds
+    bonds = np.vstack([np.column_stack((
+	int(line.split()[0])*np.ones(int(line.split()[2]), int),
+	map(int, line.split()[3:])
+	)) for line in open(fname)])
+    #remove the walls and the duplicates
+    bonds = bonds[np.bitwise_and(
+	np.diff(bonds, axis=-1)[:,0]>0,
+	np.bitwise_not(np.signbit(bonds.min(axis=-1)))
+	)]
+    #sort by second then first column
+    return bonds[np.lexsort(bonds.T[::-1].tolist())]
