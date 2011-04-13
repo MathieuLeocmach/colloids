@@ -521,16 +521,14 @@ class Serie(SerieHeader):
 
     def enumBySlice(self):
         """yield 2D slices one after the other as a 3-tuple (time,z,numpy array)"""
-        shape = self.get2DShape()
-        shape.reverse()
         self.f.seek(self.getOffset())
         for t in range(self.getNbFrames()):
             for z in range(self.getNbPixelsPerFrame()/self.getNbPixelsPerSlice()):
                 yield t,z,np.fromfile(
                     self.f,
                     dtype=np.ubyte,
-                    count=s.getNbPixelsPerSlice()
-                    ).reshape(shape).transpose()
+                    count=self.getNbPixelsPerSlice()
+                    ).reshape(self.get2DShape()[::-1])
 
 def getNeighbourhood(point, image, radius=10):
     box = np.floor([np.maximum(0, point-radius), np.minimum(image.shape, point+radius+1)])
