@@ -373,3 +373,80 @@ def split_clusters(clusters, centers):
         clusters.append(out)
         clusters[i] = [p for p,c in zip(k, core) if c]
     return clusters
+
+class OctaveBlobFinder:
+    """Locator of bright blobs in a 2D image of fixed shape. Works on a single octave."""
+    def __init__(self, shape=(256,256), nbLayers=3):
+        """Allocate memory once"""
+        self.im =  np.empty(shape, float)
+        self.layersG = np.empty([nbLayers+3, shape[0], shape[1]], float)
+        self.layers = np.empty([nbLayers+2, shape[0], shape[1]], float)
+        self.eroded = np.empty([nbLayers+2, shape[0], shape[1]], float)
+        self.binary = np.empty([nbLayers+2, shape[0], shape[1]], bool)
+        
+    def __call__(self, image, k=1.6):
+        """Locate bright blobs in a 2D image with subpixel resolution.
+Returns an array of (x, y, r, value)"""
+        assert self.im.shape == image.shape, """Wrong image size"""
+        #convert the image to floating points
+        self.im = np.asarray(image, float)
+        #Gaussian filters
+        for l, layer in enumerate(self.layersG):
+            gaussian_filter(self.im, k*2**(l/float(len(self.layersG)-3)), output=layer)
+        #Difference of gaussians
+        self.layers = np.diff(self.layersG, axis=0)
+        #Erosion
+        grey_erosion(self.layers, [3]*self.layers.ndim, output=self.eroded)
+        #image maxima
+        self.binary = (self.layers==self.eroded)
+        for a in range(self.binary.ndim):
+            self.binary[tuple([slice(None)]*(self.binary.ndim-1-a)+[0])]=False
+            self.binary[tuple([slice(None)]*(self.binary.ndim-1-a)+[-1])]=False
+        #from array to coordinates
+        centers = np.transpose(np.where(self.binary))
+        if len(centers)==0:
+            return np.zeros([0, self.layers.ndim+1])
+        #subpixel resolution (first try)
+        dcenval = [local_disp(c, self.layers) for c in centers]
+        dcenters = np.asarray([d[0] for d in dcenval])
+        vals = np.asarray([d[1] for d in dcenval])
+        #if the displacement is larger than 0.5 in any direction,
+        #the center is shifted to the neighbouring pixel
+        for p in range(len(dcenters)):
+            if np.absolute(dcenters[p]).max()>0.5:
+                nc = (centers[p]+(dcenters[p]>0.5))-(dcenters[p]<-0.5)
+                ndc, nv = local_disp(nc, self.layers)
+                #remove the center if it is moving out of its new pixel (unstable)
+                if np.absolute(ndc).max()>0.5:
+                    centers[p] = -1
+                    continue
+                centers[p] = nc
+                dcenters[p] = ndc
+                vals[p] = nv
+        #filter out the unstable or dim centers
+        good = np.bitwise_and(centers[:,0]>-1, vals<0)
+        if not good.max():
+            return np.zeros([0, self.layers.ndim+1])
+        centers = (centers[good] + dcenters[good])[:,::-1]
+        #convert position in the scale space to real space size
+        centers[:,2] = k*np.sqrt(2)*2**(centers[:,2]/(len(self.layers)-2))
+        return np.column_stack((centers, vals[good]))
+        
+class MultiscaleBlobFinder:
+    """Locator of bright blobs in a 2D image of fixed shape. Works on more than one octave, starting at octave -1."""
+    def __init__(self, shape=(256,256), nbLayers=3, nbOctaves=2):
+        """Allocate memory for each octave"""
+        self.octaves = [OctaveBlobFinder(
+            (shape[0]*2**(1-o), shape[1]*2**(1-o)),
+            nbLayers) for o in range(nbOctaves)]
+        
+    def __call__(self, image, k=1.6):
+        """Locate blobs in each octave and regroup the results"""
+        centers = np.vstack(
+            [self.octaves[0](np.repeat(np.repeat(image, 2,0), 2, 1), k)*[0.5, 0.5, 0.5,1]]+
+            [
+                oc(image[::2**o,::2**o])*[2**o, 2**o, 2**o, 1]
+                for o, oc in enumerate(self.octaves[1:])
+                ]
+            )
+	return centers
