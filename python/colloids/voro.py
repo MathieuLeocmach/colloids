@@ -121,3 +121,42 @@ def load_vorobonds(fname):
 	)]
     #sort by second then first column
     return bonds[np.lexsort(bonds.T[::-1].tolist())], outside
+
+def get_second_outside(bonds, outside):
+    #construct neighbourhood
+    N = bonds.max()+1
+    out1 = np.zeros(N, bool)
+    out1[outside] = True
+    ngb = [[] for i in range(N)]
+    for p,q in bonds:
+        ngb[p].append(q)
+        ngb[q].append(p)
+    return np.where(np.bitwise_or(out1, [len(ngb)>0 and out1[n].max() for n in ngb]))[0]
+
+def make_bond_network(filename):
+    name = os.path.splitext(filename)[0]
+    particles = np.loadtxt(name+'.csv')
+    np.savetxt(name+'.dat', np.vstack((
+        [1, len(particles), 1],
+        particles[:,:3].max(axis=0)+1,
+        particles[:,:3]
+        )), fmt='%g')
+    np.savetxt(name,
+               np.column_stack((range(len(particles)), particles[:,:4])),
+               fmt='%g')
+    subprocess.check_call(shlex.split(
+        '/home/mathieu/src/voro++/bin/voro++ -r -c "%i %v %s %n" '+
+        ('%g '%particles[:,3].max()) +
+        ('%g %g %g %g %g %g '%tuple(np.column_stack((
+            (particles[:,:3].T-particles[:,3]).min(axis=1),
+            (particles[:,:3].T+particles[:,3]).max(axis=1)
+            )).ravel()))+ name
+        ))
+    bonds, outside = load_vorobonds(name+'.vol')
+    outside2 = get_second_outside(bonds, outside)
+    bondlengths = np.sqrt(np.sum(np.diff(
+        particles[:,:3][bonds], axis=1
+        )[:,0]**2, axis=-1))/np.sum(particles[:,3][bonds], axis=-1)
+    np.savetxt(name+'.bonds', bonds[bondlengths<2.26], fmt='%d')
+    np.savetxt(name+'.outside', outside, fmt='%d')
+    np.savetxt(name+'.outside2', outside2, fmt='%d')
