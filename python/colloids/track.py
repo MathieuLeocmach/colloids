@@ -154,6 +154,35 @@ The crosses in the blue channel have the size of the detected blob."""
             for r,d in zip(rads, centers_scale)], 0)
         ))
 
+class LocalDispl:
+    def __init__(self, space):
+        self.space = space
+        self.ngb = np.zeros([5]*self.space.ndim, float)
+        self.grad = np.zeros([self.space.ndim]+[3]*self.space.ndim, float)
+        self.hess =  np.zeros([self.space.ndim]*2, float)
+
+    def __call__(self, c):
+        m = np.maximum(np.zeros_like(c), c-2)
+        M = np.minimum(self.space.shape, c+3)
+        if np.min(m==c-2) and np.min(M==c+3):
+            #not on a border, thus quick calculation
+            self.ngb[:] = self.space[tuple([slice(u,U) for u, U in zip(m,M)])]
+            for a in range(self.space.ndim):
+                self.grad[a] = sobel(self.ngb, axis=a)[tuple([slice(1,-1)]*self.space.ndim)]
+            for a in range(self.space.ndim):
+                for b in range(a, self.space.ndim):
+                    self.hess[a,b] = sobel(self.grad[a], axis=b)[tuple([1]*self.space.ndim)]
+                    self.hess[b,a] = self.hess[a,b]
+            gr = self.grad[tuple([Ellipsis]+[1]*self.space.ndim)]
+            dc = -4**(self.space.ndim-1)*np.dot(np.linalg.inv(self.hess), gr)
+            value = self.ngb[tuple([2]*self.space.ndim)]+0.5*np.dot(gr,dc)
+            return dc, value
+        else:
+            #on a border, use errorproof but slow scipy code
+            return local_disp(c, self.space)
+            
+        
+        
 def local_disp(c, DoG):
     """Interpolate the scale-space to find the extremum with subpixel resolution"""
     m = np.maximum(np.zeros_like(c), c-2)
@@ -383,18 +412,16 @@ class OctaveBlobFinder:
         self.layers = np.empty([nbLayers+2, shape[0], shape[1]], float)
         self.eroded = np.empty([nbLayers+2, shape[0], shape[1]], float)
         self.binary = np.empty([nbLayers+2, shape[0], shape[1]], bool)
-        
-    def __call__(self, image, k=1.6):
-        """Locate bright blobs in a 2D image with subpixel resolution.
-Returns an array of (x, y, r, value)"""
-        assert self.im.shape == image.shape, """Wrong image size"""
+        self.displ = LocalDispl(self.layers)
+
+    def fill(self, image, k=1.6):
         #convert the image to floating points
         self.im = np.asarray(image, float)
         #Gaussian filters
         for l, layer in enumerate(self.layersG):
             gaussian_filter(self.im, k*2**(l/float(len(self.layersG)-3)), output=layer)
         #Difference of gaussians
-        self.layers = np.diff(self.layersG, axis=0)
+        self.layers[:] = np.diff(self.layersG, axis=0)
         #Erosion
         grey_erosion(self.layers, [3]*self.layers.ndim, output=self.eroded)
         #image maxima
@@ -402,12 +429,14 @@ Returns an array of (x, y, r, value)"""
         for a in range(self.binary.ndim):
             self.binary[tuple([slice(None)]*(self.binary.ndim-1-a)+[0])]=False
             self.binary[tuple([slice(None)]*(self.binary.ndim-1-a)+[-1])]=False
+
+    def subpix(self, k=1.6):
         #from array to coordinates
         centers = np.transpose(np.where(self.binary))
         if len(centers)==0:
             return np.zeros([0, self.layers.ndim+1])
         #subpixel resolution (first try)
-        dcenval = [local_disp(c, self.layers) for c in centers]
+        dcenval = [self.displ(c) for c in centers]
         dcenters = np.asarray([d[0] for d in dcenval])
         vals = np.asarray([d[1] for d in dcenval])
         #if the displacement is larger than 0.5 in any direction,
@@ -415,7 +444,7 @@ Returns an array of (x, y, r, value)"""
         for p in range(len(dcenters)):
             if np.absolute(dcenters[p]).max()>0.5:
                 nc = (centers[p]+(dcenters[p]>0.5))-(dcenters[p]<-0.5)
-                ndc, nv = local_disp(nc, self.layers)
+                ndc, nv = self.displ(nc)
                 #remove the center if it is moving out of its new pixel (unstable)
                 if np.absolute(ndc).max()>0.5:
                     centers[p] = -1
@@ -431,6 +460,14 @@ Returns an array of (x, y, r, value)"""
         #convert position in the scale space to real space size
         centers[:,2] = k*np.sqrt(2)*2**(centers[:,2]/(len(self.layers)-2))
         return np.column_stack((centers, vals[good]))
+        
+    def __call__(self, image, k=1.6):
+        """Locate bright blobs in a 2D image with subpixel resolution.
+Returns an array of (x, y, r, value)"""
+        assert self.im.shape == image.shape, """Wrong image size"""
+        self.fill(image, k)
+        return self.subpix(k)
+        
         
 class MultiscaleBlobFinder:
     """Locator of bright blobs in a 2D image of fixed shape. Works on more than one octave, starting at octave -1."""
@@ -450,3 +487,29 @@ class MultiscaleBlobFinder:
                 ]
             )
 	return centers
+
+def localize2D3D(serie, file_pattern):
+    finder = MultiscaleBlobFinder(serie.get2DShape())
+    for t in range(serie.getNbFrames()):
+        stack = serie.getFrame(T=t)
+        for z, im in enumerate(stack):
+            centers = finder(im)
+            np.savetxt(
+		file_pattern%(t, z, 'dat'),
+		np.vstack((
+			[1, len(centers), 1],
+			[256, 256, 1.6*np.sqrt(2)*2**(7.0/3)],
+			centers[:,:-1]
+			)), fmt='%g'
+		)
+            np.savetxt(file_pattern%(t, z, 'intensity'), centers[:,-1], fmt='%g')
+        pro = subprocess.Popen([
+            '/home/mathieu/test/bin/linker',
+            file_pattern%(t,0,'dat'),
+            '_z', '5', '%g'%serie.getZXratio(), '%d'%len(stack)
+            ], stdout=subprocess.PIPE)
+        trajfile = pro.communicate()[0].split()[-1]
+        trajfile = os.path.join(os.path.split(file_pattern)[0], trajfile)
+        clusters = load_clusters(trajfile)
+        particles = clusters2particles(clusters)
+        np.savetxt(os.path.splitext(trajfile)[0]+'.csv', particles, fmt='%g')
