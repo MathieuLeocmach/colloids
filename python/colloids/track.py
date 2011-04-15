@@ -22,7 +22,6 @@ from colloids import lif, vtk
 from scipy.ndimage.filters import gaussian_filter, gaussian_filter1d, sobel
 from scipy.ndimage.morphology import grey_erosion, grey_dilation
 from scipy.ndimage import measurements
-from scipy.ndimage.interpolation import zoom
 from rtree import Rtree
 
 
@@ -416,15 +415,11 @@ class OctaveBlobFinder:
         self.grad = np.empty([self.layers.ndim]+list(self.layers.shape), float)
         self.hess = np.empty([self.layers.ndim]*2+list(self.layers.shape), float)
 
-    def fill(self, image, k=1.6, upscaleFactor=None):
+    def fill(self, image, k=1.6):
         """All the image processing when accepting a new image."""
-        if upscaleFactor is not None:
-            #upscale the image and convert it to floating points
-            zoom(image, upscaleFactor, output=self.im)
-        else:
-            assert self.im.shape == image.shape, """Wrong image size"""
-            #convert the image to floating points
-            self.im[:] = np.asarray(image, float)
+        assert self.im.shape == image.shape, """Wrong image size"""
+        #convert the image to floating points
+        self.im[:] = np.asarray(image, float)
         #Gaussian filters
         for l, layer in enumerate(self.layersG):
             gaussian_filter(self.im, k*2**(l/float(len(self.layersG)-3)), output=layer)
@@ -490,10 +485,10 @@ class OctaveBlobFinder:
         centers[:,2] = k*np.sqrt(2)*2**(centers[:,2]/(len(self.layers)-2))
         return np.column_stack((centers, vals[good]))
         
-    def __call__(self, image, k=1.6, upscaleFactor=None):
+    def __call__(self, image, k=1.6):
         """Locate bright blobs in an image with subpixel resolution.
 Returns an array of (x, y, r, -intensity in scale space)"""
-        self.fill(image, k, upscaleFactor)
+        self.fill(image, k)
         return self.subpix(k)
         
         
@@ -503,14 +498,19 @@ class MultiscaleBlobFinder:
         """Allocate memory for each octave"""
         self.octaves = [OctaveBlobFinder(
             [s*2**(1-o) for s in shape],
-            nbLayers) for o in range(nbOctaves)]
+            nbLayers
+            ) for o in range(nbOctaves)]
         
     def __call__(self, image, k=1.6):
         """Locate blobs in each octave and regroup the results"""
+        #upscale the image for octave -1
+        im2 = np.copy(im)
+        for a in range(im.ndim):
+            im2 = np.repeat(im2, 2, a)
         #locate blobs in each octave and scale the coordiates and sizes,
         centers = np.vstack(
             #The peculiar case of ocatve -1
-            [self.octaves[0](im2, k, upscaleFactor=2)*([0.5]*(1+image.ndim)+[1])]+
+            [self.octaves[0](im2, k)*([0.5]*(1+image.ndim)+[1])]+
             [#All other octaves
                 oc(
                     image[tuple([slice(None,None,2**o)]*image.ndim)],
