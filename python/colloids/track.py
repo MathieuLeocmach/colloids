@@ -412,7 +412,8 @@ class OctaveBlobFinder:
         self.layers = np.empty([nbLayers+2, shape[0], shape[1]], float)
         self.eroded = np.empty([nbLayers+2, shape[0], shape[1]], float)
         self.binary = np.empty([nbLayers+2, shape[0], shape[1]], bool)
-        self.displ = LocalDispl(self.layers)
+        self.grad = np.empty([self.layers.ndim, nbLayers+2, shape[0], shape[1]], float)
+        self.hess = np.empty([self.layers.ndim, self.layers.ndim, nbLayers+2, shape[0], shape[1]], float)
 
     def fill(self, image, k=1.6):
         #convert the image to floating points
@@ -429,6 +430,22 @@ class OctaveBlobFinder:
         for a in range(self.binary.ndim):
             self.binary[tuple([slice(None)]*(self.binary.ndim-1-a)+[0])]=False
             self.binary[tuple([slice(None)]*(self.binary.ndim-1-a)+[-1])]=False
+        #gradient and hessian matrix at each point of the scale space for subpixel resolution
+        for a in range(self.layers.ndim):
+            sobel(self.layers, axis=a, output=self.grad[a])
+        for a in range(self.layers.ndim):
+            for b in range(a, self.layers.ndim):
+                sobel(self.grad[a], axis=b, output=self.hess[a,b])
+                self.hess[b,a] = self.hess[a,b]
+
+    def displ(self, c):
+        """Interpolate the scale-space to find the extremum with subpixel resolution"""
+        sl = tuple([Ellipsis]+c.tolist())
+        dc = -4**(self.layers.ndim-1)*np.dot(
+                np.linalg.inv(self.hess[sl]),
+                self.grad[sl])
+        value = self.layers[sl]+0.5*np.dot(self.grad[sl],dc)
+        return dc, value
 
     def subpix(self, k=1.6):
         #from array to coordinates
