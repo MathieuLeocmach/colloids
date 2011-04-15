@@ -488,7 +488,7 @@ class MultiscaleBlobFinder:
             )
 	return centers
 
-def localize2D3D(serie, file_pattern):
+def localize2D3D(serie, file_pattern, cleanup=True):
     finder = MultiscaleBlobFinder(serie.get2DShape())
     for t in range(serie.getNbFrames()):
         stack = serie.getFrame(T=t)
@@ -513,3 +513,7 @@ def localize2D3D(serie, file_pattern):
         clusters = load_clusters(trajfile)
         particles = clusters2particles(clusters)
         np.savetxt(os.path.splitext(trajfile)[0]+'.csv', particles, fmt='%g')
+        if cleanup:
+            for z in range(len(stack)):
+                os.remove(file_pattern%(t, z, 'dat'))
+                os.remove(file_pattern%(t, z, 'intensity'))
