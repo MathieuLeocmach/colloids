@@ -404,18 +404,20 @@ def split_clusters(clusters, centers):
     return clusters
 
 class OctaveBlobFinder:
-    """Locator of bright blobs in a 2D image of fixed shape. Works on a single octave."""
+    """Locator of bright blobs in an image of fixed shape. Works on a single octave."""
     def __init__(self, shape=(256,256), nbLayers=3):
         """Allocate memory once"""
         self.im =  np.empty(shape, float)
-        self.layersG = np.empty([nbLayers+3, shape[0], shape[1]], float)
-        self.layers = np.empty([nbLayers+2, shape[0], shape[1]], float)
-        self.eroded = np.empty([nbLayers+2, shape[0], shape[1]], float)
-        self.binary = np.empty([nbLayers+2, shape[0], shape[1]], bool)
-        self.grad = np.empty([self.layers.ndim, nbLayers+2, shape[0], shape[1]], float)
-        self.hess = np.empty([self.layers.ndim, self.layers.ndim, nbLayers+2, shape[0], shape[1]], float)
+        self.layersG = np.empty([nbLayers+3]+list(shape), float)
+        self.layers = np.empty([nbLayers+2]+list(shape), float)
+        self.eroded = np.empty_like(self.layers)
+        self.binary = np.empty(self.layers.shape, bool)
+        self.grad = np.empty([self.layers.ndim]+list(self.layers.shape), float)
+        self.hess = np.empty([self.layers.ndim]*2+list(self.layers.shape), float)
 
     def fill(self, image, k=1.6):
+        """All the image processing when accepting a new image."""
+        assert self.im.shape == image.shape, """Wrong image size"""
         #convert the image to floating points
         self.im = np.asarray(image, float)
         #Gaussian filters
@@ -432,22 +434,27 @@ class OctaveBlobFinder:
             self.binary[tuple([slice(None)]*(self.binary.ndim-1-a)+[-1])]=False
         #gradient and hessian matrix at each point of the scale space for subpixel resolution
         for a in range(self.layers.ndim):
+            #Sobel operator yields the gradient*4**(dim-1)
             sobel(self.layers, axis=a, output=self.grad[a])
         for a in range(self.layers.ndim):
             for b in range(a, self.layers.ndim):
+                #Once again, a factor 4**(dim-1)
                 sobel(self.grad[a], axis=b, output=self.hess[a,b])
+                #Hessian matrix is symetric
                 self.hess[b,a] = self.hess[a,b]
 
     def displ(self, c):
         """Interpolate the scale-space to find the extremum with subpixel resolution"""
         sl = tuple([Ellipsis]+c.tolist())
+        #The prefactor compensates the norm of the Sobel operator
         dc = -4**(self.layers.ndim-1)*np.dot(
-                np.linalg.inv(self.hess[sl]),
-                self.grad[sl])
+                np.linalg.inv(self.hess[sl]), #inv(Hessian) is divided by (4**(dim-1))**2
+                self.grad[sl]) 
         value = self.layers[sl]+0.5*np.dot(self.grad[sl],dc)
         return dc, value
 
     def subpix(self, k=1.6):
+        """Extract and refine to subpixel resolution the positions and size of the blobs"""
         #from array to coordinates
         centers = np.transpose(np.where(self.binary))
         if len(centers)==0:
@@ -479,15 +486,14 @@ class OctaveBlobFinder:
         return np.column_stack((centers, vals[good]))
         
     def __call__(self, image, k=1.6):
-        """Locate bright blobs in a 2D image with subpixel resolution.
-Returns an array of (x, y, r, value)"""
-        assert self.im.shape == image.shape, """Wrong image size"""
+        """Locate bright blobs in an image with subpixel resolution.
+Returns an array of (x, y, r, -intensity in scale space)"""
         self.fill(image, k)
         return self.subpix(k)
         
         
 class MultiscaleBlobFinder:
-    """Locator of bright blobs in a 2D image of fixed shape. Works on more than one octave, starting at octave -1."""
+    """Locator of bright blobs in an image of fixed shape. Works on more than one octave, starting at octave -1."""
     def __init__(self, shape=(256,256), nbLayers=3, nbOctaves=2):
         """Allocate memory for each octave"""
         self.octaves = [OctaveBlobFinder(
@@ -496,10 +502,19 @@ class MultiscaleBlobFinder:
         
     def __call__(self, image, k=1.6):
         """Locate blobs in each octave and regroup the results"""
+        #upscale the image for octave -1
+        im2 = np.copy(im)
+        for a in range(im.ndim):
+            im2 = np.repeat(im2, 2, a)
+        #locate blobs in each octave and scale the coordiates and sizes,
         centers = np.vstack(
-            [self.octaves[0](np.repeat(np.repeat(image, 2,0), 2, 1), k)*[0.5, 0.5, 0.5,1]]+
-            [
-                oc(image[::2**o,::2**o])*[2**o, 2**o, 2**o, 1]
+            #The peculiar case of ocatve -1
+            [self.octaves[0](im2, k)*([0.5]*(1+image.ndim)+[1])]+
+            [#All other octaves
+                oc(
+                    image[tuple([slice(None,None,2**o)]*image.ndim)],
+                    k
+                    )*([2**o]*(1+image.ndim)+[1])
                 for o, oc in enumerate(self.octaves[1:])
                 ]
             )
