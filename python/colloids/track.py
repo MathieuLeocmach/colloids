@@ -330,6 +330,8 @@ def load_clusters(trajfile):
 def clusters2particles(clusters, k=1.6, n=3, noDuplicate=True):
     particles = []
     for cl in clusters:
+        if len(cl)<3:
+            continue
         finder = MultiscaleBlobFinder([len(cl)], nbOctaves=3)
         #for each signal, get the blobs and sort them by intensity (negative)
         blobs = np.vstack([
@@ -337,7 +339,7 @@ def clusters2particles(clusters, k=1.6, n=3, noDuplicate=True):
             for bs in [finder(u) for u in [
                 -np.sqrt(np.sum(np.gradient(cl[:,[0,1]])[0]**2, axis=-1)),
                 cl[:,3], cl[:,4]
-                ]]
+                ]] if len(bs>0)
             ])
         #Remove overlapping centers than may appear at different scales
         #in the different signals.
