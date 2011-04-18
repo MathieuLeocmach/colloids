@@ -326,46 +326,39 @@ def load_clusters(trajfile):
                     pos)
                 ]))
     return clusters
-
-def cluster2radgrad(cluster, k=1.6):
-    """Enhance the cusps between stacked particles in the radius(z) curve
-by substracting the magnitude of the gradient of x(z) and y(z) ;
-and adding the intensity"""
-    grad = np.sqrt(np.sum(gaussian_filter1d(
-        cluster[:,:2], k, axis=0, order=1
-        )**2, axis=-1))
-    smoothI = gaussian_filter1d(cluster[:,4], k)
-    pos_maxratio = np.argmax(cluster[:,3]/smoothI)
-    return cluster[:,3] - grad + smoothI/smoothI[pos_maxratio]
-
-def filter_blobs1d(blobs, k=1.6, n=3):
-    """Remove overlapping centers than may appear at different scales.
-Keeps the center with the strongest (negative) signal."""
-    if len(blobs)==0:
-        return blobs
-    #sort by intensity
-    inb = blobs[np.argsort(blobs[:,-1])]
-    out = []
-    for i in inb:
-            for j in out:
-                    if (i[1]-j[1])**2 < (k*(2**(i[0]/n)+2**(j[0]/3)))**2/2:
-                            break
-            else:
-                    out.append(i)
-    return np.asarray(out)
     
 def clusters2particles(clusters, k=1.6, n=3, noDuplicate=True):
     particles = []
     for cl in clusters:
-        blobs = np.vstack((
-            find_blob(cluster2radgrad(np.repeat(cl,2,0)), k, n)*[1, 0.5, 1],
-            find_blob(cluster2radgrad(cl), k, n)+[n, 0, 0],
-            (find_blob(cluster2radgrad(cl[::2]), k, n)*[1,2,1])+[2*n, 0, 0]
-            ))
+        finder = MultiscaleBlobFinder([len(cl)], nbOctaves=3)
+        #for each signal, get the blobs and sort them by intensity (negative)
+        blobs = np.vstack([
+            bs[np.argsort(bs[:,-1])]
+            for bs in [finder(u) for u in [
+                -np.sqrt(np.sum(np.gradient(cl[:,[0,1]])[0]**2, axis=-1)),
+                cl[:,3], cl[:,4]
+                ]]
+            ])
+        #Remove overlapping centers than may appear at different scales
+        #in the different signals.
+        #The most intense blob in the gradient of position is the best,
+        #then, the second intense in the gradient of position, etc.
+        #then, the blobs in apparent radius
+        #then, the blobs in intensity
         if noDuplicate:
-            blobs = filter_blobs1d(blobs)
+            #The blobs in a stack of 2D centers are few (<30),
+            #a simple O(N**2) algorithm is enough
+            out = []
+            for i in blobs:
+                for j in out:
+                    if (i[0]-j[0])**2 < (i[1]+j[1])**2:
+                        break
+                else:
+                    out.append(i)
+            blobs = np.vstack(out)
+        #Interpolate the x,y,r,intensity values at the position of each blob
         grad = gaussian_filter1d(cl, k/2, axis=0, order=1)
-        for s, z, v in blobs:
+        for z, s, v in blobs:
             #smoothed = (gaussian_filter1d(cl, 1.6*2**(s/3-1), axis=0)-cl.mean(0))*np.sqrt(2)+cl.mean(0)
             #grad = gaussian_filter1d(cl, 1.6*2**(s/3-1), axis=0, order=1)
             zi = np.rint(z)
