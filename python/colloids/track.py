@@ -417,7 +417,8 @@ class OctaveBlobFinder:
 
     def fill(self, image, k=1.6):
         """All the image processing when accepting a new image."""
-        assert self.im.shape == image.shape, """Wrong image size"""
+        assert self.im.shape == image.shape, """Wrong image size:
+%s instead of %s"""%(image.shape, self.im.shape)
         #convert the image to floating points
         self.im[:] = np.asarray(image, float)
         #Gaussian filters
@@ -482,7 +483,7 @@ class OctaveBlobFinder:
             return np.zeros([0, self.layers.ndim+1])
         centers = (centers[good] + dcenters[good])[:,::-1]
         #convert position in the scale space to real space size
-        centers[:,2] = k*np.sqrt(2)*2**(centers[:,2]/(len(self.layers)-2))
+        centers[:,-1] = k*np.sqrt(2)*2**(centers[:,-1]/(len(self.layers)-2))
         return np.column_stack((centers, vals[good]))
         
     def __call__(self, image, k=1.6):
@@ -497,15 +498,15 @@ class MultiscaleBlobFinder:
     def __init__(self, shape=(256,256), nbLayers=3, nbOctaves=2):
         """Allocate memory for each octave"""
         self.octaves = [OctaveBlobFinder(
-            [s*2**(1-o) for s in shape],
+            np.ceil([s*2.0**(1-o) for s in shape]),
             nbLayers
             ) for o in range(nbOctaves)]
         
     def __call__(self, image, k=1.6):
         """Locate blobs in each octave and regroup the results"""
         #upscale the image for octave -1
-        im2 = np.copy(im)
-        for a in range(im.ndim):
+        im2 = np.copy(image)
+        for a in range(image.ndim):
             im2 = np.repeat(im2, 2, a)
         #locate blobs in each octave and scale the coordiates and sizes,
         centers = np.vstack(
