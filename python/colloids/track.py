@@ -436,11 +436,11 @@ class OctaveBlobFinder:
             return
         #gradient and hessian matrix at each point of the scale space for subpixel resolution
         for a in range(self.layers.ndim):
-            #Sobel operator yields the gradient*4**(dim-1)
+            #Sobel operator yields the gradient*2*4**(dim-1)
             sobel(self.layers, axis=a, output=self.grad[a])
         for a in range(self.layers.ndim):
             for b in range(a, self.layers.ndim):
-                #Once again, a factor 4**(dim-1)
+                #Once again, a factor 2*4**(dim-1)
                 sobel(self.grad[a], axis=b, output=self.hess[a,b])
                 #Hessian matrix is symetric
                 self.hess[b,a] = self.hess[a,b]
@@ -449,10 +449,10 @@ class OctaveBlobFinder:
         """Interpolate the scale-space to find the extremum with subpixel resolution"""
         sl = tuple([Ellipsis]+c.tolist())
         #The prefactor compensates the norm of the Sobel operator
-        dc = -4**(self.layers.ndim-1)*np.dot(
-                np.linalg.inv(self.hess[sl]), #inv(Hessian) is divided by (4**(dim-1))**2
+        dc = -2*4**(self.layers.ndim-1)*np.dot(
+                np.linalg.inv(self.hess[sl]), #inv(Hessian) is divided by (2*4**(dim-1))**2
                 self.grad[sl]) 
-        value = self.layers[sl]+0.5*np.dot(self.grad[sl],dc)
+        value = self.layers[sl]+0.5*np.dot(self.grad[sl],dc)/(2*4**(self.layers.ndim-1))
         return dc, value
 
     def subpix(self, k=1.6):
