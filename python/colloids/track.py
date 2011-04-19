@@ -329,18 +329,21 @@ def load_clusters(trajfile):
     
 def clusters2particles(clusters, k=1.6, n=3, noDuplicate=True):
     particles = []
+    #allocate the memory for each possible size of MultiscaleBlobFinder
+    N = max(map(len, clusters))
+    finders = [track.MultiscaleBlobFinder([l], n, 3) for l in range(4, N+1)]
     for cl in clusters:
-        if len(cl)<3:
+        if len(cl)<4:
             continue
-        finder = MultiscaleBlobFinder([len(cl)], nbOctaves=3)
-        #for each signal, get the blobs and sort them by intensity (negative)
-        blobs = np.vstack([
-            bs[np.argsort(bs[:,-1])]
-            for bs in [finder(u) for u in [
-                -np.sqrt(np.sum(np.gradient(cl[:,[0,1]])[0]**2, axis=-1)),
-                cl[:,3], cl[:,4]
-                ]] if len(bs>0)
-            ])
+        #get the blobs for each signal, remove signals without blob
+        blobs = filter(len, [finders[len(cl)-3](u, k) for u in [
+            -np.sqrt(sobel(cl[:,0], axis=0)**2 + sobel(cl[:,1], axis=0)**2),
+            cl[:,3], cl[:,4]
+            ]])
+        if len(blobs)==0: #no blob in any signal
+            continue
+        #sort the blob of each signal by intensity (negative)
+        blobs = np.vstack([bs[np.argsort(bs[:,-1])] for bs in blobs])
         #Remove overlapping centers than may appear at different scales
         #in the different signals.
         #The most intense blob in the gradient of position is the best,
@@ -428,6 +431,9 @@ class OctaveBlobFinder:
         for a in range(self.binary.ndim):
             self.binary[tuple([slice(None)]*(self.binary.ndim-1-a)+[0])]=False
             self.binary[tuple([slice(None)]*(self.binary.ndim-1-a)+[-1])]=False
+        if self.binary.sum()==0:
+            #no need to compute gradient and hessian if no center
+            return
         #gradient and hessian matrix at each point of the scale space for subpixel resolution
         for a in range(self.layers.ndim):
             #Sobel operator yields the gradient*4**(dim-1)
@@ -492,20 +498,23 @@ class MultiscaleBlobFinder:
     """Locator of bright blobs in an image of fixed shape. Works on more than one octave, starting at octave -1."""
     def __init__(self, shape=(256,256), nbLayers=3, nbOctaves=2):
         """Allocate memory for each octave"""
-        self.octaves = [OctaveBlobFinder(
-            np.ceil([s*2.0**(1-o) for s in shape]),
-            nbLayers
-            ) for o in range(nbOctaves)]
+        shapes = np.vstack([np.ceil([s*2.0**(1-o) for s in shape]) for o in range(nbOctaves)])
+        self.octaves = [
+            OctaveBlobFinder(s, nbLayers)
+            for s in shapes if s.min()>8
+            ] #shortens the list of octaves if no blob can be detected in that small window
         
     def __call__(self, image, k=1.6):
         """Locate blobs in each octave and regroup the results"""
+        if len(self.octaves)==0:
+            return np.zeros([0, image.ndim+2])
         #upscale the image for octave -1
         im2 = np.copy(image)
         for a in range(image.ndim):
             im2 = np.repeat(im2, 2, a)
         #locate blobs in each octave and scale the coordiates and sizes,
         centers = np.vstack(
-            #The peculiar case of ocatve -1
+            #The peculiar case of octave -1
             [self.octaves[0](im2, k)*([0.5]*(1+image.ndim)+[1])]+
             [#All other octaves
                 oc(
@@ -517,7 +526,7 @@ class MultiscaleBlobFinder:
             )
 	return centers
 
-def localize2D3D(serie, file_pattern, cleanup=True):
+def localize2D3D(serie, input_pattern, cleanup=True):
     finder = MultiscaleBlobFinder(serie.get2DShape())
     for t in range(serie.getNbFrames()):
         stack = serie.getFrame(T=t)
