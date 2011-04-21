@@ -38,6 +38,19 @@ def noNaN(x):
     else:
         return float(x)
 
+def load_trajectories(fname):
+    """returns (staring times, list of position indices)"""
+    starts = []
+    positions = []
+    with open(fname,'r') as f:
+        for l, line in enumerate(f):
+            if l==3:
+                break
+        for line in f:
+            starts.append(int(line[:-1]))
+            positions.append(map(int, f.next()[:-1].split()))
+    return starts, positions
+
 class Experiment:
     """A serie of coordinates and it's derived data"""
 
@@ -402,20 +415,14 @@ class Txp:
             Reads the linked trajectories from the .traj file
             Retrieves only trajectories spanning [start,start+size[
             """
-        trajs = []
-        with open(os.path.join(self.xp.path,self.xp.trajfile),'r') as f:
-            for l, line in enumerate(f):
-                if l==3:
-                    break
-            for line in f:
-                t0 = int(line[:-1])
-                if t0 > start:
-                    f.next()
-                else:
-                    pos = string.split(f.next()[:-1],'\t')[start-t0:]
-                    if len(pos)>=size:
-                        trajs.append(map(int, pos[:size]))
-        return np.asarray(trajs)
+        starts, positions = load_trajectories(
+            os.path.join(self.xp.path,self.xp.trajfile)
+            )
+        return np.asarray([
+            pos[start-t0:size]
+            for t0, pos in zip(starts, positions)
+            if t0 <= start and len(pos)-(start-t0)>=size
+            ])
 
     def read_pos(self, start, size):
         """Reads the usefull positions from the .dat files"""
