@@ -135,7 +135,7 @@ def get_second_outside(bonds, outside):
 
 def make_bond_network(filename):
     name = os.path.splitext(filename)[0]
-    particles = np.loadtxt(name+'.csv')
+    particles = np.load(name+'.npy')
     np.savetxt(name+'.dat', np.vstack((
         [1, len(particles), 1],
         particles[:,:3].max(axis=0)+1,

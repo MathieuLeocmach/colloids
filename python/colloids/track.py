@@ -553,7 +553,7 @@ def localize2D3D(serie, file_pattern, cleanup=True):
         trajfile = os.path.join(os.path.split(file_pattern)[0], trajfile)
         clusters = load_clusters(trajfile)
         particles = clusters2particles(clusters)
-        np.savetxt(os.path.splitext(trajfile)[0]+'.csv', particles, fmt='%g')
+        np.save(os.path.splitext(trajfile)[0], particles)
         if cleanup:
             for z in range(len(stack)):
                 os.remove(file_pattern%(t, z, 'dat'))
