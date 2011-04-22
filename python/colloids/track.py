@@ -419,6 +419,9 @@ class OctaveBlobFinder:
 %s instead of %s"""%(image.shape, self.im.shape)
         #convert the image to floating points
         self.im[:] = np.asarray(image, float)
+        #normalize between 0 and 1
+        self.im -= image.min()
+        self.im /= self.im.max()
         #Gaussian filters
         for l, layer in enumerate(self.layersG):
             gaussian_filter(self.im, k*2**(l/float(len(self.layersG)-3)), output=layer)
@@ -478,8 +481,8 @@ class OctaveBlobFinder:
                 centers[p] = nc
                 dcenters[p] = ndc
                 vals[p] = nv
-        #filter out the unstable or dim centers
-        good = np.bitwise_and(centers[:,0]>-1, vals<0)
+        #filter out the unstable or low contrast centers
+        good = np.bitwise_and(centers[:,0]>-1, vals<-0.03)
         if not good.max():
             return np.zeros([0, self.layers.ndim+1])
         centers = (centers[good] + dcenters[good])[:,::-1]
@@ -526,7 +529,7 @@ class MultiscaleBlobFinder:
             )
 	return centers
 
-def localize2D3D(serie, input_pattern, cleanup=True):
+def localize2D3D(serie, file_pattern, cleanup=True):
     finder = MultiscaleBlobFinder(serie.get2DShape())
     for t in range(serie.getNbFrames()):
         stack = serie.getFrame(T=t)
