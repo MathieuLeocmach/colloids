@@ -131,7 +131,7 @@ def get_second_outside(bonds, outside):
     for p,q in bonds:
         ngb[p].append(q)
         ngb[q].append(p)
-    return np.where(np.bitwise_or(out1, [len(ngb)>0 and out1[n].max() for n in ngb]))[0]
+    return np.where(np.bitwise_or(out1, [len(n)>0 and out1[n].max() for n in ngb]))[0]
 
 def make_bond_network(filename):
     name = os.path.splitext(filename)[0]
