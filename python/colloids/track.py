@@ -409,6 +409,7 @@ class OctaveBlobFinder:
         self.layersG = np.empty([nbLayers+3]+list(shape), float)
         self.layers = np.empty([nbLayers+2]+list(shape), float)
         self.eroded = np.empty_like(self.layers)
+        self.dilated = np.empty_like(self.layers)
         self.binary = np.empty(self.layers.shape, bool)
         self.grad = np.empty([self.layers.ndim]+list(self.layers.shape), float)
         self.hess = np.empty([self.layers.ndim]*2+list(self.layers.shape), float)
@@ -420,8 +421,8 @@ class OctaveBlobFinder:
         #convert the image to floating points
         self.im[:] = np.asarray(image, float)
         #normalize between 0 and 1
-        self.im -= image.min()
-        self.im /= self.im.max()
+        #self.im -= image.min()
+        #self.im /= self.im.max()
         #Gaussian filters
         for l, layer in enumerate(self.layersG):
             gaussian_filter(self.im, k*2**(l/float(len(self.layersG)-3)), output=layer)
@@ -429,8 +430,10 @@ class OctaveBlobFinder:
         self.layers[:] = np.diff(self.layersG, axis=0)
         #Erosion
         grey_erosion(self.layers, [3]*self.layers.ndim, output=self.eroded)
-        #image maxima
-        self.binary = (self.layers==self.eroded)
+        #Dilation
+        grey_dilation(self.layers, [3]*self.layers.ndim, output=self.dilated)
+        #scale space minima, whose neighbourhood are all negative
+        self.binary = np.bitwise_and(self.layers==self.eroded, self.dilated<0)
         for a in range(self.binary.ndim):
             self.binary[tuple([slice(None)]*(self.binary.ndim-1-a)+[0])]=False
             self.binary[tuple([slice(None)]*(self.binary.ndim-1-a)+[-1])]=False
@@ -454,7 +457,18 @@ class OctaveBlobFinder:
         #The prefactor compensates the norm of the Sobel operator
         dc = -4**(self.layers.ndim-1)*np.dot(
                 np.linalg.inv(self.hess[sl]), #inv(Hessian) is divided by (4**(dim-1))**2
-                self.grad[sl]) 
+                self.grad[sl])
+        if np.absolute(dc).max()>0.5:
+            #if the displacement is larger than 0.5 in any direction,
+            #it means that the center is moving toward a neighbouring pixel
+            #we interpolate between those two pixels
+            nc = (c+(dc>0.5))-(dc<-0.5)
+            nsl = tuple([Ellipsis]+nc.tolist())
+            grad = (self.grad[sl]+self.grad[nsl])/2.0
+            hess = (self.hess[sl]+self.hess[nsl])/2.0
+            dc = -4**(self.layers.ndim-1)*np.dot(
+                np.linalg.inv(hess), grad
+                )+0.5*((dc>0.5)-(dc<-0.5))
         value = self.layers[sl]+0.5*np.dot(self.grad[sl],dc)/(4**(self.layers.ndim-1))
         return dc, value
 
@@ -472,17 +486,10 @@ class OctaveBlobFinder:
         #the center is shifted to the neighbouring pixel
         for p in range(len(dcenters)):
             if np.absolute(dcenters[p]).max()>0.5:
-                nc = (centers[p]+(dcenters[p]>0.5))-(dcenters[p]<-0.5)
-                ndc, nv = self.displ(nc)
-                #remove the center if it is moving out of its new pixel (unstable)
-                if np.absolute(ndc).max()>0.5:
-                    centers[p] = -1
-                    continue
-                centers[p] = nc
-                dcenters[p] = ndc
-                vals[p] = nv
+                centers[p] = -1
         #filter out the unstable or low contrast centers
-        good = np.bitwise_and(centers[:,0]>-1, vals<-0.03)
+        #good = np.bitwise_and(centers[:,0]>-1, vals<-0.03)
+        good = centers[:,0]>-1
         if not good.max():
             return np.zeros([0, self.layers.ndim+1])
         centers = (centers[good] + dcenters[good])[:,::-1]
