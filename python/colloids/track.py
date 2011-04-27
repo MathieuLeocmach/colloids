@@ -20,7 +20,7 @@ import numpy as np
 import os.path, subprocess, shlex, string, re
 from colloids import lif, vtk
 from scipy.ndimage.filters import gaussian_filter, gaussian_filter1d, sobel
-from scipy.ndimage.morphology import grey_erosion, grey_dilation
+from scipy.ndimage.morphology import grey_erosion, grey_dilation, binary_dilation
 from scipy.ndimage import measurements
 from rtree import Rtree
 
@@ -410,10 +410,11 @@ class OctaveBlobFinder:
         self.layers = np.empty([nbLayers+2]+list(shape), float)
         self.eroded = np.empty_like(self.layers)
         self.dilated = np.empty_like(self.layers)
+        self.nobg = np.empty_like(self.layers)
         self.binary = np.empty(self.layers.shape, bool)
-        self.grad = np.empty([self.layers.ndim]+list(self.layers.shape), float)
-        self.hess = np.empty([self.layers.ndim]*2+list(self.layers.shape), float)
-
+        self.dilbin = np.empty_like(self.binary)
+        self.labels =  np.empty(self.layers.shape, np.int32)
+        
     def fill(self, image, k=1.6):
         """All the image processing when accepting a new image."""
         assert self.im.shape == image.shape, """Wrong image size:
@@ -437,65 +438,72 @@ class OctaveBlobFinder:
         for a in range(self.binary.ndim):
             self.binary[tuple([slice(None)]*(self.binary.ndim-1-a)+[0])]=False
             self.binary[tuple([slice(None)]*(self.binary.ndim-1-a)+[-1])]=False
-        if self.binary.sum()==0:
-            #no need to compute gradient and hessian if no center
-            return
-        #gradient and hessian matrix at each point of the scale space for subpixel resolution
-        for a in range(self.layers.ndim):
-            #Sobel operator yields the gradient*4**(dim-1)
-            sobel(self.layers, axis=a, output=self.grad[a])
-        for a in range(self.layers.ndim):
-            for b in range(a, self.layers.ndim):
-                #Once again, a factor 4**(dim-1)
-                sobel(self.grad[a], axis=b, output=self.hess[a,b])
-                #Hessian matrix is symetric
-                self.hess[b,a] = self.hess[a,b]
-
-    def displ(self, c):
-        """Interpolate the scale-space to find the extremum with subpixel resolution"""
-        sl = tuple([Ellipsis]+c.tolist())
-        #The prefactor compensates the norm of the Sobel operator
-        dc = -4**(self.layers.ndim-1)*np.dot(
-                np.linalg.inv(self.hess[sl]), #inv(Hessian) is divided by (4**(dim-1))**2
-                self.grad[sl])
-        if np.absolute(dc).max()>0.5:
-            #if the displacement is larger than 0.5 in any direction,
-            #it means that the center is moving toward a neighbouring pixel
-            #we interpolate between those two pixels
-            nc = (c+(dc>0.5))-(dc<-0.5)
-            nsl = tuple([Ellipsis]+nc.tolist())
-            grad = (self.grad[sl]+self.grad[nsl])/2.0
-            hess = (self.hess[sl]+self.hess[nsl])/2.0
-            dc = -4**(self.layers.ndim-1)*np.dot(
-                np.linalg.inv(hess), grad
-                )+0.5*((dc>0.5)-(dc<-0.5))
-        value = self.layers[sl]+0.5*np.dot(self.grad[sl],dc)/(4**(self.layers.ndim-1))
-        return dc, value
 
     def subpix(self, k=1.6):
         """Extract and refine to subpixel resolution the positions and size of the blobs"""
-        #from array to coordinates
-        centers = np.transpose(np.where(self.binary))
-        if len(centers)==0:
-            return np.zeros([0, self.layers.ndim+1])
-        #subpixel resolution (first try)
-        dcenval = [self.displ(c) for c in centers]
-        dcenters = np.asarray([d[0] for d in dcenval])
-        vals = np.asarray([d[1] for d in dcenval])
-        #if the displacement is larger than 0.5 in any direction,
-        #the center is shifted to the neighbouring pixel
-        for p in range(len(dcenters)):
-            if np.absolute(dcenters[p]).max()>0.5:
-                centers[p] = -1
-        #filter out the unstable or low contrast centers
-        #good = np.bitwise_and(centers[:,0]>-1, vals<-0.03)
-        good = centers[:,0]>-1
-        if not good.max():
-            return np.zeros([0, self.layers.ndim+1])
-        centers = (centers[good] + dcenters[good])[:,::-1]
-        #convert position in the scale space to real space size
-        centers[:,-1] = k*np.sqrt(2)*2**(centers[:,-1]/(len(self.layers)-2))
-        return np.column_stack((centers, vals[good]))
+        #subpixel resolution in real space, layer by layer
+        centers = []
+        vals = []
+        for layer, binary, eroded, dilbin, labels, nobg in zip(
+            self.layers[1:-1], self.binary[1:-1], self.eroded[1:-1],
+            self.dilbin[1:-1], self.labels[1:-1], self.nobg[1:-1]):
+            #select the neighbourhood of each center
+            binary_dilation(
+                binary, np.ones([3]*(layer.ndim), bool),
+                iterations=1,
+                output=dilbin)
+            #label
+            nbs = measurements.label(dilbin, output=labels)
+            vals += measurements.sum(
+                layer, labels, range(1, 1+nbs)
+                )
+            #morphological background removal
+            np.subtract(layer, eroded, nobg)
+            centers += measurements.center_of_mass(
+                nobg, labels, range(1, 1+nbs)
+                )
+        #subpixel resolution on the scale axis
+        #select the neighbourhood of each center
+        binary_dilation(
+            self.binary, np.ones([3]+[1]*(self.layers.ndim-1), bool),
+            iterations=1,
+            output=self.dilbin)
+        #label
+        nbs = measurements.label(self.dilbin, output=self.labels)
+        grey_erosion(self.layers, [3]+[1]*(self.layers.ndim-1), output=self.eroded)
+        np.subtract(self.layers, self.eroded, self.nobg)
+        centerscales = np.vstack(measurements.center_of_mass(
+                self.nobg, self.labels, range(1, 1+nbs)
+                ))[:,0]
+        centers = np.column_stack((
+            np.vstack(centers)[:,::-1],
+            centerscales,
+            vals
+            ))
+        centers[:,-2] = k*np.sqrt(2)*2**(centers[:,-2]/(len(self.layers)-2))
+        return centers
+            
+##        #select the neighbourhood of each center
+##        binary_dilation(
+##            self.binary, np.ones([3]*(self.layers.ndim), bool),
+##            iterations=1,
+##            output=self.dilbin)
+##        #label
+##        nbs = measurements.label(self.dilbin, output=self.labels)
+##        vals = np.asarray(measurements.sum(
+##            self.layers, self.labels, range(1, 1+nbs)
+##            ))
+##        #morphological background removal layer by layer
+##        grey_erosion(self.layers, [1]+[3]*(self.layers.ndim-1), output=self.eroded)
+##        np.subtract(self.layers, self.eroded, self.nobg)
+##        #good = np.where(values<0)
+##        centers = np.vstack(measurements.center_of_mass(
+##                self.nobg, self.labels, range(1, 1+nbs)
+##                ))[:,::-1]
+##        #convert position in the scale space to real space size
+##        centers[:,-1] = k*np.sqrt(2)*2**(centers[:,-1]/(len(self.layers)-2))
+##        return np.column_stack((centers, vals))
+            
         
     def __call__(self, image, k=1.6):
         """Locate bright blobs in an image with subpixel resolution.
