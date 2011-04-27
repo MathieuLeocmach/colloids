@@ -459,6 +459,7 @@ class OctaveBlobFinder:
                 )
             #morphological background removal
             np.subtract(layer, eroded, nobg)
+            #negative center of mass
             centers += measurements.center_of_mass(
                 nobg, labels, range(1, 1+nbs)
                 )
@@ -480,6 +481,10 @@ class OctaveBlobFinder:
             centerscales,
             vals
             ))
+        #convert to positive center of mass
+        centerspx = np.rint(centers[:,:-1])
+        centers[:,:-1] -= 2.0 * (centers[:,:-1]-centerspx)
+        #convert scale to size
         centers[:,-2] = k*np.sqrt(2)*2**(centers[:,-2]/(len(self.layers)-2))
         return centers
             
