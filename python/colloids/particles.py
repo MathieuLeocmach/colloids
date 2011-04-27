@@ -70,4 +70,29 @@ class Particles:
             [i, n] for i in range(len(self.pos))
             for n in self.get_ngbs(i, maxlength)
             if n>i])
+
+    def link(self, other, maxdist):
+        """Try to find the best correpondence between the particles of the present object and those of another one"""
+        #list the possible links
+        links = [
+            (i, j, self.get_sqdist(i, q=other.position[j], r=other.position[j]))
+            for j in other.index.intersection(np.concatenate((p-r,p+r)))
+            for i, (p,r) in enumerate(zip(
+                self.pos, maxdist*(self.radii+other.maxRad())
+                ))
+            ]
+        #keep only the links shorter than maxdist
+        maxsqd = maxdist**2
+        links = np.asarray(
+            [(i,j,l) for i,j,l in links if l<maxsqd],
+            dtype=np.dtype("i4, i4, f8")
+            )
+        links = links[np.argsort(links['f2'])]
+        used = set()
+        goodlinks = []
+        for i,j,l in links:
+            if i not in used and j not in used:
+                goodlinks.append((i,j))
+                used.update([i,j])
+        return np.asarray(goodlinks)
         
