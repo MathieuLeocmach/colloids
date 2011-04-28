@@ -443,11 +443,13 @@ class OctaveBlobFinder:
         """Extract and refine to subpixel resolution the positions and size of the blobs"""
         if self.binary.sum()==0:
             return np.zeros([0, self.layers.ndim+1])
+        #morphological background removal
+        np.subtract(self.layers, self.eroded, self.nobg)
         #subpixel resolution in real space, layer by layer
         centers = []
         vals = []
-        for layer, binary, eroded, dilbin, labels, nobg in zip(
-            self.layers[1:-1], self.binary[1:-1], self.eroded[1:-1],
+        for layer, binary, dilbin, labels, nobg in zip(
+            self.layers[1:-1], self.binary[1:-1],
             self.dilbin[1:-1], self.labels[1:-1], self.nobg[1:-1]):
             if binary.max()==0:
                 continue
@@ -461,8 +463,6 @@ class OctaveBlobFinder:
             v = measurements.sum(
                 layer, labels, range(1, 1+nbs)
                 )
-            #morphological background removal
-            np.subtract(layer, eroded, nobg)
             #negative center of mass
             c = measurements.center_of_mass(
                 nobg, labels, range(1, 1+nbs)
@@ -481,8 +481,7 @@ class OctaveBlobFinder:
             output=self.dilbin)
         #label
         nbs = measurements.label(self.dilbin, output=self.labels)
-        grey_erosion(self.layers, [3]+[1]*(self.layers.ndim-1), output=self.eroded)
-        np.subtract(self.layers, self.eroded, self.nobg)
+        
         if len(centers)>1:
             centerscales = np.vstack(measurements.center_of_mass(
                 self.nobg, self.labels, range(1, 1+nbs)
