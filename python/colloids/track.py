@@ -17,7 +17,7 @@
 #
 from __future__ import with_statement #for python 2.5, useless in 2.6
 import numpy as np
-import os.path, subprocess, shlex, string, re
+import os.path, subprocess, shlex, string, re, time
 from colloids import lif, vtk
 from scipy.ndimage.filters import gaussian_filter, gaussian_filter1d, sobel
 from scipy.ndimage.morphology import grey_erosion, grey_dilation, binary_dilation
@@ -128,9 +128,9 @@ def pixel_centers_2Dscale(im, k=1.6, n=3):
     """Blob finder : find the local maxima in an octave of the scale space"""
     assert im.ndim==2, "work only with 2D images"
     DoG2D = diff_of_gaussians(np.asarray(im, float), k, n)
-    centers_scale = np.bitwise_and(
-	    DoG2D[1:-1]==grey_erosion(DoG2D, [3]*3)[1:-1],
-	    DoG2D[1:-1]<0)
+    centers_scale = np.bitwise_and(np.bitwise_and(
+	    DoG2D[1:-1]==grey_erosion(DoG2D, [7]*3)[1:-1],
+	    DoG2D[1:-1]<0), grey_dilation(DoG2D, [3]*3)[1:-1]<0)
     centers_scale[:,:,0] = 0
     centers_scale[:,:,-1] = 0
     centers_scale[:,0] = 0
@@ -327,16 +327,16 @@ def load_clusters(trajfile):
                 ]))
     return clusters
     
-def clusters2particles(clusters, k=1.6, n=3, noDuplicate=True):
+def clusters2particles(clusters, k=1.6, n=3, noDuplicate=True, outputFinders=False):
     particles = []
     #allocate the memory for each possible size of MultiscaleBlobFinder
     N = max(map(len, clusters))
-    finders = [MultiscaleBlobFinder([l], n, 3) for l in range(4, N+1)]
+    finders = [MultiscaleBlobFinder([l], n, 3) for l in range(5, N+1)]
     for cl in clusters:
-        if len(cl)<4:
+        if len(cl)<5:
             continue
         #get the blobs for each signal, remove signals without blob
-        blobs = filter(len, [finders[len(cl)-4](u, k) for u in [
+        blobs = filter(len, [finders[len(cl)-5](u, k) for u in [
             -np.sqrt(sobel(cl[:,0], axis=0)**2 + sobel(cl[:,1], axis=0)**2),
             cl[:,3], cl[:,4]
             ]])
@@ -373,7 +373,10 @@ def clusters2particles(clusters, k=1.6, n=3, noDuplicate=True):
                 zi = 0
             dz = z-zi
             particles.append(cl[zi]+grad[zi]*dz)
-    return np.asarray(particles)
+    if outputFinders:
+        return np.asarray(particles), finders
+    else:
+        return np.asarray(particles)
 
 
 def label_clusters(centers):
@@ -414,33 +417,48 @@ class OctaveBlobFinder:
         self.binary = np.empty(self.layers.shape, bool)
         self.dilbin = np.empty_like(self.binary)
         self.labels =  np.empty(self.layers.shape, np.int32)
+        self.time_fill = 0.0
+        self.time_subpix = 0.0
+        self.ncalls = 0
+        self.noutputs = 0
         
     def fill(self, image, k=1.6):
         """All the image processing when accepting a new image."""
+        t0 = time.clock()
+        #total 220 ms
         assert self.im.shape == image.shape, """Wrong image size:
 %s instead of %s"""%(image.shape, self.im.shape)
         #convert the image to floating points
-        self.im[:] = np.asarray(image, float)
+        self.im[:] = image #256 us
         #normalize between 0 and 1
         #self.im -= image.min()
         #self.im /= self.im.max()
         #Gaussian filters
         for l, layer in enumerate(self.layersG):
-            gaussian_filter(self.im, k*2**(l/float(len(self.layersG)-3)), output=layer)
+            gaussian_filter(
+                self.im,
+                k*2**(l/float(len(self.layersG)-3)),
+                output=layer)
+            #41 ms + 63.2ms + 75.9ms
         #Difference of gaussians
-        self.layers[:] = np.diff(self.layersG, axis=0)
-        #Erosion
+        self.layers[:] = np.diff(self.layersG, axis=0) #5.99 ms
+        #Erosion 86.2 ms
         grey_erosion(self.layers, [7]*self.layers.ndim, output=self.eroded)
-        #Dilation
-        grey_dilation(self.layers, [3]*self.layers.ndim, output=self.dilated)
-        #scale space minima, whose neighbourhood are all negative
-        self.binary = np.bitwise_and(self.layers==self.eroded, self.dilated<0)
+        #Dilation 48.2 ms
+        #grey_dilation(self.layers, [3]*self.layers.ndim, output=self.dilated)
+        #scale space minima, whose neighbourhood are all negative 10 ms
+        #self.binary = np.bitwise_and(self.layers==self.eroded, self.dilated<0)
+        self.binary = self.layers==self.eroded
         for a in range(self.binary.ndim):
             self.binary[tuple([slice(None)]*(self.binary.ndim-1-a)+[0])]=False
+            # 16.6 us + 8.01 us + 253 us
             self.binary[tuple([slice(None)]*(self.binary.ndim-1-a)+[-1])]=False
+        self.time_fill += time.clock()-t0
+        
 
     def subpix(self, k=1.6):
         """Extract and refine to subpixel resolution the positions and size of the blobs"""
+        t0 = time.clock()
         if self.binary.sum()==0:
             return np.zeros([0, self.layers.ndim+1])
         #morphological background removal
@@ -500,6 +518,8 @@ class OctaveBlobFinder:
         centers[:,:-1] -= 2.0 * (centers[:,:-1]-centerspx)
         #convert scale to size
         centers[:,-2] = k*np.sqrt(2)*2**(centers[:,-2]/(len(self.layers)-2))
+        self.time_subpix += time.clock() - t0
+        self.noutputs += len(centers)
         return centers
             
 ##        #select the neighbourhood of each center
@@ -527,6 +547,7 @@ class OctaveBlobFinder:
     def __call__(self, image, k=1.6):
         """Locate bright blobs in an image with subpixel resolution.
 Returns an array of (x, y, r, -intensity in scale space)"""
+        self.ncalls += 1
         self.fill(image, k)
         return self.subpix(k)
         
@@ -540,9 +561,13 @@ class MultiscaleBlobFinder:
             OctaveBlobFinder(s, nbLayers)
             for s in shapes if s.min()>8
             ] #shortens the list of octaves if no blob can be detected in that small window
+        self.time = 0.0
+        self.ncalls = 0
         
     def __call__(self, image, k=1.6):
         """Locate blobs in each octave and regroup the results"""
+        self.ncalls += 1
+        t0 = time.clock()
         if len(self.octaves)==0:
             return np.zeros([0, image.ndim+2])
         #upscale the image for octave -1
@@ -561,6 +586,7 @@ class MultiscaleBlobFinder:
                 for o, oc in enumerate(self.octaves[1:])
                 ]
             )
+        self.time += time.clock() - t0
 	return centers
 
 def localize2D3D(serie, file_pattern, cleanup=True):
