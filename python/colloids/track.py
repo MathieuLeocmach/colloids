@@ -441,6 +441,8 @@ class OctaveBlobFinder:
 
     def subpix(self, k=1.6):
         """Extract and refine to subpixel resolution the positions and size of the blobs"""
+        if self.binary.sum()==0:
+            return np.zeros([0, self.layers.ndim+1])
         #subpixel resolution in real space, layer by layer
         centers = []
         vals = []
@@ -481,14 +483,19 @@ class OctaveBlobFinder:
         nbs = measurements.label(self.dilbin, output=self.labels)
         grey_erosion(self.layers, [3]+[1]*(self.layers.ndim-1), output=self.eroded)
         np.subtract(self.layers, self.eroded, self.nobg)
-        centerscales = np.vstack(measurements.center_of_mass(
+        if len(centers)>1:
+            centerscales = np.vstack(measurements.center_of_mass(
                 self.nobg, self.labels, range(1, 1+nbs)
                 ))[:,0]
-        centers = np.column_stack((
-            np.vstack(centers)[:,::-1],
-            centerscales,
-            vals
-            ))
+            centers = np.column_stack((
+                np.vstack(centers)[:,::-1],
+                centerscales,
+                vals
+                ))
+        else:
+            centerscales = measurements.center_of_mass(
+                self.nobg, self.labels)[0]
+            centers = np.asarray([vals+[centerscales]+list(centers[0])])[:,::-1]
         #convert to positive center of mass
         centerspx = np.rint(centers[:,:-1])
         centers[:,:-1] -= 2.0 * (centers[:,:-1]-centerspx)
