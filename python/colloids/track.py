@@ -430,7 +430,7 @@ class OctaveBlobFinder:
         #Difference of gaussians
         self.layers[:] = np.diff(self.layersG, axis=0)
         #Erosion
-        grey_erosion(self.layers, [3]*self.layers.ndim, output=self.eroded)
+        grey_erosion(self.layers, [7]*self.layers.ndim, output=self.eroded)
         #Dilation
         grey_dilation(self.layers, [3]*self.layers.ndim, output=self.dilated)
         #scale space minima, whose neighbourhood are all negative
@@ -447,22 +447,30 @@ class OctaveBlobFinder:
         for layer, binary, eroded, dilbin, labels, nobg in zip(
             self.layers[1:-1], self.binary[1:-1], self.eroded[1:-1],
             self.dilbin[1:-1], self.labels[1:-1], self.nobg[1:-1]):
+            if binary.max()==0:
+                continue
             #select the neighbourhood of each center
             binary_dilation(
                 binary, np.ones([3]*(layer.ndim), bool),
                 iterations=1,
                 output=dilbin)
             #label
-            nbs = measurements.label(dilbin, output=labels)
-            vals += measurements.sum(
+            nbs = measurements.label(dilbin, output=labels)                
+            v = measurements.sum(
                 layer, labels, range(1, 1+nbs)
                 )
             #morphological background removal
             np.subtract(layer, eroded, nobg)
             #negative center of mass
-            centers += measurements.center_of_mass(
+            c = measurements.center_of_mass(
                 nobg, labels, range(1, 1+nbs)
                 )
+            if nbs>1:
+                vals += v
+                centers += c
+            else:
+                vals.append(v)
+                centers.append(c)
         #subpixel resolution on the scale axis
         #select the neighbourhood of each center
         binary_dilation(
