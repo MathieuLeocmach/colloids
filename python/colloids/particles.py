@@ -88,11 +88,14 @@ class Particles:
             dtype=np.dtype("i4, i4, f8")
             )
         links = links[np.argsort(links['f2'])]
-        used = set()
+        usedi = np.zeros(len(self.pos), bool)
+        usedj = np.zeros(len(other.pos), bool)
         goodlinks = []
         for i,j,l in links:
-            if i not in used and j not in used:
-                goodlinks.append((i,j))
-                used.update([i,j])
+            if usedi[i] or usedj[j]:
+                continue
+            goodlinks.append((i,j))
+            usedi[i] = True
+            usedj[j] = True
         return np.asarray(goodlinks)
         
