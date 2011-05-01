@@ -22,7 +22,6 @@ from colloids import lif, vtk
 from scipy.ndimage.filters import gaussian_filter, gaussian_filter1d, sobel
 from scipy.ndimage.morphology import grey_erosion, grey_dilation, binary_dilation
 from scipy.ndimage import measurements
-from rtree import Rtree
 
 
 def bestParams(inputPath, outputPath, radMins=np.arange(2.5, 5, 0.5), radMaxs=np.arange(6, 32, 4), t=0, serie=None):
@@ -259,22 +258,6 @@ def find_blob(im, k=1.6, n=3):
 ##        dcenters = dcenters[good]
     return np.column_stack((centers+dcenters, vals[good]))
 
-def multiple_centers(centers):
-    """Remove overlapping centers (2D)"""
-    #sort the centers by decreasing radius
-    s = s[np.argsort(s[:,0])][::-1]
-    idx = Rtree()
-    for p,(r, y, x) in enumerate(s):
-        bb = (x-r, y-r, x+r, y+r)
-        inter = list(idx.intersection(bb))
-        #don't add centers that overlap
-        if len(inter)>0:
-            qs = s[inter]
-            if np.sum(np.sum((qs[:,1:]-s[p][1:])**2)<(qs[:,0]+r)**2)>0:
-                continue
-        idx.add(p, bb)
-    return s[list(idx.intersection(idx.bounds))]
-
 def save_2Dcenters(file_pattern, frame):
     for z, im in enumerate(frame):
 	centers = np.vstack((
@@ -486,8 +469,8 @@ class OctaveBlobFinder:
                 nobg, labels, range(1, 1+nbs)
                 )
             if nbs>1:
-                vals += v
-                centers += c
+                vals += list(v)
+                centers += list(c)
             else:
                 vals.append(v)
                 centers.append(c)
