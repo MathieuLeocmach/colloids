@@ -436,95 +436,72 @@ class OctaveBlobFinder:
             self.binary[tuple([slice(None)]*(self.binary.ndim-1-a)+[0])]=False
             # 16.6 us + 8.01 us + 253 us
             self.binary[tuple([slice(None)]*(self.binary.ndim-1-a)+[-1])]=False
+        #morphological background removal
+        np.subtract(self.layers, self.eroded, self.nobg)
         self.time_fill += time.clock()-t0
         
 
     def subpix(self, k=1.6):
         """Extract and refine to subpixel resolution the positions and size of the blobs"""
         t0 = time.clock()
-        if self.binary.sum()==0:
+        nb_centers = self.binary.sum()
+        if nb_centers==0:
             return np.zeros([0, self.layers.ndim+1])
-        #morphological background removal
-        np.subtract(self.layers, self.eroded, self.nobg)
-        #subpixel resolution in real space, layer by layer
-        centers = []
-        vals = []
-        for layer, binary, dilbin, labels, nobg in zip(
-            self.layers[1:-1], self.binary[1:-1],
-            self.dilbin[1:-1], self.labels[1:-1], self.nobg[1:-1]):
-            if binary.max()==0:
-                continue
-            #select the neighbourhood of each center
-            binary_dilation(
-                binary, np.ones([3]*(layer.ndim), bool),
-                iterations=1,
-                output=dilbin)
-            #label
-            nbs = measurements.label(dilbin, output=labels)                
-            v = measurements.sum(
-                layer, labels, range(1, 1+nbs)
-                )
-            #negative center of mass
-            c = measurements.center_of_mass(
-                nobg, labels, range(1, 1+nbs)
-                )
-            if nbs>1:
-                vals += list(v)
-                centers += list(c)
-            else:
-                vals.append(v)
-                centers.append(c)
-        #subpixel resolution on the scale axis
+        #original positions of the centers
+        c0 = np.transpose(np.where(self.binary))
         #select the neighbourhood of each center
         binary_dilation(
-            self.binary, np.ones([3]+[1]*(self.layers.ndim-1), bool),
+            self.binary, np.ones([3]*(self.layers.ndim), bool),
             iterations=1,
             output=self.dilbin)
         #label
         nbs = measurements.label(self.dilbin, output=self.labels)
-        
-        if len(centers)>1:
-            centerscales = np.vstack(measurements.center_of_mass(
-                self.nobg, self.labels, range(1, 1+nbs)
-                ))[:,0]
-            centers = np.column_stack((
-                np.vstack(centers)[:,::-1],
-                centerscales,
-                vals
-                ))
-        else:
-            centerscales = measurements.center_of_mass(
-                self.nobg, self.labels)[0]
-            centers = np.asarray([vals+[centerscales]+list(centers[0])])[:,::-1]
-        #convert to positive center of mass
-        centerspx = np.rint(centers[:,:-1])
-        centers[:,:-1] -= 2.0 * (centers[:,:-1]-centerspx)
-        #convert scale to size
-        centers[:,-2] = k*np.sqrt(2)*2**(centers[:,-2]/(len(self.layers)-2))
-        self.time_subpix += time.clock() - t0
-        self.noutputs += len(centers)
-        return centers
+        #If center neighbourhood have merged, merging centers have to be
+        #treated separately. This more expensive procedure is not used by default
+        if nb_centers != nbs:
+            overlap = np.zeros(nb_centers, bool)
+            for i, p in enumerate(c0):
+                for j, d in np.max(np.abs(c0[:i]-p), axis=-1):
+                    if d<7:
+                        overlap[i] = True
+                        overlap[j] = True
+            ###NEED TO TREAT OVERLAPING INDIVIDUALLY###
+            #remove overlaping and recursive call
+            self.binary[tuple(c0[overlap].T.tolist())] = False
+            return self.subpix()
             
-##        #select the neighbourhood of each center
-##        binary_dilation(
-##            self.binary, np.ones([3]*(self.layers.ndim), bool),
-##            iterations=1,
-##            output=self.dilbin)
-##        #label
-##        nbs = measurements.label(self.dilbin, output=self.labels)
-##        vals = np.asarray(measurements.sum(
-##            self.layers, self.labels, range(1, 1+nbs)
-##            ))
-##        #morphological background removal layer by layer
-##        grey_erosion(self.layers, [1]+[3]*(self.layers.ndim-1), output=self.eroded)
-##        np.subtract(self.layers, self.eroded, self.nobg)
-##        #good = np.where(values<0)
-##        centers = np.vstack(measurements.center_of_mass(
-##                self.nobg, self.labels, range(1, 1+nbs)
-##                ))[:,::-1]
-##        #convert position in the scale space to real space size
-##        centers[:,-1] = k*np.sqrt(2)*2**(centers[:,-1]/(len(self.layers)-2))
-##        return np.column_stack((centers, vals))
+        #negative center of mass
+        centers = np.asanayarray(measurements.center_of_mass(
+                self.nobg, self.labels, range(1, 1+nbs)
+                ))
+        #thus, dispacement (positive)
+        dc = c0 - centers
+        #convert to positive center of mass
+        centers = c0 + dc
+        #remove the centers that moved in the margin of the scale space
+        good = np.bitwise_and(
+            np.max(centers>0.5, axis=-1),
+            np.max(np.rint(centers).astype(int)+2<self.layers.shape, axis=-1)
+            )
+        if good.sum()==0:
+            return np.zeros([0, self.layers.ndim+1])
+        centers = centers[good]
+        dc = dc[good]
+        #split between the centers that stayed in the same pixel
+        #and those that moved out of their original pixel
+        moved = np.abs(dc).max(axis=-1)>=0.5
+        #get the values for stable pixels
+        vals = measurements.sum(
+                layer, labels, np.where(np.bitwise_not(moved))[0]+1
+                )
+        #prepare recursive call by updating the positions
+        self.binary.fill(False)
+        self.binary(tuple(np.rint(centers[moved].T).astype(int).tolist())) = True
+        #recursive call and combine the results
+        return np.vstack((
+            np.column_stack((vals, centers[np.bitwise_not(moved)])),
+            self.subpix(k)
+            ))
             
         
     def __call__(self, image, k=1.6):
@@ -532,7 +509,11 @@ class OctaveBlobFinder:
 Returns an array of (x, y, r, -intensity in scale space)"""
         self.ncalls += 1
         self.fill(image, k)
-        return self.subpix(k)
+        centers = self.subpix(k)[:,::-1]
+        #convert scale to size
+        centers[:,-2] = k*np.sqrt(2)*2**(centers[:,-2]/(len(self.layers)-2))
+        self.noutputs += len(centers)
+        return centers
         
         
 class MultiscaleBlobFinder:
