@@ -445,7 +445,6 @@ class OctaveBlobFinder:
     def subpix(self, ngb_radius=1):
         """Extract and refine to subpixel resolution the positions and size of the blobs"""
         self.n_recursions += 1
-        t0 = time.clock()
         nb_centers = self.binary.sum()
         if nb_centers==0:
             return np.zeros([0, self.layers.ndim+1])
@@ -546,7 +545,9 @@ class OctaveBlobFinder:
 Returns an array of (x, y, r, -intensity in scale space)"""
         self.ncalls += 1
         self.fill(image, k)
+        t0 = time.clock()
         centers = self.subpix()[:,::-1]
+        self.time_subpix += time.clock() - t0
         #convert scale to size
         centers[:,-2] = k*np.sqrt(2)*2**(centers[:,-2]/(len(self.layers)-2))
         self.noutputs += len(centers)
