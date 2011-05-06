@@ -446,7 +446,7 @@ class OctaveBlobFinder:
         """Extract and refine to subpixel resolution the positions and size of the blobs"""
         self.n_recursions += 1
         nb_centers = self.binary.sum()
-        if nb_centers==0:
+        if ngb_radius>6 or nb_centers==0:
             return np.zeros([0, self.layers.ndim+1])
         #original positions of the centers
         c0 = np.transpose(np.where(self.binary))
