@@ -404,6 +404,7 @@ class OctaveBlobFinder:
         self.time_subpix = 0.0
         self.ncalls = 0
         self.noutputs = 0
+        self.n_recursions = 0
         
     def fill(self, image, k=1.6):
         """All the image processing when accepting a new image."""
@@ -441,8 +442,9 @@ class OctaveBlobFinder:
         self.time_fill += time.clock()-t0
         
 
-    def subpix(self, k=1.6):
+    def subpix(self, ngb_radius=1):
         """Extract and refine to subpixel resolution the positions and size of the blobs"""
+        self.n_recursions += 1
         t0 = time.clock()
         nb_centers = self.binary.sum()
         if nb_centers==0:
@@ -451,7 +453,7 @@ class OctaveBlobFinder:
         c0 = np.transpose(np.where(self.binary))
         #select the neighbourhood of each center
         binary_dilation(
-            self.binary, np.ones([3]*(self.layers.ndim), bool),
+            self.binary, np.ones([1+2*ngb_radius]*(self.layers.ndim), bool),
             iterations=1,
             output=self.dilbin)
         #label
@@ -462,16 +464,49 @@ class OctaveBlobFinder:
             overlap = np.zeros(nb_centers, bool)
             for i, p in enumerate(c0):
                 for j, d in np.max(np.abs(c0[:i]-p), axis=-1):
-                    if d<7:
+                    if d<2*ngb_radius+2:
                         overlap[i] = True
                         overlap[j] = True
-            ###NEED TO TREAT OVERLAPING INDIVIDUALLY###
-            #remove overlaping and recursive call
+            #Treat each overlaping center individually
+            centers = []
+            vals = []
+            moved = []
+            self.labels.fill(0)
+            for p in c0[overlap]:
+                #label the neighbourhood
+                sl = tuple([slice(u-ngb_radius, u+1+ngb_radius) for u in p])
+                self.labels[sl]=1
+                #negative center of mass
+                c = measurements.center_of_mass(
+                    self.nobg, self.labels, [1]
+                    )
+                #unlabel the neighbourhood
+                self.labels[sl]=0
+                #thus, dispacement (positive)
+                dc = p - c
+                #convert to positive center of mass
+                c = p + dc
+                #remove the centers that moved in the margin of the scale space
+                if np.min(c<ngb_radius-0.5) or np.min(np.rint(centers).astype(int)+1+ngb_radius<self.layers.shape):
+                    continue
+                if np.abs(dc).max()<ngb_radius-0.5:
+                    centers.append(c)
+                    vals.append(self.layers[sl].sum())
+                else:
+                    moved.append(p)
+            overlaping = np.column_stack((vals, centers))
+            #recursive call for non overlaping
             self.binary[tuple(c0[overlap].T.tolist())] = False
-            return self.subpix()
-            
+            no_overlap = self.subpix(ngb_radius)
+            #recursive call for prevously overlaping centers that
+            #moved out of their pixels
+            self.binary.fill(False)
+            self.binary[tuple(p.transpose(moved).tolist())] = True
+            others = self.subpix(ngb_radius+1)
+            return np.vstack((no_overlap, overlaping, others))
+        
         #negative center of mass
-        centers = np.asanayarray(measurements.center_of_mass(
+        centers = np.asanyarray(measurements.center_of_mass(
                 self.nobg, self.labels, range(1, 1+nbs)
                 ))
         #thus, dispacement (positive)
@@ -480,28 +515,30 @@ class OctaveBlobFinder:
         centers = c0 + dc
         #remove the centers that moved in the margin of the scale space
         good = np.bitwise_and(
-            np.max(centers>0.5, axis=-1),
+            np.max(centers>=0.5, axis=-1),
             np.max(np.rint(centers).astype(int)+2<self.layers.shape, axis=-1)
             )
         if good.sum()==0:
             return np.zeros([0, self.layers.ndim+1])
+        #get the values for stable pixels
+        vals = measurements.sum(
+                self.layers, self.labels, np.where(good)[0]+1
+                )
         centers = centers[good]
         dc = dc[good]
         #split between the centers that stayed in the same pixel
         #and those that moved out of their original pixel
-        moved = np.abs(dc).max(axis=-1)>=0.5
-        #get the values for stable pixels
-        vals = measurements.sum(
-                layer, labels, np.where(np.bitwise_not(moved))[0]+1
-                )
+        moved = np.abs(dc).max(axis=-1)>=ngb_radius-0.5
+        stables = np.column_stack((vals, centers))[np.bitwise_not(moved)]
         #prepare recursive call by updating the positions
         self.binary.fill(False)
-        self.binary(tuple(np.rint(centers[moved].T).astype(int).tolist())) = True
-        #recursive call and combine the results
-        return np.vstack((
-            np.column_stack((vals, centers[np.bitwise_not(moved)])),
-            self.subpix(k)
-            ))
+        self.binary[
+            tuple(c0[good][moved].T.tolist())
+            ] = True
+        #recursive call
+        others = self.subpix(ngb_radius+1)
+        #combine the results
+        return np.vstack((stables, others))
             
         
     def __call__(self, image, k=1.6):
@@ -509,7 +546,7 @@ class OctaveBlobFinder:
 Returns an array of (x, y, r, -intensity in scale space)"""
         self.ncalls += 1
         self.fill(image, k)
-        centers = self.subpix(k)[:,::-1]
+        centers = self.subpix()[:,::-1]
         #convert scale to size
         centers[:,-2] = k*np.sqrt(2)*2**(centers[:,-2]/(len(self.layers)-2))
         self.noutputs += len(centers)
