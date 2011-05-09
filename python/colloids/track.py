@@ -462,7 +462,7 @@ class OctaveBlobFinder:
         if nb_centers != nbs:
             overlap = np.zeros(nb_centers, bool)
             for i, p in enumerate(c0):
-                for j, d in np.max(np.abs(c0[:i]-p), axis=-1):
+                for j, d in enumerate(np.max(np.abs(c0[:i]-p), axis=-1)):
                     if d<2*ngb_radius+2:
                         overlap[i] = True
                         overlap[j] = True
