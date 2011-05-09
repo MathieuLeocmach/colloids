@@ -595,8 +595,9 @@ class MultiscaleBlobFinder:
         self.time += time.clock() - t0
 	return centers
 
-def localize2D3D(serie, file_pattern, cleanup=True):
-    finder = MultiscaleBlobFinder(serie.get2DShape())
+def treatFrame(serie, t, file_pattern, finder=None ):
+    if finder is None:
+        finder = MultiscaleBlobFinder(serie.get2DShape())
     for t in range(serie.getNbFrames()):
         stack = serie.getFrame(T=t)
         for z, im in enumerate(stack):
@@ -620,6 +621,11 @@ def localize2D3D(serie, file_pattern, cleanup=True):
         clusters = load_clusters(trajfile)
         particles = clusters2particles(clusters)
         np.save(os.path.splitext(trajfile)[0], particles)
+
+def localize2D3D(serie, file_pattern, cleanup=True):
+    finder = MultiscaleBlobFinder(serie.get2DShape())
+    for t in range(serie.getNbFrames()):
+        treatFrame(serie, t, file_pattern, finder)
         if cleanup:
             for z in range(len(stack)):
                 os.remove(file_pattern%(t, z, 'dat'))
