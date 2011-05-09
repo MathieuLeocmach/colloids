@@ -486,21 +486,26 @@ class OctaveBlobFinder:
                 #convert to positive center of mass
                 c = p + dc
                 #remove the centers that moved in the margin of the scale space
-                if np.min(c<ngb_radius-0.5) or np.min(np.rint(centers).astype(int)+1+ngb_radius<self.layers.shape):
+                if np.min(c)<ngb_radius-0.5 or np.max(
+                    np.rint(c)+ngb_radius>=self.layers.shape
+                    ):
                     continue
                 if np.abs(dc).max()<ngb_radius-0.5:
                     centers.append(c)
                     vals.append(self.layers[sl].sum())
                 else:
                     moved.append(p)
-            overlaping = np.column_stack((vals, centers))
+            if len(vals)==0:
+                overlaping = np.zeros([0, self.layers.ndim+1])
+            else:
+                overlaping = np.column_stack((vals, np.vstack(centers)))
             #recursive call for non overlaping
             self.binary[tuple(c0[overlap].T.tolist())] = False
             no_overlap = self.subpix(ngb_radius)
             #recursive call for prevously overlaping centers that
             #moved out of their pixels
             self.binary.fill(False)
-            self.binary[tuple(p.transpose(moved).tolist())] = True
+            self.binary[tuple(np.transpose(moved).tolist())] = True
             others = self.subpix(ngb_radius+1)
             return np.vstack((no_overlap, overlaping, others))
         
@@ -514,8 +519,8 @@ class OctaveBlobFinder:
         centers = c0 + dc
         #remove the centers that moved in the margin of the scale space
         good = np.bitwise_and(
-            np.max(centers>=0.5, axis=-1),
-            np.max(np.rint(centers).astype(int)+2<self.layers.shape, axis=-1)
+            np.min(centers>=ngb_radius-0.5, axis=-1),
+            np.min(np.rint(centers).astype(int)+ngb_radius<self.layers.shape, axis=-1)
             )
         if good.sum()==0:
             return np.zeros([0, self.layers.ndim+1])
@@ -538,7 +543,6 @@ class OctaveBlobFinder:
         others = self.subpix(ngb_radius+1)
         #combine the results
         return np.vstack((stables, others))
-            
         
     def __call__(self, image, k=1.6):
         """Locate bright blobs in an image with subpixel resolution.
