@@ -414,15 +414,15 @@ class OctaveBlobFinder:
 %s instead of %s"""%(image.shape, self.im.shape)
         #convert the image to floating points
         self.im[:] = image #256 us
-        #normalize between 0 and 1
-        #self.im -= image.min()
-        #self.im /= self.im.max()
+        nbLayers = len(self.layersG)-3
+        #target blurring radii
+        sigmas = k*2**(np.arange(nbLayers+3)/float(nbLayers))
+        #iterative blurring radii
+        sigmas_iter = np.sqrt(np.diff(sigmas**2))
         #Gaussian filters
-        for l, layer in enumerate(self.layersG):
-            gaussian_filter(
-                self.im,
-                k*2**(l/float(len(self.layersG)-3)),
-                output=layer)
+        gaussian_filter(self.im, k, output=self.layersG[0])
+        for l, layer in enumerate(self.layersG[:-1]):
+            gaussian_filter(layer, sigmas_iter[l], output=self.layersG[l+1])
             #41 ms + 63.2ms + 75.9ms
         #Difference of gaussians
         self.layers[:] = np.diff(self.layersG, axis=0) #5.99 ms
