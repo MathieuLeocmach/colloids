@@ -391,7 +391,6 @@ class OctaveBlobFinder:
     """Locator of bright blobs in an image of fixed shape. Works on a single octave."""
     def __init__(self, shape=(256,256), nbLayers=3):
         """Allocate memory once"""
-        self.im =  np.empty(shape, float)
         self.layersG = np.empty([nbLayers+3]+list(shape), float)
         self.layers = np.empty([nbLayers+2]+list(shape), float)
         self.eroded = np.empty_like(self.layers)
@@ -410,17 +409,16 @@ class OctaveBlobFinder:
         """All the image processing when accepting a new image."""
         t0 = time.clock()
         #total 220 ms
-        assert self.im.shape == image.shape, """Wrong image size:
-%s instead of %s"""%(image.shape, self.im.shape)
-        #convert the image to floating points
-        self.im[:] = image #256 us
+        assert self.layersG[0].shape == image.shape, """Wrong image size:
+%s instead of %s"""%(image.shape, self.layersG[0].shape)
         nbLayers = len(self.layersG)-3
+        #fill the first layer by the input (already blurred by k)
+        self.layersG[0] = image
         #target blurring radii
         sigmas = k*2**(np.arange(nbLayers+3)/float(nbLayers))
         #iterative blurring radii
         sigmas_iter = np.sqrt(np.diff(sigmas**2))
         #Gaussian filters
-        gaussian_filter(self.im, k, output=self.layersG[0])
         for l, layer in enumerate(self.layersG[:-1]):
             gaussian_filter(layer, sigmas_iter[l], output=self.layersG[l+1])
             #41 ms + 63.2ms + 75.9ms
@@ -563,6 +561,7 @@ class MultiscaleBlobFinder:
     def __init__(self, shape=(256,256), nbLayers=3, nbOctaves=2):
         """Allocate memory for each octave"""
         shapes = np.vstack([np.ceil([s*2.0**(1-o) for s in shape]) for o in range(nbOctaves)])
+        self.preblurred = np.empty(shapes[0])
         self.octaves = [
             OctaveBlobFinder(s, nbLayers)
             for s in shapes if s.min()>8
@@ -580,18 +579,24 @@ class MultiscaleBlobFinder:
         im2 = np.copy(image)
         for a in range(image.ndim):
             im2 = np.repeat(im2, 2, a)
-        #locate blobs in each octave and scale the coordiates and sizes,
-        centers = np.vstack(
-            #The peculiar case of octave -1
-            [self.octaves[0](im2, k)*([0.5]*(1+image.ndim)+[1])]+
-            [#All other octaves
-                oc(
-                    image[tuple([slice(None,None,2**o)]*image.ndim)],
-                    k
-                    )*([2**o]*(1+image.ndim)+[1])
-                for o, oc in enumerate(self.octaves[1:])
-                ]
-            )
+        #preblur octave -1
+        gaussian_filter(im2, k, output=self.preblurred)
+        #locate blobs in octave -1
+        centers = [self.octaves[0](self.preblurred)]
+        #subsample the -3 layerG of the previous octave
+        #whose is two times more blurred that layer 0
+        #and use it as the base of new octave
+        for o, oc in enumerate(self.octaves[1:]):
+            centers += [oc(
+                self.octaves[o].layersG[-3][
+                    tuple([slice(None, None, 2)]*image.ndim)],
+                k
+                )]
+        #merge the results and scale the coordinates and sizes
+        centers = np.vstack([
+            c * ([2**(o-1)]*(1+image.ndim)+[1])
+            for o, c in enumerate(centers)
+            ])
         self.time += time.clock() - t0
 	return centers
 
