@@ -613,29 +613,28 @@ class MultiscaleBlobFinder:
 def treatFrame(serie, t, file_pattern, finder=None ):
     if finder is None:
         finder = MultiscaleBlobFinder(serie.get2DShape())
-    for t in range(serie.getNbFrames()):
-        stack = serie.getFrame(T=t)
-        for z, im in enumerate(stack):
-            centers = finder(im)
-            np.savetxt(
-		file_pattern%(t, z, 'dat'),
-		np.vstack((
-			[1, len(centers), 1],
-			[256, 256, 1.6*np.sqrt(2)*2**(7.0/3)],
-			centers[:,:-1]
-			)), fmt='%g'
-		)
-            np.savetxt(file_pattern%(t, z, 'intensity'), centers[:,-1], fmt='%g')
-        pro = subprocess.Popen([
-            '/home/mathieu/test/bin/linker',
-            file_pattern%(t,0,'dat'),
-            '_z', '5', '%g'%serie.getZXratio(), '%d'%len(stack)
-            ], stdout=subprocess.PIPE)
-        trajfile = pro.communicate()[0].split()[-1]
-        trajfile = os.path.join(os.path.split(file_pattern)[0], trajfile)
-        clusters = load_clusters(trajfile)
-        particles = clusters2particles(clusters)
-        np.save(os.path.splitext(trajfile)[0], particles)
+    stack = serie.getFrame(T=t)
+    for z, im in enumerate(stack):
+        centers = finder(im)
+        np.savetxt(
+            file_pattern%(t, z, 'dat'),
+            np.vstack((
+                    [1, len(centers), 1],
+                    [256, 256, 1.6*np.sqrt(2)*2**(7.0/3)],
+                    centers[:,:-1]
+                    )), fmt='%g'
+            )
+        np.savetxt(file_pattern%(t, z, 'intensity'), centers[:,-1], fmt='%g')
+    pro = subprocess.Popen([
+        '/home/mathieu/test/bin/linker',
+        file_pattern%(t,0,'dat'),
+        '_z', '5', '%g'%serie.getZXratio(), '%d'%len(stack)
+        ], stdout=subprocess.PIPE)
+    trajfile = pro.communicate()[0].split()[-1]
+    trajfile = os.path.join(os.path.split(file_pattern)[0], trajfile)
+    clusters = load_clusters(trajfile)
+    particles = clusters2particles(clusters)
+    np.save(os.path.splitext(trajfile)[0], particles)
 
 def localize2D3D(serie, file_pattern, cleanup=True):
     finder = MultiscaleBlobFinder(serie.get2DShape())
