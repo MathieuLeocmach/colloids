@@ -404,20 +404,26 @@ class OctaveBlobFinder:
         self.ncalls = 0
         self.noutputs = 0
         self.n_recursions = 0
+
+    def get_iterative_radii(self, k):
+        nbLayers = len(self.layersG)-3
+        #target blurring radii
+        sigmas = k*2**(np.arange(nbLayers+3)/float(nbLayers))
+        #iterative blurring radii
+        return np.sqrt(np.diff(sigmas**2))
         
-    def fill(self, image, k=1.6):
+    def fill(self, image, k=1.6, sigmas=None):
         """All the image processing when accepting a new image."""
         t0 = time.clock()
         #total 220 ms
         assert self.layersG[0].shape == image.shape, """Wrong image size:
 %s instead of %s"""%(image.shape, self.layersG[0].shape)
-        nbLayers = len(self.layersG)-3
         #fill the first layer by the input (already blurred by k)
         self.layersG[0] = image
-        #target blurring radii
-        sigmas = k*2**(np.arange(nbLayers+3)/float(nbLayers))
-        #iterative blurring radii
-        sigmas_iter = np.sqrt(np.diff(sigmas**2))
+        if sigmas is None:
+            sigmas_iter = self.get_iterative_radii(k)
+        else:
+            sigmas_iter = sigmas
         #Gaussian filters
         for l, layer in enumerate(self.layersG[:-1]):
             gaussian_filter(layer, sigmas_iter[l], output=self.layersG[l+1])
@@ -542,11 +548,11 @@ class OctaveBlobFinder:
         #combine the results
         return np.vstack((stables, others))
         
-    def __call__(self, image, k=1.6):
+    def __call__(self, image, k=1.6, sigmas=None):
         """Locate bright blobs in an image with subpixel resolution.
 Returns an array of (x, y, r, -intensity in scale space)"""
         self.ncalls += 1
-        self.fill(image, k)
+        self.fill(image, k, sigmas)
         t0 = time.clock()
         centers = self.subpix()[:,::-1]
         self.time_subpix += time.clock() - t0
@@ -569,7 +575,7 @@ class MultiscaleBlobFinder:
         self.time = 0.0
         self.ncalls = 0
         
-    def __call__(self, image, k=1.6):
+    def __call__(self, image, k=1.6, sigmas=None):
         """Locate blobs in each octave and regroup the results"""
         self.ncalls += 1
         t0 = time.clock()
@@ -581,16 +587,20 @@ class MultiscaleBlobFinder:
             im2 = np.repeat(im2, 2, a)
         #preblur octave -1
         gaussian_filter(im2, k, output=self.preblurred)
+        if sigmas is None:
+            sigmas_iter = self.octaves[0].get_iterative_radii(k)
+        else:
+            sigmas_iter = sigmas
         #locate blobs in octave -1
-        centers = [self.octaves[0](self.preblurred)]
+        centers = [self.octaves[0](self.preblurred, k, sigmas=sigmas_iter)]
         #subsample the -3 layerG of the previous octave
-        #whose is two times more blurred that layer 0
+        #which is two times more blurred that layer 0
         #and use it as the base of new octave
         for o, oc in enumerate(self.octaves[1:]):
             centers += [oc(
                 self.octaves[o].layersG[-3][
                     tuple([slice(None, None, 2)]*image.ndim)],
-                k
+                k, sigmas=sigmas_iter
                 )]
         #merge the results and scale the coordinates and sizes
         centers = np.vstack([
