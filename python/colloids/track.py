@@ -444,13 +444,15 @@ class OctaveBlobFinder:
         #morphological background removal
         np.subtract(self.layers, self.eroded, self.nobg)
         self.time_fill += time.clock()-t0
-        
+
+    def initialize_binary(self):
+        self.binary = self.layers==self.eroded
 
     def subpix(self, ngb_radius=1):
         """Extract and refine to subpixel resolution the positions and size of the blobs"""
         self.n_recursions += 1
         nb_centers = self.binary.sum()
-        if ngb_radius>6 or nb_centers==0:
+        if 2*ngb_radius+1>min(self.binary.shape) or nb_centers==0 or self.binary.min():
             return np.zeros([0, self.layers.ndim+1])
         #original positions of the centers
         c0 = np.transpose(np.where(self.binary))
@@ -564,7 +566,7 @@ Returns an array of (x, y, r, -intensity in scale space)"""
         
 class MultiscaleBlobFinder:
     """Locator of bright blobs in an image of fixed shape. Works on more than one octave, starting at octave -1."""
-    def __init__(self, shape=(256,256), nbLayers=3, nbOctaves=2):
+    def __init__(self, shape=(256,256), nbLayers=3, nbOctaves=3):
         """Allocate memory for each octave"""
         shapes = np.vstack([np.ceil([s*2.0**(1-o) for s in shape]) for o in range(nbOctaves)])
         self.preblurred = np.empty(shapes[0])
