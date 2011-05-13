@@ -436,7 +436,6 @@ class OctaveBlobFinder:
         #grey_dilation(self.layers, [3]*self.layers.ndim, output=self.dilated)
         #scale space minima, whose neighbourhood are all negative 10 ms
         #self.binary = np.bitwise_and(self.layers==self.eroded, self.dilated<0)
-        self.binary = self.layers==self.eroded
         for a in range(self.binary.ndim):
             self.binary[tuple([slice(None)]*(self.binary.ndim-1-a)+[0])]=False
             # 16.6 us + 8.01 us + 253 us
@@ -447,6 +446,10 @@ class OctaveBlobFinder:
 
     def initialize_binary(self):
         self.binary = self.layers==self.eroded
+        for a in range(self.binary.ndim):
+            self.binary[tuple([slice(None)]*(self.binary.ndim-1-a)+[0])]=False
+            # 16.6 us + 8.01 us + 253 us
+            self.binary[tuple([slice(None)]*(self.binary.ndim-1-a)+[-1])]=False
 
     def subpix(self, ngb_radius=1):
         """Extract and refine to subpixel resolution the positions and size of the blobs"""
@@ -555,6 +558,7 @@ class OctaveBlobFinder:
 Returns an array of (x, y, r, -intensity in scale space)"""
         self.ncalls += 1
         self.fill(image, k, sigmas)
+        self.initialize_binary()
         t0 = time.clock()
         centers = self.subpix()[:,::-1]
         self.time_subpix += time.clock() - t0
