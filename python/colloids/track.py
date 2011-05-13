@@ -451,6 +451,15 @@ class OctaveBlobFinder:
             # 16.6 us + 8.01 us + 253 us
             self.binary[tuple([slice(None)]*(self.binary.ndim-1-a)+[-1])]=False
 
+    def no_subpix(self):
+        nb_centers = self.binary.sum()
+        if nb_centers==0 or self.binary.min():
+            return np.zeros([0, self.layers.ndim+1])
+        #original positions of the centers
+        c0 = np.transpose(np.where(self.binary))
+        vals = self.layers[self.binary]
+        return np.column_stack((vals, c0))
+
     def subpix(self, ngb_radius=1):
         """Extract and refine to subpixel resolution the positions and size of the blobs"""
         self.n_recursions += 1
