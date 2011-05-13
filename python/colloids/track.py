@@ -394,25 +394,21 @@ class OctaveBlobFinder:
         self.layersG = np.empty([nbLayers+3]+list(shape), float)
         self.layers = np.empty([nbLayers+2]+list(shape), float)
         self.eroded = np.empty_like(self.layers)
-        self.dilated = np.empty_like(self.layers)
-        self.nobg = np.empty_like(self.layers)
         self.binary = np.empty(self.layers.shape, bool)
-        self.dilbin = np.empty_like(self.binary)
-        self.labels =  np.empty(self.layers.shape, np.int32)
         self.time_fill = 0.0
         self.time_subpix = 0.0
         self.ncalls = 0
         self.noutputs = 0
-        self.n_recursions = 0
+        self.sizes = np.empty(nbLayers)
 
     def get_iterative_radii(self, k):
         nbLayers = len(self.layersG)-3
         #target blurring radii
         sigmas = k*2**(np.arange(nbLayers+3)/float(nbLayers))
-        #iterative blurring radii
-        return np.sqrt(np.diff(sigmas**2))
+        #corresponding blob sizes and iterative blurring radii
+        return np.rint(sigmas*np.sqrt(2)).astype(int), np.sqrt(np.diff(sigmas**2))
         
-    def fill(self, image, k=1.6, sigmas=None):
+    def fill(self, image, k=1.6):
         """All the image processing when accepting a new image."""
         t0 = time.clock()
         #total 220 ms
@@ -420,38 +416,41 @@ class OctaveBlobFinder:
 %s instead of %s"""%(image.shape, self.layersG[0].shape)
         #fill the first layer by the input (already blurred by k)
         self.layersG[0] = image
-        if sigmas is None:
-            sigmas_iter = self.get_iterative_radii(k)
-        else:
-            sigmas_iter = sigmas
+        self.sizes, sigmas_iter = self.get_iterative_radii(k)
         #Gaussian filters
         for l, layer in enumerate(self.layersG[:-1]):
             gaussian_filter(layer, sigmas_iter[l], output=self.layersG[l+1])
-            #41 ms + 63.2ms + 75.9ms
         #Difference of gaussians
         self.layers[:] = np.diff(self.layersG, axis=0) #5.99 ms
         #Erosion 86.2 ms
         grey_erosion(self.layers, [7]*self.layers.ndim, output=self.eroded)
-        #Dilation 48.2 ms
-        #grey_dilation(self.layers, [3]*self.layers.ndim, output=self.dilated)
         #scale space minima, whose neighbourhood are all negative 10 ms
-        #self.binary = np.bitwise_and(self.layers==self.eroded, self.dilated<0)
-        for a in range(self.binary.ndim):
-            self.binary[tuple([slice(None)]*(self.binary.ndim-1-a)+[0])]=False
-            # 16.6 us + 8.01 us + 253 us
-            self.binary[tuple([slice(None)]*(self.binary.ndim-1-a)+[-1])]=False
-        #morphological background removal
-        np.subtract(self.layers, self.eroded, self.nobg)
         self.time_fill += time.clock()-t0
 
     def initialize_binary(self):
         self.binary = self.layers==self.eroded
         for a in range(self.binary.ndim):
             self.binary[tuple([slice(None)]*(self.binary.ndim-1-a)+[0])]=False
-            # 16.6 us + 8.01 us + 253 us
             self.binary[tuple([slice(None)]*(self.binary.ndim-1-a)+[-1])]=False
+        #eliminate edges
+        if self.layers.ndim==3:
+            for p in np.transpose(np.where(self.binary)):
+                #xy neighbourhood
+                ngb = self.layers[tuple([p[0]]+[
+                    slice(u-1, u+2) for u in p[1:]
+                    ])]
+                #compute the XYhessian matrix coefficients
+                hess = [
+                    ngb[0, 1] - 2*ngb[1, 1] + ngb[2,1],
+                    ngb[1, 0] - 2*ngb[1, 1] + ngb[1,2],
+                    ngb[0,0] + ngb[2,2] - ngb[0,2] - ngb[2,0]
+                    ]
+                ratio = np.abs((hess[0]+hess[1])**2/(hess[0]+hess[1]-16*hess[2]))
+                if ratio > 11**2/10.0:
+                    self.binary[tuple(p.tolist())] = False
 
     def no_subpix(self):
+        """extracts centers positions and values from binary without subpixel resolution"""
         nb_centers = self.binary.sum()
         if nb_centers==0 or self.binary.min():
             return np.zeros([0, self.layers.ndim+1])
@@ -460,113 +459,42 @@ class OctaveBlobFinder:
         vals = self.layers[self.binary]
         return np.column_stack((vals, c0))
 
-    def subpix(self, ngb_radius=1):
+    def subpix(self):
         """Extract and refine to subpixel resolution the positions and size of the blobs"""
-        self.n_recursions += 1
         nb_centers = self.binary.sum()
-        if 2*ngb_radius+1>min(self.binary.shape) or nb_centers==0 or self.binary.min():
+        if nb_centers==0 or self.binary.min():
             return np.zeros([0, self.layers.ndim+1])
+        centers = np.empty([nb_centers, self.layers.ndim+1])
         #original positions of the centers
         c0 = np.transpose(np.where(self.binary))
-        #select the neighbourhood of each center
-        binary_dilation(
-            self.binary, np.ones([1+2*ngb_radius]*(self.layers.ndim), bool),
-            iterations=1,
-            output=self.dilbin)
-        #label
-        nbs = measurements.label(self.dilbin, output=self.labels)
-        #If center neighbourhood have merged, merging centers have to be
-        #treated separately. This more expensive procedure is not used by default
-        if nb_centers != nbs:
-            overlap = np.zeros(nb_centers, bool)
-            for i, p in enumerate(c0):
-                for j, d in enumerate(np.max(np.abs(c0[:i]-p), axis=-1)):
-                    if d<2*ngb_radius+2:
-                        overlap[i] = True
-                        overlap[j] = True
-            #Treat each overlaping center individually
-            centers = []
-            vals = []
-            moved = []
-            self.labels.fill(0)
-            for p in c0[overlap]:
-                #label the neighbourhood
-                sl = tuple([slice(u-ngb_radius, u+1+ngb_radius) for u in p])
-                self.labels[sl]=1
-                #negative center of mass
-                c = measurements.center_of_mass(
-                    self.nobg, self.labels, [1]
-                    )
-                #unlabel the neighbourhood
-                self.labels[sl]=0
-                #thus, dispacement (positive)
-                dc = p - c
-                #convert to positive center of mass
-                c = p + dc
-                #remove the centers that moved in the margin of the scale space
-                if np.min(c)<ngb_radius-0.5 or np.max(
-                    np.rint(c)+ngb_radius>=self.layers.shape
-                    ):
-                    continue
-                if np.abs(dc).max()<ngb_radius-0.5:
-                    centers.append(c)
-                    vals.append(self.layers[sl].sum())
-                else:
-                    moved.append(p)
-            if len(vals)==0:
-                overlaping = np.zeros([0, self.layers.ndim+1])
-            else:
-                overlaping = np.column_stack((vals, np.vstack(centers)))
-            #recursive call for non overlaping
-            self.binary[tuple(c0[overlap].T.tolist())] = False
-            no_overlap = self.subpix(ngb_radius)
-            #recursive call for prevously overlaping centers that
-            #moved out of their pixels
-            self.binary.fill(False)
-            self.binary[tuple(np.transpose(moved).tolist())] = True
-            others = self.subpix(ngb_radius+1)
-            return np.vstack((no_overlap, overlaping, others))
+        for i, p in enumerate(c0):
+            #neighbourhood, three pixels in the scale axis,
+            #but according to scale in space
+            r = self.sizes[p[0]]
+            rv = [1]+[r]*(self.layers.ndim-1)
+            ngb = self.layers[tuple(
+                [slice(p[0]-1,p[0]+2)]+[
+                    slice(u-r, u+r+1) for u in p[1:]
+                    ]
+                )]
+            #label only the negative pixels
+            labels = measurements.label(ngb<0)[0]
+            lab = labels[tuple(rv)]
+            #value
+            centers[i,0] = measurements.mean(ngb, labels, [lab])
+            #pedestal removal
+            ngb -= measurements.maximum(ngb, labels, [lab])
+            #center of mass
+            centers[i,1:] = np.asanyarray(measurements.center_of_mass(
+                ngb, labels, [lab]
+                ))-rv+p
+        return centers
         
-        #negative center of mass
-        centers = np.asanyarray(measurements.center_of_mass(
-                self.nobg, self.labels, range(1, 1+nbs)
-                ))
-        #thus, dispacement (positive)
-        dc = c0 - centers
-        #convert to positive center of mass
-        centers = c0 + dc
-        #remove the centers that moved in the margin of the scale space
-        good = np.bitwise_and(
-            np.min(centers>=ngb_radius-0.5, axis=-1),
-            np.min(np.rint(centers).astype(int)+ngb_radius<self.layers.shape, axis=-1)
-            )
-        if good.sum()==0:
-            return np.zeros([0, self.layers.ndim+1])
-        #get the values for stable pixels
-        vals = measurements.sum(
-                self.layers, self.labels, np.where(good)[0]+1
-                )
-        centers = centers[good]
-        dc = dc[good]
-        #split between the centers that stayed in the same pixel
-        #and those that moved out of their original pixel
-        moved = np.abs(dc).max(axis=-1)>=ngb_radius-0.5
-        stables = np.column_stack((vals, centers))[np.bitwise_not(moved)]
-        #prepare recursive call by updating the positions
-        self.binary.fill(False)
-        self.binary[
-            tuple(c0[good][moved].T.tolist())
-            ] = True
-        #recursive call
-        others = self.subpix(ngb_radius+1)
-        #combine the results
-        return np.vstack((stables, others))
-        
-    def __call__(self, image, k=1.6, sigmas=None):
+    def __call__(self, image, k=1.6):
         """Locate bright blobs in an image with subpixel resolution.
 Returns an array of (x, y, r, -intensity in scale space)"""
         self.ncalls += 1
-        self.fill(image, k, sigmas)
+        self.fill(image, k)
         self.initialize_binary()
         t0 = time.clock()
         centers = self.subpix()[:,::-1]
@@ -590,7 +518,7 @@ class MultiscaleBlobFinder:
         self.time = 0.0
         self.ncalls = 0
         
-    def __call__(self, image, k=1.6, sigmas=None):
+    def __call__(self, image, k=1.6):
         """Locate blobs in each octave and regroup the results"""
         self.ncalls += 1
         t0 = time.clock()
@@ -602,12 +530,8 @@ class MultiscaleBlobFinder:
             im2 = np.repeat(im2, 2, a)
         #preblur octave -1
         gaussian_filter(im2, k, output=self.preblurred)
-        if sigmas is None:
-            sigmas_iter = self.octaves[0].get_iterative_radii(k)
-        else:
-            sigmas_iter = sigmas
         #locate blobs in octave -1
-        centers = [self.octaves[0](self.preblurred, k, sigmas=sigmas_iter)]
+        centers = [self.octaves[0](self.preblurred, k)]
         #subsample the -3 layerG of the previous octave
         #which is two times more blurred that layer 0
         #and use it as the base of new octave
@@ -615,7 +539,7 @@ class MultiscaleBlobFinder:
             centers += [oc(
                 self.octaves[o].layersG[-3][
                     tuple([slice(None, None, 2)]*image.ndim)],
-                k, sigmas=sigmas_iter
+                k,
                 )]
         #merge the results and scale the coordinates and sizes
         centers = np.vstack([
