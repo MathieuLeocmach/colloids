@@ -423,31 +423,38 @@ class OctaveBlobFinder:
         #Difference of gaussians
         self.layers[:] = np.diff(self.layersG, axis=0) #5.99 ms
         #Erosion 86.2 ms
-        grey_erosion(self.layers, [7]*self.layers.ndim, output=self.eroded)
+        grey_erosion(self.layers, [3]*self.layers.ndim, output=self.eroded)
         #scale space minima, whose neighbourhood are all negative 10 ms
         self.time_fill += time.clock()-t0
 
     def initialize_binary(self):
         self.binary = self.layers==self.eroded
-        for a in range(self.binary.ndim):
-            self.binary[tuple([slice(None)]*(self.binary.ndim-1-a)+[0])]=False
-            self.binary[tuple([slice(None)]*(self.binary.ndim-1-a)+[-1])]=False
-        #eliminate edges
+        self.binary[0] = False
+        self.binary[-1] = False
+        #eliminate particles on the edges of image
+        for r, bi in zip(self.sizes[1:-1], self.binary[1:-1]):
+            for a in range(bi.ndim):
+                bi[tuple([slice(None)]*(bi.ndim-1-a)+[slice(0,r)])]=False
+                bi[tuple([slice(None)]*(bi.ndim-1-a)+[slice(-r, None)])]=False
+        #eliminate blobs that are edges
         if self.layers.ndim==3:
-            for p in np.transpose(np.where(self.binary)):
-                #xy neighbourhood
-                ngb = self.layers[tuple([p[0]]+[
-                    slice(u-1, u+2) for u in p[1:]
-                    ])]
-                #compute the XYhessian matrix coefficients
-                hess = [
-                    ngb[0, 1] - 2*ngb[1, 1] + ngb[2,1],
-                    ngb[1, 0] - 2*ngb[1, 1] + ngb[1,2],
-                    ngb[0,0] + ngb[2,2] - ngb[0,2] - ngb[2,0]
-                    ]
-                ratio = np.abs((hess[0]+hess[1])**2/(hess[0]+hess[1]-16*hess[2]))
-                if ratio > 11**2/10.0:
-                    self.binary[tuple(p.tolist())] = False
+            for r, bi, layer in zip(self.sizes[1:-1], self.binary[1:-1], self.layers[1:-1]):
+                for p in np.transpose(np.where(bi)):
+                    #xy neighbourhood
+                    ngb = layer[tuple([slice(u-1, u+2) for u in p])]
+                    #compute the XYhessian matrix coefficients
+                    hess = [
+                        ngb[0, 1] - 2*ngb[1, 1] + ngb[-1,1],
+                        ngb[1, 0] - 2*ngb[1, 1] + ngb[1,-1],
+                        ngb[0,0] + ngb[-1,-1] - ngb[0,-1] - ngb[-1,0]
+                        ]
+                    detH = hess[0]*hess[1] - (0.9*hess[2])**2
+                    if detH<0:
+                        bi[tuple(p.tolist())] = False
+##                    ratio = (hess[0]+hess[1])**2/(hess[0]*hess[1]-16*hess[2]**2)
+##                    self.edges.append(ratio)
+##                    if ratio > 11**2/10.0:
+##                        bi[tuple(p.tolist())] = False
 
     def no_subpix(self):
         """extracts centers positions and values from binary without subpixel resolution"""
