@@ -448,6 +448,9 @@ class OctaveBlobFinder:
                         ngb[1, 0] - 2*ngb[1, 1] + ngb[1,-1],
                         ngb[0,0] + ngb[-1,-1] - ngb[0,-1] - ngb[-1,0]
                         ]
+                    #determinant of the Hessian, for the coefficient 0.9 see
+                    #H Bay, a Ess, T Tuytelaars, and L Vangool,
+                    #Computer Vision and Image Understanding 110, 346-359 (2008)
                     detH = hess[0]*hess[1] - (0.9*hess[2])**2
                     if detH<0:
                         bi[tuple(p.tolist())] = False
