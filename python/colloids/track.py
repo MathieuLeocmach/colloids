@@ -448,11 +448,12 @@ class OctaveBlobFinder:
                         ngb[1, 0] - 2*ngb[1, 1] + ngb[1,-1],
                         ngb[0,0] + ngb[-1,-1] - ngb[0,-1] - ngb[-1,0]
                         ]
-                    #determinant of the Hessian, for the coefficient 0.9 see
+                    #determinant of the Hessian, for the coefficient see
                     #H Bay, a Ess, T Tuytelaars, and L Vangool,
                     #Computer Vision and Image Understanding 110, 346-359 (2008)
-                    detH = hess[0]*hess[1] - (0.9*hess[2])**2
-                    if detH<0:
+                    detH = hess[0]*hess[1] - hess[2]**2
+                    ratio = (hess[0]+hess[1])**2/(4.0*hess[0]*hess[1])
+                    if detH<0 or ratio>1.1:
                         bi[tuple(p.tolist())] = False
 ##                    ratio = (hess[0]+hess[1])**2/(hess[0]*hess[1]-16*hess[2]**2)
 ##                    self.edges.append(ratio)
