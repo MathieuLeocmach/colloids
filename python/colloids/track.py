@@ -455,10 +455,6 @@ class OctaveBlobFinder:
                     ratio = (hess[0]+hess[1])**2/(4.0*hess[0]*hess[1])
                     if detH<0 or ratio>1.1:
                         bi[tuple(p.tolist())] = False
-##                    ratio = (hess[0]+hess[1])**2/(hess[0]*hess[1]-16*hess[2]**2)
-##                    self.edges.append(ratio)
-##                    if ratio > 11**2/10.0:
-##                        bi[tuple(p.tolist())] = False
 
     def no_subpix(self):
         """extracts centers positions and values from binary without subpixel resolution"""
@@ -470,7 +466,7 @@ class OctaveBlobFinder:
         vals = self.layers[self.binary]
         return np.column_stack((vals, c0))
 
-    def subpix(self):
+    def subpix(self, method=1):
         """Extract and refine to subpixel resolution the positions and size of the blobs"""
         nb_centers = self.binary.sum()
         if nb_centers==0 or self.binary.min():
@@ -478,27 +474,64 @@ class OctaveBlobFinder:
         centers = np.empty([nb_centers, self.layers.ndim+1])
         #original positions of the centers
         c0 = np.transpose(np.where(self.binary))
-        for i, p in enumerate(c0):
-            #neighbourhood, three pixels in the scale axis,
-            #but according to scale in space
-            r = self.sizes[p[0]]
-            rv = [1]+[r]*(self.layers.ndim-1)
-            ngb = self.layers[tuple(
-                [slice(p[0]-1,p[0]+2)]+[
-                    slice(u-r, u+r+1) for u in p[1:]
-                    ]
-                )]
-            #label only the negative pixels
-            labels = measurements.label(ngb<0)[0]
-            lab = labels[tuple(rv)]
-            #value
-            centers[i,0] = measurements.mean(ngb, labels, [lab])
-            #pedestal removal
-            ngb -= measurements.maximum(ngb, labels, [lab])
-            #center of mass
-            centers[i,1:] = np.asanyarray(measurements.center_of_mass(
-                ngb, labels, [lab]
-                ))-rv+p
+        if method==0:
+            for i, p in enumerate(c0):
+                #neighbourhood
+                ngb = self.layers[tuple([slice(u-1, u+2) for u in p])]
+                grad = np.asarray([
+                    (n[-1]-n[0])/2.0
+                    for n in [
+                        ngb[tuple(
+                            slice(None) if a==u else 1
+                            for u in range(ngb.ndim)
+                            )]
+                        for a in range(ngb.ndim)]
+                    ])
+                hess = np.empty([ngb.ndim]*2)
+                for a in range(ngb.ndim):
+                    n = ngb[tuple([1]*(ngb.ndim-1-a)+[slice(None)]+[1]*a)]
+                    hess[a,a] = n[-1]+n[0]-2*n[1]
+                for a in range(ngb.ndim-1):
+                    for b in range(a+1,ngb.ndim):
+                        n = ngb[tuple(
+                            slice(None) if u==a or u==b else 1
+                            for u in range(ngb.ndim)
+                            )]
+                        hess[a,b] = (n[0,0] + n[-1,-1] - n[0,-1] - n[-1,0])/4.0
+                        hess[b,a] = hess[a,b]
+                dx = - np.dot(np.linalg.inv(hess), grad)
+                centers[i,1:] = p + dx
+                centers[i,0] = ngb[tuple([1]*ngb.ndim)]+0.5*np.dot(dx,grad)
+        else:
+            for i, p in enumerate(c0):
+                #neighbourhood, three pixels in the scale axis,
+                #but according to scale in space
+                r = self.sizes[p[0]]
+                rv = [1]+[r]*(self.layers.ndim-1)
+                ngb = self.layers[tuple(
+                    [slice(p[0]-1,p[0]+2)]+[
+                        slice(u-r, u+r+1) for u in p[1:]
+                        ]
+                    )]
+                #label only the negative pixels
+                labels = measurements.label(ngb<0)[0]
+                lab = labels[tuple(rv)]
+                #value
+                centers[i,0] = measurements.mean(ngb, labels, [lab])
+                #pedestal removal
+                ngb -= measurements.maximum(ngb, labels, [lab])
+                #center of mass
+                centers[i,1:] = (np.asanyarray(measurements.center_of_mass(
+                    ngb, labels, [lab]
+                    ))-rv)+p
+                #the subscale resolution is calculated using only 3 pixels
+                n = ngb[tuple(
+                    [slice(None)]+[slice(r-1,r+2)]*(self.layers.ndim-1)
+                    )]
+                n -= n.max()
+                ds = measurements.center_of_mass(n)[0]-1
+                #the scale axis is logarythmic
+                centers[i,1] = np.exp(ds)*p[0]
         return centers
         
     def __call__(self, image, k=1.6):
