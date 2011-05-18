@@ -549,7 +549,7 @@ Returns an array of (x, y, r, -intensity in scale space)"""
         centers = self.subpix()[:,::-1]
         self.time_subpix += time.clock() - t0
         #convert scale to size
-        centers[:,-2] = (1+k)*(k*np.sqrt(2)*2**(centers[:,-2]/(len(self.layers)-2))-1.0/(len(self.layers)-2))
+        centers[:,-2] = 0.5*(1+k)*(k*np.sqrt(2)*2**(centers[:,-2]/(len(self.layers)-2))-1.0/(len(self.layers)-2))
         self.noutputs += len(centers)
         return centers
         
