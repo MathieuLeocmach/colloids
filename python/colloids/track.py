@@ -530,6 +530,11 @@ class OctaveBlobFinder:
                     )]
                 n -= n.max()
                 ds = measurements.center_of_mass(n)[0]-1
+                if np.abs(ds)>0.33:
+                    if ds<0:
+                        ds = (n[1]-n[0]).sum()/(n[:-1]-n[:-1].max()).sum()
+                    else:
+                        ds = (n[2]-n[1]).sum()/(n[1:]-n[1:].max()).sum()
                 #the scale axis is logarythmic
                 centers[i,1] = np.exp(ds)*p[0]
         return centers
@@ -544,7 +549,7 @@ Returns an array of (x, y, r, -intensity in scale space)"""
         centers = self.subpix()[:,::-1]
         self.time_subpix += time.clock() - t0
         #convert scale to size
-        centers[:,-2] = k*np.sqrt(2)*2**(centers[:,-2]/(len(self.layers)-2))
+        centers[:,-2] = (1+k)*(k*np.sqrt(2)*2**(centers[:,-2]/(len(self.layers)-2))-1.0/(len(self.layers)-2))
         self.noutputs += len(centers)
         return centers
         
