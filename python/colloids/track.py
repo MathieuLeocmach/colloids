@@ -508,18 +508,20 @@ class OctaveBlobFinder:
                 #but according to scale in space
                 r = self.sizes[p[0]]
                 rv = [1]+[r]*(self.layers.ndim-1)
-                ngb = self.layers[tuple(
+                ngb = np.copy(self.layers[tuple(
                     [slice(p[0]-1,p[0]+2)]+[
                         slice(u-r, u+r+1) for u in p[1:]
                         ]
-                    )]
+                    )])
                 #label only the negative pixels
                 labels = measurements.label(ngb<0)[0]
                 lab = labels[tuple(rv)]
                 #value
                 centers[i,0] = measurements.mean(ngb, labels, [lab])
                 #pedestal removal
-                ngb -= measurements.maximum(ngb, labels, [lab])
+                ped = measurements.maximum(ngb, labels, [lab])
+                if ped!=self.layers[tuple(p.tolist())]: #except if only one pixel or uniform value
+                    ngb -= ped
                 #center of mass
                 centers[i,1:] = (np.asanyarray(measurements.center_of_mass(
                     ngb, labels, [lab]
