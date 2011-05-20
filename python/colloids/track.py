@@ -323,8 +323,9 @@ def clusters2particles(clusters, k=1.6, n=3, noDuplicate=True, outputFinders=Fal
             -np.sqrt(sobel(cl[:,0], axis=0)**2 + sobel(cl[:,1], axis=0)**2),
             cl[:,3], cl[:,4]
             ]])
-        if len(blobs)==0: #no blob in any signal
-            continue
+        if len(blobs)==0:
+            #no blob in any signal, we just take the middle of the cluster
+            blobs = [np.asarray([[0.5*len(cl)]*2+[0.0]])]
         #sort the blob of each signal by intensity (negative)
         blobs = np.vstack([bs[np.argsort(bs[:,-1])] for bs in blobs])
         #Remove overlapping centers than may appear at different scales
