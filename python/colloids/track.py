@@ -318,11 +318,23 @@ def clusters2particles(clusters, k=1.6, n=3, noDuplicate=True, outputFinders=Fal
     for cl in clusters:
         if len(cl)<5:
             continue
+        #xy gradient along z
+        gradxy = np.sqrt(sobel(cl[:,0], axis=0)**2 + sobel(cl[:,1], axis=0)**2)
+        #try to split the cluster at the location of strong xy(z) gradient
+        gradblobs = finders[len(cl)-5](gradxy, k)
+        #keep only strong position change
+        if len(gradblobs):
+            gradblobs = gradblobs[gradblobs[:,-1]<-0.05]
+        if len(gradblobs):
+            #split into subclusters
+            clusters += np.array_split(cl, np.rint(gradblobs[:,0]).astype(int))
+            #stop the treatment of the actual cluster.
+            #subclusters will be treated further in the loop
+            continue
         #get the blobs for each signal, remove signals without blob
-        blobs = filter(len, [finders[len(cl)-5](u, k) for u in [
-            -np.sqrt(sobel(cl[:,0], axis=0)**2 + sobel(cl[:,1], axis=0)**2),
-            cl[:,3], cl[:,4]
-            ]])
+        blobs = filter(len, [
+            finders[len(cl)-5](u, k) for u in [cl[:,3], cl[:,4]]
+            ])
         if len(blobs)==0:
             #no blob in any signal, we just take the middle of the cluster
             blobs = [np.asarray([[0.5*len(cl)]*2+[0.0]])]
@@ -619,7 +631,7 @@ def treatFrame(serie, t, file_pattern, finder=None ):
     pro = subprocess.Popen([
         '/home/mathieu/test/bin/linker',
         file_pattern%(t,0,'dat'),
-        '_z', '5', '%g'%serie.getZXratio(), '%d'%len(stack)
+        '_z', '1', '%g'%serie.getZXratio(), '%d'%len(stack)
         ], stdout=subprocess.PIPE)
     trajfile = pro.communicate()[0].split()[-1]
     trajfile = os.path.join(os.path.split(file_pattern)[0], trajfile)
