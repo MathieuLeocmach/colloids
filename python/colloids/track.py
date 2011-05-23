@@ -672,7 +672,6 @@ def treatFrame(serie, t, file_pattern, finder=None ):
         '_z', '1', '%g'%serie.getZXratio(), '%d'%len(stack)
         ], stdout=subprocess.PIPE)
     trajfile = pro.communicate()[0].split()[-1]
-    trajfile = os.path.join(os.path.split(file_pattern)[0], trajfile)
     clusters = load_clusters(trajfile)
     particles = clusters2particles(clusters)
     np.save(os.path.splitext(trajfile)[0], particles)
