@@ -316,28 +316,54 @@ def clusters2particles(clusters, k=1.6, n=3, noDuplicate=True, outputFinders=Fal
     N = max(map(len, clusters))
     finders = [MultiscaleBlobFinder([l], n, 3) for l in range(5, N+1)]
     for cl in clusters:
+        #a cluster that appeara in less than 3 slices is not a real particle
+        if len(cl)<3:
+            continue
+        #No blob can be extracted out of too short signal
+        #we just take the middle of the cluster
         if len(cl)<5:
-            continue
-        #xy gradient along z
-        gradxy = np.sqrt(sobel(cl[:,0], axis=0)**2 + sobel(cl[:,1], axis=0)**2)
-        #try to split the cluster at the location of strong xy(z) gradient
-        gradblobs = finders[len(cl)-5](gradxy, k)
-        #keep only strong position change
-        if len(gradblobs):
-            gradblobs = gradblobs[gradblobs[:,-1]<-0.05]
-        if len(gradblobs):
-            #split into subclusters
-            clusters += np.array_split(cl, np.rint(gradblobs[:,0]).astype(int))
-            #stop the treatment of the actual cluster.
-            #subclusters will be treated further in the loop
-            continue
-        #get the blobs for each signal, remove signals without blob
-        blobs = filter(len, [
-            finders[len(cl)-5](u, k) for u in [cl[:,3], cl[:,4]]
-            ])
-        if len(blobs)==0:
-            #no blob in any signal, we just take the middle of the cluster
-            blobs = [np.asarray([[0.5*len(cl)]*2+[0.0]])]
+            m = np.argmax(cl[:,-2])
+            if m>0 and m+1<len(cl):
+                blobs = [np.asarray([[
+                    measurements.center_of_mass(cl[m-1:m+2,-2])[0]+m-1,
+                    cl[0.5*len(cl),-2], 0.0
+                    ]])]
+            else:
+                blobs = [np.asarray([[
+                    measurements.center_of_mass(cl[:,-2])[0],
+                    cl[0.5*len(cl),-2], 0.0
+                    ]])]
+        else:
+            #xy gradient along z
+            gradxy = np.sqrt(sobel(cl[:,0], axis=0)**2 + sobel(cl[:,1], axis=0)**2)
+            #try to split the cluster at the location of strong xy(z) gradient
+            gradblobs = finders[len(cl)-5](gradxy, k)
+            #keep only strong position change
+            if len(gradblobs):
+                gradblobs = gradblobs[gradblobs[:,-1]<-0.05]
+            if len(gradblobs):
+                #split into subclusters
+                clusters += np.array_split(cl, np.rint(gradblobs[:,0]).astype(int))
+                #stop the treatment of the actual cluster.
+                #subclusters will be treated further in the loop
+                continue
+            #get the blobs for each signal, remove signals without blob
+            blobs = filter(len, [
+                finders[len(cl)-5](u, k) for u in [cl[:,3], cl[:,4]]
+                ])
+            if len(blobs)==0:
+                #no blob in any signal, we just take the position of the maximum radius
+                m = np.argmax(cl[:,-2])
+                if m>0 and m+1<len(cl):
+                    blobs = [np.asarray([[
+                        measurements.center_of_mass(cl[m-1:m+2,-2])[0]+m-1,
+                        cl[0.5*len(cl),-2], 0.0
+                        ]])]
+                else:
+                    blobs = [np.asarray([[
+                        measurements.center_of_mass(cl[:,-2])[0],
+                        cl[0.5*len(cl),-2], 0.0
+                        ]])]
         #sort the blob of each signal by intensity (negative)
         blobs = np.vstack([bs[np.argsort(bs[:,-1])] for bs in blobs])
         #Remove overlapping centers than may appear at different scales
@@ -610,6 +636,8 @@ class MultiscaleBlobFinder:
             c * ([2**(o-1)]*(1+image.ndim)+[1])
             for o, c in enumerate(centers)
             ])
+        if len(centers)<2:
+            return centers
         #remove overlaping objects (keep the most intense)
         #scales in dim*N^2, thus expensive if many centers and in high dimensions
         #Using a spatial index may be faster
