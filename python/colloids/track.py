@@ -610,8 +610,18 @@ class MultiscaleBlobFinder:
             c * ([2**(o-1)]*(1+image.ndim)+[1])
             for o, c in enumerate(centers)
             ])
+        #remove overlaping objects (keep the most intense)
+        #scales in dim*N^2, thus expensive if many centers and in high dimensions
+        #Using a spatial index may be faster
+        out = []
+        for i in centers[np.argsort(centers[:,-1])]:
+            for j in out:
+                if np.sum((i[:-2]-j[:-2])**2) < (i[-2]+j[-2])**2:
+                    break
+            else:
+                out.append(i)
         self.time += time.clock() - t0
-	return centers
+	return np.vstack(out)
 
 def treatFrame(serie, t, file_pattern, finder=None ):
     if finder is None:
