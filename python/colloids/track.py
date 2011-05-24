@@ -343,7 +343,9 @@ def clusters2particles(clusters, k=1.6, n=3, noDuplicate=True, outputFinders=Fal
                 gradblobs = gradblobs[gradblobs[:,-1]<-0.05]
             if len(gradblobs):
                 #split into subclusters
-                clusters += np.array_split(cl, np.rint(gradblobs[:,0]).astype(int))
+                clusters += np.array_split(cl, np.sort(
+                    np.rint(gradblobs[:,0]).astype(int)
+                    ))
                 #stop the treatment of the actual cluster.
                 #subclusters will be treated further in the loop
                 continue
@@ -368,9 +370,8 @@ def clusters2particles(clusters, k=1.6, n=3, noDuplicate=True, outputFinders=Fal
         blobs = np.vstack([bs[np.argsort(bs[:,-1])] for bs in blobs])
         #Remove overlapping centers than may appear at different scales
         #in the different signals.
-        #The most intense blob in the gradient of position is the best,
-        #then, the second intense in the gradient of position, etc.
-        #then, the blobs in apparent radius
+        #The most intense blob in apparent radius is the best,
+        #then, the second intense in apparent radius, etc.
         #then, the blobs in intensity
         if noDuplicate:
             #The blobs in a stack of 2D centers are few (<30),
