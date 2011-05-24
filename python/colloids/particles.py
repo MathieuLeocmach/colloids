@@ -99,3 +99,17 @@ class Particles:
             usedj[j] = True
         return np.asarray(goodlinks)
         
+def non_overlapping(positions, radii):
+    """Give the indices of non-overlapping particles. Early bird."""
+    assert len(positions)==len(radii)
+    pr = rtree.index.Property()
+    pr.dimension = positions.shape[1]
+    tree = rtree.index.Index(properties=pr, interleaved=True)
+    for i,(p,r) in enumerate(zip(positions, radii)):
+        bb = np.concatenate((p-r, p+r))
+        for j in tree.intersection(bb):
+            if np.sum((p-positions[j])**2) < (r + radii[j])**2:
+                break
+        else:
+            tree.insert(i, bb)
+    return [i for i in tree.intersection(tree.bounds)]
