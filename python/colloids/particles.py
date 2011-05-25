@@ -51,6 +51,12 @@ class Particles:
     def maxRad(self):
         return self.__maxRad
 
+    def inside_box(self, margin):
+        bb = np.asarray(self.index.bounds)
+        bb[:len(bb)/2] += margin
+        bb[len(bb)/2:] -= margin
+        return bb
+
     def get_sqdist(self, i, j=None, q=None, r=None):
         if q is None or r is None:
             q = self.pos[j]
@@ -70,6 +76,24 @@ class Particles:
             [i, n] for i in range(len(self.pos))
             for n in self.get_ngbs(i, maxlength)
             if n>i])
+
+    def scaled_rdf(self, maxlength, nbins=200):
+        """Construct the rdf but scales each distence by the sum of the radii of the pair"""
+        bins = np.linspace(0, maxlength, nbins)
+        margin = 2 * self.maxRad() * maxlength
+        bb = self.inside_box(margin)
+        inside = [i for i in self.index.intersection(bb)]
+        bonds = np.vstack([
+            [i, n] for i in inside
+            for n in self.get_ngbs(i, maxlength)
+            if n!=i])
+        bondlengths = np.sqrt(np.sum(np.diff(self.pos[bonds], axis=1)[:,0]**2,-1))
+        bondlengths /= self.radii[bonds].sum(-1)
+        nbdens = (self.radii[inside]**3).sum() * 8.0 / self.pos[inside].ptp(0).prod()
+        g = np.histogram(bondlengths, bins=bins)[0] / (
+            4*np.pi * bins[1:]**2 * bins[1] * nbdens * (len(np.unique1d(bonds[:,0]))-1)
+            )
+        return g
 
     def link(self, other, maxdist):
         """Try to find the best correpondence between the particles of the present object and those of another one"""
