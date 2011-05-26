@@ -58,14 +58,27 @@ using namespace Colloids;
 /** \brief test the existence of tracker.ini, create it if necessary  */
 string testTrackerIni()
 {
-    const string dir = string(getenv("HOME"))+"/.colloids",
+    char * phome;
+    phome = getenv("HOME");
+    if(phome==NULL)
+    {
+        phome = getenv("userprofile");
+        if(phome==NULL)
+        {
+            cerr<<"Could find neither HOME envirionement variable nor %userprofile%."<<endl;
+            exit(EXIT_FAILURE);
+        }
+    }
+    const string home = string(phome);
+
+    const string dir = home + "/.colloids",
         file = dir + "/tracker.ini";
 
     ifstream ifs(file.c_str());
     if(!ifs.good())
     {
         cout << "create default "<<file <<endl;
-        if(!system( ("MKDIR \""+dir+"\"").c_str() ))
+        if(!system( ("MKDIR \""+dir+"\"").c_str()))
             throw(invalid_argument(("Cannot create the directory "+dir+". Check permissions").c_str()
                 ));
         ofstream ofs(file.c_str());
@@ -75,8 +88,8 @@ string testTrackerIni()
                 ));
 
         ofs <<"# Tracking configuration"<<endl;
-        ofs <<"input="<<getenv("HOME")<<"/Code_data/liftest/Tsuru11dm_phi=52.53_J36.lif"<<endl;
-        ofs <<"outputPath = "<<getenv("HOME")<<"/Code_output/liftest/test_"<<endl;
+        ofs <<"input="<<home<<"/Code_data/liftest/Tsuru11dm_phi=52.53_J36.lif"<<endl;
+        ofs <<"outputPath = "<<home<<"/Code_output/liftest/test_"<<endl;
         ofs <<"radiusMin = 3.48"<<endl;
         ofs <<"radiusMax = 64"<<endl;
         ofs <<""<<endl;
