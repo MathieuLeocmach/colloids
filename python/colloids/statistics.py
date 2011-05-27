@@ -48,6 +48,24 @@ def plot2dhist(datax, datay, title=None, bins=50, normed=False, cbmax=None, cbmi
     g('set cbrange [%g:%g]' % (low-(cbmax-low)/100, cbmax))
     g.splot(Gnuplot.GridData(h2, bx2, by2, binary=0))
 
+def digitized2dhist(datax, datay, bins=50, zbins=5, logscale=True):
+    h, bx, by = np.histogram2d(datax, datay, bins=bins)
+    #test iterability
+    try:
+        [e for e in zbins]
+        return -np.rot90(np.digitize(h.ravel(), zbins).reshape(h.shape))
+    except TypeError:
+        if logscale:
+            return -np.rot90(np.digitize(
+                h.ravel(),
+                np.logspace(0, np.log10(h.max()), zbins)
+                ).reshape(h.shape))
+        else:
+            return np.digitize(
+                h.ravel(),
+                np.linspace(1, h.max(), zbins)
+                ).reshape(h.shape)
+
 def meanMap1D(x, values, bins=50):
     number, b = np.histogram(x, bins)
     total, b = np.histogram(x, bins=b, weights=values)
