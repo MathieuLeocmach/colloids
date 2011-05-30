@@ -662,7 +662,7 @@ def treatFrame(serie, t, file_pattern, finder=None ):
             file_pattern%(t, z, 'dat'),
             np.vstack((
                     [1, len(centers), 1],
-                    [256, 256, 1.6*np.sqrt(2)*2**(7.0/3)],
+                    serie.get2DShape()+[1.6*np.sqrt(2)*2**(7.0/3)],
                     centers[:,:-1]
                     )), fmt='%g'
             )
@@ -682,6 +682,6 @@ def localize2D3D(serie, file_pattern, cleanup=True):
     for t in range(serie.getNbFrames()):
         treatFrame(serie, t, file_pattern, finder)
         if cleanup:
-            for z in range(len(stack)):
+            for z in range(serie.getFrameShape()[-1]):
                 os.remove(file_pattern%(t, z, 'dat'))
                 os.remove(file_pattern%(t, z, 'intensity'))
