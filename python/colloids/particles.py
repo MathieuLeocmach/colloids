@@ -19,6 +19,7 @@
 import numpy as np
 import rtree.index
 from scipy.special import sph_harm
+import numexpr
 
 
 
@@ -191,16 +192,32 @@ phi is cologitudinal and theta azimutal"""
 
 def ql(qlm):
     l = qlm.shape[1]-1
-    s = 2*np.sum(np.abs(qlm[:,1:])**2, -1) + np.abs(qlm[:,0])**2
-    return np.sqrt(4*np.pi/(2*l+1)*s)
+    n = numexpr.evaluate("""abs(qlm).real**2""")
+    return numexpr.evaluate(
+        """sqrt(4*pi/(2*l+1)*(2*a+b))""",
+        {'a':np.sum(n[:,1:], -1), 'b':n[:,0], 'l':qlm.shape[1]-1, 'pi':np.pi}
+        )
+##factor 10 speed using numpexr
+##    s = 2*np.sum(np.abs(qlm[:,1:])**2, -1) + np.abs(qlm[:,0])**2
+##    return np.sqrt(4*np.pi/(2*l+1)*s)
 def wl(qlm):
     l = qlm.shape[1]-1
-    w = np.zeros(qlm.shape[0], qlm.dtype)
+    w = np.zeros(qlm.shape[0])
     for m1 in range(-l, l+1):
+        qlm1 = get_qlm(qlm, m1)
         for m2 in range(-l, l+1):
             m3 = -m1-m2
             if -l<=m3 and m3<=l:
-                w+= get_w3j(l, [m1, m2, m3]) * get_qlm(qlm, m1) * get_qlm(qlm, m2) * get_qlm(qlm, m3)
+                w += numexpr.evaluate(
+                    """real(w3j * qlm1 * qlm2 * qlm3)""",
+                    {
+                        'w3j': get_w3j(l, [m1, m2, m3]),
+                        'qlm1': qlm1,
+                        'qlm2': get_qlm(qlm, m2),
+                        'qlm3': get_qlm(qlm, m3)
+                        })
+                #factor 2 speed using numexpr
+##                w += get_w3j(l, [m1, m2, m3]) * get_qlm(qlm, m1) * get_qlm(qlm, m2) * get_qlm(qlm, m3)
     return w
     
 def get_qlm(qlms, m):
