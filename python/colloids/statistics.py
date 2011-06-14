@@ -30,7 +30,6 @@ def columnData(data, xvals=None, yvals=None, **keywords):
 
 def plot2dhist(datax, datay, title=None, bins=50, normed=False, cbmax=None, cbmin=None, logscale=False):
     h, bx, by = np.histogram2d(datax, datay, bins=bins, normed=normed)
-    h[np.where(h==0)] = -1
     if logscale:
         h[np.where(h>0)] = np.log10(h[np.where(h>0)])
     h2 = np.repeat(np.repeat(h, 2, axis=0), 2, axis=1)
@@ -38,14 +37,7 @@ def plot2dhist(datax, datay, title=None, bins=50, normed=False, cbmax=None, cbmi
     bx2[1::2] = bx[:-1]+(bx[1]-bx[0])
     by2 = np.repeat(by[:-1], 2)
     by2[1::2] = by[:-1]+(by[1]-by[0])
-    if not cbmax:
-            cbmax = h.max()
-    if cbmin:
-        low = cbmin
-    else:
-        low = np.extract(h>-1, h).min();
-    g('set palette defined (%g "white", %g "black", %g "purple", %g "red", %g "yellow")' % (low-(cbmax-low)/100, low, (cbmax+2*low)/3, (2*cbmax+low)/3, cbmax))
-    g('set cbrange [%g:%g]' % (low-(cbmax-low)/100, cbmax))
+    g('set palette gray negative')
     g.splot(Gnuplot.GridData(h2, bx2, by2, binary=0))
 
 def digitized2dhist(datax, datay, bins=50, zbins=5, logscale=True):
