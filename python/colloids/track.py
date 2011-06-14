@@ -22,6 +22,7 @@ from colloids import lif, vtk
 from scipy.ndimage.filters import gaussian_filter, gaussian_filter1d, sobel
 from scipy.ndimage.morphology import grey_erosion, grey_dilation, binary_dilation
 from scipy.ndimage import measurements
+import numexpr
 
 
 def bestParams(inputPath, outputPath, radMins=np.arange(2.5, 5, 0.5), radMaxs=np.arange(6, 32, 4), t=0, serie=None):
@@ -468,7 +469,15 @@ class OctaveBlobFinder:
         self.time_fill += time.clock()-t0
 
     def initialize_binary(self):
-        self.binary = self.layers==self.eroded
+        #centers are local maxima, negative and
+        #further from 0 than machine precision
+        self.binary = numexpr.evaluate(
+            '(l==e) & (l<0) & (l**2+1.0>1.0)',
+            {
+                'l': self.layers,
+                'e': self.eroded
+                }
+            )
         self.binary[0] = False
         self.binary[-1] = False
         #eliminate particles on the edges of image
