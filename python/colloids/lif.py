@@ -21,6 +21,7 @@ import struct, StringIO, re, os.path, subprocess, shlex
 from xml.dom.minidom import parse
 import numpy as np
 from numpy.fft import rfft2, irfft2
+import numexpr
 
 dimName = {1: "X",
             2: "Y",
@@ -477,37 +478,44 @@ class Serie(SerieHeader):
                 )
             self.f.seek(self.getOffset(**dict({'T':T})))
             f.write(self.f.read(self.getNbPixelsPerFrame()))
-            
+
+    def getDispl2DImage(self, t0=0, t1=1, Z=0):
+        ham = np.hamming(self.get2DShape()[1])*np.atleast_2d(np.hamming(self.get2DShape()[0])).T
+        a = rfft2(self.get2DSlice(T=t0, Z=Z)*ham)
+        b = rfft2(self.get2DSlice(T=t1, Z=Z)*ham)
+        R = numexpr.evaluate(
+            'a*complex(real(b), -imag(b)/abs(a*complex(real(b), -imag(b))'
+            )
+        return irfft2(R)
+    
+    def getDispl2D(self, t0=0, t1=1, Z=0):
+        r = self.getDispl2DImage(t0, t1, Z)
+        return np.unravel_index(r.argmax(), r.shape)
         
-        
-    def getDisplacements2D(self):
+    def getDisplacements2D(self, Z=None):
         """
         Use phase correlation to find the relative displacement between
         each time step
         """
-        shape = self.get2DShape()
-        shape.reverse()
-        #if the serie has Z dimension, we focus on the median slice
-        z = self.getNbPixelsPerFrame()/self.getNbPixelsPerSlice()/2
+        if Z is None:
+            Z = self.getNbPixelsPerFrame()/self.getNbPixelsPerSlice()/2
+        shape = np.asarray(self.get2DShape())
+        ham = np.hamming(shape[1])*np.atleast_2d(np.hamming(shape[0])).T
         displs = np.zeros((self.getNbFrames(),2))
-        
-        a = rfft2(self.get2DSlice(T=0, Z=z))
+        a = rfft2(self.get2DSlice(T=0, Z=Z)*ham)
         for t in range(1,self.getNbFrames()):
-            b = rfft2(self.get2DSlice(T=t, Z=z))
+            b = rfft2(self.get2DSlice(T=t, Z=Z)*ham)
             #calculate the normalized cross-power spectrum
-            R = a*np.conj(b)
-            R /= np.absolute(R)
-            r = irfft2(R,a.shape)
+            R = numexpr.evaluate(
+                'a*complex(real(b), -imag(b)/abs(a*complex(real(b), -imag(b))'
+                )
+            r = irfft2(R)
             #Get the periodic position of the peak
             l = r.argmax()
             displs[t] = np.unravel_index(l, r.shape)
-            for i,v in enumerate(displs[t]):
-                if v > r.shape[i]/2:
-                    displs[t,i] -= r.shape[i]
             #prepare next step
             a = b
-
-        return displs
+        return np.where(displs<shape/2, displs, displs-shape)
 
     def enumByFrame(self):
         """yield time steps one after the other as a couple (time,numpy array)"""
