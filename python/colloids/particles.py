@@ -219,6 +219,27 @@ def wl(qlm):
                 #factor 2 speed using numexpr
 ##                w += get_w3j(l, [m1, m2, m3]) * get_qlm(qlm, m1) * get_qlm(qlm, m2) * get_qlm(qlm, m3)
     return w
+
+def boo_product(qlm1, qlm2):
+    n = numexpr.evaluate(
+        """real(complex(real(a), -imag(a)) * b)""",
+        {'a':qlm1, 'b':qlm2}
+        )
+    n1 = numexpr.evaluate("""abs(qlm).real**2""", {'qlm':qlm1})
+    n2 = numexpr.evaluate("""abs(qlm).real**2""", {'qlm':qlm2})
+    p = numexpr.evaluate(
+        """(2*na + nb) / (sqrt(2*na1+nb1) * sqrt(2*na2+nb2))""",
+        {
+            'na': np.atleast_2d(n)[:,1:].sum(-1),
+            'nb': np.atleast_2d(n)[:,0],
+            'na1': np.atleast_2d(n1)[:,1:].sum(-1),
+            'nb1': np.atleast_2d(n1)[:,0],
+            'na2': np.atleast_2d(n2)[:,1:].sum(-1),
+            'nb2': np.atleast_2d(n2)[:,0]
+            })
+    return p
+    
+    
     
 def get_qlm(qlms, m):
     if m>=0:
