@@ -492,7 +492,7 @@ class Serie(SerieHeader):
         r = self.getDispl2DImage(t0, t1, Z)
         return np.unravel_index(r.argmax(), r.shape)
         
-    def getDisplacements2D(self, Z=None):
+    def getDisplacements2D(self, Z=None, window=False):
         """
         Use phase correlation to find the relative displacement between
         each time step
@@ -500,7 +500,10 @@ class Serie(SerieHeader):
         if Z is None:
             Z = self.getNbPixelsPerFrame()/self.getNbPixelsPerSlice()/2
         shape = np.asarray(self.get2DShape())
-        ham = np.hamming(shape[1])*np.atleast_2d(np.hamming(shape[0])).T
+        if window:
+            ham = np.hamming(shape[1])*np.atleast_2d(np.hamming(shape[0])).T
+        else:
+            ham = 1.0
         displs = np.zeros((self.getNbFrames(),2))
         a = rfft2(self.get2DSlice(T=0, Z=Z)*ham)
         for t in range(1,self.getNbFrames()):
