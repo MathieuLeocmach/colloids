@@ -221,6 +221,21 @@ def wl(qlm):
     return w
 
 def boo_product(qlm1, qlm2):
+    n = np.atleast_2d(numexpr.evaluate(
+        """real(complex(real(a), -imag(a)) * b)""",
+        {'a':qlm1, 'b':qlm2}
+        ))
+    p = numexpr.evaluate(
+        """4*pi/(2*l+1)*(2*na + nb)""",
+        {
+            'na': n[:,1:].sum(-1),
+            'nb': n[:,0],
+            'l': n.shape[1]-1,
+            'pi': np.pi
+            })
+    return p
+
+def boo_normed_product(qlm1, qlm2):
     n = numexpr.evaluate(
         """real(complex(real(a), -imag(a)) * b)""",
         {'a':qlm1, 'b':qlm2}
