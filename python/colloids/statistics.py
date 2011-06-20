@@ -1,5 +1,6 @@
 import numpy as np
 import Gnuplot
+import numexpr
 
 g=Gnuplot.Gnuplot()
 g('set pm3d map')
@@ -102,7 +103,12 @@ def timecorrel(data):
     k = data
     if k.dtype.kind != 'c':
         k -= data.mean()
-    return (k*np.conj(k[0])).mean(axis=1)/(np.abs(k)**2).mean()
+    p = numexpr.evaluate(
+        'k * complex(k0.real, -k0.imag)',
+        {'k':k, 'k0':k[0]}
+        ).mean(axis=1)
+    n = numexpr.evaluate('abs(k).real**2').mean()
+    return numexpr.evaluate('p/n')
 
 def time_correlation(data, av=10):
     """read the particle-wise scalar from a time serie of files and compute the time correlation"""
