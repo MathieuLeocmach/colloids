@@ -20,6 +20,7 @@ import numpy as np
 import rtree.index
 from scipy.special import sph_harm
 import numexpr
+import subprocess, shlex, StringIO
 
 
 
@@ -33,7 +34,6 @@ class Particles:
             if radius.ndim>1 or len(radius)!=len(self.pos):
                 raise ValueError("""radius must be a one dimensional array with the same length as positions""")
             self.radii = radius
-        self.indexing()
         self.__maxRad = self.radii.max()
 
     def generated_boundingbox(self):
@@ -47,16 +47,21 @@ class Particles:
     def indexing(self):
         p = rtree.index.Property()
         p.dimension = self.pos.shape[1]
-        self.index = rtree.index.Index(
+        self.__index = rtree.index.Index(
             self.generated_boundingbox(),
             properties=p,
             interleaved=True)
+
+    def get_index(self):
+        if not hasattr(self, index):
+            self.indexing()
+        return self.__index
 
     def maxRad(self):
         return self.__maxRad
 
     def inside_box(self, margin):
-        bb = np.asarray(self.index.bounds)
+        bb = np.asarray(self.get_index().bounds)
         bb[:len(bb)/2] += margin
         bb[len(bb)/2:] -= margin
         return bb
@@ -69,7 +74,7 @@ class Particles:
 
     def get_ngbs(self, i, maxlength):
         rnge = self.maxRad()*(maxlength-1)+self.radii[i]*maxlength
-        ngb1 = np.asarray([j for j in self.index.intersection(np.concatenate((
+        ngb1 = np.asarray([j for j in self.get_index().intersection(np.concatenate((
             self.pos[i]-rnge,
             self.pos[i]+rnge
             ))) if j!=i])
@@ -78,7 +83,7 @@ class Particles:
     def get_N_ngbs(self, i, maxlength, N=12):
         """Get the first Nth neighbours of particle i"""
         rnge = self.maxRad()*(maxlength-1)+self.radii[i]*maxlength
-        ngb1 = np.asarray([j for j in self.index.intersection(np.concatenate((
+        ngb1 = np.asarray([j for j in self.get_index().intersection(np.concatenate((
             self.pos[i]-rnge,
             self.pos[i]+rnge
             ))) if j!=i])
@@ -99,7 +104,7 @@ class Particles:
         bins = np.linspace(0, maxlength, nbins)
         margin = 2 * self.maxRad() * maxlength
         bb = self.inside_box(margin)
-        inside = [i for i in self.index.intersection(bb)]
+        inside = [i for i in self.get_index().intersection(bb)]
         bonds = np.vstack([
             [i, n] for i in inside
             for n in self.get_ngbs(i, maxlength)
@@ -117,7 +122,7 @@ class Particles:
         #list the possible links
         links = [
             (i, j, self.get_sqdist(i, q=other.position[j], r=other.position[j]))
-            for j in other.index.intersection(np.concatenate((p-r,p+r)))
+            for j in other.get_index().intersection(np.concatenate((p-r,p+r)))
             for i, (p,r) in enumerate(zip(
                 self.pos, maxdist*(self.radii+other.maxRad())
                 ))
@@ -150,8 +155,30 @@ class Particles:
                 for m in range(l+1)])
             for l in ls
             ]
-        
-        
+
+    def get_voro(self):
+        """Interface to the stream version of voro++"""
+        bb = np.asarray(self.get_index().bounds)
+        pr = subprocess.Popen(
+            [
+                'voro++', '-r', '-c', '"%i %v %n"', '%g'%(self.maxRad()*2)
+                ]+['%g'%b for b in bb.reshape([2,3]).T.ravel()]+['-'],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE
+        )
+        out = pr.communicate(''.join([
+            '%d %f %f %f %f '%(i, p[0], p[1], p[2], np.sqrt(2)*r)
+            for i, (p, r) in enumerate(zip(self.pos, self.radii))
+            ]))[0]
+        vol = np.zeros(len(self.pos))
+        ngbs = [[] for i in range(len(self.pos))]
+        for line in out.split("\n"):
+            if len(line)==0:
+                continue
+            l = line[1:-1].split()
+            i = int(l[0])
+            vol[i] = float(l[1])
+            ngbs[i] = map(int, l[2:])
+        return vol, ngbs
         
         
         
