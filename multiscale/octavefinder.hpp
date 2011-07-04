@@ -28,6 +28,7 @@ namespace Colloids
             //processing
             void fill(const cv::Mat &input);
             void preblur_and_fill(const cv::Mat &input);
+            void initialize_binary();
 
 
     protected:

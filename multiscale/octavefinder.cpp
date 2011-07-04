@@ -34,18 +34,26 @@ void Colloids::OctaveFinder::set_radius_preblur(const double &k)
 void Colloids::OctaveFinder::fill(const cv::Mat &input)
 {
 	input.convertTo(this->layersG[0], this->layersG[0].type());
-	//iterative blur
+	//iterative Gaussian blur
 	for(size_t i=0; i<this->layersG.size()-1; ++i)
 		this->iterative_gaussian_filters[i].apply(
 				this->layersG[i],
 				this->layersG[i+1]
 				);
+	//difference of Gaussians
+	for(size_t i=0; i<this->layers.size(); ++i)
+		this->layers[i] = this->layersG[i+1] - this->layersG[i];
 }
 
 void Colloids::OctaveFinder::preblur_and_fill(const cv::Mat &input)
 {
 	cv::GaussianBlur(input, this->layersG[0], cv::Size(0,0), this->k);
 	this->fill(this->layersG[0]);
+}
+
+void Colloids::OctaveFinder::initialize_binary()
+{
+
 }
 
 void Colloids::OctaveFinder::fill_iterative_radii(const double & k)

@@ -11,14 +11,16 @@ using namespace Colloids;
 void images_are_close(const cv::Mat &a, const cv::Mat &b, double precision=1e-9)
 {
 	cv::Mat_<double> M = cv::abs(a)+cv::abs(b);
-	cv::Mat_<double> diff = cv::abs(a-b) / (*std::max_element(M.begin(), M.end()));
-	double u;
+	double peak = *std::max_element(M.begin(), M.end());
+	BOOST_REQUIRE_CLOSE(cv::sum(a)[0], cv::sum(b)[0], precision/peak);
+	cv::Mat_<double> diff = cv::abs(a-b) / peak;
+	cv::MatConstIterator_<double> u = diff.begin();
 	for(int i=0; i<a.rows; i++)
 		for(int j=0; j<a.cols; j++)
 		{
-			u = diff(i,j);
-			BOOST_CHECK_MESSAGE(u<precision, "at x=" << i <<" y=" << j);
-			BOOST_CHECK_SMALL(u, precision);
+			BOOST_CHECK_MESSAGE(*u<precision, "at x=" << i <<" y=" << j);
+			BOOST_CHECK_SMALL(*u, precision);
+			u++;
 		}
 }
 
@@ -115,10 +117,21 @@ BOOST_AUTO_TEST_SUITE( octave_fill )
 		//to the input blurred by a two time larger radius than the preblur
 		cv::GaussianBlur(input, other, cv::Size(0,0), 2*1.6);
 		finder.preblur_and_fill(input);
-		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(3))[0], cv::sum(other)[0], 1e-9);
+		BOOST_REQUIRE_CLOSE(cv::sum(finder.get_layersG(3))[0], cv::sum(other)[0], 1e-9);
 		BOOST_CHECK_CLOSE(finder.get_layersG(3)(32,32), other(32,32), 1e-2);
 		images_are_close(finder.get_layersG(3), other, 1e-4);
+		//Sum of layers should reconstruct blurred image
+		other = finder.get_layersG(0) + finder.get_layers(0);
+		BOOST_REQUIRE_CLOSE(cv::sum(finder.get_layersG(1))[0], cv::sum(other)[0], 1e-9);
+		images_are_close(finder.get_layersG(1), other, 1e-9);
+		other += finder.get_layers(1);
+		images_are_close(finder.get_layersG(2), other, 1e-9);
+		other += finder.get_layers(2);
+		images_are_close(finder.get_layersG(3), other, 1e-9);
+		other += finder.get_layers(3);
+		images_are_close(finder.get_layersG(4), other, 1e-9);
 	}
+
 	BOOST_AUTO_TEST_CASE( fill_speed )
 	{
 		OctaveFinder finder;
@@ -128,8 +141,31 @@ BOOST_AUTO_TEST_SUITE( octave_fill )
 		boost::progress_timer ti;
 		for (size_t i=0; i<100; ++i)
 			finder.fill(input);
-		std::cout<<"100 fill in ";
+		std::cout<<"100 fills in ";
 	}
+BOOST_AUTO_TEST_SUITE_END()
+
+BOOST_AUTO_TEST_SUITE( local_max )
+
+	BOOST_AUTO_TEST_CASE( single_circle )
+	{
+		OctaveFinder finder;
+		cv::Mat_<double>input(256, 256);
+		input.setTo(0);
+		cv::circle(input, cv::Point(128, 128), 4, 1.0, -1);
+		finder.preblur_and_fill(input);
+		//with a radius of 4, the maximum should be in layer 2
+		BOOST_CHECK_GE(finder.get_layers(0)(128, 128), finder.get_layers(1)(128, 128));
+		BOOST_CHECK_GE(finder.get_layers(1)(128, 128), finder.get_layers(2)(128, 128));
+		BOOST_CHECK_LE(finder.get_layers(2)(128, 128), finder.get_layers(3)(128, 128));
+		BOOST_CHECK_LE(finder.get_layers(3)(128, 128), finder.get_layers(4)(128, 128));
+		finder.initialize_binary();
+		BOOST_CHECK_EQUAL(finder.get_binary(2)(128, 128), true);
+		BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(2))[0], 1);
+		BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(1))[0], 0);
+		BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(3))[0], 0);
+	}
+
 BOOST_AUTO_TEST_SUITE_END()
 
 BOOST_AUTO_TEST_SUITE_END()
