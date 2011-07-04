@@ -35,6 +35,7 @@ namespace Colloids
             std::vector<cv::Mat_<double> > layersG, layers;
             std::vector<cv::Mat_<bool> > binary;
             std::vector<double> iterative_radii;
+            std::vector<cv::FilterEngine> iterative_gaussian_filters;
             std::vector<int> sizes;
             double k;
 

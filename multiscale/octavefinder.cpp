@@ -6,7 +6,7 @@ using namespace std;
 using namespace Colloids;
 
 OctaveFinder::OctaveFinder(const int nrows, const int ncols, const int nbLayers, const double &k):
-		iterative_radii(nbLayers+2), sizes(nbLayers+3)
+		iterative_radii(nbLayers+2), iterative_gaussian_filters(nbLayers+2), sizes(nbLayers+3)
 {
     this->layersG.reserve(nbLayers+3);
     for (int i = 0; i<nbLayers+3; ++i)
@@ -36,11 +36,9 @@ void Colloids::OctaveFinder::fill(const cv::Mat &input)
 	input.convertTo(this->layersG[0], this->layersG[0].type());
 	//iterative blur
 	for(size_t i=0; i<this->layersG.size()-1; ++i)
-		cv::GaussianBlur(
+		this->iterative_gaussian_filters[i].apply(
 				this->layersG[i],
-				this->layersG[i+1],
-				cv::Size(0,0),
-				this->iterative_radii[i]
+				this->layersG[i+1]
 				);
 }
 
@@ -64,7 +62,14 @@ void Colloids::OctaveFinder::fill_iterative_radii(const double & k)
         transform(sigmas.begin(), sigmas.end(), sigmas.begin(), sigmas.begin(), multiplies<double>());
         for(size_t i=0; i<this->iterative_radii.size(); ++i)
         	this->iterative_radii[i] = sqrt(sigmas[i+1] - sigmas[i]);
-
+        //iterative gaussian filters
+        for(size_t i=0; i<this->iterative_radii.size(); ++i)
+        	this->iterative_gaussian_filters[i] = *cv::createGaussianFilter
+        	(
+        			this->layersG[0].type(),
+        			cv::Size(0,0),
+        			this->iterative_radii[i]
+        	);
 }
 
 

@@ -2,6 +2,7 @@
 #define BOOST_TEST_DYN_LINK
 
 #include <boost/test/unit_test.hpp>
+#include <boost/progress.hpp>
 
 #include "octavefinder.hpp"
 
@@ -117,6 +118,17 @@ BOOST_AUTO_TEST_SUITE( octave_fill )
 		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(3))[0], cv::sum(other)[0], 1e-9);
 		BOOST_CHECK_CLOSE(finder.get_layersG(3)(32,32), other(32,32), 1e-2);
 		images_are_close(finder.get_layersG(3), other, 1e-4);
+	}
+	BOOST_AUTO_TEST_CASE( fill_speed )
+	{
+		OctaveFinder finder;
+		cv::Mat_<double>input(256, 256);
+		input.setTo(0);
+		input(128, 128)=1.0;
+		boost::progress_timer ti;
+		for (size_t i=0; i<100; ++i)
+			finder.fill(input);
+		std::cout<<"100 fill in ";
 	}
 BOOST_AUTO_TEST_SUITE_END()
 
