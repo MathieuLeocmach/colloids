@@ -1,5 +1,6 @@
 #include "octavefinder.hpp"
 #include <algorithm>
+#include <boost/array.hpp>
 
 using namespace std;
 using namespace Colloids;
@@ -52,43 +53,51 @@ void Colloids::OctaveFinder::preblur_and_fill(const cv::Mat &input)
 
 void Colloids::OctaveFinder::initialize_binary()
 {
+	//only negative pixels
 	for(size_t i=0; i<this->binary.size(); ++i)
-		this->binary[i].setTo(0);
+	{
+		this->binary[i] = this->layers[i+1]<0;
+		//remove margins
+		this->binary[i].row(0).setTo(0);
+		this->binary[i].row(this->get_width()-1).setTo(0);
+		this->binary[i].col(0).setTo(0);
+		this->binary[i].col(this->get_height()-1).setTo(0);
+	}
 
 	for(int l=0; l < this->get_n_layers(); ++l)
 	{
 		//Iterate through blocks of 3^3 pixels
-		std::vector<cv::Mat_<double> > arrays;
-		arrays.reserve(27);
+		boost::array<cv::Mat_<double>, 27> arrays;
+		boost::array<cv::Mat_<double>, 27>::iterator a = arrays.begin();
 		for(int k = l; k<l+3; ++k)
 			for(int j=0; j<3; ++j)
 				for(int i=0; i<3; ++i)
-					arrays.push_back(this->layers[k](
+					*a++ = this->layers[k](
 							cv::Range(j, this->get_width()-2+j),
 							cv::Range(i, this->get_height()-2+i)
-							));
+							);
 		//move the central pixel at the end
 		std::swap(arrays[arrays.size()/2], arrays.back());
-		std::vector<cv::MatConstIterator_<double> > its;
-		std::transform(
-				arrays.begin(), arrays.end(), std::back_inserter(its),
-				std::mem_fun_ref<cv::MatConstIterator_<double> >(&cv::Mat_<double>::begin)
-		);
+		boost::array<double*, 27> its;
+		for(size_t i=0; i<arrays.size(); ++i)
+			its[i] = &(*arrays[i].begin());
+
 		//ROI of the binary layer
 		cv::Mat_<bool> broi = this->binary[l](
 				cv::Range(1, this->get_width()-1),
 				cv::Range(1, this->get_height()-1));
-		for(cv::Mat_<bool>::iterator b_it= broi.begin(); b_it!=broi.end(); ++b_it)
+
+		//rather than using the discontinuous iterators that make test at the end of rows,
+		//we use the pointers that flow from begining to end
+		for(bool* b_it= &(*broi.begin()); b_it!= &(*broi.end()); ++b_it)
 		{
-			//only negative pixels
-			*b_it = *(its.back())<0;
 			//non minimum suppression
 			size_t i=0;
 			while(*b_it && i<its.size()-1)
 				*b_it = *(its.back()) < *(its[i++]);
 			//increment the pointers
-			for(std::vector<cv::MatConstIterator_<double> >::iterator it=its.begin(); it!=its.end(); ++it)
-				(*it)++;
+			for(size_t i=0; i<its.size(); ++i)
+				its[i]++;
 		}
 	}
 }
