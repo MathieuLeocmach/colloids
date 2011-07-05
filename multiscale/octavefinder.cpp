@@ -14,8 +14,8 @@ OctaveFinder::OctaveFinder(const int nrows, const int ncols, const int nbLayers,
 	for (int i = 0; i<nbLayers+2; ++i)
 		this->layers.push_back(cv::Mat_<double>(nrows, ncols));
 	this->binary.reserve(nbLayers+2);
-	for (int i = 0; i<nbLayers+2; ++i)
-		this->binary.push_back(cv::Mat_<bool>(nrows, ncols));
+	for (int i = 0; i<nbLayers; ++i)
+		this->binary.push_back(cv::Mat_<bool>::zeros(nrows, ncols));
 	this->set_radius_preblur(k);
 }
 
@@ -75,7 +75,7 @@ void Colloids::OctaveFinder::initialize_binary()
 				std::mem_fun_ref<cv::MatConstIterator_<double> >(&cv::Mat_<double>::begin)
 		);
 		//ROI of the binary layer
-		cv::Mat_<bool> broi = this->binary[l+1](
+		cv::Mat_<bool> broi = this->binary[l](
 				cv::Range(1, this->get_width()-1),
 				cv::Range(1, this->get_height()-1));
 		for(cv::Mat_<bool>::iterator b_it= broi.begin(); b_it!=broi.end(); ++b_it)

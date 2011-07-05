@@ -132,18 +132,6 @@ BOOST_AUTO_TEST_SUITE( octave_fill )
 		other += finder.get_layers(3);
 		images_are_close(finder.get_layersG(4), other, 1e-9);
 	}
-
-	BOOST_AUTO_TEST_CASE( fill_speed )
-	{
-		OctaveFinder finder;
-		cv::Mat_<double>input(256, 256);
-		input.setTo(0);
-		input(128, 128)=1.0;
-		boost::progress_timer ti;
-		for (size_t i=0; i<100; ++i)
-			finder.fill(input);
-		std::cout<<"100 fills in ";
-	}
 BOOST_AUTO_TEST_SUITE_END()
 
 BOOST_AUTO_TEST_SUITE( local_max )
@@ -222,6 +210,19 @@ BOOST_AUTO_TEST_SUITE( local_max )
 		BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(1))[0], 1);
 		BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(2))[0], 1);
 		BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(3))[0], 1);
+	}
+
+	BOOST_AUTO_TEST_CASE( local_max_speed )
+	{
+		OctaveFinder finder;
+		cv::Mat_<double>input(256, 256);
+		input.setTo(0);
+		cv::circle(input, cv::Point(128, 128), 4, 1.0, -1);
+		finder.preblur_and_fill(input);
+		boost::progress_timer ti;
+		for (size_t i=0; i<100; ++i)
+			finder.initialize_binary();
+		std::cout<<"100 local maxima detections in ";
 	}
 
 BOOST_AUTO_TEST_SUITE_END()
