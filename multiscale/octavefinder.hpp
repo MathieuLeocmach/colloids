@@ -39,6 +39,8 @@ namespace Colloids
             std::vector<cv::FilterEngine> iterative_gaussian_filters;
             std::vector<int> sizes;
             double k;
+            std::vector<cv::Mat_<double> > block_min_val;
+            std::vector< cv::Mat_<cv::Vec3i> > block_min_pos;
 
             void fill_iterative_radii(const double &k=1.6);
     };

@@ -35,6 +35,7 @@ BOOST_AUTO_TEST_SUITE( octave_constructors )
         BOOST_CHECK_EQUAL(finder.get_width(), 256);
         BOOST_CHECK_EQUAL(finder.get_height(), 256);
         BOOST_CHECK_EQUAL(finder.get_n_layers(), 3);
+
     }
 	BOOST_AUTO_TEST_CASE( octave_constructor_rectangular_flat )
     {
@@ -160,10 +161,67 @@ BOOST_AUTO_TEST_SUITE( local_max )
 		BOOST_CHECK_LE(finder.get_layers(2)(128, 128), finder.get_layers(3)(128, 128));
 		BOOST_CHECK_LE(finder.get_layers(3)(128, 128), finder.get_layers(4)(128, 128));
 		finder.initialize_binary();
+
+		//The minimum should be at the center of the circle
+		double min_layers[5];
+		for (int l=0; l<5; ++l)
+			min_layers[l] =  *std::min_element(finder.get_layers(l).begin(), finder.get_layers(l).end());
+		double global_min = *std::min_element(min_layers, min_layers+5);
+		BOOST_CHECK_CLOSE(finder.get_layers(2)(128, 128), global_min, 1e-9);
+
 		BOOST_CHECK_EQUAL(finder.get_binary(2)(128, 128), true);
 		BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(2))[0], 1);
 		BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(1))[0], 0);
 		BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(3))[0], 0);
+	}
+
+	BOOST_AUTO_TEST_CASE( empty_rectangular )
+	{
+		OctaveFinder finder(128, 512, 10, 2.8);
+		cv::Mat_<double>input(128, 512);
+		input.setTo(0);
+		finder.preblur_and_fill(input);
+		finder.initialize_binary();
+		for(int i=1; i<10; ++i)
+			BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(i))[0], 0);
+		input.setTo(-1);
+		finder.preblur_and_fill(input);
+		finder.initialize_binary();
+		for(int i=1; i<10; ++i)
+			BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(i))[0], 0);
+	}
+
+	BOOST_AUTO_TEST_CASE( multiple_circles )
+	{
+		OctaveFinder finder;
+		cv::Mat_<double>input(256, 256);
+		input.setTo(0);
+		//circles on the edges
+		for(int i=0; i<8; ++i)
+		{
+			cv::circle(input, cv::Point(i-2, (i+1)*32), 4, 1.0, -1);
+			cv::circle(input, cv::Point((i+1)*32, 257-i), 4, 1.0, -1);
+		}
+		for(int i=0; i<7; ++i)
+			BOOST_CHECK_CLOSE(input((i+1)*32, 0), 1.0, 1e-9);
+		BOOST_CHECK_CLOSE(input(0, 7*32), 0, 1e-9);
+		finder.preblur_and_fill(input);
+		finder.initialize_binary();
+		//only the circles further than 1 px from the border can be detected
+		BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(2))[0], 2);
+		BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(1))[0], 0);
+		BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(3))[0], 0);
+		BOOST_CHECK_EQUAL(finder.get_binary(2)(7*32, 7-3), true);
+		BOOST_CHECK_EQUAL(finder.get_binary(2)(258-7, 7*32), true);
+		//circles of various sizes
+		input.setTo(0);
+		for(int i=0; i<8; ++i)
+			cv::circle(input, cv::Point(128, (i+1)*32), i+1, 1.0, -1);
+		finder.preblur_and_fill(input);
+		finder.initialize_binary();
+		BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(1))[0], 1);
+		BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(2))[0], 1);
+		BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(3))[0], 1);
 	}
 
 BOOST_AUTO_TEST_SUITE_END()

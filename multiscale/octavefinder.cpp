@@ -1,7 +1,6 @@
 #include "octavefinder.hpp"
 #include <algorithm>
 
-using namespace cv;
 using namespace std;
 using namespace Colloids;
 
@@ -10,13 +9,13 @@ OctaveFinder::OctaveFinder(const int nrows, const int ncols, const int nbLayers,
 {
     this->layersG.reserve(nbLayers+3);
     for (int i = 0; i<nbLayers+3; ++i)
-    	this->layersG.push_back(Mat_<double>(nrows, ncols));
+    	this->layersG.push_back(cv::Mat_<double>(nrows, ncols));
     this->layers.reserve(nbLayers+2);
 	for (int i = 0; i<nbLayers+2; ++i)
-		this->layers.push_back(Mat_<double>(nrows, ncols));
+		this->layers.push_back(cv::Mat_<double>(nrows, ncols));
 	this->binary.reserve(nbLayers+2);
 	for (int i = 0; i<nbLayers+2; ++i)
-		this->binary.push_back(Mat_<bool>(nrows, ncols));
+		this->binary.push_back(cv::Mat_<bool>(nrows, ncols));
 	this->set_radius_preblur(k);
 }
 
@@ -53,7 +52,45 @@ void Colloids::OctaveFinder::preblur_and_fill(const cv::Mat &input)
 
 void Colloids::OctaveFinder::initialize_binary()
 {
+	for(size_t i=0; i<this->binary.size(); ++i)
+		this->binary[i].setTo(0);
 
+	for(int l=0; l < this->get_n_layers(); ++l)
+	{
+		//Iterate through blocks of 3^3 pixels
+		std::vector<cv::Mat_<double> > arrays;
+		arrays.reserve(27);
+		for(int k = l; k<l+3; ++k)
+			for(int j=0; j<3; ++j)
+				for(int i=0; i<3; ++i)
+					arrays.push_back(this->layers[k](
+							cv::Range(j, this->get_width()-2+j),
+							cv::Range(i, this->get_height()-2+i)
+							));
+		//move the central pixel at the end
+		std::swap(arrays[arrays.size()/2], arrays.back());
+		std::vector<cv::MatConstIterator_<double> > its;
+		std::transform(
+				arrays.begin(), arrays.end(), std::back_inserter(its),
+				std::mem_fun_ref<cv::MatConstIterator_<double> >(&cv::Mat_<double>::begin)
+		);
+		//ROI of the binary layer
+		cv::Mat_<bool> broi = this->binary[l+1](
+				cv::Range(1, this->get_width()-1),
+				cv::Range(1, this->get_height()-1));
+		for(cv::Mat_<bool>::iterator b_it= broi.begin(); b_it!=broi.end(); ++b_it)
+		{
+			//only negative pixels
+			*b_it = *(its.back())<0;
+			//non minimum suppression
+			size_t i=0;
+			while(*b_it && i<its.size()-1)
+				*b_it = *(its.back()) < *(its[i++]);
+			//increment the pointers
+			for(std::vector<cv::MatConstIterator_<double> >::iterator it=its.begin(); it!=its.end(); ++it)
+				(*it)++;
+		}
+	}
 }
 
 void Colloids::OctaveFinder::fill_iterative_radii(const double & k)
@@ -79,6 +116,8 @@ void Colloids::OctaveFinder::fill_iterative_radii(const double & k)
         			this->iterative_radii[i]
         	);
 }
+
+
 
 
 
