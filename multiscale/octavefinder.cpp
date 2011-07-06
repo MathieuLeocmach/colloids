@@ -53,52 +53,43 @@ void Colloids::OctaveFinder::preblur_and_fill(const cv::Mat &input)
 
 void Colloids::OctaveFinder::initialize_binary()
 {
-	//only negative pixels
+	//initialize
+	for(size_t i=0; i<this->binary.size(); ++i)
+		this->binary[i].setTo(0);
+
+	for(size_t k=1; k<this->get_n_layers()-1; k+=2)
+		for(size_t j=1; j<this->get_width()-1; j+=2)
+			for(size_t i=1; i<this->get_height()-1; i+=2)
+			{
+				size_t mi = i;
+				size_t mj = j;
+				size_t mk = k;
+				for(size_t k2=k; k2<k+2; ++k2)
+					for(size_t j2=j; j2<j+2; ++j2)
+						for(size_t i2=i; i2<i+2; ++i2)
+							if(this->layers[k2](j2, i2) < this->layers[mk](mj, mi))
+							{
+								mi = i2;
+								mj = j2;
+								mk = k2;
+							}
+				bool* b = &this->binary[mk-1](mj, mi);
+				*b = this->layers[mk](mj, mi) < 0;
+				for(size_t k2=mk-1; k2<mk+2 && *b; ++k2)
+					for(size_t j2=mj-1; j2<mj+2 && *b; ++j2)
+						for(size_t i2=mi-1; i2<mi+2 && *b; ++i2)
+							if(!(k2==mk && j2==mj && i2==mi ))
+								*b = this->layers[mk](mj, mi) < this->layers[k2](j2, i2);
+			}
+
+
+	//remove margins
 	for(size_t i=0; i<this->binary.size(); ++i)
 	{
-		this->binary[i] = this->layers[i+1]<0;
-		//remove margins
 		this->binary[i].row(0).setTo(0);
 		this->binary[i].row(this->get_width()-1).setTo(0);
 		this->binary[i].col(0).setTo(0);
 		this->binary[i].col(this->get_height()-1).setTo(0);
-	}
-
-	for(int l=0; l < this->get_n_layers(); ++l)
-	{
-		//Iterate through blocks of 3^3 pixels
-		boost::array<cv::Mat_<double>, 27> arrays;
-		boost::array<cv::Mat_<double>, 27>::iterator a = arrays.begin();
-		for(int k = l; k<l+3; ++k)
-			for(int j=0; j<3; ++j)
-				for(int i=0; i<3; ++i)
-					*a++ = this->layers[k](
-							cv::Range(j, this->get_width()-2+j),
-							cv::Range(i, this->get_height()-2+i)
-							);
-		//move the central pixel at the end
-		std::swap(arrays[arrays.size()/2], arrays.back());
-		boost::array<double*, 27> its;
-		for(size_t i=0; i<arrays.size(); ++i)
-			its[i] = &(*arrays[i].begin());
-
-		//ROI of the binary layer
-		cv::Mat_<bool> broi = this->binary[l](
-				cv::Range(1, this->get_width()-1),
-				cv::Range(1, this->get_height()-1));
-
-		//rather than using the discontinuous iterators that make test at the end of rows,
-		//we use the pointers that flow from begining to end
-		for(bool* b_it= &(*broi.begin()); b_it!= &(*broi.end()); ++b_it)
-		{
-			//non minimum suppression
-			size_t i=0;
-			while(*b_it && i<its.size()-1)
-				*b_it = *(its.back()) < *(its[i++]);
-			//increment the pointers
-			for(size_t i=0; i<its.size(); ++i)
-				its[i]++;
-		}
 	}
 }
 
