@@ -50,60 +50,94 @@ void Colloids::OctaveFinder::preblur_and_fill(const cv::Mat &input)
 	cv::GaussianBlur(input, this->layersG[0], cv::Size(0,0), this->k);
 	this->fill(this->layersG[0]);
 }
+
 /**
  * \brief Detect local minima of the scale space
  *
  * Uses the dynamic block algorythm by Neubeck and Van Gool
  * a. Neubeck and L. Van Gool, 18th International Conference On Pattern Recognition (ICPRʼ06) 850-855 (2006).
  */
+void Colloids::OctaveFinder::local_minima()
+{
+    //initialize
+    for(size_t i = 0;i < this->binary.size();++i)
+        this->binary[i].setTo(0);
+
+    for(size_t k = 1;k < this->layers.size() - 1;k += 2)
+        for(size_t j = 1;j < this->get_width() - 1;j += 2)
+            for(size_t i = 1;i < this->get_height() - 1;i += 2)
+            {
+                size_t mi = i;
+                size_t mj = j;
+                size_t mk = k;
+                //accept degenerated minima in the block, but select only one
+                for(size_t k2 = k;k2 < k + 2;++k2)
+                    for(size_t j2 = j;j2 < j + 2;++j2)
+                        for(size_t i2 = i;i2 < i + 2;++i2)
+                            if(this->layers[k2](j2, i2) <= this->layers[mk](mj, mi))
+                            {
+                                mi = i2;
+                                mj = j2;
+                                mk = k2;
+                            }
+
+
+
+                //maxima cannot be on the last layer
+                if(mk > this->binary.size())
+                    continue;
+
+                bool *b = &this->binary[mk - 1](mj, mi);
+                //consider only negative minima
+                //with a value that is actually different from zero
+                *b = (this->layers[mk](mj, mi) < 0) && (1 + pow(this->layers[mk](mj, mi), 2) > 1);
+                //remove the minima if one of its neighbours outside the block has lower value
+                for(size_t k2 = mk - 1;k2 < mk + 2 && *b;++k2)
+                    for(size_t j2 = mj - 1;j2 < mj + 2 && *b;++j2)
+                        for(size_t i2 = mi - 1;i2 < mi + 2 && *b;++i2)
+                            if(k2 < k || j2 < j || i2 < i || k2 > k + 1 || j2 > j + 1 || i2 > i + 1)
+                                *b = this->layers[mk](mj, mi) <= this->layers[k2](j2, i2);
+            }
+
+
+    //remove margins
+    for(size_t i = 0;i < this->binary.size();++i)
+    {
+        this->binary[i].row(0).setTo(0);
+        this->binary[i].row(this->get_width() - 1).setTo(0);
+        this->binary[i].col(0).setTo(0);
+        this->binary[i].col(this->get_height() - 1).setTo(0);
+    }
+}
+
+void Colloids::OctaveFinder::remove_edges(const double & max_ratio)
+{
+	 for(size_t k = 1; k < this->layers.size() - 1; ++k)
+		 for(size_t j = 1;j < this->get_width() - 1; ++j)
+			 for(size_t i = 1;i < this->get_height() - 1; ++i)
+			 {
+				 bool *b = &this->binary[k - 1](j, i);
+				 if(*b)
+				 {
+					 const double hess[3] = {
+							 this->layers[k](j-1, i) - 2 * this->layers[k](j, i) + this->layers[k](j+1, i),
+							 this->layers[k](j, i-1) - 2 * this->layers[k](j, i) + this->layers[k](j, i+1),
+							 this->layers[k](j-1, i-1) + this->layers[k](j+1, i+1) - this->layers[k](j+1, i-1) - this->layers[k](j-1, i+1)
+					 };
+					 //determinant of the Hessian, for the coefficient see
+					 //H Bay, a Ess, T Tuytelaars, and L Vangool,
+					 //Computer Vision and Image Understanding 110, 346-359 (2008)
+					 const double detH = hess[0]*hess[1] - pow(hess[2], 2),
+							 ratio = pow(hess[0]+hess[1], 2) / (4.0 * hess[0]*hess[1]);
+					 *b = !(detH<0 || ratio > max_ratio);
+				 }
+			 }
+}
+
 void Colloids::OctaveFinder::initialize_binary()
 {
-	//initialize
-	for(size_t i=0; i<this->binary.size(); ++i)
-		this->binary[i].setTo(0);
-
-	for(size_t k=1; k<this->layers.size()-1; k+=2)
-		for(size_t j=1; j<this->get_width()-1; j+=2)
-			for(size_t i=1; i<this->get_height()-1; i+=2)
-			{
-				size_t mi = i;
-				size_t mj = j;
-				size_t mk = k;
-				//accept degenerated minima in the block, but select only one
-				for(size_t k2=k; k2<k+2; ++k2)
-					for(size_t j2=j; j2<j+2; ++j2)
-						for(size_t i2=i; i2<i+2; ++i2)
-							if(this->layers[k2](j2, i2) <= this->layers[mk](mj, mi))
-							{
-								mi = i2;
-								mj = j2;
-								mk = k2;
-							}
-				//maxima cannot be on the last layer
-				if (mk > this->binary.size())
-					continue;
-				bool* b = &this->binary[mk-1](mj, mi);
-				//consider only negative minima
-				//with a value that is actually different from zero
-				*b = (this->layers[mk](mj, mi) < 0) && (1 + pow(this->layers[mk](mj, mi), 2) > 1) ;
-				//remove the minima if one of its neighbours outside the block has lower value
-				for(size_t k2=mk-1; k2<mk+2 && *b; ++k2)
-					for(size_t j2=mj-1; j2<mj+2 && *b; ++j2)
-						for(size_t i2=mi-1; i2<mi+2 && *b; ++i2)
-							if(k2<k || j2<j || i2<i || k2>k+1 || j2>j+1 || i2>i+1)
-								*b = this->layers[mk](mj, mi) <= this->layers[k2](j2, i2);
-
-			}
-
-
-	//remove margins
-	for(size_t i=0; i<this->binary.size(); ++i)
-	{
-		this->binary[i].row(0).setTo(0);
-		this->binary[i].row(this->get_width()-1).setTo(0);
-		this->binary[i].col(0).setTo(0);
-		this->binary[i].col(this->get_height()-1).setTo(0);
-	}
+    local_minima();
+    remove_edges();
 }
 
 void Colloids::OctaveFinder::fill_iterative_radii(const double & k)
@@ -129,6 +163,10 @@ void Colloids::OctaveFinder::fill_iterative_radii(const double & k)
         			this->iterative_radii[i]
         	);
 }
+
+
+
+
 
 
 

@@ -29,6 +29,8 @@ namespace Colloids
             void fill(const cv::Mat &input);
             void preblur_and_fill(const cv::Mat &input);
             void initialize_binary();
+            void local_minima();
+            void remove_edges(const double &max_ratio = 1.1);
 
 
     protected:

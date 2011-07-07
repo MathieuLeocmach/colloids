@@ -251,18 +251,36 @@ BOOST_AUTO_TEST_SUITE( local_max )
 		BOOST_CHECK_NE(finder.get_layers(3)(5*32, 128), finder.get_layers(4)(5*32-1, 128));
 	}
 
-	BOOST_AUTO_TEST_CASE( local_max_speed )
+	BOOST_AUTO_TEST_CASE( edges )
 	{
 		OctaveFinder finder;
 		cv::Mat_<double>input(256, 256);
 		input.setTo(0);
-		cv::circle(input, cv::Point(128, 128), 4, 1.0, -1);
+		for(int i=0; i<7; ++i)
+			cv::ellipse(input, cv::Point(128, (i+1)*32), cv::Size(4*(1-0.1*i),4*(1+0.1*i)), 0.0, 0, 360, 1.0, -1);
 		finder.preblur_and_fill(input);
-		boost::progress_timer ti;
-		for (size_t i=0; i<100; ++i)
-			finder.initialize_binary();
-		std::cout<<"100 local minima detections in ";
+		finder.initialize_binary();
+		BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(1))[0], 0);
+		BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(2))[0], 3);
+		BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(3))[0], 0);
+		/*cv::namedWindow("truc");
+		cv::imshow("truc", input);
+		cv::imshow("layer1", -finder.get_layers(2));
+		cv::waitKey();*/
 	}
+
+	BOOST_AUTO_TEST_CASE( local_max_speed )
+		{
+			OctaveFinder finder;
+			cv::Mat_<double>input(256, 256);
+			input.setTo(0);
+			cv::circle(input, cv::Point(128, 128), 4, 1.0, -1);
+			finder.preblur_and_fill(input);
+			boost::progress_timer ti;
+			for (size_t i=0; i<100; ++i)
+				finder.initialize_binary();
+			std::cout<<"100 local minima detections in ";
+		}
 
 BOOST_AUTO_TEST_SUITE_END()
 
