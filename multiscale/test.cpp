@@ -132,6 +132,17 @@ BOOST_AUTO_TEST_SUITE( octave_fill )
 		other += finder.get_layers(3);
 		images_are_close(finder.get_layersG(4), other, 1e-9);
 	}
+	BOOST_AUTO_TEST_CASE( fill_speed )
+	{
+		OctaveFinder finder;
+		cv::Mat_<double>input(256, 256);
+		input.setTo(0);
+		cv::circle(input, cv::Point(128, 128), 4, 1.0, -1);
+		boost::progress_timer ti;
+		for (size_t i=0; i<100; ++i)
+			finder.fill(input);
+		std::cout<<"100 fill in ";
+	}
 BOOST_AUTO_TEST_SUITE_END()
 
 BOOST_AUTO_TEST_SUITE( local_max )
@@ -158,9 +169,16 @@ BOOST_AUTO_TEST_SUITE( local_max )
 		BOOST_CHECK_CLOSE(finder.get_layers(2)(128, 128), global_min, 1e-9);
 
 		BOOST_CHECK_EQUAL(finder.get_binary(2)(128, 128), true);
+		BOOST_CHECK_EQUAL(finder.get_binary(2)(129, 128), false);
+		BOOST_CHECK_EQUAL(finder.get_binary(2)(128, 129), false);
+		BOOST_CHECK_EQUAL(finder.get_binary(2)(127, 128), false);
+		BOOST_CHECK_EQUAL(finder.get_binary(2)(128, 127), false);
 		BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(2))[0], 1);
 		BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(1))[0], 0);
 		BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(3))[0], 0);
+		/*cv::namedWindow("truc");
+		cv::imshow("truc", 255*finder.get_binary(2));
+		cv::waitKey();*/
 	}
 
 	BOOST_AUTO_TEST_CASE( empty_rectangular )
@@ -179,7 +197,7 @@ BOOST_AUTO_TEST_SUITE( local_max )
 			BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(i))[0], 0);
 	}
 
-	BOOST_AUTO_TEST_CASE( multiple_circles )
+	BOOST_AUTO_TEST_CASE( multiple_circles_on_edges )
 	{
 		OctaveFinder finder;
 		cv::Mat_<double>input(256, 256);
@@ -201,15 +219,36 @@ BOOST_AUTO_TEST_SUITE( local_max )
 		BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(3))[0], 0);
 		BOOST_CHECK_EQUAL(finder.get_binary(2)(7*32, 7-3), true);
 		BOOST_CHECK_EQUAL(finder.get_binary(2)(258-7, 7*32), true);
-		//circles of various sizes
+	}
+
+	BOOST_AUTO_TEST_CASE( multiple_circles_various_sizes )
+	{
+		OctaveFinder finder;
+		cv::Mat_<double>input(256, 256);
 		input.setTo(0);
-		for(int i=0; i<8; ++i)
+		for(int i=0; i<7; ++i)
 			cv::circle(input, cv::Point(128, (i+1)*32), i+1, 1.0, -1);
 		finder.preblur_and_fill(input);
 		finder.initialize_binary();
 		BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(1))[0], 1);
 		BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(2))[0], 1);
 		BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(3))[0], 1);
+		BOOST_CHECK_LE(finder.get_layers(3)(5*32, 128), 0);
+		BOOST_CHECK(1+pow(finder.get_layers(3)(5*32, 128), 2)>1);
+		BOOST_CHECK_NE(finder.get_layers(3)(5*32, 128), finder.get_layers(3)(5*32, 127));
+		BOOST_CHECK_NE(finder.get_layers(3)(5*32, 128), finder.get_layers(3)(5*32, 129));
+		BOOST_CHECK_NE(finder.get_layers(3)(5*32, 128), finder.get_layers(3)(5*32+1, 128));
+		BOOST_CHECK_NE(finder.get_layers(3)(5*32, 128), finder.get_layers(3)(5*32-1, 128));
+		BOOST_CHECK_NE(finder.get_layers(3)(5*32, 128), finder.get_layers(2)(5*32, 128));
+		BOOST_CHECK_NE(finder.get_layers(3)(5*32, 128), finder.get_layers(2)(5*32, 127));
+		BOOST_CHECK_NE(finder.get_layers(3)(5*32, 128), finder.get_layers(2)(5*32, 129));
+		BOOST_CHECK_NE(finder.get_layers(3)(5*32, 128), finder.get_layers(2)(5*32+1, 128));
+		BOOST_CHECK_NE(finder.get_layers(3)(5*32, 128), finder.get_layers(2)(5*32-1, 128));
+		BOOST_CHECK_NE(finder.get_layers(3)(5*32, 128), finder.get_layers(4)(5*32, 128));
+		BOOST_CHECK_NE(finder.get_layers(3)(5*32, 128), finder.get_layers(4)(5*32, 127));
+		BOOST_CHECK_NE(finder.get_layers(3)(5*32, 128), finder.get_layers(4)(5*32, 129));
+		BOOST_CHECK_NE(finder.get_layers(3)(5*32, 128), finder.get_layers(4)(5*32+1, 128));
+		BOOST_CHECK_NE(finder.get_layers(3)(5*32, 128), finder.get_layers(4)(5*32-1, 128));
 	}
 
 	BOOST_AUTO_TEST_CASE( local_max_speed )
@@ -222,7 +261,7 @@ BOOST_AUTO_TEST_SUITE( local_max )
 		boost::progress_timer ti;
 		for (size_t i=0; i<100; ++i)
 			finder.initialize_binary();
-		std::cout<<"100 local maxima detections in ";
+		std::cout<<"100 local minima detections in ";
 	}
 
 BOOST_AUTO_TEST_SUITE_END()
