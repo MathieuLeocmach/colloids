@@ -57,7 +57,7 @@ void Colloids::OctaveFinder::preblur_and_fill(const cv::Mat &input)
  * Uses the dynamic block algorythm by Neubeck and Van Gool
  * a. Neubeck and L. Van Gool, 18th International Conference On Pattern Recognition (ICPRʼ06) 850-855 (2006).
  */
-void Colloids::OctaveFinder::local_minima()
+void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
 {
     //initialize
     for(size_t i = 0;i < this->binary.size();++i)
@@ -81,10 +81,8 @@ void Colloids::OctaveFinder::local_minima()
                                 mk = k2;
                             }
 
-
-
-                //maxima cannot be on the last layer
-                if(mk > this->binary.size())
+                //maxima cannot be on the last layer or on image edges
+                if(mk > this->binary.size() || !((mj<this->get_width() - 1) && (mi<this->get_height() - 1)))
                     continue;
 
                 bool *b = &this->binary[mk - 1](mj, mi);
@@ -97,47 +95,24 @@ void Colloids::OctaveFinder::local_minima()
                         for(size_t i2 = mi - 1;i2 < mi + 2 && *b;++i2)
                             if(k2 < k || j2 < j || i2 < i || k2 > k + 1 || j2 > j + 1 || i2 > i + 1)
                                 *b = this->layers[mk](mj, mi) <= this->layers[k2](j2, i2);
+
+                //remove the local minima that are edges (elongated objects)
+                if(*b)
+				{
+                	//hessian matrix
+                	const double hess[3] = {
+                		this->layers[mk](mj-1, mi) - 2 * this->layers[mk](mj, mi) + this->layers[mk](mj+1, mi),
+						this->layers[mk](mj, mi-1) - 2 * this->layers[mk](mj, mi) + this->layers[mk](mj, mi+1),
+						this->layers[mk](mj-1, mi-1) + this->layers[mk](mj+1, mi+1) - this->layers[mk](mj+1, mi-1) - this->layers[mk](mj-1, mi+1)
+						};
+                	//determinant of the Hessian, for the coefficient see
+                	//H Bay, a Ess, T Tuytelaars, and L Vangool,
+                	//Computer Vision and Image Understanding 110, 346-359 (2008)
+                	const double detH = hess[0]*hess[1] - pow(hess[2], 2),
+						 ratio = pow(hess[0]+hess[1], 2) / (4.0 * hess[0]*hess[1]);
+                	*b = !(detH<0 || ratio > max_ratio);
+				}
             }
-
-
-    //remove margins
-    for(size_t i = 0;i < this->binary.size();++i)
-    {
-        this->binary[i].row(0).setTo(0);
-        this->binary[i].row(this->get_width() - 1).setTo(0);
-        this->binary[i].col(0).setTo(0);
-        this->binary[i].col(this->get_height() - 1).setTo(0);
-    }
-}
-
-void Colloids::OctaveFinder::remove_edges(const double & max_ratio)
-{
-	 for(size_t k = 1; k < this->layers.size() - 1; ++k)
-		 for(size_t j = 1;j < this->get_width() - 1; ++j)
-			 for(size_t i = 1;i < this->get_height() - 1; ++i)
-			 {
-				 bool *b = &this->binary[k - 1](j, i);
-				 if(*b)
-				 {
-					 const double hess[3] = {
-							 this->layers[k](j-1, i) - 2 * this->layers[k](j, i) + this->layers[k](j+1, i),
-							 this->layers[k](j, i-1) - 2 * this->layers[k](j, i) + this->layers[k](j, i+1),
-							 this->layers[k](j-1, i-1) + this->layers[k](j+1, i+1) - this->layers[k](j+1, i-1) - this->layers[k](j-1, i+1)
-					 };
-					 //determinant of the Hessian, for the coefficient see
-					 //H Bay, a Ess, T Tuytelaars, and L Vangool,
-					 //Computer Vision and Image Understanding 110, 346-359 (2008)
-					 const double detH = hess[0]*hess[1] - pow(hess[2], 2),
-							 ratio = pow(hess[0]+hess[1], 2) / (4.0 * hess[0]*hess[1]);
-					 *b = !(detH<0 || ratio > max_ratio);
-				 }
-			 }
-}
-
-void Colloids::OctaveFinder::initialize_binary()
-{
-    local_minima();
-    remove_edges();
 }
 
 void Colloids::OctaveFinder::fill_iterative_radii(const double & k)
