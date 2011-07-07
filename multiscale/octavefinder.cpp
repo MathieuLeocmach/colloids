@@ -63,9 +63,9 @@ void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
     for(size_t i = 0;i < this->binary.size();++i)
         this->binary[i].setTo(0);
 
-    for(size_t k = 1;k < this->layers.size() - 1;k += 2)
-        for(size_t j = 1;j < this->get_width() - 1;j += 2)
-            for(size_t i = 1;i < this->get_height() - 1;i += 2)
+    for(size_t k = 1;k < (size_t)(this->layers.size() - 1);k += 2)
+        for(size_t j = 1;j < (size_t)(this->get_width() - 1);j += 2)
+            for(size_t i = 1;i < (size_t)(this->get_height() - 1);i += 2)
             {
                 size_t mi = i;
                 size_t mj = j;
@@ -82,7 +82,10 @@ void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
                             }
 
                 //maxima cannot be on the last layer or on image edges
-                if(mk > this->binary.size() || !((mj<this->get_width() - 1) && (mi<this->get_height() - 1)))
+                if(mk > this->binary.size() || !(
+                		(mj<(size_t)(this->get_width() - 1)) &&
+                		(mi<(size_t)(this->get_height() - 1))
+                		))
                     continue;
 
                 bool *b = &this->binary[mk - 1](mj, mi);
