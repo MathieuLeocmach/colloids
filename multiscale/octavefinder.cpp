@@ -118,6 +118,12 @@ void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
             }
 }
 
+std::vector<cv::Vec4d> Colloids::OctaveFinder::subpix()
+{
+	std::vector<cv::Vec4d> centers;
+	return centers;
+}
+
 void Colloids::OctaveFinder::fill_iterative_radii(const double & k)
 {
 		//target blurring radii

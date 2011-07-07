@@ -3,10 +3,12 @@
 
 #include <boost/test/unit_test.hpp>
 #include <boost/progress.hpp>
+//#include <boost/lambda/lambda.hpp>
 
 #include "octavefinder.hpp"
 
 using namespace Colloids;
+//using namespace boost::lambda;
 
 void images_are_close(const cv::Mat &a, const cv::Mat &b, double precision=1e-9)
 {
@@ -24,6 +26,16 @@ void images_are_close(const cv::Mat &a, const cv::Mat &b, double precision=1e-9)
 		}
 }
 
+template<class T>
+struct by_coordinate : std::binary_function<const T&, const T&, bool>
+{
+	size_t N;
+	by_coordinate(size_t n): N(n){};
+	bool operator()(const T & a, const T &b)
+	{
+		return a[N] < b[N];
+	}
+};
 
 BOOST_AUTO_TEST_SUITE( octave )
 
@@ -251,7 +263,7 @@ BOOST_AUTO_TEST_SUITE( local_max )
 		BOOST_CHECK_NE(finder.get_layers(3)(5*32, 128), finder.get_layers(4)(5*32-1, 128));
 	}
 
-	BOOST_AUTO_TEST_CASE( edges )
+	BOOST_AUTO_TEST_CASE( ellipses )
 	{
 		OctaveFinder finder;
 		cv::Mat_<double>input(256, 256);
@@ -270,17 +282,67 @@ BOOST_AUTO_TEST_SUITE( local_max )
 	}
 
 	BOOST_AUTO_TEST_CASE( local_max_speed )
-		{
-			OctaveFinder finder;
-			cv::Mat_<double>input(256, 256);
-			input.setTo(0);
-			cv::circle(input, cv::Point(128, 128), 4, 1.0, -1);
-			finder.preblur_and_fill(input);
-			boost::progress_timer ti;
-			for (size_t i=0; i<100; ++i)
-				finder.initialize_binary();
-			std::cout<<"100 local minima detections in ";
-		}
+	{
+		OctaveFinder finder;
+		cv::Mat_<double>input(256, 256);
+		input.setTo(0);
+		cv::circle(input, cv::Point(128, 128), 4, 1.0, -1);
+		finder.preblur_and_fill(input);
+		boost::progress_timer ti;
+		for (size_t i=0; i<100; ++i)
+			finder.initialize_binary();
+		std::cout<<"100 local minima detections in ";
+	}
+
+BOOST_AUTO_TEST_SUITE_END()
+
+BOOST_AUTO_TEST_SUITE( subpix )
+
+	BOOST_AUTO_TEST_CASE( subpix_single_circle )
+	{
+		OctaveFinder finder;
+		cv::Mat_<double>input(256, 256);
+		input.setTo(0);
+		cv::circle(input, cv::Point(100, 200), 4, 1.0, -1);
+		finder.preblur_and_fill(input);
+		finder.initialize_binary();
+		BOOST_CHECK_EQUAL(finder.get_binary(2)(200, 100), 1);
+		std::vector<cv::Vec4d> v = finder.subpix();
+		BOOST_REQUIRE_EQUAL(v.size(), 1);
+		//x
+		BOOST_CHECK_GE(v[0][0], 99);
+		BOOST_CHECK_LE(v[0][0], 101);
+		//y
+		BOOST_CHECK_GE(v[0][1], 199);
+		BOOST_CHECK_LE(v[0][1], 201);
+		//scale
+		BOOST_CHECK_GE(v[0][2], 1);
+		BOOST_CHECK_LE(v[0][2], 3);
+
+	}
+
+	BOOST_AUTO_TEST_CASE( subpix_relative_positions )
+	{
+		OctaveFinder finder;
+		cv::Mat_<double>input(256, 256);
+		input.setTo(0);
+		for(int i=0; i<7; ++i)
+			cv::circle(input, cv::Point(128+pow(0.5, i), (i+1)*32), 4, 1.0, -1);
+		finder.preblur_and_fill(input);
+		finder.initialize_binary();
+		std::vector<cv::Vec4d> v = finder.subpix();
+		BOOST_REQUIRE_EQUAL(v.size(), 7);
+		std::vector<cv::Vec4d> v_by_y = v;
+		std::sort(v_by_y.begin(), v_by_y.end(), by_coordinate<cv::Vec4d>(1));
+		BOOST_CHECK_LE(v_by_y[0][0], v_by_y[1][0]);
+		BOOST_CHECK_LE(v_by_y[1][0], v_by_y[2][0]);
+		BOOST_CHECK_LE(v_by_y[2][0], v_by_y[3][0]);
+		BOOST_CHECK_LE(v_by_y[3][0], v_by_y[4][0]);
+		BOOST_CHECK_LE(v_by_y[4][0], v_by_y[5][0]);
+		BOOST_CHECK_LE(v_by_y[5][0], v_by_y[6][0]);
+
+	}
+
 
 BOOST_AUTO_TEST_SUITE_END()
 

@@ -29,6 +29,7 @@ namespace Colloids
             void fill(const cv::Mat &input);
             void preblur_and_fill(const cv::Mat &input);
             void initialize_binary(const double &max_ratio = 1.1);
+            std::vector<cv::Vec4d> subpix();
 
 
     protected:
