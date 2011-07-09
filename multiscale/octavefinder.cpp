@@ -60,6 +60,7 @@ void Colloids::OctaveFinder::preblur_and_fill(const cv::Mat &input)
 void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
 {
     //initialize
+	this->centers_no_subpix.clear();
     for(size_t i = 0;i < this->binary.size();++i)
         this->binary[i].setTo(0);
 
@@ -116,50 +117,64 @@ void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
                 	const double detH = hess[0]*hess[1] - pow(hess[2], 2),
 						 ratio = pow(hess[0]+hess[1], 2) / (4.0 * hess[0]*hess[1]);
                 	*b = !(detH<0 || ratio > max_ratio);
+                	if(*b)
+                	{
+                		cv::Vec3i c;
+                		c[0] = mi;
+                		c[1] = mj;
+                		c[2] = mk;
+                		this->centers_no_subpix.push_back(c);
+                	}
 				}
             }
 }
 
+cv::Vec4d Colloids::OctaveFinder::single_subpix(const cv::Vec3i & ci)
+{
+    const size_t i = ci[0], j = ci[1], k = ci[2];
+    //look for the pedestal
+    double pedestal = this->layers[k](j, i);
+    for(size_t k2 = k - 1;k2 < k + 2;++k2)
+        for(size_t j2 = j - this->sizes[k];j2 < j + this->sizes[k] + 1;++j2)
+            for(size_t i2 = i - this->sizes[k];i2 < i + this->sizes[k] + 1;++i2){
+                const double val = this->layers[k2](j2, i2);
+                if(val < 0 && val > pedestal)
+                    pedestal = val;
+
+            }
+
+
+    cv::Vec4d c(0.0);
+    if(pedestal == this->layers[k](j, i))
+        pedestal = 0.0;
+
+    //define the ROI: 3 pixels in the scale axis, according to the scale in space
+    for(size_t k2 = k - 1;k2 < k + 2;++k2)
+        for(size_t j2 = j - this->sizes[k];j2 < j + this->sizes[k] + 1;++j2)
+            for(size_t i2 = i - this->sizes[k];i2 < i + this->sizes[k] + 1;++i2){
+                const double val = this->layers[k2](j2, i2);
+                if(val < 0){
+                    const double v = val - pedestal;
+                    c[0] += v * i2;
+                    c[1] += v * j2;
+                    c[2] += v * k2;
+                    c[3] += v;
+                }
+            }
+
+
+
+    for(int u = 0;u < 3;++u)
+        c[u] /= c[3];
+
+    return c;
+}
 std::vector<cv::Vec4d> Colloids::OctaveFinder::subpix()
 {
 	std::vector<cv::Vec4d> centers;
-	for(size_t k=1; k<this->layers.size()-1; ++k)
-		for(size_t j = 1;j < (size_t)(this->get_width() - 1); ++j)
-			for(size_t i = 1;i < (size_t)(this->get_height() - 1); ++i)
-				if(this->binary[k-1](j, i))
-				{
-					//look for the pedestal
-					double pedestal = this->layers[k](j,i);
-					for(size_t k2=k-1; k2<k+2; ++k2)
-						for(size_t j2=j-this->sizes[k]; j2<j+this->sizes[k]+1; ++j2)
-							for(size_t i2=i-this->sizes[k]; i2<i+this->sizes[k]+1; ++i2)
-							{
-								const double val = this->layers[k2](j2,i2);
-								if(val<0 && val>pedestal)
-									pedestal = val;
-							}
-					cv::Vec4d c(0.0);
-					if (pedestal == this->layers[k](j,i))
-						pedestal = 0.0;
-					//define the ROI: 3 pixels in the scale axis, according to the scale in space
-					for(size_t k2=k-1; k2<k+2; ++k2)
-						for(size_t j2=j-this->sizes[k]; j2<j+this->sizes[k]+1; ++j2)
-							for(size_t i2=i-this->sizes[k]; i2<i+this->sizes[k]+1; ++i2)
-							{
-								const double val = this->layers[k2](j2,i2);
-								if(val<0)
-								{
-									const double v = val - pedestal;
-									c[0] += v * i2;
-									c[1] += v * j2;
-									c[2] += v * k2;
-									c[3] += v;
-								}
-							}
-					for(int u=0; u<3; ++u)
-						c[u] /= c[3];
-					centers.push_back(c);
-				}
+	centers.reserve(this->centers_no_subpix.size());
+	for(std::list<cv::Vec3i>::const_iterator ci = this->centers_no_subpix.begin(); ci != this->centers_no_subpix.end(); ++ci)
+		centers.push_back(this->single_subpix(*ci));
 
 	return centers;
 }
@@ -171,9 +186,9 @@ void Colloids::OctaveFinder::fill_iterative_radii(const double & k)
         for(size_t i=0; i<sigmas.size(); ++i)
         	sigmas[i] = k * pow(2, i/double(this->get_n_layers()));
         //corresponding blob sizes
-        vector<int>::iterator si = this->sizes.begin();
+        vector<size_t>::iterator si = this->sizes.begin();
         for(vector<double>::const_iterator sig=sigmas.begin(); sig!=sigmas.end(); sig++)
-        	*si++ = static_cast<int>((*sig * sqrt(2)) + 0.5);
+        	*si++ = static_cast<size_t>((*sig * sqrt(2)) + 0.5);
         //iterative blurring radii
         transform(sigmas.begin(), sigmas.end(), sigmas.begin(), sigmas.begin(), multiplies<double>());
         for(size_t i=0; i<this->iterative_radii.size(); ++i)

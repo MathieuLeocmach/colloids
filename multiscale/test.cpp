@@ -231,6 +231,7 @@ BOOST_AUTO_TEST_SUITE( local_max )
 		BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(3))[0], 0);
 		BOOST_CHECK_EQUAL(finder.get_binary(2)(7*32, 7-3), true);
 		BOOST_CHECK_EQUAL(finder.get_binary(2)(258-7, 7*32), true);
+		std::vector<cv::Vec4d> v = finder.subpix();
 	}
 
 	BOOST_AUTO_TEST_CASE( multiple_circles_various_sizes )
@@ -373,6 +374,19 @@ BOOST_AUTO_TEST_SUITE( subpix )
 		//resolution in size is 1/4 of a scale
 		BOOST_WARN_LT(v_by_y[0][2], v_by_y[1][2]);
 
+	}
+	BOOST_AUTO_TEST_CASE( subpix_speed )
+	{
+		OctaveFinder finder;
+		cv::Mat_<double>input(256, 256);
+		input.setTo(0);
+		cv::circle(input, cv::Point(128, 128), 4, 1.0, -1);
+		finder.preblur_and_fill(input);
+		finder.initialize_binary();
+		boost::progress_timer ti;
+		for (size_t i=0; i<100; ++i)
+			std::vector<cv::Vec4d> v = finder.subpix();
+		std::cout<<"100 subpixel resolutions in ";
 	}
 
 

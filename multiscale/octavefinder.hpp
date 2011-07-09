@@ -3,6 +3,7 @@
 
 #include <opencv/cv.h>
 #include <opencv/highgui.h>
+#include <list>
 
 namespace Colloids
 {
@@ -20,7 +21,7 @@ namespace Colloids
             const double & get_radius_preblur() const {return this->k;}
             void set_radius_preblur(const double &k=1.6);
             const double & get_iterative_radius(const size_t l) const {return this->iterative_radii[l];};
-            const int & get_size(const size_t l) const {return this->sizes[l];};
+            const size_t & get_size(const size_t l) const {return this->sizes[l];};
             inline const cv::Mat_<bool> & get_binary(const size_t l) const {return binary[l-1];};
 			inline const cv::Mat_<double> & get_layersG(const size_t l) const {return layersG[l];}
 			inline const cv::Mat_<double> & get_layers(const size_t l) const {return layers[l];}
@@ -30,6 +31,7 @@ namespace Colloids
             void preblur_and_fill(const cv::Mat &input);
             void initialize_binary(const double &max_ratio = 1.1);
             std::vector<cv::Vec4d> subpix();
+            cv::Vec4d single_subpix(const cv::Vec3i & ci);
 
 
     protected:
@@ -38,7 +40,8 @@ namespace Colloids
             std::vector<cv::Mat_<bool> > binary;
             std::vector<double> iterative_radii;
             std::vector<cv::FilterEngine> iterative_gaussian_filters;
-            std::vector<int> sizes;
+            std::vector<size_t> sizes;
+            std::list<cv::Vec3i> centers_no_subpix;
             double k;
 
             void fill_iterative_radii(const double &k=1.6);
