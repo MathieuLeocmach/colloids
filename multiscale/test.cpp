@@ -269,15 +269,17 @@ BOOST_AUTO_TEST_SUITE( local_max )
 		cv::Mat_<double>input(256, 256);
 		input.setTo(0);
 		for(int i=0; i<7; ++i)
-			cv::ellipse(input, cv::Point(128, (i+1)*32), cv::Size(4*(1-0.1*i),4*(1+0.1*i)), 0.0, 0, 360, 1.0, -1);
+			for(int j=0; j<7; ++j)
+			cv::ellipse(input, cv::Point((j+1)*32, (i+1)*32), cv::Size(4.0/(1+0.1*i),4*(1+0.1*i)), 90.0/8 *j, 90.0/8 *j, 360+90.0/8 *j, 1.0, -1);
 		finder.preblur_and_fill(input);
 		finder.initialize_binary();
 		BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(1))[0], 0);
-		BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(2))[0], 3);
+		BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(2))[0], 21);
 		BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(3))[0], 0);
 		/*cv::namedWindow("truc");
 		cv::imshow("truc", input);
-		cv::imshow("layer1", -finder.get_layers(2));
+		cv::imshow("binary2", 255*finder.get_binary(2));
+		cv::imshow("binary3", 255*finder.get_binary(3));
 		cv::waitKey();*/
 	}
 
