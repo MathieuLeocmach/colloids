@@ -83,8 +83,10 @@ void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
 
                 //maxima cannot be on the last layer or on image edges
                 if(mk > this->binary.size() || !(
-                		(mj<(size_t)(this->get_width() - 1)) &&
-                		(mi<(size_t)(this->get_height() - 1))
+                		(this->sizes[mk] <= mj) &&
+                		(mj<(size_t)(this->get_width() - this->sizes[mk])) &&
+                		(this->sizes[mk] <= mi) &&
+                		(mi<(size_t)(this->get_height() - this->sizes[mk]))
                 		))
                     continue;
 
