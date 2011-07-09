@@ -121,6 +121,44 @@ void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
 std::vector<cv::Vec4d> Colloids::OctaveFinder::subpix()
 {
 	std::vector<cv::Vec4d> centers;
+	for(size_t k=1; k<this->layers.size()-1; ++k)
+		for(size_t j = 1;j < (size_t)(this->get_width() - 1); ++j)
+			for(size_t i = 1;i < (size_t)(this->get_height() - 1); ++i)
+				if(this->binary[k-1](j, i))
+				{
+					//look for the pedestal
+					double pedestal = this->layers[k](j,i);
+					for(size_t k2=k-1; k2<k+2; ++k2)
+						for(size_t j2=j-this->sizes[k]; j2<j+this->sizes[k]+1; ++j2)
+							for(size_t i2=i-this->sizes[k]; i2<i+this->sizes[k]+1; ++i2)
+							{
+								const double val = this->layers[k2](j2,i2);
+								if(val<0 && val>pedestal)
+									pedestal = val;
+							}
+					cv::Vec4d c(0.0);
+					if (pedestal == this->layers[k](j,i))
+						pedestal = 0.0;
+					//define the ROI: 3 pixels in the scale axis, according to the scale in space
+					for(size_t k2=k-1; k2<k+2; ++k2)
+						for(size_t j2=j-this->sizes[k]; j2<j+this->sizes[k]+1; ++j2)
+							for(size_t i2=i-this->sizes[k]; i2<i+this->sizes[k]+1; ++i2)
+							{
+								const double val = this->layers[k2](j2,i2);
+								if(val<0)
+								{
+									const double v = val - pedestal;
+									c[0] += v * i2;
+									c[1] += v * j2;
+									c[2] += v * k2;
+									c[3] += v;
+								}
+							}
+					for(int u=0; u<3; ++u)
+						c[u] /= c[3];
+					centers.push_back(c);
+				}
+
 	return centers;
 }
 
