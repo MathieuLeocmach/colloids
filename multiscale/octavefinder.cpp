@@ -27,7 +27,7 @@ OctaveFinder::~OctaveFinder()
 
 void Colloids::OctaveFinder::set_radius_preblur(const double &k)
 {
-	this->k = k;
+	this->preblur_radius = k;
 	this->fill_iterative_radii(k);
 }
 
@@ -47,7 +47,7 @@ void Colloids::OctaveFinder::fill(const cv::Mat &input)
 
 void Colloids::OctaveFinder::preblur_and_fill(const cv::Mat &input)
 {
-	cv::GaussianBlur(input, this->layersG[0], cv::Size(0,0), this->k);
+	cv::GaussianBlur(input, this->layersG[0], cv::Size(0,0), this->preblur_radius);
 	this->fill(this->layersG[0]);
 }
 
@@ -129,20 +129,20 @@ void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
             }
 }
 
-cv::Vec4d Colloids::OctaveFinder::single_subpix(const cv::Vec3i & ci)
+cv::Vec4d Colloids::OctaveFinder::single_subpix(const cv::Vec3i & ci) const
 {
     const size_t i = ci[0], j = ci[1], k = ci[2];
     //look for the pedestal
     double pedestal = this->layers[k](j, i);
     for(size_t k2 = k - 1;k2 < k + 2;++k2)
         for(size_t j2 = j - this->sizes[k];j2 < j + this->sizes[k] + 1;++j2)
-            for(size_t i2 = i - this->sizes[k];i2 < i + this->sizes[k] + 1;++i2){
+            for(size_t i2 = i - this->sizes[k];i2 < i + this->sizes[k] + 1;++i2)
+            {
                 const double val = this->layers[k2](j2, i2);
                 if(val < 0 && val > pedestal)
                     pedestal = val;
 
             }
-
 
     cv::Vec4d c(0.0);
     if(pedestal == this->layers[k](j, i))
@@ -151,32 +151,54 @@ cv::Vec4d Colloids::OctaveFinder::single_subpix(const cv::Vec3i & ci)
     //define the ROI: 3 pixels in the scale axis, according to the scale in space
     for(size_t k2 = k - 1;k2 < k + 2;++k2)
         for(size_t j2 = j - this->sizes[k];j2 < j + this->sizes[k] + 1;++j2)
-            for(size_t i2 = i - this->sizes[k];i2 < i + this->sizes[k] + 1;++i2){
+            for(size_t i2 = i - this->sizes[k];i2 < i + this->sizes[k] + 1;++i2)
+            {
                 const double val = this->layers[k2](j2, i2);
-                if(val < 0){
+                if(val < 0)
+                {
                     const double v = val - pedestal;
                     c[0] += v * i2;
                     c[1] += v * j2;
-                    c[2] += v * k2;
+                    //c[2] += v * k2;
                     c[3] += v;
                 }
             }
-
-
-
-    for(int u = 0;u < 3;++u)
+    for(int u = 0;u < 2;++u)
         c[u] /= c[3];
+    //scale is better defined if we consider only 3 pixels
+    boost::array<double,3> a = {{
+    		this->layers[k-1](j, i),
+    		this->layers[k](j, i),
+    		this->layers[k+1](j, i)}};
+    //Netwon's method
+    c[2] = k - (a[2]-a[0]) / 2.0 /(a[2] - 2 * a[1] + a[0]);
 
     return c;
 }
-std::vector<cv::Vec4d> Colloids::OctaveFinder::subpix()
+std::vector<cv::Vec4d> Colloids::OctaveFinder::subpix() const
 {
 	std::vector<cv::Vec4d> centers;
 	centers.reserve(this->centers_no_subpix.size());
-	for(std::list<cv::Vec3i>::const_iterator ci = this->centers_no_subpix.begin(); ci != this->centers_no_subpix.end(); ++ci)
+	//subpixel resolution in pixel units
+	for(std::list<cv::Vec3i>::const_iterator ci = this->centers_no_subpix.begin();
+			ci != this->centers_no_subpix.end();
+			++ci)
 		centers.push_back(this->single_subpix(*ci));
-
 	return centers;
+}
+
+/**
+ * \brief Convert scale to real size
+ *
+ * Identify the maximum response of a difference of Gaussians for a perfect circle.
+ */
+void Colloids::OctaveFinder::scale(std::vector<cv::Vec4d> & centers) const
+{
+	//convert scale to real size
+	const double n = this->get_n_layers(),
+			prefactor = 2.0 * this->preblur_radius * sqrt(log(2.0)/n/(pow(2.0, 2.0/n) - 1));
+	for(size_t c=0; c<centers.size(); ++c)
+		centers[c][2] =  prefactor * pow(2.0, (centers[c][2]+1)/n);
 }
 
 void Colloids::OctaveFinder::fill_iterative_radii(const double & k)

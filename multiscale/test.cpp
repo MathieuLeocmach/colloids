@@ -326,55 +326,75 @@ BOOST_AUTO_TEST_SUITE( subpix )
 
 	BOOST_AUTO_TEST_CASE( subpix_relative_positions )
 	{
-		OctaveFinder finder;
+		OctaveFinder finder(32, 32);
 		//cv cannot draw circle positions better than a pixel, so the input image is drawn in high resolution
-		cv::Mat_<uchar>input(8*256, 8*256), small_input(256,256);
-		input.setTo(0);
+		cv::Mat_<uchar>input(8*32, 8*32), small_input(32,32);
+		std::vector<cv::Vec4d> v;
 		for(int i=0; i<7; ++i)
-			cv::circle(input, cv::Point(8*(128+pow(0.5, i+1)), 8*((i+1)*32)), 8*4, 255, -1);
-		//reduce the resolution of the input
-		cv::resize(input, small_input, small_input.size());
-		finder.preblur_and_fill(small_input);
-		finder.initialize_binary();
-		std::vector<cv::Vec4d> v = finder.subpix();
+		{
+			input.setTo(0);
+			cv::circle(input, cv::Point(8*(16+pow(0.5, i+1)), 8*16), 8*4, 255, -1);
+			cv::resize(input, small_input, small_input.size());
+			finder.preblur_and_fill(small_input);
+			finder.initialize_binary();
+			std::vector<cv::Vec4d> v_s = finder.subpix();
+			std::copy(v_s.begin(), v_s.end(), std::back_inserter(v));
+		}
 		BOOST_REQUIRE_EQUAL(v.size(), 7);
-		std::vector<cv::Vec4d> v_by_y = v;
-		std::sort(v_by_y.begin(), v_by_y.end(), by_coordinate<cv::Vec4d>(1));
-		BOOST_CHECK_GT(v_by_y[0][0], v_by_y[1][0]);
-		BOOST_CHECK_GT(v_by_y[1][0], v_by_y[2][0]);
-		BOOST_CHECK_GT(v_by_y[2][0], v_by_y[3][0]);
+		for(int i=0; i<6; ++i)
+			BOOST_WARN_MESSAGE(
+					v[i][0] > v[i+1][0],
+					"spatial resolution is larger than 1/" << pow(2,i+1) <<"th of a pixel"
+					);
+		BOOST_CHECK_GT(v[2][0], v[3][0]);
 		//can differentiate between 1/8 and 1/16, but not between 1/16 and 1/32
-		BOOST_WARN_GT(v_by_y[3][0], v_by_y[4][0]);
-		BOOST_WARN_GT(v_by_y[4][0], v_by_y[5][0]);
-		BOOST_WARN_GT(v_by_y[5][0], v_by_y[6][0]);
 
 	}
 
 	BOOST_AUTO_TEST_CASE( subpix_relative_sizes )
 	{
-		OctaveFinder finder;
+		OctaveFinder finder(32,32);
 		//cv cannot draw circle sizes better than a pixel, so the input image is drawn in high resolution
-		cv::Mat_<uchar>input(8*256, 8*256), small_input(256,256);
-		input.setTo(0);
+		cv::Mat_<uchar>input(8*32, 8*32), small_input(32,32);
+		std::vector<cv::Vec4d> v;
 		for(int i=0; i<7; ++i)
-			cv::circle(input, cv::Point(8*128, 8*((i+1)*32)), 8*(4+0.125*i), 255, -1);
-		//reduce the resolution of the input
-		cv::resize(input, small_input, small_input.size());
-		finder.preblur_and_fill(small_input);
-		finder.initialize_binary();
-		std::vector<cv::Vec4d> v = finder.subpix();
+		{
+			input.setTo(0);
+			cv::circle(input, cv::Point(8*16, 8*16), 8*(4+0.125*i), 255, -1);
+			cv::resize(input, small_input, small_input.size());
+			finder.preblur_and_fill(small_input);
+			finder.initialize_binary();
+			std::vector<cv::Vec4d> v_s = finder.subpix();
+			std::copy(v_s.begin(), v_s.end(), std::back_inserter(v));
+		}
 		BOOST_REQUIRE_EQUAL(v.size(), 7);
-		std::vector<cv::Vec4d> v_by_y = v;
-		std::sort(v_by_y.begin(), v_by_y.end(), by_coordinate<cv::Vec4d>(1));
-		BOOST_CHECK_LT(v_by_y[0][2], v_by_y[6][2]);
-		BOOST_CHECK_LT(v_by_y[0][2], v_by_y[5][2]);
-		BOOST_CHECK_LT(v_by_y[0][2], v_by_y[4][2]);
-		BOOST_CHECK_LT(v_by_y[0][2], v_by_y[3][2]);
-		BOOST_CHECK_LT(v_by_y[0][2], v_by_y[2][2]);
-		//resolution in size is 1/4 of a scale
-		BOOST_WARN_LT(v_by_y[0][2], v_by_y[1][2]);
 
+		for (int i=1; i<7;++i)
+			BOOST_WARN_MESSAGE(v[0][2]< v[7-i][2], "resolution in size is 1/"<<(8*(7-i))<< "th of a scale");
+
+		finder.scale(v);
+		BOOST_CHECK_CLOSE(v[0][2], 4, 12.5);
+		BOOST_CHECK_CLOSE(v[1][2], 4.125, 12.5);
+		BOOST_CHECK_CLOSE(v[2][2], 4.25, 12.5);
+		BOOST_CHECK_CLOSE(v[3][2], 4.325, 12.5);
+		BOOST_CHECK_CLOSE(v[4][2], 4.5, 12.5);
+		BOOST_CHECK_CLOSE(v[5][2], 4.625, 12.5);
+		BOOST_CHECK_CLOSE(v[6][2], 4.75, 12.5);
+		/*for (int i=0; i<30;++i)
+		{
+			input.setTo(0);
+			cv::circle(input, cv::Point(8*16, 8*16), 8*(2+0.125*i), 255, -1);
+			cv::resize(input, small_input, small_input.size());
+			finder.preblur_and_fill(small_input);
+			finder.initialize_binary();
+			std::vector<cv::Vec4d> v_s = finder.subpix();
+			finder.scale(v_s);
+			for(size_t j=0; j<v_s.size(); ++j)
+				std::cout <<"["<< (2+0.125*i) << ", " << v_s[j][2] << "], ";
+		}
+		std::cout<<std::endl;*/
 	}
+
 	BOOST_AUTO_TEST_CASE( subpix_speed )
 	{
 		OctaveFinder finder;

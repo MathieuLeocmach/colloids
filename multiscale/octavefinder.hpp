@@ -18,7 +18,7 @@ namespace Colloids
             inline const int & get_width() const {return this->layers[0].rows; };
             inline const int & get_height() const {return this->layers[0].cols; };
             inline const int get_n_layers() const {return this->layers.size()-2;};
-            const double & get_radius_preblur() const {return this->k;}
+            const double & get_radius_preblur() const {return this->preblur_radius;}
             void set_radius_preblur(const double &k=1.6);
             const double & get_iterative_radius(const size_t l) const {return this->iterative_radii[l];};
             const size_t & get_size(const size_t l) const {return this->sizes[l];};
@@ -30,8 +30,9 @@ namespace Colloids
             void fill(const cv::Mat &input);
             void preblur_and_fill(const cv::Mat &input);
             void initialize_binary(const double &max_ratio = 1.1);
-            std::vector<cv::Vec4d> subpix();
-            cv::Vec4d single_subpix(const cv::Vec3i & ci);
+            std::vector<cv::Vec4d> subpix() const;
+            cv::Vec4d single_subpix(const cv::Vec3i & ci) const;
+            void scale(std::vector<cv::Vec4d> &centers) const;
 
 
     protected:
@@ -42,7 +43,7 @@ namespace Colloids
             std::vector<cv::FilterEngine> iterative_gaussian_filters;
             std::vector<size_t> sizes;
             std::list<cv::Vec3i> centers_no_subpix;
-            double k;
+            double preblur_radius;
 
             void fill_iterative_radii(const double &k=1.6);
     };
