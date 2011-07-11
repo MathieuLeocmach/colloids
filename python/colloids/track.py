@@ -578,16 +578,8 @@ class OctaveBlobFinder:
                 #the subscale resolution is calculated using only 3 pixels
                 n = ngb[tuple(
                     [slice(None)]+[slice(r-1,r+2)]*(self.layers.ndim-1)
-                    )]
-                n -= n.max()
-                ds = measurements.center_of_mass(n)[0]-1
-                if np.abs(ds)>0.33:
-                    if ds<0:
-                        ds = (n[1]-n[0]).sum()/(n[:-1]-n[:-1].max()).sum()
-                    else:
-                        ds = (n[2]-n[1]).sum()/(n[1:]-n[1:].max()).sum()
-                #the scale axis is logarythmic
-                centers[i,1] = np.exp(ds)*p[0]
+                    )].ravel()
+                centers[i,1] = p[0] - (n[2] - n[0]) / 2.0 / (n[2] - 2 * n[1] + n[0])
         return centers
         
     def __call__(self, image, k=1.6):
@@ -600,7 +592,8 @@ Returns an array of (x, y, r, -intensity in scale space)"""
         centers = self.subpix()[:,::-1]
         self.time_subpix += time.clock() - t0
         #convert scale to size
-        centers[:,-2] = 0.5*(1+k)*(k*np.sqrt(2)*2**(centers[:,-2]/(len(self.layers)-2))-1.0/(len(self.layers)-2))
+        n = (len(self.layers)-2)
+        centers[:,-2] = 2*k*np.sqrt(np.log(2) / (2**(2.0 / n) - 1.0)) * 2**((centers[:,-2] + 1.0) / n)
         self.noutputs += len(centers)
         return centers
         
