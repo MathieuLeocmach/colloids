@@ -361,7 +361,7 @@ BOOST_AUTO_TEST_SUITE( subpix )
 		{
 			input.setTo(0);
 			cv::circle(input, cv::Point(8*16, 8*16), 8*(4+0.125*i), 255, -1);
-			cv::resize(input, small_input, small_input.size());
+			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
 			finder.preblur_and_fill(small_input);
 			finder.initialize_binary();
 			std::vector<cv::Vec4d> v_s = finder.subpix();
@@ -373,18 +373,18 @@ BOOST_AUTO_TEST_SUITE( subpix )
 			BOOST_WARN_MESSAGE(v[0][2]< v[7-i][2], "resolution in size is 1/"<<(8*(7-i))<< "th of a scale");
 
 		finder.scale(v);
-		BOOST_CHECK_CLOSE(v[0][2], 4, 12.5);
-		BOOST_CHECK_CLOSE(v[1][2], 4.125, 12.5);
-		BOOST_CHECK_CLOSE(v[2][2], 4.25, 12.5);
-		BOOST_CHECK_CLOSE(v[3][2], 4.325, 12.5);
-		BOOST_CHECK_CLOSE(v[4][2], 4.5, 12.5);
-		BOOST_CHECK_CLOSE(v[5][2], 4.625, 12.5);
-		BOOST_CHECK_CLOSE(v[6][2], 4.75, 12.5);
+		BOOST_CHECK_CLOSE(v[0][2], 4, 2);
+		BOOST_CHECK_CLOSE(v[1][2], 4.125, 2);
+		BOOST_CHECK_CLOSE(v[2][2], 4.25, 2);
+		BOOST_CHECK_CLOSE(v[3][2], 4.325, 2);
+		BOOST_CHECK_CLOSE(v[4][2], 4.5, 2);
+		BOOST_CHECK_CLOSE(v[5][2], 4.625, 2);
+		BOOST_CHECK_CLOSE(v[6][2], 4.75, 2);
 		/*for (int i=0; i<30;++i)
 		{
 			input.setTo(0);
 			cv::circle(input, cv::Point(8*16, 8*16), 8*(2+0.125*i), 255, -1);
-			cv::resize(input, small_input, small_input.size());
+			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
 			finder.preblur_and_fill(small_input);
 			finder.initialize_binary();
 			std::vector<cv::Vec4d> v_s = finder.subpix();
