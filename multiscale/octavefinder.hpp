@@ -11,7 +11,7 @@ namespace Colloids
     class OctaveFinder
     {
         public:
-            OctaveFinder(const int nrows=256, const int ncols=256, const int nbLayers=3, const double &k=1.6);
+            OctaveFinder(const int nrows=256, const int ncols=256, const int nbLayers=3, const double &preblur_radius=1.6);
             virtual ~OctaveFinder();
 
             //accessors
@@ -33,6 +33,7 @@ namespace Colloids
             std::vector<cv::Vec4d> subpix() const;
             cv::Vec4d single_subpix(const cv::Vec3i & ci) const;
             void scale(std::vector<cv::Vec4d> &centers) const;
+            std::vector<cv::Vec4d> operator()(const cv::Mat &input, const bool preblur=false);
 
 
     protected:

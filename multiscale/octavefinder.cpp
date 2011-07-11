@@ -3,9 +3,10 @@
 #include <boost/array.hpp>
 
 using namespace std;
-using namespace Colloids;
 
-OctaveFinder::OctaveFinder(const int nrows, const int ncols, const int nbLayers, const double &k):
+namespace Colloids {
+
+OctaveFinder::OctaveFinder(const int nrows, const int ncols, const int nbLayers, const double &preblur_radius):
 		iterative_radii(nbLayers+2), iterative_gaussian_filters(nbLayers+2), sizes(nbLayers+3)
 {
     this->layersG.reserve(nbLayers+3);
@@ -17,7 +18,7 @@ OctaveFinder::OctaveFinder(const int nrows, const int ncols, const int nbLayers,
 	this->binary.reserve(nbLayers+2);
 	for (int i = 0; i<nbLayers; ++i)
 		this->binary.push_back(cv::Mat_<bool>::zeros(nrows, ncols));
-	this->set_radius_preblur(k);
+	this->set_radius_preblur(preblur_radius);
 }
 
 OctaveFinder::~OctaveFinder()
@@ -201,6 +202,18 @@ void Colloids::OctaveFinder::scale(std::vector<cv::Vec4d> & centers) const
 		centers[c][2] =  prefactor * pow(2.0, (centers[c][2]+1)/n);
 }
 
+std::vector<cv::Vec4d> Colloids::OctaveFinder::operator ()(const cv::Mat & input, const bool preblur)
+{
+	if(preblur)
+		this->preblur_and_fill(input);
+	else
+		this->fill(input);
+	this->initialize_binary();
+	std::vector<cv::Vec4d> centers = this->subpix();
+	this->scale(centers);
+	return centers;
+}
+
 void Colloids::OctaveFinder::fill_iterative_radii(const double & k)
 {
 		//target blurring radii
@@ -227,7 +240,7 @@ void Colloids::OctaveFinder::fill_iterative_radii(const double & k)
 
 
 
-
+}; //namespace
 
 
 
