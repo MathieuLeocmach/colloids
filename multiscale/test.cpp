@@ -5,7 +5,7 @@
 #include <boost/progress.hpp>
 //#include <boost/lambda/lambda.hpp>
 
-#include "octavefinder.hpp"
+#include "multiscalefinder.hpp"
 
 using namespace Colloids;
 //using namespace boost::lambda;
@@ -334,7 +334,7 @@ BOOST_AUTO_TEST_SUITE( subpix )
 		{
 			input.setTo(0);
 			cv::circle(input, cv::Point(8*(16+pow(0.5, i+1)), 8*16), 8*4, 255, -1);
-			cv::resize(input, small_input, small_input.size());
+			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
 			finder.preblur_and_fill(small_input);
 			finder.initialize_binary();
 			std::vector<cv::Vec4d> v_s = finder.subpix();
@@ -412,4 +412,72 @@ BOOST_AUTO_TEST_SUITE( subpix )
 
 BOOST_AUTO_TEST_SUITE_END()
 
+BOOST_AUTO_TEST_SUITE( octave_minimum_size )
+
+	BOOST_AUTO_TEST_CASE( octave_minimum_detected_size )
+	{
+		OctaveFinder finder(32,32);
+		cv::Mat_<uchar>input(16*32, 16*32), small_input(32,32);
+		int i = 0;
+		std::vector<cv::Vec4d> v(1);
+		while(3-0.01*i>0 && v.size()>0)
+		{
+			i++;
+			input.setTo(0);
+			cv::circle(input, cv::Point(16*16, 16*16), 16*(3-0.01*i), 255, -1);
+			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
+			v =	finder(small_input, true);
+		}
+		BOOST_WARN_MESSAGE(false, "Cannot detect sizes below "<< (3-0.01*(i-1))<<" pixels");
+	}
+
+	BOOST_AUTO_TEST_CASE( octave_minimum_detector_size )
+	{
+		int i = 32;
+		std::vector<cv::Vec4d> v(1);
+		while(i>0 && v.size()>0)
+		{
+			i--;
+			OctaveFinder finder(i,i);
+			cv::Mat_<uchar>input(16*i, 16*i), small_input(i,i);
+			input.setTo(0);
+			cv::circle(input, cv::Point(8*i, 8*i), 16*2.88, 255, -1);
+			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
+			v =	finder(small_input, true);
+		}
+		BOOST_WARN_MESSAGE(false, "A detector smaller than "<< (i+1)<<" pixels cannot detect anything");
+	}
 BOOST_AUTO_TEST_SUITE_END()
+
+BOOST_AUTO_TEST_SUITE_END() //octave
+
+BOOST_AUTO_TEST_SUITE( multiscale )
+
+BOOST_AUTO_TEST_SUITE( multiscale_constructors )
+
+	BOOST_AUTO_TEST_CASE( multiscale_constructor_square )
+	{
+		MultiscaleFinder finder;
+		BOOST_REQUIRE_EQUAL(finder.get_n_octaves(), 6);
+		BOOST_CHECK_EQUAL(finder.get_octave(1).get_width(), 256);
+		BOOST_CHECK_EQUAL(finder.get_octave(1).get_height(), 256);
+		BOOST_CHECK_EQUAL(finder.get_octave(1).get_n_layers(), 3);
+		BOOST_CHECK_EQUAL(finder.get_octave(0).get_width(), 512);
+		BOOST_CHECK_EQUAL(finder.get_octave(0).get_height(), 512);
+		BOOST_CHECK_EQUAL(finder.get_octave(0).get_n_layers(), 3);
+		BOOST_CHECK_EQUAL(finder.get_octave(2).get_width(), 128);
+		BOOST_CHECK_EQUAL(finder.get_octave(2).get_height(), 128);
+		BOOST_CHECK_EQUAL(finder.get_octave(2).get_n_layers(), 3);
+		BOOST_CHECK_EQUAL(finder.get_octave(3).get_width(), 64);
+		BOOST_CHECK_EQUAL(finder.get_octave(3).get_height(), 64);
+		BOOST_CHECK_EQUAL(finder.get_octave(3).get_n_layers(), 3);
+		BOOST_CHECK_EQUAL(finder.get_octave(4).get_width(), 32);
+		BOOST_CHECK_EQUAL(finder.get_octave(4).get_height(), 32);
+		BOOST_CHECK_EQUAL(finder.get_octave(4).get_n_layers(), 3);
+		BOOST_CHECK_EQUAL(finder.get_octave(5).get_width(), 16);
+		BOOST_CHECK_EQUAL(finder.get_octave(5).get_height(), 16);
+		BOOST_CHECK_EQUAL(finder.get_octave(5).get_n_layers(), 3);
+	}
+BOOST_AUTO_TEST_SUITE_END()
+
+BOOST_AUTO_TEST_SUITE_END() //multiscale
