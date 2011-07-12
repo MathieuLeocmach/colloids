@@ -30,7 +30,11 @@ namespace Colloids {
 	}
 
 	MultiscaleFinder::~MultiscaleFinder() {
-		// TODO Auto-generated destructor stub
+		while(this->octaves.empty())
+		{
+			delete octaves.back();
+			octaves.pop_back();
+		}
 	}
 
     void MultiscaleFinder::set_radius_preblur(const double & k)
