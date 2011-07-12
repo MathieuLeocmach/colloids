@@ -3,12 +3,13 @@
 
 #include <opencv/cv.h>
 #include <opencv/highgui.h>
+#include <boost/ptr_container/ptr_vector.hpp>
 #include <list>
 
 namespace Colloids
 {
 
-    class OctaveFinder
+    class OctaveFinder : boost::noncopyable
     {
         public:
             OctaveFinder(const int nrows=256, const int ncols=256, const int nbLayers=3, const double &preblur_radius=1.6);
@@ -17,7 +18,7 @@ namespace Colloids
             //accessors
             inline const int & get_width() const {return this->layers[0].rows; };
             inline const int & get_height() const {return this->layers[0].cols; };
-            inline const int get_n_layers() const {return this->layers.size()-2;};
+            inline const size_t get_n_layers() const {return this->layers.size()-2;};
             const double & get_radius_preblur() const {return this->preblur_radius;}
             void set_radius_preblur(const double &k=1.6);
             const double & get_iterative_radius(const size_t l) const {return this->iterative_radii[l];};

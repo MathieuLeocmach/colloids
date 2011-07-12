@@ -1,6 +1,8 @@
 #include "octavefinder.hpp"
-#include <algorithm>
 #include <boost/array.hpp>
+#include <algorithm>
+#include <stdexcept>
+
 
 using namespace std;
 
@@ -34,6 +36,19 @@ void Colloids::OctaveFinder::set_radius_preblur(const double &k)
 
 void Colloids::OctaveFinder::fill(const cv::Mat &input)
 {
+	if(input.rows != this->get_width())
+	{
+		std::ostringstream os;
+		os << "OctaveFinder::fill : the input's rows ("<<input.rows<<") must match the width of the finder ("<<this->get_width()<<")";
+		throw std::invalid_argument(os.str().c_str());
+	}
+	if(input.cols != this->get_height())
+	{
+		std::ostringstream os;
+		os << "OctaveFinder::fill : the input's cols ("<<input.cols<<") must match the height of the finder ("<<this->get_height()<<")";
+		throw std::invalid_argument(os.str().c_str());
+	}
+
 	input.convertTo(this->layersG[0], this->layersG[0].type());
 	//iterative Gaussian blur
 	for(size_t i=0; i<this->layersG.size()-1; ++i)
@@ -43,13 +58,26 @@ void Colloids::OctaveFinder::fill(const cv::Mat &input)
 				);
 	//difference of Gaussians
 	for(size_t i=0; i<this->layers.size(); ++i)
-		this->layers[i] = this->layersG[i+1] - this->layersG[i];
+		cv::subtract(this->layersG[i+1], this->layersG[i], this->layers[i]);
 }
 
 void Colloids::OctaveFinder::preblur_and_fill(const cv::Mat &input)
 {
-	cv::GaussianBlur(input, this->layersG[0], cv::Size(0,0), this->preblur_radius);
-	this->fill(this->layersG[0]);
+	if(input.rows != this->get_width())
+	{
+		std::ostringstream os;
+		os << "OctaveFinder::preblur_and_fill : the input's rows ("<<input.rows<<") must match the width of the finder ("<<this->get_width()<<")";
+		throw std::invalid_argument(os.str().c_str());
+	}
+	if(input.cols != this->get_height())
+	{
+		std::ostringstream os;
+		os << "OctaveFinder::preblur_and_fill : the input's cols ("<<input.cols<<") must match the height of the finder ("<<this->get_height()<<")";
+		throw std::invalid_argument(os.str().c_str());
+	}
+	cv::Mat_<double> blurred(input.size());
+	cv::GaussianBlur(input, blurred, cv::Size(0,0), this->preblur_radius);
+	this->fill(blurred);
 }
 
 /**

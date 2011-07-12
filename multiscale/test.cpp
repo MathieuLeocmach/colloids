@@ -20,7 +20,7 @@ void images_are_close(const cv::Mat &a, const cv::Mat &b, double precision=1e-9)
 	for(int i=0; i<a.rows; i++)
 		for(int j=0; j<a.cols; j++)
 		{
-			BOOST_CHECK_MESSAGE(*u<precision, "at x=" << i <<" y=" << j);
+			BOOST_REQUIRE_MESSAGE(*u<precision, "at x=" << i <<" y=" << j);
 			BOOST_CHECK_SMALL(*u, precision);
 			u++;
 		}
@@ -144,6 +144,25 @@ BOOST_AUTO_TEST_SUITE( octave_fill )
 		other += finder.get_layers(3);
 		images_are_close(finder.get_layersG(4), other, 1e-9);
 	}
+	BOOST_AUTO_TEST_CASE( fill_rectangular )
+	{
+		OctaveFinder finder(51, 103);
+		cv::Mat_<double>input(51, 103), other(51, 103);
+		//the finder should contain a copy of the input data
+		input.setTo(0);
+		input(32,32)=1.0;
+		finder.fill(input);
+		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(0))[0], cv::sum(finder.get_layersG(1))[0], 1e-4);
+		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(1))[0], cv::sum(finder.get_layersG(2))[0], 1e-4);
+		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(2))[0], cv::sum(finder.get_layersG(3))[0], 1e-4);
+		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(3))[0], cv::sum(finder.get_layersG(4))[0], 1e-4);
+		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(0))[0], cv::sum(finder.get_layersG(4))[0], 1e-4);
+		cv::GaussianBlur(input, other, cv::Size(0,0), 2*1.6);
+		finder.preblur_and_fill(input);
+		BOOST_REQUIRE_CLOSE(cv::sum(finder.get_layersG(3))[0], cv::sum(other)[0], 1e-4);
+		BOOST_CHECK_CLOSE(finder.get_layersG(3)(32,32), other(32,32), 1e-2);
+		images_are_close(finder.get_layersG(3), other, 1e-4);
+	}
 	BOOST_AUTO_TEST_CASE( fill_speed )
 	{
 		OctaveFinder finder;
@@ -207,6 +226,27 @@ BOOST_AUTO_TEST_SUITE( local_max )
 		finder.initialize_binary();
 		for(int i=1; i<10; ++i)
 			BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(i))[0], 0);
+	}
+	BOOST_AUTO_TEST_CASE( local_max_rectangular )
+	{
+		OctaveFinder finder(151, 103);
+		cv::Mat_<double>input(151, 103), other(151, 103);
+		//the finder should contain a copy of the input data
+		input.setTo(0);
+		cv::circle(input, cv::Point(32, 32), 4, 1.0, -1);
+		finder.preblur_and_fill(input);
+		finder.initialize_binary();
+		BOOST_CHECK_EQUAL(finder.get_binary(2)(32, 32), true);
+		BOOST_CHECK_EQUAL(finder.get_binary(2)(33, 32), false);
+		BOOST_CHECK_EQUAL(finder.get_binary(2)(32, 33), false);
+		BOOST_CHECK_EQUAL(finder.get_binary(2)(31, 32), false);
+		BOOST_CHECK_EQUAL(finder.get_binary(2)(32, 31), false);
+		BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(2))[0], 1);
+		BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(1))[0], 0);
+		BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(3))[0], 0);
+		/*cv::imshow("layer",-finder.get_layers(2));
+		cv::imshow("binary", 255*finder.get_binary(2));
+		cv::waitKey();*/
 	}
 
 	BOOST_AUTO_TEST_CASE( multiple_circles_on_edges )
@@ -305,6 +345,29 @@ BOOST_AUTO_TEST_SUITE( subpix )
 	{
 		OctaveFinder finder;
 		cv::Mat_<double>input(256, 256);
+		input.setTo(0);
+		cv::circle(input, cv::Point(100, 200), 4, 1.0, -1);
+		finder.preblur_and_fill(input);
+		finder.initialize_binary();
+		BOOST_CHECK_EQUAL(finder.get_binary(2)(200, 100), 1);
+		std::vector<cv::Vec4d> v = finder.subpix();
+		BOOST_REQUIRE_EQUAL(v.size(), 1);
+		//x
+		BOOST_CHECK_GE(v[0][0], 99);
+		BOOST_CHECK_LE(v[0][0], 101);
+		//y
+		BOOST_CHECK_GE(v[0][1], 199);
+		BOOST_CHECK_LE(v[0][1], 201);
+		//scale
+		BOOST_CHECK_GE(v[0][2], 1);
+		BOOST_CHECK_LE(v[0][2], 3);
+
+	}
+
+	BOOST_AUTO_TEST_CASE( subpix_rectangular )
+	{
+		OctaveFinder finder(503, 151);
+		cv::Mat_<double>input(503, 151);
 		input.setTo(0);
 		cv::circle(input, cv::Point(100, 200), 4, 1.0, -1);
 		finder.preblur_and_fill(input);
@@ -445,7 +508,7 @@ BOOST_AUTO_TEST_SUITE( octave_minimum_size )
 			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
 			v =	finder(small_input, true);
 		}
-		BOOST_WARN_MESSAGE(false, "A detector smaller than "<< (i+1)<<" pixels cannot detect anything");
+		BOOST_WARN_MESSAGE(false, "An octave detector smaller than "<< (i+1)<<" pixels cannot detect anything");
 	}
 BOOST_AUTO_TEST_SUITE_END()
 
@@ -477,6 +540,84 @@ BOOST_AUTO_TEST_SUITE( multiscale_constructors )
 		BOOST_CHECK_EQUAL(finder.get_octave(5).get_width(), 16);
 		BOOST_CHECK_EQUAL(finder.get_octave(5).get_height(), 16);
 		BOOST_CHECK_EQUAL(finder.get_octave(5).get_n_layers(), 3);
+	}
+	BOOST_AUTO_TEST_CASE( multiscale_constructor_rectangular_flat )
+    {
+		MultiscaleFinder finder(101, 155, 1, 1.0);
+        BOOST_REQUIRE_EQUAL(finder.get_n_octaves(), 5);
+        BOOST_CHECK_EQUAL(finder.get_octave(1).get_width(), 101);
+        BOOST_CHECK_EQUAL(finder.get_octave(1).get_height(), 155);
+        BOOST_CHECK_EQUAL(finder.get_octave(0).get_width(), 202);
+        BOOST_CHECK_EQUAL(finder.get_octave(0).get_height(), 310);
+        BOOST_CHECK_EQUAL(finder.get_octave(2).get_width(), 50);
+        BOOST_CHECK_EQUAL(finder.get_octave(2).get_height(), 77);
+        BOOST_CHECK_EQUAL(finder.get_octave(3).get_width(), 25);
+        BOOST_CHECK_EQUAL(finder.get_octave(3).get_height(), 38);
+        BOOST_CHECK_EQUAL(finder.get_octave(4).get_width(), 12);
+        BOOST_CHECK_EQUAL(finder.get_octave(4).get_height(), 19);
+        BOOST_CHECK_CLOSE(finder.get_radius_preblur(), 1.0, 1e-9);
+        finder.set_radius_preblur(1.6);
+        BOOST_CHECK_CLOSE(finder.get_radius_preblur(), 1.6, 1e-9);
+    }
+BOOST_AUTO_TEST_SUITE_END()
+
+BOOST_AUTO_TEST_SUITE( multiscale_call )
+
+	BOOST_AUTO_TEST_CASE( single_circle )
+	{
+		MultiscaleFinder finder;
+		cv::Mat_<double>input(256, 256);
+		input.setTo(0);
+		cv::circle(input, cv::Point(128, 128), 4, 1.0, -1);
+		std::vector<cv::Vec4d> v = finder(input);
+		//the first octave's should be the same as the one of a Octavefinder of the same size
+		OctaveFinder ofinder;
+		ofinder.preblur_and_fill(input);
+		BOOST_CHECK_CLOSE(finder.get_octave(1).get_layers(0)(128,128), ofinder.get_layers(0)(128,128), 1e-9);
+		images_are_close(finder.get_octave(1).get_layers(0), ofinder.get_layers(0), 1e-4);
+		//with a radius of 4, the maximum should be in layer 2 of octave 1 and nowhere else
+		for(size_t o=0; o<finder.get_n_octaves(); ++o)
+			for(size_t l=1; l<finder.get_n_layers()+1; ++l)
+			{
+				const int u = cv::sum(finder.get_octave(o).get_binary(l))[0];
+				BOOST_CHECK_MESSAGE(
+						u == ((o==1 && l==2)?1:0),
+						"Octave "<<o<<" layer "<<l<<" has "<< u <<" center"<<((u>1)?"s":"")
+				);
+			}
+		BOOST_REQUIRE_EQUAL(v.size(), 1);
+		BOOST_CHECK_CLOSE(v[0][0], 128, 10);
+		BOOST_CHECK_CLOSE(v[0][1], 128, 10);
+		BOOST_CHECK_CLOSE(v[0][2], 4, 2);
+	}
+	BOOST_AUTO_TEST_CASE( Multiscale_rectangular )
+	{
+		MultiscaleFinder finder(101, 155);
+		BOOST_REQUIRE_EQUAL(finder.get_n_octaves(), 5);
+		cv::Mat_<double>input(101, 155);
+		input.setTo(0);
+		cv::circle(input, cv::Point(28, 28), 2, 1.0, -1);
+		std::vector<cv::Vec4d> v = finder(input);
+		//the first octave's should be the same as the one of a OctaveFinder of the same size
+		OctaveFinder ofinder(101, 155);
+		ofinder.preblur_and_fill(input);
+		BOOST_CHECK_CLOSE(finder.get_octave(1).get_layers(0)(28,28), ofinder.get_layers(0)(28,28), 1e-9);
+		images_are_close(finder.get_octave(1).get_layers(0), ofinder.get_layers(0), 1e-4);
+
+		//with a radius of 2, the maximum should be in layer 2 of octave 0 and nowhere else
+		for(size_t o=0; o<finder.get_n_octaves(); ++o)
+			for(size_t l=1; l<finder.get_n_layers()+1; ++l)
+			{
+				const int u = cv::sum(finder.get_octave(o).get_binary(l))[0];
+				BOOST_CHECK_MESSAGE(
+						u == ((o==0 && l==2)?1:0),
+						"Octave "<<o<<", layer "<<l<<" has "<< u <<" center"<<((u>1)?"s":"")
+				);
+			}
+		BOOST_REQUIRE_EQUAL(v.size(), 1);
+		BOOST_CHECK_CLOSE(v[0][0], 28, 10);
+		BOOST_CHECK_CLOSE(v[0][1], 28, 10);
+		BOOST_CHECK_CLOSE(v[0][2], 4, 2);
 	}
 BOOST_AUTO_TEST_SUITE_END()
 
