@@ -605,6 +605,12 @@ BOOST_AUTO_TEST_SUITE( multiscale_call )
 		images_are_close(finder.get_octave(1).get_layers(0), ofinder.get_layers(0), 1e-4);
 
 		//with a radius of 2, the maximum should be in layer 2 of octave 0 and nowhere else
+		BOOST_CHECK_LT(finder.get_octave(0).get_layers(2)(56, 56), finder.get_octave(0).get_layers(2)(55, 56));
+		BOOST_CHECK_LT(finder.get_octave(0).get_layers(2)(56, 56), finder.get_octave(0).get_layers(2)(57, 56));
+		BOOST_CHECK_LT(finder.get_octave(0).get_layers(2)(56, 56), finder.get_octave(0).get_layers(2)(56, 55));
+		BOOST_CHECK_LT(finder.get_octave(0).get_layers(2)(56, 56), finder.get_octave(0).get_layers(2)(56, 57));
+		//cv::imshow("o0 binary2", 255*finder.get_octave(0).get_binary(2));
+		//cv::waitKey();
 		for(size_t o=0; o<finder.get_n_octaves(); ++o)
 			for(size_t l=1; l<finder.get_n_layers()+1; ++l)
 			{
@@ -617,7 +623,7 @@ BOOST_AUTO_TEST_SUITE( multiscale_call )
 		BOOST_REQUIRE_EQUAL(v.size(), 1);
 		BOOST_CHECK_CLOSE(v[0][0], 28, 10);
 		BOOST_CHECK_CLOSE(v[0][1], 28, 10);
-		BOOST_CHECK_CLOSE(v[0][2], 4, 2);
+		BOOST_CHECK_CLOSE(v[0][2], 2, 5);
 	}
 BOOST_AUTO_TEST_SUITE_END()
 

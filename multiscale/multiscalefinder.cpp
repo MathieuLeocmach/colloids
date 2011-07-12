@@ -7,7 +7,7 @@
 
 #include "multiscalefinder.hpp"
 #include <stdexcept>
-#include <iostream>
+//#include <iostream>
 
 using namespace std;
 
@@ -58,31 +58,25 @@ namespace Colloids {
     			this->upscaled(2*i, 2*j) = small(i,j);
     	for(int j=0; 2*j<this->upscaled.cols; ++j)
 			for(int i=0; 2*i+1<this->upscaled.rows; ++i)
-				this->upscaled(2*i+1, 2*j) = small(i,j);
+				this->upscaled(2*i+1, 2*j) = 0.5*(small(i,j)+small(i+1,j));
     	for(int j=0; 2*j+1<this->upscaled.cols; ++j)
 			for(int i=0; 2*i<this->upscaled.rows; ++i)
-				this->upscaled(2*i, 2*j+1) = small(i,j);
+				this->upscaled(2*i, 2*j+1) = 0.5*(small(i,j)+small(i, j+1));
     	for(int j=0; 2*j+1<this->upscaled.cols; ++j)
 			for(int i=0; 2*i+1<this->upscaled.rows; ++i)
-				this->upscaled(2*i+1, 2*j+1) = small(i,j);
+				this->upscaled(2*i+1, 2*j+1) = 0.25*(small(i,j)+small(i+1,j)+small(i, j+1)+small(i+1, j+1));
 
-    	std::cout<<"upscale ok"<<std::endl;
     	std::vector<cv::Vec4d> centers = (*this->octaves[0])(this->upscaled, true);
-    	std::cout<<"octave 0 ok"<<std::endl;
     	for(size_t c=0; c<centers.size(); ++c)
     		for(size_t i=0; i<3;++i)
     			centers[c][i] /= 2.0;
-    	std::cout<<"scaling octave 0 ok"<<std::endl;
     	//Octave 1 corresponds to the size of the input image.
     	//To avoid errors in the upsampling+downsampling process, we use the input directly
     	if(this->octaves.size()>1)
     	{
-    		std::cout<<"Ready for octave 1"<<std::endl;
     		std::vector<cv::Vec4d> v = (*this->octaves[1])(input, true);
-    		std::cout<<"octave 1 ok"<<std::endl;
     		centers.reserve(centers.size() + v.size());
     		std::copy(v.begin(), v.end(), std::back_inserter(centers));
-    		std::cout<<"adding octave 1 ok"<<std::endl;
     	}
 
     	for(size_t o=2; o<this->octaves.size(); ++o)
@@ -104,7 +98,6 @@ namespace Colloids {
     				v[c][i] *= pow(2, o-1);
     			centers.push_back(v[c]);
     		}
-    		std::cout<<"octave "<<o<<" ok"<<std::endl;
     	}
 
     	return centers;
