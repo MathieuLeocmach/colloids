@@ -22,6 +22,7 @@ namespace Colloids
             const double & get_radius_preblur() const {return this->preblur_radius;}
             void set_radius_preblur(const double &k=1.6);
             const double & get_iterative_radius(const size_t l) const {return this->iterative_radii[l];};
+            const double get_iterative_radius(const double &larger, const double &smaller) const;
             const size_t & get_size(const size_t l) const {return this->sizes[l];};
             inline const cv::Mat_<bool> & get_binary(const size_t l) const {return binary[l-1];};
 			inline const cv::Mat_<double> & get_layersG(const size_t l) const {return layersG[l];}
@@ -35,6 +36,7 @@ namespace Colloids
             cv::Vec4d single_subpix(const cv::Vec3i & ci) const;
             void scale(std::vector<cv::Vec4d> &centers) const;
             std::vector<cv::Vec4d> operator()(const cv::Mat &input, const bool preblur=false);
+            double gaussianResponse(const size_t &i, const size_t &j, const double & scale) const;
 
 
     protected:

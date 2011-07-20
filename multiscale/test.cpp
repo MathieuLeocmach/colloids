@@ -78,6 +78,7 @@ BOOST_AUTO_TEST_SUITE( iterative_radius )
 		BOOST_CHECK_EQUAL(finder.get_size(4), 6);
 		BOOST_CHECK_EQUAL(finder.get_size(5), 7);
 		BOOST_CHECK_CLOSE(finder.get_iterative_radius(4), 3.09001559, 1e-6);
+		BOOST_CHECK_CLOSE(finder.get_iterative_radius(4), finder.get_iterative_radius(5.0, 4.0), 1e-9);
 		finder.set_radius_preblur(1.0);
 		BOOST_CHECK_EQUAL(finder.get_size(0), 1);
 		BOOST_CHECK_EQUAL(finder.get_size(1), 2);
@@ -85,6 +86,7 @@ BOOST_AUTO_TEST_SUITE( iterative_radius )
 		BOOST_CHECK_EQUAL(finder.get_size(3), 3);
 		BOOST_CHECK_EQUAL(finder.get_size(4), 4);
 		BOOST_CHECK_EQUAL(finder.get_size(5), 4);
+		BOOST_CHECK_CLOSE(finder.get_iterative_radius(4), finder.get_iterative_radius(5.0, 4.0), 1e-9);
 	}
 	BOOST_AUTO_TEST_CASE(iterative_radius_flat)
     {
@@ -210,6 +212,12 @@ BOOST_AUTO_TEST_SUITE( local_max )
 		/*cv::namedWindow("truc");
 		cv::imshow("truc", 255*finder.get_binary(2));
 		cv::waitKey();*/
+		//gaussian response
+		BOOST_CHECK_LT(finder.gaussianResponse(128, 128, 2.5), finder.gaussianResponse(128, 128, 2.0));
+		BOOST_CHECK_LT(finder.gaussianResponse(128, 128, 3.5), finder.gaussianResponse(128, 128, 2.5));
+		BOOST_CHECK_LT(finder.gaussianResponse(128, 128, 3.5), finder.gaussianResponse(128, 128, 3.0));
+		BOOST_CHECK_GT(finder.gaussianResponse(128, 128, 2.5)-finder.gaussianResponse(128, 128, 1.5), finder.get_layers(2)(128, 128));
+		BOOST_CHECK_GT(finder.gaussianResponse(128, 128, 3.5)-finder.gaussianResponse(128, 128, 2.5), finder.get_layers(2)(128, 128));
 	}
 
 	BOOST_AUTO_TEST_CASE( empty_rectangular )
@@ -361,7 +369,15 @@ BOOST_AUTO_TEST_SUITE( subpix )
 		//scale
 		BOOST_CHECK_GE(v[0][2], 1);
 		BOOST_CHECK_LE(v[0][2], 3);
-
+		//gaussian response
+		BOOST_CHECK_CLOSE(finder.gaussianResponse(200, 100, 2.0), finder.get_layersG(2)(200, 100), 1e-9);
+		BOOST_CHECK_CLOSE(finder.gaussianResponse(200, 100, 3.0)-finder.gaussianResponse(200, 100, 2.0), finder.get_layers(2)(200, 100), 1e-9);
+		BOOST_CHECK_LT(finder.gaussianResponse(200, 100, 3.0), finder.gaussianResponse(200, 100, 2.0));
+		BOOST_CHECK_LT(finder.gaussianResponse(200, 100, 2.5), finder.gaussianResponse(200, 100, 2.0));
+		BOOST_CHECK_LT(finder.gaussianResponse(200, 100, 3.5), finder.gaussianResponse(200, 100, 2.5));
+		BOOST_CHECK_LT(finder.gaussianResponse(200, 100, 3.5), finder.gaussianResponse(200, 100, 3.0));
+		BOOST_CHECK_GT(finder.gaussianResponse(200, 100, 2.5)-finder.gaussianResponse(200, 100, 1.5), finder.get_layers(2)(200, 100));
+		BOOST_CHECK_GT(finder.gaussianResponse(200, 100, 3.5)-finder.gaussianResponse(200, 100, 2.5), finder.get_layers(2)(200, 100));
 	}
 
 	BOOST_AUTO_TEST_CASE( subpix_rectangular )
@@ -510,6 +526,28 @@ BOOST_AUTO_TEST_SUITE( octave_minimum_size )
 		}
 		BOOST_WARN_MESSAGE(false, "An octave detector smaller than "<< (i+1)<<" pixels cannot detect anything");
 	}
+	BOOST_AUTO_TEST_CASE( size_at_border )
+	{
+		OctaveFinder finder(32,32);
+		//cv cannot draw circle sizes better than a pixel, so the input image is drawn in high resolution
+		cv::Mat_<uchar>input(32*32, 32*32), small_input(32,32);
+		for(int i = 32*16; i>32*4; --i)
+		{
+			const double position = i/32.0;
+			input.setTo(0);
+			cv::circle(input, cv::Point(32*16, i), 32*4, 255, -1);
+			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
+			std::vector<cv::Vec4d> v_s = finder(small_input, true);
+			BOOST_CHECK_MESSAGE(
+				v_s.size()==1,
+				""<<((v_s.size()==0)?"No center":"More than one center")<<" for input position "<<position
+				);
+			//BOOST_CHECK_CLOSE(v_s[0][2], 4, 2);
+			for(size_t j=0; j<v_s.size(); ++j)
+				std::cout <<"["<< position << ", " << v_s[j][2] << "], ";
+		}
+		std::cout<<std::endl;
+	}
 BOOST_AUTO_TEST_SUITE_END()
 
 BOOST_AUTO_TEST_SUITE_END() //octave
@@ -624,6 +662,35 @@ BOOST_AUTO_TEST_SUITE( multiscale_call )
 		BOOST_CHECK_CLOSE(v[0][0], 28, 10);
 		BOOST_CHECK_CLOSE(v[0][1], 28, 10);
 		BOOST_CHECK_CLOSE(v[0][2], 2, 5);
+	}
+	BOOST_AUTO_TEST_CASE( multiscale_relative_sizes )
+	{
+		const int s = 5;
+		MultiscaleFinder finder(pow(2, s+1), pow(2, s+1));
+		//cv cannot draw circle sizes better than a pixel, so the input image is drawn in high resolution
+		cv::Mat_<uchar>input(32*pow(2, s+1), 32*pow(2, s+1)), small_input(pow(2, s+1), pow(2, s+1));
+		std::vector<cv::Vec4d> v;
+		for(int k=1; k<s; ++k)
+			for(int i=0; i<32; ++i)
+			{
+				input.setTo(0);
+				const int large_radius = 32*1.5*pow(2, k-1)+i*pow(2, k);
+				const double radius =  large_radius/32.0;
+				cv::circle(input, cv::Point(32*pow(2, s), 32*pow(2, s)), large_radius, 255, -1);
+				cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
+				std::vector<cv::Vec4d> v_s = finder(small_input);
+				BOOST_CHECK_MESSAGE(
+						v_s.size()==1,
+						""<<((v_s.size()==0)?"No center":"More than one center")<<" for input radius "<<radius
+						);
+				/*if(radius<pow(2, s-1))
+					BOOST_CHECK_CLOSE(v_s[0][2], radius, 5);*/
+				std::copy(v_s.begin(), v_s.end(), std::back_inserter(v));
+				for(size_t j=0; j<v_s.size(); ++j)
+					std::cout <<"["<< radius << ", " << v_s[j][2] << "], ";
+			}
+		std::cout<<std::endl;
+		BOOST_REQUIRE_EQUAL(v.size(), 32*(s-1));
 	}
 BOOST_AUTO_TEST_SUITE_END()
 
