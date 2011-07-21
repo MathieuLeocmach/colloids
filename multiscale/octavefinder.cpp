@@ -165,7 +165,7 @@ void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
 			return this->layersG[k](i, j);
 		const double sigma = this->get_iterative_radius(scale, (double)k);
 		//opencv is NOT dealing right with ROI (even if boasting about it), so we do it by hand
-		const int m = (int)(sigma*8 + 1 + 0.5)|1;
+		const int m = ((int)(sigma*4+0.5)*2 + 1)|1;
 		vector<double> gx(m, 0.0);
 		cv::Mat_<double> kernel = cv::getGaussianKernel(m, sigma, this->layersG[0].type());
 		for(int x=0; x<m; ++x)
@@ -230,6 +230,11 @@ void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
         		this->layers[k + 1](j, i)}};
         //Apply newton's method using quadratic estimate of the derivative
         c[2] = k - (-a[4] + 8*a[3] - 8*a[1] + a[0])/6.0 /(a[4]-2*a[2]+a[0]);
+        //saturate the results
+        if(c[2]>k+0.5)
+        	c[2]= k + 0.5;
+        if(c[2]<k-0.5)
+        	c[2]= k- 0.5;
         //second round of newton's method
         if(c[2]>=2)
         {
@@ -243,6 +248,8 @@ void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
         }
         if(c[2]<k-0.5)
 			c[2]= k- 0.5;
+        if(c[2]>k+0.5)
+			c[2]= k + 0.5;
         return c;
     }
 

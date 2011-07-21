@@ -529,6 +529,7 @@ BOOST_AUTO_TEST_SUITE( octave_minimum_size )
 		OctaveFinder finder(32,32);
 		//cv cannot draw circle sizes better than a pixel, so the input image is drawn in high resolution
 		cv::Mat_<uchar>input(32*32, 32*32), small_input(32,32);
+		std::ofstream f("size_at_border.out");
 		for(int i = 32*16; i>32*4; --i)
 		{
 			const double position = i/32.0;
@@ -540,11 +541,11 @@ BOOST_AUTO_TEST_SUITE( octave_minimum_size )
 				v_s.size()==1,
 				""<<((v_s.size()==0)?"No center":"More than one center")<<" for input position "<<position
 				);
-			//BOOST_CHECK_CLOSE(v_s[0][2], 4, 2);
+			BOOST_CHECK_CLOSE(v_s[0][2], 4, 50);
 			for(size_t j=0; j<v_s.size(); ++j)
-				std::cout <<"["<< position << ", " << v_s[j][2] << "], ";
+				f << position << "\t" << v_s[j][2] << "\n";
 		}
-		std::cout<<std::endl;
+		f<<std::endl;
 	}
 BOOST_AUTO_TEST_SUITE_END()
 
