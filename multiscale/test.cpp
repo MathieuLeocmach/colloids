@@ -1,14 +1,12 @@
 #define BOOST_TEST_MODULE multiscale test
 #define BOOST_TEST_DYN_LINK
 
+#include "multiscalefinder.hpp"
+#include <fstream>
 #include <boost/test/unit_test.hpp>
 #include <boost/progress.hpp>
-//#include <boost/lambda/lambda.hpp>
-
-#include "multiscalefinder.hpp"
 
 using namespace Colloids;
-//using namespace boost::lambda;
 
 void images_are_close(const cv::Mat &a, const cv::Mat &b, double precision=1e-9)
 {
@@ -670,6 +668,7 @@ BOOST_AUTO_TEST_SUITE( multiscale_call )
 		//cv cannot draw circle sizes better than a pixel, so the input image is drawn in high resolution
 		cv::Mat_<uchar>input(32*pow(2, s+1), 32*pow(2, s+1)), small_input(pow(2, s+1), pow(2, s+1));
 		std::vector<cv::Vec4d> v;
+		std::ofstream f("multiscale_relative_sizes.out");
 		for(int k=1; k<s; ++k)
 			for(int i=0; i<32; ++i)
 			{
@@ -687,9 +686,9 @@ BOOST_AUTO_TEST_SUITE( multiscale_call )
 					BOOST_CHECK_CLOSE(v_s[0][2], radius, 5);*/
 				std::copy(v_s.begin(), v_s.end(), std::back_inserter(v));
 				for(size_t j=0; j<v_s.size(); ++j)
-					std::cout <<"["<< radius << ", " << v_s[j][2] << "], ";
+					f << radius << "\t" << v_s[j][2] << "\n";
 			}
-		std::cout<<std::endl;
+		f<<std::endl;
 		BOOST_REQUIRE_EQUAL(v.size(), 32*(s-1));
 	}
 BOOST_AUTO_TEST_SUITE_END()

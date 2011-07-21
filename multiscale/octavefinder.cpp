@@ -216,19 +216,33 @@ void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
         for(int u = 0;u < 2;++u)
             c[u] /= c[3];
 
-        //scale is better defined if we consider only 3 pixels
-        boost::array<double,3> a = {{this->layers[k - 1](j, i), this->layers[k](j, i), this->layers[k + 1](j, i)}};
-        //Netwon's method
-        c[2] = k - (a[2] - a[0]) / 2.0 / (a[2] - 2 * a[1] + a[0]);
-        //Refine scale axis
-        boost::array<double,3> sublayerG;
-        for(int u = 0;u < 3;++u){
-            sublayerG[u] = this->gaussianResponse(i, j, k - 0.5 + u);
+        //scale is better defined if we consider only the central pixel at different scales
+        //Compute intermediate variables to do a quadratic estimate of the derivative
+        boost::array<double,8> sublayerG;
+		for(int u = 0;u < 3;++u)
+			sublayerG[u] = this->gaussianResponse(i, j, k - 0.5 + u);
+
+        boost::array<double,5> a = {{
+        		this->layers[k - 1](j, i),
+        		sublayerG[1] - sublayerG[0],
+        		this->layers[k](j, i),
+        		sublayerG[2] - sublayerG[1],
+        		this->layers[k + 1](j, i)}};
+        //Apply newton's method using quadratic estimate of the derivative
+        c[2] = k - (-a[4] + 8*a[3] - 8*a[1] + a[0])/6.0 /(a[4]-2*a[2]+a[0]);
+        //second round of newton's method
+        if(c[2]>=2)
+        {
+        	if(c[2]<k)
+        		c[2]= k- 0.5;
+			for(size_t u = 0;u < sublayerG.size(); ++u)
+				sublayerG[u] = this->gaussianResponse(i, j, c[2] - 1 + 0.5*u);
+			for(size_t u =0; u<a.size();++u)
+				a[u] = sublayerG[u+2] - sublayerG[u];
+			c[2] -= (-a[4] + 8*a[3] - 8*a[1] + a[0])/6.0 /(a[4]-2*a[2]+a[0]);
         }
-        boost::array<double,5> sublayers = {{a[0], sublayerG[1] - sublayerG[0], a[1], sublayerG[2] - sublayerG[1], a[2]}};
-        //assert(sublayers[0]>sublayers[1]);
-        //assert(sublayers[4]>sublayers[3]);
-        c[2] = k + (std::min_element(sublayers.begin(), sublayers.end()) - sublayers.begin()) * 0.5 - 1;
+        if(c[2]<k-0.5)
+			c[2]= k- 0.5;
         return c;
     }
 
