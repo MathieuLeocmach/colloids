@@ -153,7 +153,7 @@ void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
 
     }
 
-    double Colloids::OctaveFinder::gaussianResponse(const size_t & i, const size_t & j, const double & scale) const
+    double Colloids::OctaveFinder::gaussianResponse(const size_t & j, const size_t & i, const double & scale) const
     {
         if(scale < 0)
             throw std::invalid_argument("Colloids::OctaveFinder::gaussianResponse: the scale must be positive.");
@@ -162,7 +162,7 @@ void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
         if (k>=this->layersG.size())
         	k = this->layersG.size()-1;
 		if((scale - k) * (scale - k) + 1 == 1)
-			return this->layersG[k](i, j);
+			return this->layersG[k](j, i);
 		const double sigma = this->get_iterative_radius(scale, (double)k);
 		//opencv is NOT dealing right with ROI (even if boasting about it), so we do it by hand
 		const int m = ((int)(sigma*4+0.5)*2 + 1)|1;
@@ -170,7 +170,7 @@ void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
 		cv::Mat_<double> kernel = cv::getGaussianKernel(m, sigma, this->layersG[0].type());
 		for(int x=0; x<m; ++x)
 			for(int y=0; y<m; ++y)
-				gx[x] += layersG[k](i-x+m/2,j-y+m/2) * kernel(y,0);
+				gx[x] += layersG[k](j-y+m/2, i-x+m/2) * kernel(y,0);
 		double resp = 0.0;
 		for(int x=0; x<m; ++x)
 			resp += gx[x] * kernel(x,0);
@@ -220,7 +220,7 @@ void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
         //Compute intermediate variables to do a quadratic estimate of the derivative
         boost::array<double,8> sublayerG;
 		for(int u = 0;u < 3;++u)
-			sublayerG[u] = this->gaussianResponse(i, j, k - 0.5 + u);
+			sublayerG[u] = this->gaussianResponse(j, i, k - 0.5 + u);
 
         boost::array<double,5> a = {{
         		this->layers[k - 1](j, i),
@@ -236,15 +236,22 @@ void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
         if(c[2]<k-0.5)
         	c[2]= k- 0.5;
         //second round of newton's method
-        if(c[2]>=2)
+        if(c[2]>=1)
         {
         	if(c[2]<k)
         		c[2]= k- 0.5;
 			for(size_t u = 0;u < sublayerG.size(); ++u)
-				sublayerG[u] = this->gaussianResponse(i, j, c[2] - 1 + 0.5*u);
+				sublayerG[u] = this->gaussianResponse(j, i, c[2] - 1 + 0.5*u);
 			for(size_t u =0; u<a.size();++u)
 				a[u] = sublayerG[u+2] - sublayerG[u];
 			c[2] -= (-a[4] + 8*a[3] - 8*a[1] + a[0])/6.0 /(a[4]-2*a[2]+a[0]);
+        }
+        else
+        {
+        	//for sizes significantly below the sampled scale
+        	//the linear estimate of the derivative is (marginally) better
+			if(c[2]+0.25<k)
+				c[2] = k - (a[3] - a[1])/(a[4]-2*a[2]+a[0]);
         }
         if(c[2]<k-0.5)
 			c[2]= k- 0.5;

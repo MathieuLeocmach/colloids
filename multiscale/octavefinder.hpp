@@ -36,7 +36,7 @@ namespace Colloids
             cv::Vec4d single_subpix(const cv::Vec3i & ci) const;
             void scale(std::vector<cv::Vec4d> &centers) const;
             std::vector<cv::Vec4d> operator()(const cv::Mat &input, const bool preblur=false);
-            double gaussianResponse(const size_t &i, const size_t &j, const double & scale) const;
+            double gaussianResponse(const size_t &j, const size_t &i, const double & scale) const;
 
 
     protected:
