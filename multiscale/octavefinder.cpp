@@ -153,32 +153,7 @@ void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
 
     }
 
-    double Colloids::OctaveFinder::gaussianResponse(const size_t & j, const size_t & i, const double & scale) const
-    {
-        if(scale < 0)
-            throw std::invalid_argument("Colloids::OctaveFinder::gaussianResponse: the scale must be positive.");
-
-        size_t k = (size_t)(scale);
-        if (k>=this->layersG.size())
-        	k = this->layersG.size()-1;
-		if((scale - k) * (scale - k) + 1 == 1)
-			return this->layersG[k](j, i);
-		const double sigma = this->get_iterative_radius(scale, (double)k);
-		//opencv is NOT dealing right with ROI (even if boasting about it), so we do it by hand
-		const int m = ((int)(sigma*4+0.5)*2 + 1)|1;
-		vector<double> gx(m, 0.0);
-		cv::Mat_<double> kernel = cv::getGaussianKernel(m, sigma, this->layersG[0].type());
-		for(int x=0; x<m; ++x)
-			for(int y=0; y<m; ++y)
-				gx[x] += layersG[k](j-y+m/2, i-x+m/2) * kernel(y,0);
-		double resp = 0.0;
-		for(int x=0; x<m; ++x)
-			resp += gx[x] * kernel(x,0);
-
-        return resp;
-    }
-
-    cv::Vec4d Colloids::OctaveFinder::single_subpix(const cv::Vec3i & ci) const
+	cv::Vec4d Colloids::OctaveFinder::spatial_subpix(const cv::Vec3i & ci) const
     {
         const size_t i = ci[0], j = ci[1], k = ci[2];
         //look for the pedestal
@@ -215,48 +190,83 @@ void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
 
         for(int u = 0;u < 2;++u)
             c[u] /= c[3];
+        return c;
+    }
 
-        //scale is better defined if we consider only the central pixel at different scales
-        //Compute intermediate variables to do a quadratic estimate of the derivative
-        boost::array<double,8> sublayerG;
-		for(int u = 0;u < 3;++u)
-			sublayerG[u] = this->gaussianResponse(j, i, k - 0.5 + u);
+    double Colloids::OctaveFinder::gaussianResponse(const size_t & j, const size_t & i, const double & scale) const
+    {
+        if(scale < 0)
+            throw std::invalid_argument("Colloids::OctaveFinder::gaussianResponse: the scale must be positive.");
 
-        boost::array<double,5> a = {{
-        		this->layers[k - 1](j, i),
-        		sublayerG[1] - sublayerG[0],
-        		this->layers[k](j, i),
-        		sublayerG[2] - sublayerG[1],
-        		this->layers[k + 1](j, i)}};
-        //Apply newton's method using quadratic estimate of the derivative
-        c[2] = k - (-a[4] + 8*a[3] - 8*a[1] + a[0])/6.0 /(a[4]-2*a[2]+a[0]);
-        //saturate the results
-        if(c[2]>k+0.5)
-        	c[2]= k + 0.5;
-        if(c[2]<k-0.5)
-        	c[2]= k- 0.5;
-        //second round of newton's method
-        if(c[2]>=1)
-        {
-        	if(c[2]<k)
-        		c[2]= k- 0.5;
+        size_t k = (size_t)(scale);
+        if (k>=this->layersG.size())
+        	k = this->layersG.size()-1;
+		if((scale - k) * (scale - k) + 1 == 1)
+			return this->layersG[k](j, i);
+		const double sigma = this->get_iterative_radius(scale, (double)k);
+		//opencv is NOT dealing right with ROI (even if boasting about it), so we do it by hand
+		const int m = ((int)(sigma*4+0.5)*2 + 1)|1;
+		vector<double> gx(m, 0.0);
+		cv::Mat_<double> kernel = cv::getGaussianKernel(m, sigma, this->layersG[0].type());
+		for(int x=0; x<m; ++x)
+			for(int y=0; y<m; ++y)
+				gx[x] += layersG[k](j-y+m/2, i-x+m/2) * kernel(y,0);
+		double resp = 0.0;
+		for(int x=0; x<m; ++x)
+			resp += gx[x] * kernel(x,0);
+
+        return resp;
+    }
+    double Colloids::OctaveFinder::scale_subpix(const cv::Vec3i & ci) const
+    {
+    	const size_t i = ci[0], j = ci[1], k = ci[2];
+		//scale is better defined if we consider only the central pixel at different scales
+		//Compute intermediate variables to do a quadratic estimate of the derivative
+		boost::array<double,8> sublayerG;
+		for(size_t u = 0;u < sublayerG.size(); ++u)
+			sublayerG[u] = this->gaussianResponse(j, i, k - 1 + 0.5*u);
+
+		boost::array<double,5> a;
+		for(size_t u =0; u<a.size();++u)
+			a[u] = sublayerG[u+2] - sublayerG[u];
+		//Apply newton's method using quadratic estimate of the derivative
+		double s = k - (-a[4] + 8*a[3] - 8*a[1] + a[0])/6.0 /(a[4]-2*a[2]+a[0]);
+		//saturate the results
+		if(s>k+0.5)
+			s= k + 0.5;
+		if(s<k-0.5)
+			s= k- 0.5;
+		//second round of newton's method
+		if(s>=1)
+		{
+			if(s+0.1<k)
+			{
+				s= k- 0.5;
 			for(size_t u = 0;u < sublayerG.size(); ++u)
-				sublayerG[u] = this->gaussianResponse(j, i, c[2] - 1 + 0.5*u);
+				sublayerG[u] = this->gaussianResponse(j, i, s - 1 + 0.5*u);
 			for(size_t u =0; u<a.size();++u)
 				a[u] = sublayerG[u+2] - sublayerG[u];
-			c[2] -= (-a[4] + 8*a[3] - 8*a[1] + a[0])/6.0 /(a[4]-2*a[2]+a[0]);
-        }
-        else
-        {
-        	//for sizes significantly below the sampled scale
-        	//the linear estimate of the derivative is (marginally) better
-			if(c[2]+0.25<k)
-				c[2] = k - (a[3] - a[1])/(a[4]-2*a[2]+a[0]);
-        }
-        if(c[2]<k-0.5)
-			c[2]= k- 0.5;
-        if(c[2]>k+0.5)
-			c[2]= k + 0.5;
+			s -= (-a[4] + 8*a[3] - 8*a[1] + a[0])/6.0 /(a[4]-2*a[2]+a[0]);
+			}
+		}
+		else
+		{
+			//for sizes significantly below the sampled scale
+			//the linear estimate of the derivative is (marginally) better
+			if(s+0.25<k)
+				s = k - (a[3] - a[1])/(a[4]-2*a[2]+a[0]);
+		}
+		if(s<k-0.5)
+			s= k- 0.5;
+		if(s>k+0.5)
+			s= k + 0.5;
+		return s;
+    }
+
+    cv::Vec4d Colloids::OctaveFinder::single_subpix(const cv::Vec3i & ci) const
+    {
+        cv::Vec4d c = this->spatial_subpix(ci);
+        c[2] = this->scale_subpix(ci);
         return c;
     }
 

@@ -571,6 +571,7 @@ BOOST_AUTO_TEST_SUITE( octave_minimum_size )
 		for(int i = 32*16; i>32*4; --i)
 		{
 			const double position = i/32.0;
+			BOOST_TEST_CHECKPOINT("position = "<<position);
 			input.setTo(0);
 			cv::circle(input, cv::Point(32*16, i), 32*4, 255, -1);
 			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
@@ -722,15 +723,18 @@ BOOST_AUTO_TEST_SUITE( multiscale_call )
 				input.setTo(0);
 				const int large_radius = 32*1.5*pow(2, k-1)+i*pow(2, k);
 				const double radius =  large_radius/32.0;
+				BOOST_TEST_CHECKPOINT("radius = "<<radius<<" call");
 				cv::circle(input, cv::Point(32*pow(2, s), 32*pow(2, s)), large_radius, 255, -1);
 				cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
 				std::vector<cv::Vec4d> v_s = finder(small_input);
+				BOOST_TEST_CHECKPOINT("radius = "<<radius<<" size");
 				BOOST_CHECK_MESSAGE(
 						v_s.size()==1,
 						""<<((v_s.size()==0)?"No center":"More than one center")<<" for input radius "<<radius
 						);
 				/*if(radius<pow(2, s-1))
 					BOOST_CHECK_CLOSE(v_s[0][2], radius, 5);*/
+				BOOST_TEST_CHECKPOINT("radius = "<<radius<<" copy");
 				std::copy(v_s.begin(), v_s.end(), std::back_inserter(v));
 				for(size_t j=0; j<v_s.size(); ++j)
 					f << radius << "\t" << v_s[j][2] << "\n";

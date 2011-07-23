@@ -7,7 +7,7 @@
 
 #include "multiscalefinder.hpp"
 #include <stdexcept>
-//#include <iostream>
+#include <iostream>
 
 using namespace std;
 
@@ -50,6 +50,11 @@ namespace Colloids {
     	if(input.cols != (int)this->get_height())
     	    throw std::invalid_argument("MultiscaleFinder::operator () : the input's cols must match the height of the finder");
 
+    	const double
+			n = this->get_n_layers(),
+			prefactor = 2.0 * this->get_radius_preblur() * sqrt(log(2.0) / n / (pow(2.0, 2.0 / n) - 1)),
+			kmax = prefactor * pow(2.0, 2.0/n);
+
     	input.convertTo(small, this->small.type());
     	//upscale the input to fill the first octave
     	//cv::resize does not work with double input, so we do it by hand
@@ -75,8 +80,21 @@ namespace Colloids {
     	if(this->octaves.size()>1)
     	{
     		std::vector<cv::Vec4d> v = (*this->octaves[1])(input, true);
+    		//correct the seam between octaves in sizing precision
+    		for(size_t p=0; p<v.size(); ++p)
+    		{
+    		    if(v[p][2]<kmax)
+    		    {
+    		    	cv::Vec3i vi;
+    		    	for(int u=0; u<2; ++u)
+    		    		vi[u] = (int)(v[p][u]*2+0.5);
+    		    	vi[2] = (int)(log(v[p][2] / prefactor) * n / log(2) -1 + n + 0.5);
+    		    	v[p][2] = 0.5* prefactor * pow(2.0, (this->octaves[0]->scale_subpix(vi) + 1) / n);
+    		    }
+    		}
     		centers.reserve(centers.size() + v.size());
     		std::copy(v.begin(), v.end(), std::back_inserter(centers));
+
     	}
 
     	for(size_t o=2; o<this->octaves.size(); ++o)
@@ -91,6 +109,18 @@ namespace Colloids {
     			for(int i=0; i<roi2.cols; ++i)
     				roi2(i,j) = (a(2*i, 2*j) + a(2*i+1, 2*j) + a(2*i, 2*j+1) + a(2*i+1, 2*j+1))/4.0;
     		std::vector<cv::Vec4d> v = (*this->octaves[o])(roi2);
+    		//correct the seam between octaves in sizing precision
+			for(size_t p=0; p<v.size(); ++p)
+			{
+				if(v[p][2]<kmax)
+				{
+					cv::Vec3i vi;
+					for(int u=0; u<2; ++u)
+						vi[u] = (int)(v[p][u]*2+0.5);
+					vi[2] = (int)(log(v[p][2] / prefactor) * n / log(2) -1 + n + 0.5);
+					v[p][2] = 0.5* prefactor * pow(2.0, (this->octaves[o-1]->scale_subpix(vi) + 1) / n);
+				}
+			}
     		centers.reserve(centers.size() + v.size());
     		for(size_t c=0; c<v.size(); ++c)
     		{

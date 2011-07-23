@@ -34,6 +34,8 @@ namespace Colloids
             void initialize_binary(const double &max_ratio = 1.1);
             std::vector<cv::Vec4d> subpix() const;
             cv::Vec4d single_subpix(const cv::Vec3i & ci) const;
+            cv::Vec4d spatial_subpix(const cv::Vec3i & ci) const;
+            double scale_subpix(const cv::Vec3i & ci) const;
             void scale(std::vector<cv::Vec4d> &centers) const;
             std::vector<cv::Vec4d> operator()(const cv::Mat &input, const bool preblur=false);
             double gaussianResponse(const size_t &j, const size_t &i, const double & scale) const;
