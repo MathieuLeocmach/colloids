@@ -443,12 +443,12 @@ BOOST_AUTO_TEST_SUITE( subpix )
 	{
 		OctaveFinder finder(32, 32);
 		//cv cannot draw circle positions better than a pixel, so the input image is drawn in high resolution
-		cv::Mat_<uchar>input(8*32, 8*32), small_input(32,32);
+		cv::Mat_<uchar>input(32*32, 32*32), small_input(32,32);
 		std::vector<cv::Vec4d> v;
 		for(int i=0; i<7; ++i)
 		{
 			input.setTo(0);
-			cv::circle(input, cv::Point(8*(16+pow(0.5, i+1)), 8*16), 8*4, 255, -1);
+			cv::circle(input, cv::Point(32*(16+pow(0.5, i+1)), 32*16), 32*4, 255, -1);
 			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
 			finder.preblur_and_fill(small_input);
 			finder.initialize_binary();

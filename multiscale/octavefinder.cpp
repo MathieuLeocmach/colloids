@@ -158,8 +158,10 @@ void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
         const size_t i = ci[0], j = ci[1], k = ci[2];
         cv::Vec4d c(0.0);
         cv::Mat_<double> hess(2,2), hess_inv(2,2), grad(2,1), d(2,1), u(1,1);
-        //if possible, we use the Gaussian layer below the detected scale
-        //to have better spatial resolution when particles environment is strongly asymmetric
+        //When particles environment is strongly asymmetric (very close particles),
+        //it is better to find the maximum of Gausian rather than the minimum of DoG.
+        //If possible, we use the Gaussian layer below the detected scale
+        //to have better spatial resolution
         const cv::Mat_<double> & l = (k>0 ? this->layersG[k-1] : this->layersG[k]);
         grad(0,0) = (l(j, i+1) - l(j, i-1))/2.0;
         grad(1,0) = (l(j+1, i) - l(j-1, i))/2.0;
