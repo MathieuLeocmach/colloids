@@ -158,18 +158,30 @@ void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
         const size_t i = ci[0], j = ci[1], k = ci[2];
         cv::Vec4d c(0.0);
         cv::Mat_<double> hess(2,2), hess_inv(2,2), grad(2,1), d(2,1), u(1,1);
-        grad(0,0) = (this->layers[k](j, i+1) - this->layers[k](j, i-1))/2.0;
-        grad(1,0) = (this->layers[k](j+1, i) - this->layers[k](j-1, i))/2.0;
-        hess(0,0) = this->layers[k](j, i+1) -2*this->layers[k](j, i) + this->layers[k](j, i-1);
-        hess(1,1) = this->layers[k](j+1, i) -2*this->layers[k](j, i) + this->layers[k](j-1, i);
-        hess(0,1) = 0.25*(this->layers[k](j+1, i+1) + this->layers[k](j-1, i-1) - this->layers[k](j+1, i-1) - this->layers[k](j-1, i+1));
-        hess(1,0) = hess(1,0);
-        cv::invert(hess, hess_inv);
-        d = hess_inv*grad;
-        c[0] = i+0.5 - d(0,0);
-        c[1] = j+0.5 - d(1,0);
-        u = grad.t()*d;
-        c[3] = this->layers[k](j, i) - 0.5*u(0,0);
+        //if possible, we use the Gaussian layer below the detected scale
+        //to have better spatial resolution when particles environment is strongly asymmetric
+        const cv::Mat_<double> & l = (k>0 ? this->layersG[k-1] : this->layersG[k]);
+        grad(0,0) = (l(j, i+1) - l(j, i-1))/2.0;
+        grad(1,0) = (l(j+1, i) - l(j-1, i))/2.0;
+        hess(0,0) = l(j, i+1) -2*l(j, i) + l(j, i-1);
+        hess(1,1) = l(j+1, i) -2*l(j, i) + l(j-1, i);
+        hess(0,1) = 0.25*(l(j+1, i+1) +l(j-1, i-1) - l(j+1, i-1) - l(j-1, i+1));
+        hess(1,0) = hess(0,1);
+        if(cv::invert(hess, hess_inv))
+        {
+        	//Matrix is not invertible, so we compute the shifts axis by axis
+        	c[0] = i + 0.5 - grad(0,0)/hess(0,0);
+        	c[1] = j + 0.5 - grad(1,0)/hess(1,1);
+        	c[3] = this->layers[k](j, i);
+        }
+        else
+        {
+			d = hess_inv*grad;
+			c[0] = i+0.5 - d(0,0);
+			c[1] = j+0.5 - d(1,0);
+			u = grad.t()*d;
+			c[3] = this->layers[k](j, i) - 0.5*u(0,0);
+        }
         return c;
     }
 

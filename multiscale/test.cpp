@@ -595,7 +595,7 @@ BOOST_AUTO_TEST_SUITE( octave_limit_cases )
 		f<<std::endl;
 	}
 
-	/*BOOST_AUTO_TEST_CASE( close_neighbours )
+	BOOST_AUTO_TEST_CASE( close_neighbours )
 	{
 		OctaveFinder finder(64,32);
 		//cv cannot draw circle sizes better than a pixel, so the input image is drawn in high resolution
@@ -603,21 +603,26 @@ BOOST_AUTO_TEST_SUITE( octave_limit_cases )
 		std::ofstream f("close_neighbours.out");
 		for(int i = 32*32; i>7*32; --i)
 		{
-			const double distence = i/32.0;
-			BOOST_TEST_CHECKPOINT("distence = "<<distence);
+			const double distance = i/32.0;
+			BOOST_TEST_CHECKPOINT("distance = "<<distance);
 			input.setTo(0);
 			cv::circle(input, cv::Point(32*16, 32*16), 32*4, 255, -1);
 			cv::circle(input, cv::Point(32*16, 32*16+i), 32*4, 255, -1);
 			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
 			std::vector<cv::Vec4d> v_s = finder(small_input, true);
 			BOOST_REQUIRE_EQUAL(v_s.size(), 2);
-			BOOST_CHECK_CLOSE(v_s[0][1], 16, i<16?12:2);
-			BOOST_CHECK_CLOSE(v_s[0][2], 4, 2);
-			BOOST_CHECK_CLOSE(v_s[1][1] - v_s[0][1], distence, 24);
-			f << distence << "\t" << v_s[0][1] << "\t" << v_s[1][1] << "\t" << v_s[0][2] << "\n";
+			BOOST_CHECK_CLOSE(v_s[0][1], 16, distance<16?6:2);
+			/*cv::namedWindow("truc");
+			cv::imshow("truc", small_input);
+			cv::imshow("binary", 255*finder.get_binary(2));
+			cv::waitKey();*/
+			BOOST_REQUIRE_CLOSE(v_s[1][1], 16+distance, distance<16?6:2);
+			BOOST_CHECK_CLOSE(v_s[0][2], 4, distance<16?6:2);
+			BOOST_CHECK_CLOSE(v_s[1][1] - v_s[0][1], distance, distance<9.03125?21:2);
+			f << distance << "\t" << v_s[0][1] << "\t" << v_s[1][1] << "\t" << v_s[0][2] << "\n";
 		}
 		f<<std::endl;
-	}*/
+	}
 BOOST_AUTO_TEST_SUITE_END()
 
 BOOST_AUTO_TEST_SUITE_END() //octave
