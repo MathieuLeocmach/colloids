@@ -567,7 +567,7 @@ BOOST_AUTO_TEST_SUITE( octave_limit_cases )
 		OctaveFinder finder(32,32);
 		//cv cannot draw circle sizes better than a pixel, so the input image is drawn in high resolution
 		cv::Mat_<uchar>input(32*32, 32*32), small_input(32,32);
-		std::ofstream f("size_at_border.out");
+		std::ofstream f("pos_size_at_border.out");
 		for(int i = 32*16; i>32*4; --i)
 		{
 			const double position = i/32.0;
@@ -590,7 +590,7 @@ BOOST_AUTO_TEST_SUITE( octave_limit_cases )
 			BOOST_CHECK_LT(finder.gaussianResponse(position, 16, 0.5), finder.gaussianResponse(position, 16, 0));
 			BOOST_CHECK_CLOSE(v_s[0][2], 4, 50);
 			for(size_t j=0; j<v_s.size(); ++j)
-				f << position << "\t" << v_s[j][2] << "\n";
+				f << position << "\t" << v_s[j][1] << "\t"  << v_s[j][2] << "\n";
 		}
 		f<<std::endl;
 	}
@@ -601,7 +601,7 @@ BOOST_AUTO_TEST_SUITE( octave_limit_cases )
 		//cv cannot draw circle sizes better than a pixel, so the input image is drawn in high resolution
 		cv::Mat_<uchar>input(32*64, 32*32), small_input(64,32);
 		std::ofstream f("close_neighbours.out");
-		for(int i = 32*32; i>0; --i)
+		for(int i = 32*32; i>7*32; --i)
 		{
 			const double distence = i/32.0;
 			BOOST_TEST_CHECKPOINT("distence = "<<distence);
@@ -611,9 +611,9 @@ BOOST_AUTO_TEST_SUITE( octave_limit_cases )
 			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
 			std::vector<cv::Vec4d> v_s = finder(small_input, true);
 			BOOST_REQUIRE_EQUAL(v_s.size(), 2);
-			BOOST_CHECK_CLOSE(v_s[0][1], 16, 12);
+			BOOST_CHECK_CLOSE(v_s[0][1], 16, i<16?12:2);
 			BOOST_CHECK_CLOSE(v_s[0][2], 4, 2);
-			BOOST_CHECK_CLOSE(v_s[1][1] - v_s[0][1], distence, 2);
+			BOOST_CHECK_CLOSE(v_s[1][1] - v_s[0][1], distence, 24);
 			f << distence << "\t" << v_s[0][1] << "\t" << v_s[1][1] << "\t" << v_s[0][2] << "\n";
 		}
 		f<<std::endl;
@@ -732,6 +732,39 @@ BOOST_AUTO_TEST_SUITE( multiscale_call )
 		BOOST_CHECK_CLOSE(v[0][0], 28, 10);
 		BOOST_CHECK_CLOSE(v[0][1], 28, 10);
 		BOOST_CHECK_CLOSE(v[0][2], 2, 5);
+	}
+	BOOST_AUTO_TEST_CASE( multiscale_relative_sizes )
+	{
+		const int s = 5;
+		MultiscaleFinder finder(pow(2, s+1), pow(2, s+1));
+		//cv cannot draw circle sizes better than a pixel, so the input image is drawn in high resolution
+		cv::Mat_<uchar>input(32*pow(2, s+1), 32*pow(2, s+1)), small_input(pow(2, s+1), pow(2, s+1));
+		std::vector<cv::Vec4d> v;
+		std::ofstream f("multiscale_relative_sizes.out");
+		for(int k=1; k<s; ++k)
+			for(int i=0; i<32; ++i)
+			{
+				input.setTo(0);
+				const int large_radius = 32*1.5*pow(2, k-1)+i*pow(2, k);
+				const double radius =  large_radius/32.0;
+				BOOST_TEST_CHECKPOINT("radius = "<<radius<<" call");
+				cv::circle(input, cv::Point(32*pow(2, s), 32*pow(2, s)), large_radius, 255, -1);
+				cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
+				std::vector<cv::Vec4d> v_s = finder(small_input);
+				BOOST_TEST_CHECKPOINT("radius = "<<radius<<" size");
+				BOOST_CHECK_MESSAGE(
+						v_s.size()==1,
+						""<<((v_s.size()==0)?"No center":"More than one center")<<" for input radius "<<radius
+						);
+				/*if(radius<pow(2, s-1))
+					BOOST_CHECK_CLOSE(v_s[0][2], radius, 5);*/
+				BOOST_TEST_CHECKPOINT("radius = "<<radius<<" copy");
+				std::copy(v_s.begin(), v_s.end(), std::back_inserter(v));
+				for(size_t j=0; j<v_s.size(); ++j)
+					f << radius << "\t" << v_s[j][2] << "\n";
+			}
+		f<<std::endl;
+		BOOST_REQUIRE_EQUAL(v.size(), 32*(s-1));
 	}
 BOOST_AUTO_TEST_SUITE_END()
 

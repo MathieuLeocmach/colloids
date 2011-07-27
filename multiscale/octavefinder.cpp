@@ -156,40 +156,20 @@ void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
 	cv::Vec4d Colloids::OctaveFinder::spatial_subpix(const cv::Vec3i & ci) const
     {
         const size_t i = ci[0], j = ci[1], k = ci[2];
-        //look for the pedestal
-        double pedestal = this->layers[k](j, i);
-        for(size_t k2 = k - 1;k2 < k + 2;++k2)
-            for(size_t j2 = j - this->sizes[k];j2 < j + this->sizes[k] + 1;++j2)
-                for(size_t i2 = i - this->sizes[k];i2 < i + this->sizes[k] + 1;++i2){
-                    const double val = this->layers[k2](j2, i2);
-                    if(val < 0 && val > pedestal)
-                        pedestal = val;
-
-                }
-
-
         cv::Vec4d c(0.0);
-        if(pedestal == this->layers[k](j, i))
-            pedestal = 0.0;
-
-        //define the ROI: 3 pixels in the scale axis, according to the scale in space
-        for(size_t k2 = k - 1;k2 < k + 2;++k2)
-            for(size_t j2 = j - this->sizes[k];j2 < j + this->sizes[k] + 1;++j2)
-                for(size_t i2 = i - this->sizes[k];i2 < i + this->sizes[k] + 1;++i2){
-                    const double val = this->layers[k2](j2, i2);
-                    if(val < 0){
-                        const double v = val - pedestal;
-                        c[0] += v * i2;
-                        c[1] += v * j2;
-                        //c[2] += v * k2;
-                        c[3] += v;
-                    }
-                }
-
-
-
-        for(int u = 0;u < 2;++u)
-            c[u] /= c[3];
+        cv::Mat_<double> hess(2,2), hess_inv(2,2), grad(2,1), d(2,1), u(1,1);
+        grad(0,0) = (this->layers[k](j, i+1) - this->layers[k](j, i-1))/2.0;
+        grad(1,0) = (this->layers[k](j+1, i) - this->layers[k](j-1, i))/2.0;
+        hess(0,0) = this->layers[k](j, i+1) -2*this->layers[k](j, i) + this->layers[k](j, i-1);
+        hess(1,1) = this->layers[k](j+1, i) -2*this->layers[k](j, i) + this->layers[k](j-1, i);
+        hess(0,1) = 0.25*(this->layers[k](j+1, i+1) + this->layers[k](j-1, i-1) - this->layers[k](j+1, i-1) - this->layers[k](j-1, i+1));
+        hess(1,0) = hess(1,0);
+        cv::invert(hess, hess_inv);
+        d = hess_inv*grad;
+        c[0] = i+0.5 - d(0,0);
+        c[1] = j+0.5 - d(1,0);
+        u = grad.t()*d;
+        c[3] = this->layers[k](j, i) - 0.5*u(0,0);
         return c;
     }
 
