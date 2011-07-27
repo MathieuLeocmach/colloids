@@ -318,9 +318,10 @@ void Colloids::OctaveFinder::fill_iterative_radii(const double & k)
         for(size_t i=0; i<sigmas.size(); ++i)
         	sigmas[i] = k * pow(2, i/double(this->get_n_layers()));
         //corresponding blob sizes
+        const double n = this->get_n_layers(), prefactor = 2.0 * sqrt(log(2.0) / n / (pow(2.0, 2.0 / n) - 1));
         vector<size_t>::iterator si = this->sizes.begin();
         for(vector<double>::const_iterator sig=sigmas.begin(); sig!=sigmas.end(); sig++)
-        	*si++ = static_cast<size_t>((*sig * sqrt(2)) + 0.5);
+        	*si++ = static_cast<size_t>((*sig * prefactor) + 0.5);
         //iterative blurring radii
         transform(sigmas.begin(), sigmas.end(), sigmas.begin(), sigmas.begin(), multiplies<double>());
         for(size_t i=0; i<this->iterative_radii.size(); ++i)
