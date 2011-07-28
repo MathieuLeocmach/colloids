@@ -21,6 +21,7 @@ namespace Colloids
             inline const size_t get_n_layers() const {return this->layers.size()-2;};
             const double & get_radius_preblur() const {return this->preblur_radius;}
             void set_radius_preblur(const double &k=1.6);
+            const double & get_prefactor() const {return this->prefactor;}
             const double & get_iterative_radius(const size_t l) const {return this->iterative_radii[l];};
             const double get_iterative_radius(const double &larger, const double &smaller) const;
             const size_t & get_size(const size_t l) const {return this->sizes[l];};
@@ -49,7 +50,7 @@ namespace Colloids
             std::vector<cv::FilterEngine> iterative_gaussian_filters;
             std::vector<size_t> sizes;
             std::list<cv::Vec3i> centers_no_subpix;
-            double preblur_radius;
+            double preblur_radius, prefactor;
 
             void fill_iterative_radii(const double &k=1.6);
     };

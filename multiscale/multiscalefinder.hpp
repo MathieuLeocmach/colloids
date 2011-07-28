@@ -27,6 +27,7 @@ public:
 	inline const size_t get_height() const {return this->octaves[0]->get_height()/2; };
 	inline const size_t get_n_layers() const {return this->octaves[0]->get_n_layers();};
 	const double & get_radius_preblur() const {return this->octaves[0]->get_radius_preblur();}
+	const double & get_prefactor() const {return this->octaves[0]->get_prefactor();}
 	void set_radius_preblur(const double &k=1.6);
 	std::vector<cv::Vec4d> operator()(const cv::Mat &input);
 

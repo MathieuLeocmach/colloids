@@ -62,6 +62,13 @@ BOOST_AUTO_TEST_SUITE( octave_constructors )
 		BOOST_CHECK_EQUAL(finder.get_height(), 512);
 		BOOST_CHECK_EQUAL(finder.get_n_layers(), 10);
 	}
+	BOOST_AUTO_TEST_CASE( octave_constructor_1D )
+	{
+		OctaveFinder finder(1, 128);
+		BOOST_CHECK_EQUAL(finder.get_width(), 1);
+		BOOST_CHECK_EQUAL(finder.get_height(), 128);
+		BOOST_CHECK_EQUAL(finder.get_n_layers(), 3);
+	}
 
 BOOST_AUTO_TEST_SUITE_END()
 
@@ -163,6 +170,46 @@ BOOST_AUTO_TEST_SUITE( octave_fill )
 		BOOST_REQUIRE_CLOSE(cv::sum(finder.get_layersG(3))[0], cv::sum(other)[0], 1e-4);
 		BOOST_CHECK_CLOSE(finder.get_layersG(3)(32,32), other(32,32), 1e-2);
 		images_are_close(finder.get_layersG(3), other, 1e-4);
+	}
+	BOOST_AUTO_TEST_CASE( fill_1D )
+	{
+		OctaveFinder finder(1, 64);
+		cv::Mat_<double>input(1, 64), other(1, 64);
+		//the finder should contain a copy of the input data
+		input.setTo(1);
+		finder.fill(input);
+		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(0))[0], 64, 1e-9);
+		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(0))[0], cv::sum(input)[0], 1e-9);
+		images_are_close(finder.get_layersG(0), input);
+		//the internal layersG[0] should not be the same object as the input, but a deep copy
+		input.setTo(0);
+		input(0, 32)=1.0;
+		BOOST_CHECK_NE(cv::sum(finder.get_layersG(0))[0], 1.0);
+		BOOST_CHECK_NE(cv::sum(finder.get_layersG(0))[0], cv::sum(input)[0]);
+		finder.fill(input);
+		//Gaussian blur should be normalized
+		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(0))[0], cv::sum(finder.get_layersG(1))[0], 1e-9);
+		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(1))[0], cv::sum(finder.get_layersG(2))[0], 1e-9);
+		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(2))[0], cv::sum(finder.get_layersG(3))[0], 1e-9);
+		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(3))[0], cv::sum(finder.get_layersG(4))[0], 1e-9);
+		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(0))[0], cv::sum(finder.get_layersG(4))[0], 1e-9);
+		//The second to last Gaussian layer should be a good approxiation
+		//to the input blurred by a two time larger radius than the preblur
+		cv::GaussianBlur(input, other, cv::Size(0,0), 2*1.6);
+		finder.preblur_and_fill(input);
+		BOOST_REQUIRE_CLOSE(cv::sum(finder.get_layersG(3))[0], cv::sum(other)[0], 1e-9);
+		BOOST_CHECK_CLOSE(finder.get_layersG(3)(0, 32), other(0, 32), 1e-2);
+		images_are_close(finder.get_layersG(3), other, 1e-4);
+		//Sum of layers should reconstruct blurred image
+		other = finder.get_layersG(0) + finder.get_layers(0);
+		BOOST_REQUIRE_CLOSE(cv::sum(finder.get_layersG(1))[0], cv::sum(other)[0], 1e-9);
+		images_are_close(finder.get_layersG(1), other, 1e-9);
+		other += finder.get_layers(1);
+		images_are_close(finder.get_layersG(2), other, 1e-9);
+		other += finder.get_layers(2);
+		images_are_close(finder.get_layersG(3), other, 1e-9);
+		other += finder.get_layers(3);
+		images_are_close(finder.get_layersG(4), other, 1e-9);
 	}
 	BOOST_AUTO_TEST_CASE( fill_speed )
 	{
@@ -337,6 +384,52 @@ BOOST_AUTO_TEST_SUITE( local_max )
 		cv::waitKey();*/
 	}
 
+	BOOST_AUTO_TEST_CASE( single_1Dblob )
+	{
+		OctaveFinder finder(1, 256);
+		cv::Mat_<double>input(1, 256);
+		input.setTo(0);
+		cv::circle(input, cv::Point(128, 0), 3, 1.0, -1);
+		for(int i=128-3; i<128+4; ++i)
+			BOOST_REQUIRE_CLOSE(input(0, i), 1, 1e-9);
+		finder.preblur_and_fill(input);
+		//with a radius of 3, the maximum should be in layer 3
+		BOOST_CHECK_GE(finder.get_layers(0)(0, 128), finder.get_layers(1)(0, 128));
+		BOOST_CHECK_GE(finder.get_layers(1)(0, 128), finder.get_layers(2)(0, 128));
+		BOOST_CHECK_GE(finder.get_layers(2)(0, 128), finder.get_layers(3)(0, 128));
+		BOOST_CHECK_LE(finder.get_layers(3)(0, 128), finder.get_layers(4)(0, 128));
+		finder.initialize_binary();
+
+		//The minimum should be at the center of the circle
+		double min_layers[5];
+		for (int l=0; l<5; ++l)
+			min_layers[l] =  *std::min_element(finder.get_layers(l).begin(), finder.get_layers(l).end());
+		double global_min = *std::min_element(min_layers, min_layers+5);
+		BOOST_CHECK_CLOSE(finder.get_layers(3)(0, 128), global_min, 1e-9);
+
+		BOOST_CHECK_EQUAL(finder.get_binary(3)(0, 128), true);
+		BOOST_CHECK_EQUAL(finder.get_binary(3)(0, 129), false);
+		BOOST_CHECK_EQUAL(finder.get_binary(3)(0, 127), false);
+		BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(2))[0], 0);
+		BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(1))[0], 0);
+		BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(3))[0], 1);
+		/*cv::namedWindow("truc");
+		cv::imshow("truc", 255*finder.get_binary(2));
+		cv::waitKey();*/
+		//gaussian response
+		BOOST_CHECK_LT(finder.gaussianResponse(0, 128, 2.5), finder.gaussianResponse(0, 128, 2.0));
+		BOOST_CHECK_LT(finder.gaussianResponse(0, 128, 3.5), finder.gaussianResponse(0, 128, 2.5));
+		BOOST_CHECK_LT(finder.gaussianResponse(0, 128, 3.5), finder.gaussianResponse(0, 128, 3.0));
+		BOOST_CHECK_GT(finder.gaussianResponse(0, 128, 3.5)-finder.gaussianResponse(0, 128, 2.5), finder.get_layers(3)(0, 128));
+		BOOST_CHECK_GT(finder.gaussianResponse(0, 128, 4.5)-finder.gaussianResponse(0, 128, 3.5), finder.get_layers(3)(0, 128));
+		//lower bound
+		BOOST_CHECK_LT(finder.gaussianResponse(0, 128, 1.5), finder.gaussianResponse(0, 128, 1.0));
+		BOOST_CHECK_LT(finder.gaussianResponse(0, 128, 0.5), finder.gaussianResponse(0, 128, 0));
+		//further than the top layer
+		BOOST_CHECK_LT(finder.gaussianResponse(0, 128, 10.5), finder.gaussianResponse(0, 128, 0));
+		BOOST_CHECK_LT(finder.gaussianResponse(0, 128, 15.5), finder.gaussianResponse(0, 128, 5));
+	}
+
 	BOOST_AUTO_TEST_CASE( local_max_speed )
 	{
 		OctaveFinder finder;
@@ -508,6 +601,66 @@ BOOST_AUTO_TEST_SUITE( subpix )
 				std::cout <<"["<< (2+0.125*i) << ", " << v_s[j][2] << "], ";
 		}
 		std::cout<<std::endl;*/
+	}
+
+	BOOST_AUTO_TEST_CASE( subpix_1D )
+	{
+		OctaveFinder finder(1, 256);
+		cv::Mat_<double>input(1, 256);
+		input.setTo(0);
+		cv::circle(input, cv::Point(100, 0), 3, 1.0, -1);
+		finder.preblur_and_fill(input);
+		finder.initialize_binary();
+		BOOST_REQUIRE_EQUAL(finder.get_binary(3)(0, 100), 1);
+		std::vector<cv::Vec4d> v = finder.subpix();
+		BOOST_REQUIRE_EQUAL(v.size(), 1);
+		//x
+		BOOST_CHECK_GE(v[0][0], 99);
+		BOOST_CHECK_LE(v[0][0], 101);
+		//y
+		BOOST_CHECK_GE(v[0][1], 0);
+		BOOST_CHECK_LT(v[0][1], 1);
+		//scale
+		BOOST_CHECK_GE(v[0][2], 2);
+		BOOST_CHECK_LE(v[0][2], 4);
+		//gaussian response
+		BOOST_CHECK_CLOSE(finder.gaussianResponse(0, 100, 2.0), finder.get_layersG(2)(0, 100), 1e-9);
+		BOOST_CHECK_CLOSE(finder.gaussianResponse(0, 100, 3.0)-finder.gaussianResponse(0, 100, 2.0), finder.get_layers(2)(0, 100), 1e-9);
+		BOOST_CHECK_LT(finder.gaussianResponse(0, 100, 3.0), finder.gaussianResponse(0, 100, 2.0));
+		BOOST_CHECK_LT(finder.gaussianResponse(0, 100, 2.5), finder.gaussianResponse(0, 100, 2.0));
+		BOOST_CHECK_LT(finder.gaussianResponse(0, 100, 3.5), finder.gaussianResponse(0, 100, 2.5));
+		BOOST_CHECK_LT(finder.gaussianResponse(0, 100, 3.5), finder.gaussianResponse(0, 100, 3.0));
+		BOOST_CHECK_GT(finder.gaussianResponse(0, 100, 3.5)-finder.gaussianResponse(0, 100, 2.5), finder.get_layers(3)(0, 100));
+		BOOST_CHECK_GT(finder.gaussianResponse(0, 100, 4.5)-finder.gaussianResponse(0, 100, 3.5), finder.get_layers(3)(0, 100));
+		boost::array<double,8> sublayerG;
+		for(int u = 0;u < 3;++u)
+			sublayerG[u] = finder.gaussianResponse(0, 100, 3 - 0.5 + u);
+		boost::array<double,5> a = {{
+			finder.get_layers(2)(0, 100),
+			sublayerG[2] - sublayerG[1],
+			finder.get_layers(3)(0, 100),
+			sublayerG[3] - sublayerG[2],
+			finder.get_layers(4)(0, 100)
+		}};
+		BOOST_CHECK_LT(a[0], 0);
+		BOOST_CHECK_LT(a[2], 0);
+		BOOST_CHECK_LT(a[4], 0);
+		BOOST_REQUIRE_NE(a[4]-2*a[2]+a[0], 0);
+		double ds = (-a[4] + 8*a[3] - 8*a[1] + a[0])/6.0 /(a[4]-2*a[2]+a[0]), z = 3-ds;
+		BOOST_CHECK_GT(ds, 0);
+		BOOST_CHECK_LT(ds, 0.5);
+		for(size_t u = 0;u < sublayerG.size(); ++u)
+			sublayerG[u] = finder.gaussianResponse(0, 100, z - 2 + 0.5*u);
+		for(size_t u =0; u<a.size();++u)
+			a[u] = sublayerG[u+2] - sublayerG[u];
+		BOOST_CHECK_LT(a[0], 0);
+		BOOST_CHECK_LT(a[2], 0);
+		BOOST_CHECK_LT(a[4], 0);
+		BOOST_REQUIRE_NE(a[4]-2*a[2]+a[0], 0);
+		ds = (-a[4] + 8*a[3] - 8*a[1] + a[0])/6.0 /(a[4]-2*a[2]+a[0]);
+		BOOST_CHECK_GT(z-ds, 2.5);
+		BOOST_CHECK_LT(z-ds, 3.5);
+
 	}
 
 	BOOST_AUTO_TEST_CASE( subpix_speed )

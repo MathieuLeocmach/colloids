@@ -52,8 +52,7 @@ namespace Colloids {
 
     	const double
 			n = this->get_n_layers(),
-			prefactor = 2.0 * this->get_radius_preblur() * sqrt(log(2.0) / n / (pow(2.0, 2.0 / n) - 1)),
-			kmax = prefactor * pow(2.0, 2.0/n);
+			kmax = this->get_radius_preblur() * this->get_prefactor() * pow(2.0, 2.0/n);
 
     	input.convertTo(small, this->small.type());
     	//upscale the input to fill the first octave
@@ -88,8 +87,8 @@ namespace Colloids {
     		    	cv::Vec3i vi;
     		    	for(int u=0; u<2; ++u)
     		    		vi[u] = (int)(v[p][u]*2+0.5);
-    		    	vi[2] = (int)(log(v[p][2] / prefactor) * n / log(2) -1 + n + 0.5);
-    		    	v[p][2] = 0.5* prefactor * pow(2.0, (this->octaves[0]->scale_subpix(vi) + 1) / n);
+    		    	vi[2] = (int)(log(v[p][2] / this->get_prefactor() / this->get_radius_preblur()) * n / log(2) -1 + n + 0.5);
+    		    	v[p][2] = 0.5*  this->get_prefactor() * this->get_radius_preblur() * pow(2.0, (this->octaves[0]->scale_subpix(vi) + 1) / n);
     		    }
     		}
     		centers.reserve(centers.size() + v.size());
@@ -117,8 +116,8 @@ namespace Colloids {
 					cv::Vec3i vi;
 					for(int u=0; u<2; ++u)
 						vi[u] = (int)(v[p][u]*2+0.5);
-					vi[2] = (int)(log(v[p][2] / prefactor) * n / log(2) -1 + n + 0.5);
-					v[p][2] = 0.5* prefactor * pow(2.0, (this->octaves[o-1]->scale_subpix(vi) + 1) / n);
+					vi[2] = (int)(log(v[p][2] / this->get_prefactor() / this->get_radius_preblur()) * n / log(2) -1 + n + 0.5);
+					v[p][2] = 0.5* this->get_prefactor() * pow(2.0, (this->octaves[o-1]->scale_subpix(vi) + 1) / n);
 				}
 			}
     		centers.reserve(centers.size() + v.size());
