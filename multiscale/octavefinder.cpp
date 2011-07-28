@@ -93,7 +93,41 @@ void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
     for(size_t i = 0;i < this->binary.size();++i)
         this->binary[i].setTo(0);
 
-    for(size_t k = 1;k < (size_t)(((this->layers.size() - 1)));k += 2)
+    if(this->get_width()==1)
+    {
+    	for(size_t k = 1;k < (size_t)(((this->layers.size() - 1)));k += 2)
+    		for(size_t i = 1;i < (size_t)(((this->get_height() - 1)));i += 2)
+    		{
+    			size_t mi = i;
+				size_t mk = k;
+				//accept degenerated minima in the block, but select only one
+				for(size_t k2 = k;k2 < k + 2;++k2)
+					for(size_t i2 = i;i2 < i + 2;++i2)
+						if(this->layers[k2](0, i2) <= this->layers[mk](0, mi)){
+							mi = i2;
+							mk = k2;
+						}
+				//maxima cannot be on the last layer or on image edges
+				if(mk > this->binary.size() || !((this->sizes[mk] <= mi) && (mi < (size_t)(((this->get_height() - this->sizes[mk]))))))
+					continue;
+				bool *b = &this->binary[mk - 1](0, mi);
+				*b = (this->layers[mk](0, mi) < 0) && (1 + pow(this->layers[mk](0, mi), 2) > 1);
+				//remove the minima if one of its neighbours outside the block has lower value
+				for(size_t k2 = mk - 1;k2 < mk + 2 && *b;++k2)
+					for(size_t i2 = mi - 1;i2 < mi + 2 && *b;++i2)
+						if(k2 < k || i2 < i || k2 > k + 1 || i2 > i + 1)
+							*b = this->layers[mk](0, mi) <= this->layers[k2](0, i2);
+				if(*b){
+					cv::Vec3i c;
+					c[0] = mi;
+					c[1] = 0;
+					c[2] = mk;
+					this->centers_no_subpix.push_back(c);
+				}
+    		}
+    }
+    else
+    	for(size_t k = 1;k < (size_t)(((this->layers.size() - 1)));k += 2)
             for(size_t j = 1;j < (size_t)(((this->get_width() - 1)));j += 2)
                 for(size_t i = 1;i < (size_t)(((this->get_height() - 1)));i += 2){
                     size_t mi = i;
@@ -202,9 +236,13 @@ void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
 		const int m = ((int)(sigma*4+0.5)*2 + 1)|1;
 		vector<double> gx(m, 0.0);
 		cv::Mat_<double> kernel = cv::getGaussianKernel(m, sigma, this->layersG[0].type());
-		for(int x=0; x<m; ++x)
-			for(int y=0; y<m; ++y)
-				gx[x] += layersG[k](j-y+m/2, i-x+m/2) * kernel(y,0);
+		if(this->get_width()==1)
+			for(int x=0; x<m; ++x)
+				gx[x] += layersG[k](0, i-x+m/2);
+		else
+			for(int x=0; x<m; ++x)
+				for(int y=0; y<m; ++y)
+					gx[x] += layersG[k](j-y+m/2, i-x+m/2) * kernel(y,0);
 		double resp = 0.0;
 		for(int x=0; x<m; ++x)
 			resp += gx[x] * kernel(x,0);
@@ -282,9 +320,9 @@ void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
     void Colloids::OctaveFinder::scale(std::vector<cv::Vec4d> & centers) const
     {
         //convert scale to real size
-        const double n = this->get_n_layers(), prefactor = 2.0 * this->preblur_radius * sqrt(log(2.0) / n / (pow(2.0, 2.0 / n) - 1));
+        const double n = this->get_n_layers();
         for(size_t c = 0;c < centers.size();++c)
-            centers[c][2] = prefactor * pow(2.0, (centers[c][2] + 1) / n);
+            centers[c][2] = this->prefactor * this->preblur_radius * pow(2.0, (centers[c][2] + 1) / n);
 
     }
     std::vector<cv::Vec4d> Colloids::OctaveFinder::operator ()(const cv::Mat & input, const bool preblur)
@@ -312,7 +350,11 @@ void Colloids::OctaveFinder::fill_iterative_radii(const double & k)
         for(size_t i=0; i<sigmas.size(); ++i)
         	sigmas[i] = k * pow(2, i/double(this->get_n_layers()));
         //corresponding blob sizes
-        const double n = this->get_n_layers(), prefactor = 2.0 * sqrt(log(2.0) / n / (pow(2.0, 2.0 / n) - 1));
+        const double n = this->get_n_layers();
+        if(this->get_height()==1 || this->get_width()==1)
+        	this->prefactor = sqrt(2.0 * log(2.0) / n / (pow(2.0, 2.0 / n) - 1));
+        else
+        	this->prefactor = 2.0 * sqrt(log(2.0) / n / (pow(2.0, 2.0 / n) - 1));
         vector<size_t>::iterator si = this->sizes.begin();
         for(vector<double>::const_iterator sig=sigmas.begin(); sig!=sigmas.end(); sig++)
         	*si++ = static_cast<size_t>((*sig * prefactor) + 0.5);
