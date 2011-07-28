@@ -32,18 +32,17 @@ namespace Colloids
             //processing
             void fill(const cv::Mat &input);
             void preblur_and_fill(const cv::Mat &input);
-            void initialize_binary(const double &max_ratio = 1.1);
+            virtual void initialize_binary(const double &max_ratio = 1.1);
             std::vector<cv::Vec4d> subpix() const;
             cv::Vec4d single_subpix(const cv::Vec3i & ci) const;
-            cv::Vec4d spatial_subpix(const cv::Vec3i & ci) const;
+            virtual cv::Vec4d spatial_subpix(const cv::Vec3i & ci) const;
             double scale_subpix(const cv::Vec3i & ci) const;
             void scale(std::vector<cv::Vec4d> &centers) const;
             std::vector<cv::Vec4d> operator()(const cv::Mat &input, const bool preblur=false);
-            double gaussianResponse(const size_t &j, const size_t &i, const double & scale) const;
+            virtual double gaussianResponse(const size_t &j, const size_t &i, const double & scale) const;
 
 
     protected:
-        private:
             std::vector<cv::Mat_<double> > layersG, layers;
             std::vector<cv::Mat_<bool> > binary;
             std::vector<double> iterative_radii;
@@ -53,6 +52,17 @@ namespace Colloids
             double preblur_radius, prefactor;
 
             void fill_iterative_radii(const double &k=1.6);
+    };
+
+    class OctaveFinder1D : public OctaveFinder
+    {
+		public:
+			OctaveFinder1D(const int ncols=256, const int nbLayers=3, const double &preblur_radius=1.6) :
+				OctaveFinder(1, ncols, nbLayers, preblur_radius){};
+
+			virtual void initialize_binary(const double &max_ratio = 1.1);
+			virtual cv::Vec4d spatial_subpix(const cv::Vec3i & ci) const;
+			virtual double gaussianResponse(const size_t &j, const size_t &i, const double & scale) const;
     };
 };
 #endif // OCTAVEFINDER_H

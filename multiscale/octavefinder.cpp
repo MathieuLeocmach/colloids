@@ -93,102 +93,109 @@ void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
     for(size_t i = 0;i < this->binary.size();++i)
         this->binary[i].setTo(0);
 
-    if(this->get_width()==1)
-    {
-    	for(size_t k = 1;k < (size_t)(((this->layers.size() - 1)));k += 2)
-    		for(size_t i = 1;i < (size_t)(((this->get_height() - 1)));i += 2)
-    		{
-    			size_t mi = i;
+	for(size_t k = 1;k < (size_t)(((this->layers.size() - 1)));k += 2)
+		for(size_t j = 1;j < (size_t)(((this->get_width() - 1)));j += 2)
+			for(size_t i = 1;i < (size_t)(((this->get_height() - 1)));i += 2){
+				size_t mi = i;
+				size_t mj = j;
 				size_t mk = k;
 				//accept degenerated minima in the block, but select only one
 				for(size_t k2 = k;k2 < k + 2;++k2)
-					for(size_t i2 = i;i2 < i + 2;++i2)
-						if(this->layers[k2](0, i2) <= this->layers[mk](0, mi)){
-							mi = i2;
-							mk = k2;
-						}
+					for(size_t j2 = j;j2 < j + 2;++j2)
+						for(size_t i2 = i;i2 < i + 2;++i2)
+							if(this->layers[k2](j2, i2) <= this->layers[mk](mj, mi)){
+								mi = i2;
+								mj = j2;
+								mk = k2;
+							}
+
+
+
 				//maxima cannot be on the last layer or on image edges
-				if(mk > this->binary.size() || !((this->sizes[mk] <= mi) && (mi < (size_t)(((this->get_height() - this->sizes[mk]))))))
+				if(mk > this->binary.size() || !((this->sizes[mk] <= mj) && (mj < (size_t)(((this->get_width() - this->sizes[mk])))) && (this->sizes[mk] <= mi) && (mi < (size_t)(((this->get_height() - this->sizes[mk]))))))
 					continue;
-				bool *b = &this->binary[mk - 1](0, mi);
-				*b = (this->layers[mk](0, mi) < 0) && (1 + pow(this->layers[mk](0, mi), 2) > 1);
+
+				bool *b = &this->binary[mk - 1](mj, mi);
+				//consider only negative minima
+				//with a value that is actually different from zero
+				*b = (this->layers[mk](mj, mi) < 0) && (1 + pow(this->layers[mk](mj, mi), 2) > 1);
 				//remove the minima if one of its neighbours outside the block has lower value
 				for(size_t k2 = mk - 1;k2 < mk + 2 && *b;++k2)
-					for(size_t i2 = mi - 1;i2 < mi + 2 && *b;++i2)
-						if(k2 < k || i2 < i || k2 > k + 1 || i2 > i + 1)
-							*b = this->layers[mk](0, mi) <= this->layers[k2](0, i2);
+					for(size_t j2 = mj - 1;j2 < mj + 2 && *b;++j2)
+						for(size_t i2 = mi - 1;i2 < mi + 2 && *b;++i2)
+							if(k2 < k || j2 < j || i2 < i || k2 > k + 1 || j2 > j + 1 || i2 > i + 1)
+								*b = this->layers[mk](mj, mi) <= this->layers[k2](j2, i2);
+
+
+
+
+				//remove the local minima that are edges (elongated objects)
 				if(*b){
-					cv::Vec3i c;
-					c[0] = mi;
-					c[1] = 0;
-					c[2] = mk;
-					this->centers_no_subpix.push_back(c);
+					//hessian matrix
+					const double hess[3] = {this->layers[mk](mj - 1, mi) - 2 * this->layers[mk](mj, mi) + this->layers[mk](mj + 1, mi), this->layers[mk](mj, mi - 1) - 2 * this->layers[mk](mj, mi) + this->layers[mk](mj, mi + 1), this->layers[mk](mj - 1, mi - 1) + this->layers[mk](mj + 1, mi + 1) - this->layers[mk](mj + 1, mi - 1) - this->layers[mk](mj - 1, mi + 1)};
+					//determinant of the Hessian, for the coefficient see
+					//H Bay, a Ess, T Tuytelaars, and L Vangool,
+					//Computer Vision and Image Understanding 110, 346-359 (2008)
+					const double detH = hess[0] * hess[1] - pow(hess[2], 2), ratio = pow(hess[0] + hess[1], 2) / (4.0 * hess[0] * hess[1]);
+					*b = !(detH < 0 || ratio > max_ratio);
+					if(*b){
+						cv::Vec3i c;
+						c[0] = mi;
+						c[1] = mj;
+						c[2] = mk;
+						this->centers_no_subpix.push_back(c);
+					}
 				}
-    		}
-    }
-    else
-    	for(size_t k = 1;k < (size_t)(((this->layers.size() - 1)));k += 2)
-            for(size_t j = 1;j < (size_t)(((this->get_width() - 1)));j += 2)
-                for(size_t i = 1;i < (size_t)(((this->get_height() - 1)));i += 2){
-                    size_t mi = i;
-                    size_t mj = j;
-                    size_t mk = k;
-                    //accept degenerated minima in the block, but select only one
-                    for(size_t k2 = k;k2 < k + 2;++k2)
-                        for(size_t j2 = j;j2 < j + 2;++j2)
-                            for(size_t i2 = i;i2 < i + 2;++i2)
-                                if(this->layers[k2](j2, i2) <= this->layers[mk](mj, mi)){
-                                    mi = i2;
-                                    mj = j2;
-                                    mk = k2;
-                                }
 
+			}
+}
+/**
+ * \brief Detect local minima of the scale space
+ *
+ * Uses the dynamic block algorythm by Neubeck and Van Gool
+ * a. Neubeck and L. Van Gool, 18th International Conference On Pattern Recognition (ICPRʼ06) 850-855 (2006).
+ */
+void Colloids::OctaveFinder1D::initialize_binary(const double & max_ratio)
+{
+    //initialize
+	this->centers_no_subpix.clear();
+    for(size_t i = 0;i < this->binary.size();++i)
+        this->binary[i].setTo(0);
 
+	for(size_t k = 1;k < (size_t)(((this->layers.size() - 1)));k += 2)
+		for(size_t i = 1;i < (size_t)(((this->get_height() - 1)));i += 2)
+		{
+			size_t mi = i;
+			size_t mk = k;
+			//accept degenerated minima in the block, but select only one
+			for(size_t k2 = k;k2 < k + 2;++k2)
+				for(size_t i2 = i;i2 < i + 2;++i2)
+					if(this->layers[k2](0, i2) <= this->layers[mk](0, mi)){
+						mi = i2;
+						mk = k2;
+					}
+			//maxima cannot be on the last layer or on image edges
+			if(mk > this->binary.size() || !((this->sizes[mk] <= mi) && (mi < (size_t)(((this->get_height() - this->sizes[mk]))))))
+				continue;
+			bool *b = &this->binary[mk - 1](0, mi);
+			*b = (this->layers[mk](0, mi) < 0) && (1 + pow(this->layers[mk](0, mi), 2) > 1);
+			//remove the minima if one of its neighbours outside the block has lower value
+			for(size_t k2 = mk - 1;k2 < mk + 2 && *b;++k2)
+				for(size_t i2 = mi - 1;i2 < mi + 2 && *b;++i2)
+					if(k2 < k || i2 < i || k2 > k + 1 || i2 > i + 1)
+						*b = this->layers[mk](0, mi) <= this->layers[k2](0, i2);
+			if(*b){
+				cv::Vec3i c;
+				c[0] = mi;
+				c[1] = 0;
+				c[2] = mk;
+				this->centers_no_subpix.push_back(c);
+			}
+		}
+}
 
-                    //maxima cannot be on the last layer or on image edges
-                    if(mk > this->binary.size() || !((this->sizes[mk] <= mj) && (mj < (size_t)(((this->get_width() - this->sizes[mk])))) && (this->sizes[mk] <= mi) && (mi < (size_t)(((this->get_height() - this->sizes[mk]))))))
-                        continue;
-
-                    bool *b = &this->binary[mk - 1](mj, mi);
-                    //consider only negative minima
-                    //with a value that is actually different from zero
-                    *b = (this->layers[mk](mj, mi) < 0) && (1 + pow(this->layers[mk](mj, mi), 2) > 1);
-                    //remove the minima if one of its neighbours outside the block has lower value
-                    for(size_t k2 = mk - 1;k2 < mk + 2 && *b;++k2)
-                        for(size_t j2 = mj - 1;j2 < mj + 2 && *b;++j2)
-                            for(size_t i2 = mi - 1;i2 < mi + 2 && *b;++i2)
-                                if(k2 < k || j2 < j || i2 < i || k2 > k + 1 || j2 > j + 1 || i2 > i + 1)
-                                    *b = this->layers[mk](mj, mi) <= this->layers[k2](j2, i2);
-
-
-
-
-                    //remove the local minima that are edges (elongated objects)
-                    if(*b){
-                        //hessian matrix
-                        const double hess[3] = {this->layers[mk](mj - 1, mi) - 2 * this->layers[mk](mj, mi) + this->layers[mk](mj + 1, mi), this->layers[mk](mj, mi - 1) - 2 * this->layers[mk](mj, mi) + this->layers[mk](mj, mi + 1), this->layers[mk](mj - 1, mi - 1) + this->layers[mk](mj + 1, mi + 1) - this->layers[mk](mj + 1, mi - 1) - this->layers[mk](mj - 1, mi + 1)};
-                        //determinant of the Hessian, for the coefficient see
-                        //H Bay, a Ess, T Tuytelaars, and L Vangool,
-                        //Computer Vision and Image Understanding 110, 346-359 (2008)
-                        const double detH = hess[0] * hess[1] - pow(hess[2], 2), ratio = pow(hess[0] + hess[1], 2) / (4.0 * hess[0] * hess[1]);
-                        *b = !(detH < 0 || ratio > max_ratio);
-                        if(*b){
-                            cv::Vec3i c;
-                            c[0] = mi;
-                            c[1] = mj;
-                            c[2] = mk;
-                            this->centers_no_subpix.push_back(c);
-                        }
-                    }
-
-                }
-
-
-
-    }
-
-	cv::Vec4d Colloids::OctaveFinder::spatial_subpix(const cv::Vec3i & ci) const
-    {
+cv::Vec4d Colloids::OctaveFinder::spatial_subpix(const cv::Vec3i & ci) const
+{
         const size_t i = ci[0], j = ci[1], k = ci[2];
         cv::Vec4d c(0.0);
         cv::Mat_<double> hess(2,2), hess_inv(2,2), grad(2,1), d(2,1), u(1,1);
@@ -219,10 +226,25 @@ void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
 			c[3] = this->layers[k](j, i) - 0.5*u(0,0);
         }
         return c;
-    }
+}
+cv::Vec4d Colloids::OctaveFinder1D::spatial_subpix(const cv::Vec3i & ci) const
+{
+        const size_t i = ci[0], k = ci[2];
+        cv::Vec4d c(0.0);
+        //When particles environment is strongly asymmetric (very close particles),
+		//it is better to find the maximum of Gausian rather than the minimum of DoG.
+		//If possible, we use the Gaussian layer below the detected scale
+		//to have better spatial resolution
+        const cv::Mat_<double> & l = (k>0 ? this->layersG[k-1] : this->layersG[k]);
+        c[0] = ci[0] - (l(0, i+1) - l(0, i-1)) / 2.0 / (l(0, i+1) -2*l(0, i) + l(0, i-1));
+        c[1] = 0;
+        c[2] = k;
+        c[3] = this->layers[k](0, i) - 0.25 * (c[0]-i) * (l(0, i+1) - l(0, i-1));
+        return c;
+}
 
-    double Colloids::OctaveFinder::gaussianResponse(const size_t & j, const size_t & i, const double & scale) const
-    {
+double Colloids::OctaveFinder::gaussianResponse(const size_t & j, const size_t & i, const double & scale) const
+{
         if(scale < 0)
             throw std::invalid_argument("Colloids::OctaveFinder::gaussianResponse: the scale must be positive.");
 
@@ -248,9 +270,30 @@ void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
 			resp += gx[x] * kernel(x,0);
 
         return resp;
-    }
-    double Colloids::OctaveFinder::scale_subpix(const cv::Vec3i & ci) const
-    {
+}
+
+double Colloids::OctaveFinder1D::gaussianResponse(const size_t & j, const size_t & i, const double & scale) const
+{
+	if(scale < 0)
+		throw std::invalid_argument("Colloids::OctaveFinder::gaussianResponse: the scale must be positive.");
+
+	size_t k = (size_t)(scale);
+	if (k>=this->layersG.size())
+		k = this->layersG.size()-1;
+	if((scale - k) * (scale - k) + 1 == 1)
+		return this->layersG[k](j, i);
+	const double sigma = this->get_iterative_radius(scale, (double)k);
+	//opencv is NOT dealing right with ROI (even if boasting about it), so we do it by hand
+	const int m = ((int)(sigma*4+0.5)*2 + 1)|1;
+	cv::Mat_<double> kernel = cv::getGaussianKernel(m, sigma, this->layersG[0].type());
+	double resp = 0.0;
+	for(int x=0; x<m; ++x)
+		resp += layersG[k](0, i-x+m/2) * kernel(x,0);
+	return resp;
+}
+
+double Colloids::OctaveFinder::scale_subpix(const cv::Vec3i & ci) const
+{
     	const size_t i = ci[0], j = ci[1], k = ci[2];
 		//scale is better defined if we consider only the central pixel at different scales
 		//Compute intermediate variables to do a quadratic estimate of the derivative
@@ -293,7 +336,7 @@ void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
 		if(s>k+0.5)
 			s= k + 0.5;
 		return s;
-    }
+}
 
     cv::Vec4d Colloids::OctaveFinder::single_subpix(const cv::Vec3i & ci) const
     {
