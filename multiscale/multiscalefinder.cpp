@@ -13,9 +13,7 @@ using namespace std;
 
 namespace Colloids {
 
-	MultiscaleFinder::MultiscaleFinder(const int nrows, const int ncols, const int nbLayers, const double &preblur_radius) :
-			small(nrows, ncols),
-			upscaled(2*nrows, 2*ncols)
+	MultiscaleFinder2D::MultiscaleFinder2D(const int nrows, const int ncols, const int nbLayers, const double &preblur_radius)
 	{
 		this->octaves.reserve((size_t)min(log(nrows/12.0)/log(2), log(ncols/12.0)/log(2)));
 		this->octaves.push_back(new OctaveFinder(2*nrows, 2*ncols, nbLayers, preblur_radius));
@@ -26,7 +24,21 @@ namespace Colloids {
 			ocr /= 2;
 			occ /= 2;
 		}
-
+		this->small = cv::Mat_<double>(nrows, ncols);
+		this->upscaled = cv::Mat_<double>(2*nrows, 2*ncols);
+	}
+	MultiscaleFinder1D::MultiscaleFinder1D(const int ncols, const int nbLayers, const double &preblur_radius)
+	{
+		this->octaves.reserve((size_t)(log(ncols/12.0)/log(2)));
+		this->octaves.push_back(new OctaveFinder1D(2*ncols, nbLayers, preblur_radius));
+		int occ = ncols;
+		while(occ >= 12)
+		{
+			this->octaves.push_back(new OctaveFinder1D(occ, nbLayers, preblur_radius));
+			occ /= 2;
+		}
+		this->small = cv::Mat_<double>(1, ncols);
+		this->upscaled = cv::Mat_<double>(1, 2*ncols);
 	}
 
 	MultiscaleFinder::~MultiscaleFinder() {
@@ -46,13 +58,15 @@ namespace Colloids {
     std::vector<cv::Vec4d> MultiscaleFinder::operator ()(const cv::Mat & input)
     {
     	if(input.rows != (int)this->get_width())
+    	{
+    		std::cerr<< "input.rows="<<input.rows<<"\twidth="<<this->get_width()<<std::endl;
     		throw std::invalid_argument("MultiscaleFinder::operator () : the input's rows must match the width of the finder");
+    	}
     	if(input.cols != (int)this->get_height())
+    	{
+    		std::cerr<< "input.cols="<<input.cols<<"\theight="<<this->get_height()<<std::endl;
     	    throw std::invalid_argument("MultiscaleFinder::operator () : the input's cols must match the height of the finder");
-
-    	const double
-			n = this->get_n_layers(),
-			kmax = this->get_radius_preblur() * this->get_prefactor() * pow(2.0, 2.0/n);
+    	}
 
     	input.convertTo(small, this->small.type());
     	//upscale the input to fill the first octave
@@ -81,16 +95,8 @@ namespace Colloids {
     		std::vector<cv::Vec4d> v = (*this->octaves[1])(input, true);
     		//correct the seam between octaves in sizing precision
     		for(size_t p=0; p<v.size(); ++p)
-    		{
-    		    if(v[p][2]<kmax)
-    		    {
-    		    	cv::Vec3i vi;
-    		    	for(int u=0; u<2; ++u)
-    		    		vi[u] = (int)(v[p][u]*2+0.5);
-    		    	vi[2] = (int)(log(v[p][2] / this->get_prefactor() / this->get_radius_preblur()) * n / log(2) -1 + n + 0.5);
-    		    	v[p][2] = 0.5*  this->get_prefactor() * this->get_radius_preblur() * pow(2.0, (this->octaves[0]->scale_subpix(vi) + 1) / n);
-    		    }
-    		}
+    			this->seam(v[p], 1);
+
     		centers.reserve(centers.size() + v.size());
     		std::copy(v.begin(), v.end(), std::back_inserter(centers));
 
@@ -98,28 +104,10 @@ namespace Colloids {
 
     	for(size_t o=2; o<this->octaves.size(); ++o)
     	{
-    		//second to last Gaussian layer of octave o-1 has a blurring radius two time larger than the original
-    		cv::Mat_<double> roi2 = small(
-    				cv::Range(0, this->octaves[o]->get_width()),
-    				cv::Range(0, this->octaves[o]->get_height())
-    		);
-    		const cv::Mat_<double> & a = this->octaves[o-1]->get_layersG(this->octaves[o-1]->get_n_layers());
-    		for(int j=0; j<roi2.rows; ++j)
-    			for(int i=0; i<roi2.cols; ++i)
-    				roi2(i,j) = (a(2*i, 2*j) + a(2*i+1, 2*j) + a(2*i, 2*j+1) + a(2*i+1, 2*j+1))/4.0;
-    		std::vector<cv::Vec4d> v = (*this->octaves[o])(roi2);
+    		std::vector<cv::Vec4d> v = (*this->octaves[o])(this->downscale(o));
     		//correct the seam between octaves in sizing precision
-			for(size_t p=0; p<v.size(); ++p)
-			{
-				if(v[p][2]<kmax)
-				{
-					cv::Vec3i vi;
-					for(int u=0; u<2; ++u)
-						vi[u] = (int)(v[p][u]*2+0.5);
-					vi[2] = (int)(log(v[p][2] / this->get_prefactor() / this->get_radius_preblur()) * n / log(2) -1 + n + 0.5);
-					v[p][2] = 0.5* this->get_prefactor() * pow(2.0, (this->octaves[o-1]->scale_subpix(vi) + 1) / n);
-				}
-			}
+    		for(size_t p=0; p<v.size(); ++p)
+    			this->seam(v[p], o-1);
     		centers.reserve(centers.size() + v.size());
     		for(size_t c=0; c<v.size(); ++c)
     		{
@@ -131,5 +119,62 @@ namespace Colloids {
 
     	return centers;
     }
+    const cv::Vec3i MultiscaleFinder2D::previous_octave_coords(const cv::Vec4d &v) const
+    {
+    	const double n = this->get_n_layers();
+    	cv::Vec3i vi;
+		for(int u=0; u<2; ++u)
+			vi[u] = (int)(v[u]*2+0.5);
+		vi[2] = (int)(log(v[2] / this->get_prefactor() / this->get_radius_preblur()) * n / log(2) -1 + n + 0.5);
+		return vi;
+    }
+    const cv::Vec3i MultiscaleFinder1D::previous_octave_coords(const cv::Vec4d &v) const
+	{
+    	const double n = this->get_n_layers();
+		cv::Vec3i vi;
+		vi[0] = (int)(v[0]*2+0.5);
+		vi[1] = 0;
+		vi[2] = (int)(log(v[2] / this->get_prefactor() / this->get_radius_preblur()) * n / log(2) -1 + n + 0.5);
+		return vi;
+	}
 
+    const cv::Mat_<double> MultiscaleFinder2D::downscale(const size_t &o)
+	{
+    	//second to last Gaussian layer of octave o-1 has a blurring radius two time larger than the original
+		cv::Mat_<double> roi2 = small(
+				cv::Range(0, this->octaves[o]->get_width()),
+				cv::Range(0, this->octaves[o]->get_height())
+		);
+		const cv::Mat_<double> & a = this->octaves[o-1]->get_layersG(this->octaves[o-1]->get_n_layers());
+		for(int j=0; j<roi2.rows; ++j)
+			for(int i=0; i<roi2.cols; ++i)
+				roi2(i,j) = (a(2*i, 2*j) + a(2*i+1, 2*j) + a(2*i, 2*j+1) + a(2*i+1, 2*j+1))/4.0;
+		return roi2;
+	}
+    const cv::Mat_<double> MultiscaleFinder1D::downscale(const size_t &o)
+	{
+		//second to last Gaussian layer of octave o-1 has a blurring radius two time larger than the original
+		cv::Mat_<double> roi2 = small(
+				cv::Range(0, this->octaves[o]->get_width()),
+				cv::Range(0, this->octaves[o]->get_height())
+		);
+		const cv::Mat_<double> & a = this->octaves[o-1]->get_layersG(this->octaves[o-1]->get_n_layers());
+		for(int i=0; i<roi2.cols; ++i)
+			roi2(0, i) = (a(0, 2*i) + a(0, 2*i+1))/2.0;
+		return roi2;
+	}
+    void MultiscaleFinder2D::seam(cv::Vec4d &v, const size_t &o) const
+    {
+    	const double
+			n = this->get_n_layers(),
+			kmax = this->get_radius_preblur() * this->get_prefactor() * pow(2.0, 2.0/n);
+		if(v[2]<kmax)
+			v[2] = 0.5* this->get_prefactor() * pow(2.0, (this->octaves[o]->scale_subpix(
+				this->previous_octave_coords(v)
+				) + 1) / n);
+	}
+    void MultiscaleFinder1D::seam(cv::Vec4d &v, const size_t &o) const
+	{
+    	//nothing
+	}
 }

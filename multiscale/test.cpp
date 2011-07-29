@@ -448,7 +448,7 @@ BOOST_AUTO_TEST_SUITE( subpix )
 		//cv cannot draw circle positions better than a pixel, so the input image is drawn in high resolution
 		cv::Mat_<uchar>input(32*32, 32*32), small_input(32,32);
 		std::vector<cv::Vec4d> v;
-		for(int i=0; i<7; ++i)
+		for(int i=0; i<6; ++i)
 		{
 			input.setTo(0);
 			cv::circle(input, cv::Point(32*(16+pow(0.5, i+1)), 32*16), 32*4, 255, -1);
@@ -458,14 +458,13 @@ BOOST_AUTO_TEST_SUITE( subpix )
 			std::vector<cv::Vec4d> v_s = finder.subpix();
 			std::copy(v_s.begin(), v_s.end(), std::back_inserter(v));
 		}
-		BOOST_REQUIRE_EQUAL(v.size(), 7);
-		for(int i=0; i<6; ++i)
+		BOOST_REQUIRE_EQUAL(v.size(), 6);
+		for(int i=0; i<5; ++i)
 			BOOST_WARN_MESSAGE(
 					v[i][0] > v[i+1][0],
 					"spatial resolution is larger than 1/" << pow(2,i+1) <<"th of a pixel"
 					);
 		BOOST_CHECK_GT(v[2][0], v[3][0]);
-		//can differentiate between 1/8 and 1/16, but not between 1/16 and 1/32
 
 	}
 
@@ -636,7 +635,7 @@ BOOST_AUTO_TEST_SUITE( multiscale_constructors )
 
 	BOOST_AUTO_TEST_CASE( multiscale_constructor_square )
 	{
-		MultiscaleFinder finder;
+		MultiscaleFinder2D finder;
 		BOOST_REQUIRE_EQUAL(finder.get_n_octaves(), 6);
 		BOOST_CHECK_EQUAL(finder.get_octave(1).get_width(), 256);
 		BOOST_CHECK_EQUAL(finder.get_octave(1).get_height(), 256);
@@ -659,7 +658,7 @@ BOOST_AUTO_TEST_SUITE( multiscale_constructors )
 	}
 	BOOST_AUTO_TEST_CASE( multiscale_constructor_rectangular_flat )
     {
-		MultiscaleFinder finder(101, 155, 1, 1.0);
+		MultiscaleFinder2D finder(101, 155, 1, 1.0);
         BOOST_REQUIRE_EQUAL(finder.get_n_octaves(), 5);
         BOOST_CHECK_EQUAL(finder.get_octave(1).get_width(), 101);
         BOOST_CHECK_EQUAL(finder.get_octave(1).get_height(), 155);
@@ -681,7 +680,7 @@ BOOST_AUTO_TEST_SUITE( multiscale_call )
 
 	BOOST_AUTO_TEST_CASE( single_circle )
 	{
-		MultiscaleFinder finder;
+		MultiscaleFinder2D finder;
 		cv::Mat_<double>input(256, 256);
 		input.setTo(0);
 		cv::circle(input, cv::Point(128, 128), 4, 1.0, -1);
@@ -708,7 +707,7 @@ BOOST_AUTO_TEST_SUITE( multiscale_call )
 	}
 	BOOST_AUTO_TEST_CASE( multiscale_rectangular )
 	{
-		MultiscaleFinder finder(101, 155);
+		MultiscaleFinder2D finder(101, 155);
 		BOOST_REQUIRE_EQUAL(finder.get_n_octaves(), 5);
 		cv::Mat_<double>input(101, 155);
 		input.setTo(0);
@@ -744,7 +743,7 @@ BOOST_AUTO_TEST_SUITE( multiscale_call )
 	BOOST_AUTO_TEST_CASE( multiscale_relative_sizes )
 	{
 		const int s = 5;
-		MultiscaleFinder finder(pow(2, s+1), pow(2, s+1));
+		MultiscaleFinder2D finder(pow(2, s+1), pow(2, s+1));
 		//cv cannot draw circle sizes better than a pixel, so the input image is drawn in high resolution
 		cv::Mat_<uchar>input(32*pow(2, s+1), 32*pow(2, s+1)), small_input(pow(2, s+1), pow(2, s+1));
 		std::vector<cv::Vec4d> v;
@@ -944,7 +943,7 @@ BOOST_AUTO_TEST_SUITE( octave )
 		//cv cannot draw circle positions better than a pixel, so the input image is drawn in high resolution
 		cv::Mat_<uchar>input(1, 32*32), small_input(1,32);
 		std::vector<cv::Vec4d> v;
-		for(int i=0; i<7; ++i)
+		for(int i=0; i<6; ++i)
 		{
 			input.setTo(0);
 			cv::circle(input, cv::Point(32*(16+pow(0.5, i+1)), 0), 32*3, 255, -1);
@@ -954,8 +953,8 @@ BOOST_AUTO_TEST_SUITE( octave )
 			std::vector<cv::Vec4d> v_s = finder.subpix();
 			std::copy(v_s.begin(), v_s.end(), std::back_inserter(v));
 		}
-		BOOST_REQUIRE_EQUAL(v.size(), 7);
-		for(int i=0; i<6; ++i)
+		BOOST_REQUIRE_EQUAL(v.size(), 6);
+		for(int i=0; i<5; ++i)
 			BOOST_WARN_MESSAGE(
 					v[i][0] > v[i+1][0],
 					"1D spatial resolution is larger than 1/" << pow(2,i+1) <<"th of a pixel"
@@ -990,7 +989,94 @@ BOOST_AUTO_TEST_SUITE( octave )
 		for (size_t i=0; i<v.size();++i)
 			BOOST_REQUIRE_CLOSE(v[i][2], (2+i/16.0), 2.5);
 	}
+	BOOST_AUTO_TEST_SUITE_END() //octave
 
+BOOST_AUTO_TEST_SUITE( multiscale )
+
+	BOOST_AUTO_TEST_CASE( multiscale_constructor_1D )
+	{
+		MultiscaleFinder1D finder;
+		BOOST_REQUIRE_EQUAL(finder.get_n_octaves(), 6);
+		BOOST_CHECK_EQUAL(finder.get_octave(1).get_width(), 1);
+		BOOST_CHECK_EQUAL(finder.get_octave(1).get_height(), 256);
+		BOOST_CHECK_EQUAL(finder.get_octave(1).get_n_layers(), 3);
+		BOOST_CHECK_EQUAL(finder.get_octave(0).get_width(), 1);
+		BOOST_CHECK_EQUAL(finder.get_octave(0).get_height(), 512);
+		BOOST_CHECK_EQUAL(finder.get_octave(0).get_n_layers(), 3);
+		BOOST_CHECK_EQUAL(finder.get_octave(2).get_width(), 1);
+		BOOST_CHECK_EQUAL(finder.get_octave(2).get_height(), 128);
+		BOOST_CHECK_EQUAL(finder.get_octave(2).get_n_layers(), 3);
+		BOOST_CHECK_EQUAL(finder.get_octave(3).get_width(), 1);
+		BOOST_CHECK_EQUAL(finder.get_octave(3).get_height(), 64);
+		BOOST_CHECK_EQUAL(finder.get_octave(3).get_n_layers(), 3);
+		BOOST_CHECK_EQUAL(finder.get_octave(4).get_width(), 1);
+		BOOST_CHECK_EQUAL(finder.get_octave(4).get_height(), 32);
+		BOOST_CHECK_EQUAL(finder.get_octave(4).get_n_layers(), 3);
+		BOOST_CHECK_EQUAL(finder.get_octave(5).get_width(), 1);
+		BOOST_CHECK_EQUAL(finder.get_octave(5).get_height(), 16);
+		BOOST_CHECK_EQUAL(finder.get_octave(5).get_n_layers(), 3);
+	}
+	BOOST_AUTO_TEST_CASE( miltiscale1D_single_blob )
+	{
+		MultiscaleFinder1D finder;
+		cv::Mat_<double>input(1, 256);
+		input.setTo(0);
+		cv::circle(input, cv::Point(128, 0), 3, 1.0, -1);
+		std::vector<cv::Vec4d> v = finder(input);
+		//the first octave's should be the same as the one of an Octavefinder of the same size
+		OctaveFinder1D ofinder;
+		ofinder.preblur_and_fill(input);
+		BOOST_CHECK_CLOSE(finder.get_octave(1).get_layers(0)(0,128), ofinder.get_layers(0)(0,128), 1e-9);
+		images_are_close(finder.get_octave(1).get_layers(0), ofinder.get_layers(0), 1e-4);
+		//with a radius of 4, the maximum should be in layer 2 of octave 1 and nowhere else
+		for(size_t o=0; o<finder.get_n_octaves(); ++o)
+			for(size_t l=1; l<finder.get_n_layers()+1; ++l)
+			{
+				const int u = cv::sum(finder.get_octave(o).get_binary(l))[0];
+				BOOST_CHECK_MESSAGE(
+						u == ((o==1 && l==3)?1:0),
+						"Octave "<<o<<" layer "<<l<<" has "<< u <<" center"<<((u>1)?"s":"")
+				);
+			}
+		BOOST_REQUIRE_EQUAL(v.size(), 1);
+		BOOST_CHECK_CLOSE(v[0][0], 128, 10);
+		BOOST_CHECK_CLOSE(v[0][1], 0, 10);
+		BOOST_CHECK_CLOSE(v[0][2], 3, 2.5);
+	}
+	BOOST_AUTO_TEST_CASE( multiscale_relative_sizes1D )
+	{
+		const int s = 5;
+		MultiscaleFinder1D finder(pow(2, s+1));
+		//cv cannot draw circle sizes better than a pixel, so the input image is drawn in high resolution
+		cv::Mat_<uchar>input(1, 32*pow(2, s+1)), small_input(1, pow(2, s+1));
+		std::vector<cv::Vec4d> v;
+		std::ofstream f("multiscale1D_relative_sizes.out");
+		std::set<int> large_radii;
+		for(int k=1; k<s-1; ++k)
+			for(int i=0; i<32; ++i)
+				large_radii.insert(48*pow(2, k-1)+i*pow(2, k));
+		double radius;
+		for(std::set<int>::const_iterator lr = large_radii.begin(); lr != large_radii.end(); ++lr)
+		{
+			input.setTo(0);
+			radius =  *lr/32.0;
+			BOOST_TEST_CHECKPOINT("radius = "<<radius<<" call");
+			cv::circle(input, cv::Point(32*pow(2, s), 0), *lr, 255, -1);
+			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
+			std::vector<cv::Vec4d> v_s = finder(small_input);
+			BOOST_TEST_CHECKPOINT("radius = "<<radius<<" size");
+			BOOST_CHECK_MESSAGE(
+					v_s.size()==1,
+					""<<((v_s.size()==0)?"No center":"More than one center")<<" for input radius "<<radius
+					);
+			BOOST_TEST_CHECKPOINT("radius = "<<radius<<" copy");
+			std::copy(v_s.begin(), v_s.end(), std::back_inserter(v));
+			for(size_t j=0; j<v_s.size(); ++j)
+				f << radius << "\t" << v_s[j][2] << std::endl;
+		}
+		f<<std::endl;
+		BOOST_REQUIRE_EQUAL(v.size(), large_radii.size());
+	}
 BOOST_AUTO_TEST_SUITE_END() //multiscale
 
 BOOST_AUTO_TEST_SUITE_END() //1D
