@@ -337,6 +337,11 @@ double Colloids::OctaveFinder::scale_subpix(const cv::Vec3i & ci) const
 			s= k + 0.5;
 		return s;
 }
+double Colloids::OctaveFinder1D::scale_subpix(const cv::Vec3i & ci) const
+{
+	//Empirical correction
+	return OctaveFinder::scale_subpix(ci)-0.025*this->layers.size();
+}
 
     cv::Vec4d Colloids::OctaveFinder::single_subpix(const cv::Vec3i & ci) const
     {

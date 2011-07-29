@@ -6,6 +6,7 @@
 #include <boost/test/unit_test.hpp>
 #include <boost/progress.hpp>
 #include <boost/array.hpp>
+#include <set>
 
 using namespace Colloids;
 
@@ -748,30 +749,32 @@ BOOST_AUTO_TEST_SUITE( multiscale_call )
 		cv::Mat_<uchar>input(32*pow(2, s+1), 32*pow(2, s+1)), small_input(pow(2, s+1), pow(2, s+1));
 		std::vector<cv::Vec4d> v;
 		std::ofstream f("multiscale_relative_sizes.out");
-		for(int k=1; k<s; ++k)
+		std::set<int> large_radii;
+		for(int k=1; k<s-1; ++k)
 			for(int i=0; i<32; ++i)
-			{
-				input.setTo(0);
-				const int large_radius = 32*1.5*pow(2, k-1)+i*pow(2, k);
-				const double radius =  large_radius/32.0;
-				BOOST_TEST_CHECKPOINT("radius = "<<radius<<" call");
-				cv::circle(input, cv::Point(32*pow(2, s), 32*pow(2, s)), large_radius, 255, -1);
-				cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
-				std::vector<cv::Vec4d> v_s = finder(small_input);
-				BOOST_TEST_CHECKPOINT("radius = "<<radius<<" size");
-				BOOST_CHECK_MESSAGE(
-						v_s.size()==1,
-						""<<((v_s.size()==0)?"No center":"More than one center")<<" for input radius "<<radius
-						);
-				/*if(radius<pow(2, s-1))
-					BOOST_CHECK_CLOSE(v_s[0][2], radius, 5);*/
-				BOOST_TEST_CHECKPOINT("radius = "<<radius<<" copy");
-				std::copy(v_s.begin(), v_s.end(), std::back_inserter(v));
-				for(size_t j=0; j<v_s.size(); ++j)
-					f << radius << "\t" << v_s[j][2] << "\n";
-			}
+				large_radii.insert(48*pow(2, k-1)+i*pow(2, k));
+		for(std::set<int>::const_iterator lr = large_radii.begin(); lr != large_radii.end(); ++lr)
+		{
+			input.setTo(0);
+			const double radius =  *lr/32.0;
+			BOOST_TEST_CHECKPOINT("radius = "<<radius<<" call");
+			cv::circle(input, cv::Point(32*pow(2, s), 32*pow(2, s)), *lr, 255, -1);
+			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
+			std::vector<cv::Vec4d> v_s = finder(small_input);
+			BOOST_TEST_CHECKPOINT("radius = "<<radius<<" size");
+			BOOST_CHECK_MESSAGE(
+					v_s.size()==1,
+					""<<((v_s.size()==0)?"No center":"More than one center")<<" for input radius "<<radius
+					);
+			/*if(radius<pow(2, s-1))
+				BOOST_CHECK_CLOSE(v_s[0][2], radius, 5);*/
+			BOOST_TEST_CHECKPOINT("radius = "<<radius<<" copy");
+			std::copy(v_s.begin(), v_s.end(), std::back_inserter(v));
+			for(size_t j=0; j<v_s.size(); ++j)
+				f << radius << "\t" << v_s[j][2] << "\n";
+		}
 		f<<std::endl;
-		BOOST_REQUIRE_EQUAL(v.size(), 32*(s-1));
+		BOOST_REQUIRE_EQUAL(v.size(), large_radii.size());
 	}
 BOOST_AUTO_TEST_SUITE_END()
 
@@ -961,33 +964,31 @@ BOOST_AUTO_TEST_SUITE( octave )
 	}
 	BOOST_AUTO_TEST_CASE( subpix_relative_sizes )
 	{
-		OctaveFinder1D finder(64);
+		OctaveFinder1D finder(64, 3);
 		//cv cannot draw circle sizes better than a pixel, so the input image is drawn in high resolution
-		cv::Mat_<uchar>input(1, 8*64), small_input(1,64);
+		cv::Mat_<uchar>input(1, 16*64), small_input(1,64);
 		std::vector<cv::Vec4d> v;
-		for(int i=0; i<7; ++i)
+		std::ofstream f("1d_relative_sizes.out");
+		for(int i=0; i<32; ++i)
 		{
 			input.setTo(0);
-			cv::circle(input, cv::Point(8*32, 0), 8*2+i, 255, -1);
+			cv::circle(input, cv::Point(16*32, 0), 16*2+i, 255, -1);
 			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
 			finder.preblur_and_fill(small_input);
 			finder.initialize_binary();
 			std::vector<cv::Vec4d> v_s = finder.subpix();
+			BOOST_REQUIRE_EQUAL(v_s.size(), 1);
 			std::copy(v_s.begin(), v_s.end(), std::back_inserter(v));
+			finder.scale(v_s);
+			f<< (2+i/16.0) <<"\t" << v_s[0][2] <<"\n";
 		}
-		BOOST_REQUIRE_EQUAL(v.size(), 7);
 
 		for (int i=1; i<7;++i)
 			BOOST_WARN_MESSAGE(v[0][2]< v[7-i][2], "resolution in size is 1/"<<(8*(7-i))<< "th of a scale");
 
 		finder.scale(v);
-		BOOST_CHECK_CLOSE(v[0][2], 2, 2);
-		BOOST_CHECK_CLOSE(v[1][2], 2.125, 2);
-		BOOST_CHECK_CLOSE(v[2][2], 2.25, 2);
-		BOOST_CHECK_CLOSE(v[3][2], 2.325, 2);
-		BOOST_CHECK_CLOSE(v[4][2], 2.5, 2);
-		BOOST_CHECK_CLOSE(v[5][2], 2.625, 2);
-		BOOST_CHECK_CLOSE(v[6][2], 2.75, 2);
+		for (size_t i=0; i<v.size();++i)
+			BOOST_REQUIRE_CLOSE(v[i][2], (2+i/16.0), 2.5);
 	}
 
 BOOST_AUTO_TEST_SUITE_END() //multiscale
