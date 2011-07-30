@@ -28,6 +28,7 @@ namespace Colloids
             inline const cv::Mat_<bool> & get_binary(const size_t l) const {return binary[l-1];};
 			inline const cv::Mat_<double> & get_layersG(const size_t l) const {return layersG[l];}
 			inline const cv::Mat_<double> & get_layers(const size_t l) const {return layers[l];}
+			inline const size_t get_nb_centers() const {return centers_no_subpix.size();}
 
             //processing
             void fill(const cv::Mat &input);
