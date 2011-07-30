@@ -1043,7 +1043,7 @@ BOOST_AUTO_TEST_SUITE( multiscale )
 		BOOST_REQUIRE_EQUAL(v.size(), 1);
 		BOOST_CHECK_CLOSE(v[0][0], 128, 10);
 		BOOST_CHECK_CLOSE(v[0][1], 0, 10);
-		BOOST_CHECK_CLOSE(v[0][2], 3, 2.5);
+		BOOST_CHECK_CLOSE(v[0][2], 3.5, 2.5);
 	}
 	BOOST_AUTO_TEST_CASE( multiscale_relative_sizes1D )
 	{
@@ -1074,7 +1074,7 @@ BOOST_AUTO_TEST_SUITE( multiscale )
 			BOOST_TEST_CHECKPOINT("radius = "<<radius<<" copy");
 			std::copy(v_s.begin(), v_s.end(), std::back_inserter(v));
 			for(size_t j=0; j<v_s.size(); ++j)
-				f << radius << "\t" << v_s[j][2]<< "\t" << v_s[j][0]<< std::endl;
+				f << radius << "\t" << v_s[j][2]<< "\t" << v_s[j][0]<< "\n";
 		}
 		f<<std::endl;
 		BOOST_REQUIRE_EQUAL(v.size(), large_radii.size());

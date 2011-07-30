@@ -343,7 +343,14 @@ double Colloids::OctaveFinder::scale_subpix(const cv::Vec3i & ci) const
 double Colloids::OctaveFinder1D::scale_subpix(const cv::Vec3i & ci) const
 {
 	//Empirical correction
-	return OctaveFinder::scale_subpix(ci)-0.025*this->layers.size();
+	//return ci[2] + 1.1*(OctaveFinder::scale_subpix(ci)-ci[2]) - 0.1/ci[2]- 0.1;//-0.025*this->layers.size();
+	const size_t i = ci[0], j = ci[1], k = ci[2];
+	double h = 1.0/3.0;
+	boost::array<double,7> a;
+	for(int u=0; u<a.size();++u)
+		a[u] = this->gaussianResponse(j, i, k - 3*h + u*h);
+	double s = 2*h * (a[5] -2*a[3] + a[1])/(a[6] -3*a[4] +3*a[2] -a[0]);
+	return k - 1.05*s + 0.08*pow(s,2) - pow(2,-2/(double)this->get_n_layers())+0.025*k -0.025;
 }
 
     cv::Vec4d Colloids::OctaveFinder::single_subpix(const cv::Vec3i & ci) const
