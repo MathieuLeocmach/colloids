@@ -240,9 +240,8 @@ cv::Vec4d Colloids::OctaveFinder1D::spatial_subpix(const cv::Vec3i & ci) const
 		//If possible, we use the Gaussian layer below the detected scale
 		//to have better spatial resolution
         const cv::Mat_<double> & l = (k>0 ? this->layersG[k-1] : this->layersG[k]);
-        c[0] = ci[0] - (l(0, i+1) - l(0, i-1)) / 2.0 / (l(0, i+1) -2*l(0, i) + l(0, i-1));
+        c[0] = ci[0] + 0.5 - (l(0, i+1) - l(0, i-1)) / 2.0 / (l(0, i+1) -2*l(0, i) + l(0, i-1));
         c[1] = 0;
-        c[2] = k;
         c[3] = this->layers[k](0, i) - 0.25 * (c[0]-i) * (l(0, i+1) - l(0, i-1));
         return c;
 }
