@@ -400,71 +400,37 @@ double Colloids::OctaveFinder1D::scale_subpix(const cv::Vec3i & ci) const
 void OctaveFinder::seam_binary(OctaveFinder & other)
 {
 	const double sizefactor = this->get_height()/other.get_height();
-	if(sizefactor>1)
+	OctaveFinder & a = sizefactor>1?(*this):other, &b = sizefactor>1?other:(*this);
+	const double sf = sizefactor>1?sizefactor:(1.0/sizefactor);
+	//centers in a that corresponds to a lower intensity in b
+	std::list<cv::Vec3i>::iterator c = a.centers_no_subpix.begin();
+	while(c!=a.centers_no_subpix.end())
 	{
-		//centers in this that corresponds to a lower intensity in other
-		std::list<cv::Vec3i>::iterator c = this->centers_no_subpix.begin();
-		while(c!=this->centers_no_subpix.end())
+		if(
+			((*c)[2] == a.get_n_layers()) &&
+			(b.binary.front()((*c)[1]/sf+0.5, (*c)[0]/sf+0.5)) &&
+			(a.layers[(*c)[2]]((*c)[1], (*c)[0]) > b.layers[1]((*c)[1]/sf+0.5, (*c)[0]/sf+0.5))
+			)
 		{
-			if(
-				((*c)[2] == this->get_n_layers()) &&
-				(other.binary.front()((*c)[1]/sizefactor+0.5, (*c)[0]/sizefactor+0.5)) &&
-				(this->layers[(*c)[2]]((*c)[1], (*c)[0]) > other.layers[1]((*c)[1]/sizefactor+0.5, (*c)[0]/sizefactor+0.5))
-				)
-			{
-				this->binary[(*c)[2]-1]((*c)[1], (*c)[0]) = false;
-				c = this->centers_no_subpix.erase(c);
-			}
-			else c++;
+			a.binary[(*c)[2]-1]((*c)[1], (*c)[0]) = false;
+			c = a.centers_no_subpix.erase(c);
 		}
-		//centers in other that corresponds to a lower intensity in this
-		c = other.centers_no_subpix.begin();
-		while(c!=other.centers_no_subpix.end())
-		{
-			if(
-				((*c)[2] == 1) &&
-				(this->binary.back()((*c)[1]*sizefactor+0.5, (*c)[0]*sizefactor+0.5)) &&
-				(other.layers[1]((*c)[1], (*c)[0]) > this->layers[this->get_n_layers()]((*c)[1]*sizefactor, (*c)[0]*sizefactor))
-				)
-			{
-				other.binary.front()((*c)[1], (*c)[0]) = false;
-				c = other.centers_no_subpix.erase(c);
-			}
-			else c++;
-		}
+		else c++;
 	}
-	else
+	//centers in b that corresponds to a lower intensity in a
+	c = b.centers_no_subpix.begin();
+	while(c!=b.centers_no_subpix.end())
 	{
-		//centers in this that corresponds to a lower intensity in other
-		std::list<cv::Vec3i>::iterator c = this->centers_no_subpix.begin();
-		while(c!=this->centers_no_subpix.end())
+		if(
+			((*c)[2] == 1) &&
+			(a.binary.back()((*c)[1]*sf+0.5, (*c)[0]*sf+0.5)) &&
+			(b.layers[1]((*c)[1], (*c)[0]) > a.layers[a.get_n_layers()]((*c)[1]*sf+0.5, (*c)[0]*sf+0.5))
+			)
 		{
-			if(
-				((*c)[2] == 1) &&
-				(other.binary.back()((*c)[1]/sizefactor+0.5, (*c)[0]/sizefactor+0.5)) &&
-				(this->layers[(*c)[2]]((*c)[1], (*c)[0]) > other.layers[other.get_n_layers()]((*c)[1]/sizefactor, (*c)[0]/sizefactor))
-				)
-			{
-				this->binary[(*c)[2]-1]((*c)[1], (*c)[0]) = false;
-				c = this->centers_no_subpix.erase(c);
-			}
-			else c++;
+			b.binary.front()((*c)[1], (*c)[0]) = false;
+			c = b.centers_no_subpix.erase(c);
 		}
-		//centers in other that corresponds to a lower intensity in this
-		c = other.centers_no_subpix.begin();
-		while(c!=other.centers_no_subpix.end())
-		{
-			if(
-				((*c)[2] == other.get_n_layers()) &&
-				(this->binary.front()((*c)[1]*sizefactor+0.5, (*c)[0]*sizefactor+0.5)) &&
-				(other.layers[(*c)[2]]((*c)[1], (*c)[0]) > this->layers[1]((*c)[1]*sizefactor, (*c)[0]*sizefactor))
-				)
-			{
-				other.binary[(*c)[2]-1]((*c)[1], (*c)[0]) = false;
-				c = other.centers_no_subpix.erase(c);
-			}
-			else c++;
-		}
+		else c++;
 	}
 
 }
