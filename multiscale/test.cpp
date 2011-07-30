@@ -760,17 +760,19 @@ BOOST_AUTO_TEST_SUITE( multiscale_call )
 			cv::circle(input, cv::Point(32*pow(2, s), 32*pow(2, s)), *lr, 255, -1);
 			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
 			std::vector<cv::Vec4d> v_s = finder(small_input);
+			for(size_t j=0; j<v_s.size(); ++j)
+				f << radius << "\t" << v_s[j][2] << "\n";
 			BOOST_TEST_CHECKPOINT("radius = "<<radius<<" size");
-			BOOST_CHECK_MESSAGE(
+			BOOST_REQUIRE_MESSAGE(
 					v_s.size()==1,
 					""<<((v_s.size()==0)?"No center":"More than one center")<<" for input radius "<<radius
 					);
+			BOOST_CHECK_CLOSE(v_s[0][1], pow(2, s), 2);
 			/*if(radius<pow(2, s-1))
 				BOOST_CHECK_CLOSE(v_s[0][2], radius, 5);*/
 			BOOST_TEST_CHECKPOINT("radius = "<<radius<<" copy");
 			std::copy(v_s.begin(), v_s.end(), std::back_inserter(v));
-			for(size_t j=0; j<v_s.size(); ++j)
-				f << radius << "\t" << v_s[j][2] << "\n";
+
 		}
 		f<<std::endl;
 		BOOST_REQUIRE_EQUAL(v.size(), large_radii.size());
@@ -1067,12 +1069,12 @@ BOOST_AUTO_TEST_SUITE( multiscale )
 			BOOST_TEST_CHECKPOINT("radius = "<<radius<<" size");
 			BOOST_CHECK_MESSAGE(
 					v_s.size()==1,
-					""<<((v_s.size()==0)?"No center":"More than one center")<<" for input radius "<<radius
+					""<<v_s.size()<<" centers for input radius "<<radius
 					);
 			BOOST_TEST_CHECKPOINT("radius = "<<radius<<" copy");
 			std::copy(v_s.begin(), v_s.end(), std::back_inserter(v));
 			for(size_t j=0; j<v_s.size(); ++j)
-				f << radius << "\t" << v_s[j][2] << std::endl;
+				f << radius << "\t" << v_s[j][2]<< "\t" << v_s[j][0]<< std::endl;
 		}
 		f<<std::endl;
 		BOOST_REQUIRE_EQUAL(v.size(), large_radii.size());

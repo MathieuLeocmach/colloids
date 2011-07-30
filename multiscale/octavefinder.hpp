@@ -41,6 +41,7 @@ namespace Colloids
             void scale(std::vector<cv::Vec4d> &centers) const;
             std::vector<cv::Vec4d> operator()(const cv::Mat &input, const bool preblur=false);
             virtual double gaussianResponse(const size_t &j, const size_t &i, const double & scale) const;
+            void seam_binary(OctaveFinder & other);
 
 
     protected:

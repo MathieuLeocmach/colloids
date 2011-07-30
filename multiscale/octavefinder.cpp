@@ -394,6 +394,80 @@ double Colloids::OctaveFinder1D::scale_subpix(const cv::Vec3i & ci) const
     {
     	return this->preblur_radius * sqrt(pow(2.0, 2.0*larger/this->get_n_layers()) - pow(2.0, 2.0*smaller/this->get_n_layers()));
     }
+/**
+ * \brief Eliminate pixel centers duplicated at the seam between two Octaves
+ */
+void OctaveFinder::seam_binary(OctaveFinder & other)
+{
+	const double sizefactor = this->get_height()/other.get_height();
+	if(sizefactor>1)
+	{
+		//centers in this that corresponds to a lower intensity in other
+		std::list<cv::Vec3i>::iterator c = this->centers_no_subpix.begin();
+		while(c!=this->centers_no_subpix.end())
+		{
+			if(
+				((*c)[2] == this->get_n_layers()) &&
+				(other.binary.front()((*c)[1]/sizefactor+0.5, (*c)[0]/sizefactor+0.5)) &&
+				(this->layers[(*c)[2]]((*c)[1], (*c)[0]) > other.layers[1]((*c)[1]/sizefactor+0.5, (*c)[0]/sizefactor+0.5))
+				)
+			{
+				this->binary[(*c)[2]-1]((*c)[1], (*c)[0]) = false;
+				c = this->centers_no_subpix.erase(c);
+			}
+			else c++;
+		}
+		//centers in other that corresponds to a lower intensity in this
+		c = other.centers_no_subpix.begin();
+		while(c!=other.centers_no_subpix.end())
+		{
+			if(
+				((*c)[2] == 1) &&
+				(this->binary.back()((*c)[1]*sizefactor+0.5, (*c)[0]*sizefactor+0.5)) &&
+				(other.layers[1]((*c)[1], (*c)[0]) > this->layers[this->get_n_layers()]((*c)[1]*sizefactor, (*c)[0]*sizefactor))
+				)
+			{
+				other.binary.front()((*c)[1], (*c)[0]) = false;
+				c = other.centers_no_subpix.erase(c);
+			}
+			else c++;
+		}
+	}
+	else
+	{
+		//centers in this that corresponds to a lower intensity in other
+		std::list<cv::Vec3i>::iterator c = this->centers_no_subpix.begin();
+		while(c!=this->centers_no_subpix.end())
+		{
+			if(
+				((*c)[2] == 1) &&
+				(other.binary.back()((*c)[1]/sizefactor+0.5, (*c)[0]/sizefactor+0.5)) &&
+				(this->layers[(*c)[2]]((*c)[1], (*c)[0]) > other.layers[other.get_n_layers()]((*c)[1]/sizefactor, (*c)[0]/sizefactor))
+				)
+			{
+				this->binary[(*c)[2]-1]((*c)[1], (*c)[0]) = false;
+				c = this->centers_no_subpix.erase(c);
+			}
+			else c++;
+		}
+		//centers in other that corresponds to a lower intensity in this
+		c = other.centers_no_subpix.begin();
+		while(c!=other.centers_no_subpix.end())
+		{
+			if(
+				((*c)[2] == other.get_n_layers()) &&
+				(this->binary.front()((*c)[1]*sizefactor+0.5, (*c)[0]*sizefactor+0.5)) &&
+				(other.layers[(*c)[2]]((*c)[1], (*c)[0]) > this->layers[1]((*c)[1]*sizefactor, (*c)[0]*sizefactor))
+				)
+			{
+				other.binary[(*c)[2]-1]((*c)[1], (*c)[0]) = false;
+				c = other.centers_no_subpix.erase(c);
+			}
+			else c++;
+		}
+	}
+
+}
 
 void Colloids::OctaveFinder::fill_iterative_radii(const double & k)
 {
