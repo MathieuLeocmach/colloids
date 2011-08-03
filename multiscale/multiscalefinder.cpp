@@ -55,7 +55,7 @@ namespace Colloids {
     		this->octaves[o]->set_radius_preblur(k);
     }
 
-    std::vector<cv::Vec4d> MultiscaleFinder::operator ()(const cv::Mat & input)
+    std::vector<Center2D> MultiscaleFinder::operator ()(const cv::Mat & input)
     {
     	if(input.rows != (int)this->get_width())
     	{
@@ -102,7 +102,7 @@ namespace Colloids {
     		this->octaves[o]->seam_binary(*this->octaves[o+1]);
 
     	//reserve memory for the center container
-    	std::vector<cv::Vec4d> centers;
+    	std::vector<Center2D> centers;
     	size_t n_centers = 0;
     	for(size_t o=0; o<this->octaves.size(); ++o)
     		n_centers += this->octaves[o]->get_nb_centers();
@@ -110,31 +110,33 @@ namespace Colloids {
     	//subpixel resolution
     	for(size_t o=0; o<this->octaves.size(); ++o)
     	{
-    		std::vector<cv::Vec4d> v = this->octaves[o]->subpix();
+    		std::vector<Center2D> v = this->octaves[o]->subpix();
     		//correct the seam between octaves in sizing precision
     		if(o>0)
 				for(size_t p=0; p<v.size(); ++p)
 					this->seam(v[p], o-1);
     		//transform scale coordinate in size coordinate
-			this->octaves[o]->scale(v);
+    		for(size_t c=0; c< v.size(); ++c)
+    			this->octaves[o]->scale(v[c]);
 			//stack up
 			for(size_t c=0; c<v.size(); ++c)
 			{
-				for(size_t i=0; i<3;++i)
-					v[c][i] *= pow(2.0, (int)(o)-1);
+				v[c][0] *= pow(2.0, (int)(o)-1);
+				v[c][1] *= pow(2.0, (int)(o)-1);
+				v[c].r *= pow(2.0, (int)(o)-1);
 				centers.push_back(v[c]);
 			}
     	}
 
     	return centers;
     }
-    const cv::Vec3i MultiscaleFinder::previous_octave_coords(const cv::Vec4d &v) const
+    const cv::Vec3i MultiscaleFinder::previous_octave_coords(const Center2D &v) const
     {
     	const double n = this->get_n_layers();
     	cv::Vec3i vi;
 		for(int u=0; u<2; ++u)
 			vi[u] = (int)(v[u]*2+0.5);
-		vi[2] = int(v[2] + n + 0.5);
+		vi[2] = int(v.r + n + 0.5);
 		return vi;
     }
 
@@ -163,12 +165,12 @@ namespace Colloids {
 			roi2(0, i) = (a(0, 2*i) + a(0, 2*i+1))/2.0;
 		return roi2;
 	}
-    void MultiscaleFinder2D::seam(cv::Vec4d &v, const size_t &o) const
+    void MultiscaleFinder2D::seam(Center2D &v, const size_t &o) const
     {
-		if(v[2]<1)
-			v[2] = this->octaves[o]->scale_subpix(this->previous_octave_coords(v)) - this->get_n_layers();
+		if(v.r<1)
+			v.r = this->octaves[o]->scale_subpix(this->previous_octave_coords(v)) - this->get_n_layers();
 	}
-    void MultiscaleFinder1D::seam(cv::Vec4d &v, const size_t &o) const
+    void MultiscaleFinder1D::seam(Center2D &v, const size_t &o) const
 	{
     	//nothing
 	}

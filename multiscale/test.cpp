@@ -288,7 +288,7 @@ BOOST_AUTO_TEST_SUITE( local_max )
 		BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(3))[0], 0);
 		BOOST_CHECK_EQUAL(finder.get_binary(2)(7*32, 7-3), true);
 		BOOST_CHECK_EQUAL(finder.get_binary(2)(258-7, 7*32), true);
-		std::vector<cv::Vec4d> v = finder.subpix();
+		std::vector<Center2D> v = finder.subpix();
 	}
 
 	BOOST_AUTO_TEST_CASE( multiple_circles_various_sizes )
@@ -367,7 +367,7 @@ BOOST_AUTO_TEST_SUITE( subpix )
 		finder.preblur_and_fill(input);
 		finder.initialize_binary();
 		BOOST_CHECK_EQUAL(finder.get_binary(2)(200, 100), 1);
-		std::vector<cv::Vec4d> v = finder.subpix();
+		std::vector<Center2D> v = finder.subpix();
 		BOOST_REQUIRE_EQUAL(v.size(), 1);
 		//x
 		BOOST_CHECK_GE(v[0][0], 99);
@@ -376,8 +376,8 @@ BOOST_AUTO_TEST_SUITE( subpix )
 		BOOST_CHECK_GE(v[0][1], 199);
 		BOOST_CHECK_LE(v[0][1], 201);
 		//scale
-		BOOST_CHECK_GE(v[0][2], 1);
-		BOOST_CHECK_LE(v[0][2], 3);
+		BOOST_CHECK_GE(v[0].r, 1);
+		BOOST_CHECK_LE(v[0].r, 3);
 		//gaussian response
 		BOOST_CHECK_CLOSE(finder.gaussianResponse(200, 100, 2.0), finder.get_layersG(2)(200, 100), 1e-9);
 		BOOST_CHECK_CLOSE(finder.gaussianResponse(200, 100, 3.0)-finder.gaussianResponse(200, 100, 2.0), finder.get_layers(2)(200, 100), 1e-9);
@@ -429,7 +429,7 @@ BOOST_AUTO_TEST_SUITE( subpix )
 		finder.preblur_and_fill(input);
 		finder.initialize_binary();
 		BOOST_CHECK_EQUAL(finder.get_binary(2)(200, 100), 1);
-		std::vector<cv::Vec4d> v = finder.subpix();
+		std::vector<Center2D> v = finder.subpix();
 		BOOST_REQUIRE_EQUAL(v.size(), 1);
 		//x
 		BOOST_CHECK_GE(v[0][0], 99);
@@ -438,8 +438,8 @@ BOOST_AUTO_TEST_SUITE( subpix )
 		BOOST_CHECK_GE(v[0][1], 199);
 		BOOST_CHECK_LE(v[0][1], 201);
 		//scale
-		BOOST_CHECK_GE(v[0][2], 1);
-		BOOST_CHECK_LE(v[0][2], 3);
+		BOOST_CHECK_GE(v[0].r, 1);
+		BOOST_CHECK_LE(v[0].r, 3);
 
 	}
 
@@ -448,7 +448,7 @@ BOOST_AUTO_TEST_SUITE( subpix )
 		OctaveFinder finder(32, 32);
 		//cv cannot draw circle positions better than a pixel, so the input image is drawn in high resolution
 		cv::Mat_<uchar>input(32*32, 32*32), small_input(32,32);
-		std::vector<cv::Vec4d> v;
+		std::vector<Center2D> v;
 		for(int i=0; i<6; ++i)
 		{
 			input.setTo(0);
@@ -456,7 +456,7 @@ BOOST_AUTO_TEST_SUITE( subpix )
 			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
 			finder.preblur_and_fill(small_input);
 			finder.initialize_binary();
-			std::vector<cv::Vec4d> v_s = finder.subpix();
+			std::vector<Center2D> v_s = finder.subpix();
 			std::copy(v_s.begin(), v_s.end(), std::back_inserter(v));
 		}
 		BOOST_REQUIRE_EQUAL(v.size(), 6);
@@ -474,7 +474,7 @@ BOOST_AUTO_TEST_SUITE( subpix )
 		OctaveFinder finder(32,32);
 		//cv cannot draw circle sizes better than a pixel, so the input image is drawn in high resolution
 		cv::Mat_<uchar>input(8*32, 8*32), small_input(32,32);
-		std::vector<cv::Vec4d> v;
+		std::vector<Center2D> v;
 		for(int i=0; i<7; ++i)
 		{
 			input.setTo(0);
@@ -482,22 +482,23 @@ BOOST_AUTO_TEST_SUITE( subpix )
 			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
 			finder.preblur_and_fill(small_input);
 			finder.initialize_binary();
-			std::vector<cv::Vec4d> v_s = finder.subpix();
+			std::vector<Center2D> v_s = finder.subpix();
 			std::copy(v_s.begin(), v_s.end(), std::back_inserter(v));
 		}
 		BOOST_REQUIRE_EQUAL(v.size(), 7);
 
 		for (int i=1; i<7;++i)
-			BOOST_WARN_MESSAGE(v[0][2]< v[7-i][2], "resolution in size is 1/"<<(8*(7-i))<< "th of a scale");
+			BOOST_WARN_MESSAGE(v[0].r< v[7-i].r, "resolution in size is 1/"<<(8*(7-i))<< "th of a scale");
 
-		finder.scale(v);
-		BOOST_CHECK_CLOSE(v[0][2], 4, 2);
-		BOOST_CHECK_CLOSE(v[1][2], 4.125, 2);
-		BOOST_CHECK_CLOSE(v[2][2], 4.25, 2);
-		BOOST_CHECK_CLOSE(v[3][2], 4.325, 2);
-		BOOST_CHECK_CLOSE(v[4][2], 4.5, 2);
-		BOOST_CHECK_CLOSE(v[5][2], 4.625, 2);
-		BOOST_CHECK_CLOSE(v[6][2], 4.75, 2);
+		for(size_t c=0; c<v.size(); ++c)
+			finder.scale(v[c]);
+		BOOST_CHECK_CLOSE(v[0].r, 4, 2);
+		BOOST_CHECK_CLOSE(v[1].r, 4.125, 2);
+		BOOST_CHECK_CLOSE(v[2].r, 4.25, 2);
+		BOOST_CHECK_CLOSE(v[3].r, 4.325, 2);
+		BOOST_CHECK_CLOSE(v[4].r, 4.5, 2);
+		BOOST_CHECK_CLOSE(v[5].r, 4.625, 2);
+		BOOST_CHECK_CLOSE(v[6].r, 4.75, 2);
 		/*for (int i=0; i<30;++i)
 		{
 			input.setTo(0);
@@ -523,7 +524,7 @@ BOOST_AUTO_TEST_SUITE( subpix )
 		finder.initialize_binary();
 		boost::progress_timer ti;
 		for (size_t i=0; i<100; ++i)
-			std::vector<cv::Vec4d> v = finder.subpix();
+			std::vector<Center2D> v = finder.subpix();
 		std::cout<<"100 subpixel resolutions in ";
 	}
 
@@ -537,7 +538,7 @@ BOOST_AUTO_TEST_SUITE( octave_limit_cases )
 		OctaveFinder finder(32,32);
 		cv::Mat_<uchar>input(16*32, 16*32), small_input(32,32);
 		int i = 0;
-		std::vector<cv::Vec4d> v(1);
+		std::vector<Center2D> v(1);
 		while(3-0.01*i>0 && v.size()>0)
 		{
 			i++;
@@ -552,7 +553,7 @@ BOOST_AUTO_TEST_SUITE( octave_limit_cases )
 	BOOST_AUTO_TEST_CASE( octave_minimum_detector_size )
 	{
 		int i = 32;
-		std::vector<cv::Vec4d> v(1);
+		std::vector<Center2D> v(1);
 		while(i>0 && v.size()>0)
 		{
 			i--;
@@ -578,7 +579,7 @@ BOOST_AUTO_TEST_SUITE( octave_limit_cases )
 			input.setTo(0);
 			cv::circle(input, cv::Point(32*16, i), 32*4, 255, -1);
 			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
-			std::vector<cv::Vec4d> v_s = finder(small_input, true);
+			std::vector<Center2D> v_s = finder(small_input, true);
 			BOOST_CHECK_MESSAGE(
 				v_s.size()==1,
 				""<<((v_s.size()==0)?"No center":"More than one center")<<" for input position "<<position
@@ -591,9 +592,9 @@ BOOST_AUTO_TEST_SUITE( octave_limit_cases )
 			BOOST_CHECK_LT(finder.gaussianResponse(position, 16, 1.5), finder.gaussianResponse(position, 16, 1));
 			BOOST_CHECK_LT(finder.gaussianResponse(position, 16, 1), finder.gaussianResponse(position, 16, 0.5));
 			BOOST_CHECK_LT(finder.gaussianResponse(position, 16, 0.5), finder.gaussianResponse(position, 16, 0));
-			BOOST_CHECK_CLOSE(v_s[0][2], 4, 50);
+			BOOST_CHECK_CLOSE(v_s[0].r, 4, 50);
 			for(size_t j=0; j<v_s.size(); ++j)
-				f << position << "\t" << v_s[j][1] << "\t"  << v_s[j][2] << "\n";
+				f << position << "\t" << v_s[j][1] << "\t"  << v_s[j].r << "\n";
 		}
 		f<<std::endl;
 	}
@@ -612,7 +613,7 @@ BOOST_AUTO_TEST_SUITE( octave_limit_cases )
 			cv::circle(input, cv::Point(32*16, 32*16), 32*4, 255, -1);
 			cv::circle(input, cv::Point(32*16, 32*16+i), 32*4, 255, -1);
 			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
-			std::vector<cv::Vec4d> v_s = finder(small_input, true);
+			std::vector<Center2D> v_s = finder(small_input, true);
 			BOOST_REQUIRE_EQUAL(v_s.size(), 2);
 			BOOST_CHECK_CLOSE(v_s[0][1], 16, distance<16?6:2);
 			/*cv::namedWindow("truc");
@@ -620,9 +621,9 @@ BOOST_AUTO_TEST_SUITE( octave_limit_cases )
 			cv::imshow("binary", 255*finder.get_binary(2));
 			cv::waitKey();*/
 			BOOST_REQUIRE_CLOSE(v_s[1][1], 16+distance, distance<16?6:2);
-			BOOST_CHECK_CLOSE(v_s[0][2], 4, distance<16?6:2);
+			BOOST_CHECK_CLOSE(v_s[0].r, 4, distance<16?6:2);
 			BOOST_CHECK_CLOSE(v_s[1][1] - v_s[0][1], distance, distance<9.03125?21:2);
-			f << distance << "\t" << v_s[0][1] << "\t" << v_s[1][1] << "\t" << v_s[0][2] << "\n";
+			f << distance << "\t" << v_s[0][1] << "\t" << v_s[1][1] << "\t" << v_s[0].r << "\n";
 		}
 		f<<std::endl;
 	}
@@ -685,7 +686,7 @@ BOOST_AUTO_TEST_SUITE( multiscale_call )
 		cv::Mat_<double>input(256, 256);
 		input.setTo(0);
 		cv::circle(input, cv::Point(128, 128), 4, 1.0, -1);
-		std::vector<cv::Vec4d> v = finder(input);
+		std::vector<Center2D> v = finder(input);
 		//the first octave's should be the same as the one of a Octavefinder of the same size
 		OctaveFinder ofinder;
 		ofinder.preblur_and_fill(input);
@@ -704,7 +705,7 @@ BOOST_AUTO_TEST_SUITE( multiscale_call )
 		BOOST_REQUIRE_EQUAL(v.size(), 1);
 		BOOST_CHECK_CLOSE(v[0][0], 128, 10);
 		BOOST_CHECK_CLOSE(v[0][1], 128, 10);
-		BOOST_CHECK_CLOSE(v[0][2], 4, 2);
+		BOOST_CHECK_CLOSE(v[0].r, 4, 2);
 	}
 	BOOST_AUTO_TEST_CASE( multiscale_rectangular )
 	{
@@ -713,7 +714,7 @@ BOOST_AUTO_TEST_SUITE( multiscale_call )
 		cv::Mat_<double>input(101, 155);
 		input.setTo(0);
 		cv::circle(input, cv::Point(28, 28), 2, 1.0, -1);
-		std::vector<cv::Vec4d> v = finder(input);
+		std::vector<Center2D> v = finder(input);
 		//the first octave's should be the same as the one of a OctaveFinder of the same size
 		OctaveFinder ofinder(101, 155);
 		ofinder.preblur_and_fill(input);
@@ -739,7 +740,7 @@ BOOST_AUTO_TEST_SUITE( multiscale_call )
 		BOOST_REQUIRE_EQUAL(v.size(), 1);
 		BOOST_CHECK_CLOSE(v[0][0], 28, 10);
 		BOOST_CHECK_CLOSE(v[0][1], 28, 10);
-		BOOST_CHECK_CLOSE(v[0][2], 2, 5);
+		BOOST_CHECK_CLOSE(v[0].r, 2, 5);
 	}
 	BOOST_AUTO_TEST_CASE( multiscale_relative_sizes )
 	{
@@ -747,7 +748,7 @@ BOOST_AUTO_TEST_SUITE( multiscale_call )
 		MultiscaleFinder2D finder(pow(2, s+1), pow(2, s+1));
 		//cv cannot draw circle sizes better than a pixel, so the input image is drawn in high resolution
 		cv::Mat_<uchar>input(32*pow(2, s+1), 32*pow(2, s+1)), small_input(pow(2, s+1), pow(2, s+1));
-		std::vector<cv::Vec4d> v;
+		std::vector<Center2D> v;
 		std::ofstream f("multiscale_relative_sizes.out");
 		std::set<int> large_radii;
 		for(int k=1; k<s-1; ++k)
@@ -760,9 +761,9 @@ BOOST_AUTO_TEST_SUITE( multiscale_call )
 			BOOST_TEST_CHECKPOINT("radius = "<<radius<<" call");
 			cv::circle(input, cv::Point(32*pow(2, s), 32*pow(2, s)), *lr, 255, -1);
 			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
-			std::vector<cv::Vec4d> v_s = finder(small_input);
+			std::vector<Center2D> v_s = finder(small_input);
 			for(size_t j=0; j<v_s.size(); ++j)
-				f << radius << "\t" << v_s[j][2] << "\n";
+				f << radius << "\t" << v_s[j].r << "\n";
 			BOOST_TEST_CHECKPOINT("radius = "<<radius<<" size");
 			BOOST_REQUIRE_MESSAGE(
 					v_s.size()==1,
@@ -889,7 +890,7 @@ BOOST_AUTO_TEST_SUITE( octave )
 		finder.preblur_and_fill(input);
 		finder.initialize_binary();
 		BOOST_REQUIRE_EQUAL(finder.get_binary(3)(0, 100), 1);
-		std::vector<cv::Vec4d> v = finder.subpix();
+		std::vector<Center2D> v = finder.subpix();
 		BOOST_REQUIRE_EQUAL(v.size(), 1);
 		//x
 		BOOST_CHECK_GE(v[0][0], 99);
@@ -898,8 +899,8 @@ BOOST_AUTO_TEST_SUITE( octave )
 		BOOST_CHECK_GE(v[0][1], 0);
 		BOOST_CHECK_LT(v[0][1], 1);
 		//scale
-		BOOST_CHECK_GE(v[0][2], 2);
-		BOOST_CHECK_LE(v[0][2], 4);
+		BOOST_CHECK_GE(v[0].r, 2);
+		BOOST_CHECK_LE(v[0].r, 4);
 		//gaussian response
 		BOOST_CHECKPOINT("gaussian response");
 		BOOST_CHECK_CLOSE(finder.gaussianResponse(0, 100, 2.0), finder.get_layersG(2)(0, 100), 1e-9);
@@ -945,7 +946,7 @@ BOOST_AUTO_TEST_SUITE( octave )
 		OctaveFinder1D finder(32);
 		//cv cannot draw circle positions better than a pixel, so the input image is drawn in high resolution
 		cv::Mat_<uchar>input(1, 32*32), small_input(1,32);
-		std::vector<cv::Vec4d> v;
+		std::vector<Center2D> v;
 		for(int i=0; i<6; ++i)
 		{
 			input.setTo(0);
@@ -953,7 +954,7 @@ BOOST_AUTO_TEST_SUITE( octave )
 			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
 			finder.preblur_and_fill(small_input);
 			finder.initialize_binary();
-			std::vector<cv::Vec4d> v_s = finder.subpix();
+			std::vector<Center2D> v_s = finder.subpix();
 			std::copy(v_s.begin(), v_s.end(), std::back_inserter(v));
 		}
 		BOOST_REQUIRE_EQUAL(v.size(), 6);
@@ -969,7 +970,7 @@ BOOST_AUTO_TEST_SUITE( octave )
 		OctaveFinder1D finder(64, 3);
 		//cv cannot draw circle sizes better than a pixel, so the input image is drawn in high resolution
 		cv::Mat_<uchar>input(1, 16*64), small_input(1,64);
-		std::vector<cv::Vec4d> v;
+		std::vector<Center2D> v;
 		std::ofstream f("1d_relative_sizes.out");
 		for(int i=0; i<32; ++i)
 		{
@@ -978,19 +979,21 @@ BOOST_AUTO_TEST_SUITE( octave )
 			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
 			finder.preblur_and_fill(small_input);
 			finder.initialize_binary();
-			std::vector<cv::Vec4d> v_s = finder.subpix();
+			std::vector<Center2D> v_s = finder.subpix();
 			BOOST_REQUIRE_EQUAL(v_s.size(), 1);
 			std::copy(v_s.begin(), v_s.end(), std::back_inserter(v));
-			finder.scale(v_s);
-			f<< (2+i/16.0) <<"\t" << v_s[0][2] <<"\n";
+			for(size_t c=0; c<v_s.size(); ++c)
+				finder.scale(v_s[c]);
+			f<< (2+i/16.0) <<"\t" << v_s[0].r <<"\n";
 		}
 
 		for (int i=1; i<7;++i)
-			BOOST_WARN_MESSAGE(v[0][2]< v[7-i][2], "resolution in size is 1/"<<(8*(7-i))<< "th of a scale");
+			BOOST_WARN_MESSAGE(v[0].r< v[7-i].r, "resolution in size is 1/"<<(8*(7-i))<< "th of a scale");
 
-		finder.scale(v);
+		for(size_t c=0; c<v.size(); ++c)
+			finder.scale(v[c]);
 		for (size_t i=0; i<v.size();++i)
-			BOOST_REQUIRE_CLOSE(v[i][2], (2+i/16.0), 2.5);
+			BOOST_REQUIRE_CLOSE(v[i].r, (2+i/16.0), 2.5);
 	}
 	BOOST_AUTO_TEST_SUITE_END() //octave
 
@@ -1025,7 +1028,7 @@ BOOST_AUTO_TEST_SUITE( multiscale )
 		cv::Mat_<double>input(1, 256);
 		input.setTo(0);
 		cv::circle(input, cv::Point(128, 0), 3, 1.0, -1);
-		std::vector<cv::Vec4d> v = finder(input);
+		std::vector<Center2D> v = finder(input);
 		//the first octave's should be the same as the one of an Octavefinder of the same size
 		OctaveFinder1D ofinder;
 		ofinder.preblur_and_fill(input);
@@ -1044,7 +1047,7 @@ BOOST_AUTO_TEST_SUITE( multiscale )
 		BOOST_REQUIRE_EQUAL(v.size(), 1);
 		BOOST_CHECK_CLOSE(v[0][0], 128, 10);
 		BOOST_CHECK_CLOSE(v[0][1], 0, 10);
-		BOOST_CHECK_CLOSE(v[0][2], 3.5, 2.5);
+		BOOST_CHECK_CLOSE(v[0].r, 3.5, 2.5);
 	}
 	BOOST_AUTO_TEST_CASE( multiscale_relative_sizes1D )
 	{
@@ -1052,7 +1055,7 @@ BOOST_AUTO_TEST_SUITE( multiscale )
 		MultiscaleFinder1D finder(pow(2, s+1));
 		//cv cannot draw circle sizes better than a pixel, so the input image is drawn in high resolution
 		cv::Mat_<uchar>input(1, 32*pow(2, s+1)), small_input(1, pow(2, s+1));
-		std::vector<cv::Vec4d> v;
+		std::vector<Center2D> v;
 		std::ofstream f("multiscale1D_relative_sizes.out");
 		std::set<int> large_radii;
 		for(int k=1; k<s-1; ++k)
@@ -1066,7 +1069,7 @@ BOOST_AUTO_TEST_SUITE( multiscale )
 			BOOST_TEST_CHECKPOINT("radius = "<<radius<<" call");
 			cv::circle(input, cv::Point(32*pow(2, s), 0), *lr, 255, -1);
 			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
-			std::vector<cv::Vec4d> v_s = finder(small_input);
+			std::vector<Center2D> v_s = finder(small_input);
 			BOOST_TEST_CHECKPOINT("radius = "<<radius<<" size");
 			BOOST_CHECK_MESSAGE(
 					v_s.size()==1,
@@ -1075,7 +1078,7 @@ BOOST_AUTO_TEST_SUITE( multiscale )
 			BOOST_TEST_CHECKPOINT("radius = "<<radius<<" copy");
 			std::copy(v_s.begin(), v_s.end(), std::back_inserter(v));
 			for(size_t j=0; j<v_s.size(); ++j)
-				f << radius << "\t" << v_s[j][2]<< "\t" << v_s[j][0]<< "\n";
+				f << radius << "\t" << v_s[j].r<< "\t" << v_s[j][0]<< "\n";
 		}
 		f<<std::endl;
 		BOOST_REQUIRE_EQUAL(v.size(), large_radii.size());

@@ -198,10 +198,10 @@ void Colloids::OctaveFinder1D::initialize_binary(const double & max_ratio)
 		}
 }
 
-cv::Vec4d Colloids::OctaveFinder::spatial_subpix(const cv::Vec3i & ci) const
+Center2D Colloids::OctaveFinder::spatial_subpix(const cv::Vec3i & ci) const
 {
         const size_t i = ci[0], j = ci[1], k = ci[2];
-        cv::Vec4d c(0.0);
+        Center2D c(0.0);
         cv::Mat_<double> hess(2,2), hess_inv(2,2), grad(2,1), d(2,1), u(1,1);
         //When particles environment is strongly asymmetric (very close particles),
         //it is better to find the maximum of Gausian rather than the minimum of DoG.
@@ -219,7 +219,7 @@ cv::Vec4d Colloids::OctaveFinder::spatial_subpix(const cv::Vec3i & ci) const
         	//Matrix is not invertible, so we compute the shifts axis by axis
         	c[0] = i + 0.5 - grad(0,0)/hess(0,0);
         	c[1] = j + 0.5 - grad(1,0)/hess(1,1);
-        	c[3] = this->layers[k](j, i);
+        	c.intensity = this->layers[k](j, i);
         }
         else
         {
@@ -227,14 +227,14 @@ cv::Vec4d Colloids::OctaveFinder::spatial_subpix(const cv::Vec3i & ci) const
 			c[0] = i+0.5 - d(0,0);
 			c[1] = j+0.5 - d(1,0);
 			u = grad.t()*d;
-			c[3] = this->layers[k](j, i) - 0.5*u(0,0);
+			c.intensity = this->layers[k](j, i) - 0.5*u(0,0);
         }
         return c;
 }
-cv::Vec4d Colloids::OctaveFinder1D::spatial_subpix(const cv::Vec3i & ci) const
+Center2D Colloids::OctaveFinder1D::spatial_subpix(const cv::Vec3i & ci) const
 {
         const size_t i = ci[0], k = ci[2];
-        cv::Vec4d c(0.0);
+        Center2D c(0.0);
         //When particles environment is strongly asymmetric (very close particles),
 		//it is better to find the maximum of Gausian rather than the minimum of DoG.
 		//If possible, we use the Gaussian layer below the detected scale
@@ -242,7 +242,7 @@ cv::Vec4d Colloids::OctaveFinder1D::spatial_subpix(const cv::Vec3i & ci) const
         const cv::Mat_<double> & l = (k>0 ? this->layersG[k-1] : this->layersG[k]);
         c[0] = ci[0] + 0.5 - (l(0, i+1) - l(0, i-1)) / 2.0 / (l(0, i+1) -2*l(0, i) + l(0, i-1));
         c[1] = 0;
-        c[3] = this->layers[k](0, i) - 0.25 * (c[0]-i) * (l(0, i+1) - l(0, i-1));
+        c.intensity = this->layers[k](0, i) - 0.25 * (c[0]-i) * (l(0, i+1) - l(0, i-1));
         return c;
 }
 
@@ -353,16 +353,16 @@ double Colloids::OctaveFinder1D::scale_subpix(const cv::Vec3i & ci) const
 	return k - 1.05*s + 0.08*pow(s,2) - pow(2,-2/(double)this->get_n_layers())+0.025*k -0.025;
 }
 
-    cv::Vec4d Colloids::OctaveFinder::single_subpix(const cv::Vec3i & ci) const
+	Center2D Colloids::OctaveFinder::single_subpix(const cv::Vec3i & ci) const
     {
-        cv::Vec4d c = this->spatial_subpix(ci);
-        c[2] = this->scale_subpix(ci);
+        Center2D c = this->spatial_subpix(ci);
+        c.r = this->scale_subpix(ci);
         return c;
     }
 
-    std::vector<cv::Vec4d> Colloids::OctaveFinder::subpix() const
+    std::vector<Center2D> Colloids::OctaveFinder::subpix() const
     {
-        std::vector<cv::Vec4d> centers;
+        std::vector<Center2D> centers;
         centers.reserve(this->centers_no_subpix.size());
         //subpixel resolution in pixel units
         for(std::list<cv::Vec3i>::const_iterator ci = this->centers_no_subpix.begin();ci != this->centers_no_subpix.end();++ci)
@@ -370,20 +370,8 @@ double Colloids::OctaveFinder1D::scale_subpix(const cv::Vec3i & ci) const
 
         return centers;
     }
-    /**
-	 * \brief Convert scale to real size
-	 *
-	 * Identify the maximum response of a difference of Gaussians for a perfect circle.
-	 */
-    void Colloids::OctaveFinder::scale(std::vector<cv::Vec4d> & centers) const
-    {
-        //convert scale to real size
-        const double n = this->get_n_layers();
-        for(size_t c = 0;c < centers.size();++c)
-            centers[c][2] = this->prefactor * this->preblur_radius * pow(2.0, (centers[c][2] + 1) / n);
 
-    }
-    std::vector<cv::Vec4d> Colloids::OctaveFinder::operator ()(const cv::Mat & input, const bool preblur)
+    std::vector<Center2D> Colloids::OctaveFinder::operator ()(const cv::Mat & input, const bool preblur)
     {
         if(preblur)
             this->preblur_and_fill(input);
@@ -392,8 +380,9 @@ double Colloids::OctaveFinder1D::scale_subpix(const cv::Vec3i & ci) const
             this->fill(input);
 
         this->initialize_binary();
-        std::vector<cv::Vec4d> centers = this->subpix();
-        this->scale(centers);
+        std::vector<Center2D> centers = this->subpix();
+        for(size_t c=0; c<centers.size(); ++c)
+        	this->scale(centers[c]);
         return centers;
     }
     const double OctaveFinder::get_iterative_radius(const double & larger, const double & smaller) const

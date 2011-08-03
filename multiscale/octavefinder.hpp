@@ -1,6 +1,7 @@
 #ifndef OCTAVEFINDER_H
 #define OCTAVEFINDER_H
 
+#include "center.h"
 #include <opencv/cv.h>
 #include <opencv/highgui.h>
 #include <boost/ptr_container/ptr_vector.hpp>
@@ -34,12 +35,14 @@ namespace Colloids
             void fill(const cv::Mat &input);
             void preblur_and_fill(const cv::Mat &input);
             virtual void initialize_binary(const double &max_ratio = 1.1);
-            std::vector<cv::Vec4d> subpix() const;
-            cv::Vec4d single_subpix(const cv::Vec3i & ci) const;
-            virtual cv::Vec4d spatial_subpix(const cv::Vec3i & ci) const;
+            std::vector<Center2D> subpix() const;
+            Center2D single_subpix(const cv::Vec3i & ci) const;
+            virtual Center2D spatial_subpix(const cv::Vec3i & ci) const;
             virtual double scale_subpix(const cv::Vec3i & ci) const;
-            void scale(std::vector<cv::Vec4d> &centers) const;
-            std::vector<cv::Vec4d> operator()(const cv::Mat &input, const bool preblur=false);
+            void scale(Center2D &c) const{
+            	c.r = this->prefactor * this->preblur_radius * pow(2.0, (c.r + 1) / this->get_n_layers());
+            };
+            std::vector<Center2D> operator()(const cv::Mat &input, const bool preblur=false);
             virtual double gaussianResponse(const size_t &j, const size_t &i, const double & scale) const;
             void seam_binary(OctaveFinder & other);
 
@@ -63,7 +66,7 @@ namespace Colloids
 				OctaveFinder(1, ncols, nbLayers, preblur_radius){};
 
 			virtual void initialize_binary(const double &max_ratio = 1.1);
-			virtual cv::Vec4d spatial_subpix(const cv::Vec3i & ci) const;
+			virtual Center2D spatial_subpix(const cv::Vec3i & ci) const;
 			virtual double scale_subpix(const cv::Vec3i & ci) const;
 			virtual double gaussianResponse(const size_t &j, const size_t &i, const double & scale) const;
     };
