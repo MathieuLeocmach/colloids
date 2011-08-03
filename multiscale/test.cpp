@@ -1097,7 +1097,7 @@ BOOST_AUTO_TEST_SUITE( trajectories )
 		BOOST_CHECK_EQUAL(traj[-1], 5);
 		BOOST_CHECK_EQUAL(traj[0], 2);
 	}
-	BOOST_AUTO_TEST_CASE( trajmap )
+	BOOST_AUTO_TEST_CASE( trajindex )
 	{
 		TrajIndex ti(2);
 		BOOST_REQUIRE_EQUAL(ti.nbFrames(), 1);
@@ -1144,6 +1144,7 @@ BOOST_AUTO_TEST_SUITE( trajectories )
 		//case where we have less positions than old ones
 		ti.add_Frame(3, distances, from, to);
 		BOOST_REQUIRE_EQUAL(ti.nbFrames(), 3);
+		BOOST_REQUIRE_EQUAL(ti.size(), 5);
 		BOOST_REQUIRE_EQUAL(ti.getInverse(2).size(), 3);
 		BOOST_CHECK_EQUAL(ti[0].size(), 2);
 		BOOST_REQUIRE_EQUAL(ti[1].size(), 3);
@@ -1156,6 +1157,38 @@ BOOST_AUTO_TEST_SUITE( trajectories )
 		BOOST_CHECK(ti[4].exist(2));
 		BOOST_CHECK_EQUAL(ti[4][2], 1);
 		BOOST_CHECK_EQUAL(ti.getTraj(2,1), 4);
+
+		//load a smaller frame
+		boost::array<size_t, 2> fr0 = {{2, 1}};
+		ti.add_Frame(fr0.begin(), fr0.end());
+		BOOST_REQUIRE_EQUAL(ti.nbFrames(), 4);
+		BOOST_REQUIRE_EQUAL(ti.size(), 5);
+		BOOST_REQUIRE_EQUAL(ti.getInverse(3).size(), 2);
+		BOOST_CHECK_EQUAL(ti[0].size(), 2);
+		BOOST_REQUIRE_EQUAL(ti[1].size(), 4);
+		BOOST_CHECK_EQUAL(ti[1][3], 1);
+		BOOST_CHECK_EQUAL(ti.getTraj(3,1), 1);
+		BOOST_CHECK(ti[2].exist(3));
+		BOOST_CHECK_EQUAL(ti[2][3], 0);
+		BOOST_CHECK_EQUAL(ti.getTraj(3,0), 2);
+		BOOST_CHECK(!ti[3].exist(3));
+		BOOST_CHECK(!ti[4].exist(3));
+
+		//load a larger frame
+		boost::array<size_t, 3> fr1 = {{2, 1, 5}};
+		ti.add_Frame(fr1.begin(), fr1.end());
+		BOOST_REQUIRE_EQUAL(ti.nbFrames(), 5);
+		BOOST_REQUIRE_EQUAL(ti.size(), 6);
+		BOOST_REQUIRE_EQUAL(ti.getInverse(4).size(), 3);
+		BOOST_REQUIRE_EQUAL(ti[1].size(), 5);
+		BOOST_CHECK_EQUAL(ti[1][4], 1);
+		BOOST_CHECK_EQUAL(ti.getTraj(4,1), 1);
+		BOOST_REQUIRE(ti[2].exist(4));
+		BOOST_CHECK_EQUAL(ti[2][4], 0);
+		BOOST_CHECK_EQUAL(ti.getTraj(4,0), 2);
+		BOOST_REQUIRE(ti[5].exist(4));
+		BOOST_CHECK_EQUAL(ti[5][4], 2);
+		BOOST_CHECK_EQUAL(ti.getTraj(4,2), 5);
 
 	}
 BOOST_AUTO_TEST_SUITE_END()
