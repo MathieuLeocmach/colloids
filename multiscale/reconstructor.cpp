@@ -29,7 +29,7 @@ void Reconstructor::clear()
 	this->last_frame.clear();
 }
 
-void Reconstructor::push_back(const Frame &fr)
+void Reconstructor::push_back(const Frame &fr, const double &tolerance)
 {
 	if(this->empty())
 	{
@@ -42,7 +42,7 @@ void Reconstructor::push_back(const Frame &fr)
 		std::vector<double> distances;
 		std::vector<size_t> from, to;
 		//use RStarTree spatial indexing
-		this->links_by_RStarTree(fr, distances, from, to);
+		this->links_by_RStarTree(fr, distances, from, to, tolerance);
 		//brute force
 		//this->links_by_brute_force(fr, distances, from, to);
 		//remember the time step and the number of previously existing trajectories
@@ -83,13 +83,13 @@ void Reconstructor::links_by_brute_force(const Frame& fr, std::vector<double> &d
 		}
 }
 
-inline RStarBoundingBox<2,double> get_bb(const Center2D &c)
+inline RStarBoundingBox<2,double> get_bb(const Center2D &c, const double &tolerance=0.0)
 {
 	RStarBoundingBox<2,double> bb;
-	bb.edges[0].first = c[0] - c.r;
-	bb.edges[1].first = c[1] - c.r;
-	bb.edges[0].second = c[0] + c.r;
-	bb.edges[1].second = c[1] + c.r;
+	bb.edges[0].first = c[0] - c.r - tolerance;
+	bb.edges[1].first = c[1] - c.r - tolerance;
+	bb.edges[0].second = c[0] + c.r + tolerance;
+	bb.edges[1].second = c[1] + c.r + tolerance;
 	return bb;
 }
 typedef RStarTree<size_t, 2, 4, 32, double> 	RTree;
@@ -106,7 +106,7 @@ struct Gatherer {
 	}
 };
 
-void Reconstructor::links_by_RStarTree(const Frame& fr, std::vector<double> &distances, std::vector<size_t> &from, std::vector<size_t> &to) const
+void Reconstructor::links_by_RStarTree(const Frame& fr, std::vector<double> &distances, std::vector<size_t> &from, std::vector<size_t> &to, const double &tolerance) const
 {
 	//(over)reserve memory
 	const size_t n = 12 * max(fr.size(), this->last_frame.size());
@@ -127,13 +127,13 @@ void Reconstructor::links_by_RStarTree(const Frame& fr, std::vector<double> &dis
 	{
 		std::list<size_t> ngb1;
 		tree.Query(
-				RTree::AcceptEnclosing(get_bb(this->last_frame[p])),
+				RTree::AcceptOverlapping(get_bb(this->last_frame[p], tolerance)),
 				Gatherer(ngb1)
 		);
 		for(std::list<size_t>::const_iterator it= ngb1.begin(); it!=ngb1.end(); ++it)
 		{
 			const double dist = pow(this->last_frame[p][0] - fr[*it][0], 2) + pow(this->last_frame[p][1] - fr[*it][1], 2);
-			if(dist < pow(this->last_frame[p].r + fr[*it].r, 2))
+			if(dist < pow(this->last_frame[p].r + fr[*it].r + 2*tolerance, 2))
 			{
 				distances.push_back(dist);
 				from.push_back(*it);

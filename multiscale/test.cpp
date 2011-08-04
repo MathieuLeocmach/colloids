@@ -1234,9 +1234,17 @@ BOOST_AUTO_TEST_SUITE( Reconstruction )
 		BOOST_REQUIRE_EQUAL(rec.nb_cluster(), 2);
 		BOOST_CHECK_CLOSE(rec.get_clusters().front().back().r, 1.0, 1e-9);
 		BOOST_CHECK_CLOSE(rec.get_clusters().back().back().r, 0.5, 1e-9);
+		centers[0].r = 0.5;
+		centers[1].r = 1.0;
+		rec.push_back(centers);
+		BOOST_REQUIRE_EQUAL(rec.size(), 4);
+		BOOST_REQUIRE_EQUAL(rec.nb_cluster(), 2);
+		BOOST_CHECK_CLOSE(rec.get_clusters().front().back().r, 0.5, 1e-9);
+		BOOST_CHECK_CLOSE(rec.get_clusters().back().back().r, 1.0, 1e-9);
 		//particles too far away
 		rec.clear();
-		centers.resize(1);
+		centers = Reconstructor::Frame(1);
+		centers.back().r=1;
 		rec.push_back(centers);
 		centers.assign(1, c);
 		rec.push_back(centers);
@@ -1244,6 +1252,17 @@ BOOST_AUTO_TEST_SUITE( Reconstruction )
 		BOOST_REQUIRE_EQUAL(rec.nb_cluster(), 2);
 		BOOST_CHECK_CLOSE(rec.get_clusters().front().back().r, 1.0, 1e-9);
 		BOOST_CHECK_CLOSE(rec.get_clusters().back().back().r, 0.5, 1e-9);
+		//particles too far away, with tolerance
+		rec.clear();
+		centers = Reconstructor::Frame(1);
+		centers.back().r=1;
+		rec.push_back(centers);
+		centers.assign(1, c);
+		rec.push_back(centers, 10);
+		BOOST_REQUIRE_EQUAL(rec.size(), 2);
+		BOOST_REQUIRE_EQUAL(rec.nb_cluster(), 1);
+		BOOST_CHECK_CLOSE(rec.get_clusters().front().front().r, 1.0, 1e-9);
+		BOOST_CHECK_CLOSE(rec.get_clusters().front().back().r, 0.5, 1e-9);
 
 	}
 BOOST_AUTO_TEST_SUITE_END()

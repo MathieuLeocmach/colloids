@@ -34,7 +34,7 @@ namespace Colloids
 
 		//processing
 		void clear();
-		void push_back(const Frame &fr);
+		void push_back(const Frame &fr, const double &tolerance=0.0);
 		void split_clusters();
 		void get_blobs(std::list<Center3D>& blobs);
 
@@ -44,7 +44,7 @@ namespace Colloids
 		Frame last_frame;
 
 		void links_by_brute_force(const Frame& fr, std::vector<double> &distances, std::vector<size_t> &from, std::vector<size_t> &to) const;
-		void links_by_RStarTree(const Frame& fr, std::vector<double> &distances, std::vector<size_t> &from, std::vector<size_t> &to) const;
+		void links_by_RStarTree(const Frame& fr, std::vector<double> &distances, std::vector<size_t> &from, std::vector<size_t> &to, const double &tolerance=0.0) const;
 
 	};
 
