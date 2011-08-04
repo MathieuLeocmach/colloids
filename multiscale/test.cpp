@@ -288,7 +288,8 @@ BOOST_AUTO_TEST_SUITE( local_max )
 		BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(3))[0], 0);
 		BOOST_CHECK_EQUAL(finder.get_binary(2)(7*32, 7-3), true);
 		BOOST_CHECK_EQUAL(finder.get_binary(2)(258-7, 7*32), true);
-		std::vector<Center2D> v = finder.subpix();
+		std::vector<Center2D> v;
+		finder.subpix(v);
 	}
 
 	BOOST_AUTO_TEST_CASE( multiple_circles_various_sizes )
@@ -367,7 +368,8 @@ BOOST_AUTO_TEST_SUITE( subpix )
 		finder.preblur_and_fill(input);
 		finder.initialize_binary();
 		BOOST_CHECK_EQUAL(finder.get_binary(2)(200, 100), 1);
-		std::vector<Center2D> v = finder.subpix();
+		std::vector<Center2D> v;
+		finder.subpix(v);
 		BOOST_REQUIRE_EQUAL(v.size(), 1);
 		//x
 		BOOST_CHECK_GE(v[0][0], 99);
@@ -429,7 +431,8 @@ BOOST_AUTO_TEST_SUITE( subpix )
 		finder.preblur_and_fill(input);
 		finder.initialize_binary();
 		BOOST_CHECK_EQUAL(finder.get_binary(2)(200, 100), 1);
-		std::vector<Center2D> v = finder.subpix();
+		std::vector<Center2D> v;
+		finder.subpix(v);
 		BOOST_REQUIRE_EQUAL(v.size(), 1);
 		//x
 		BOOST_CHECK_GE(v[0][0], 99);
@@ -456,7 +459,8 @@ BOOST_AUTO_TEST_SUITE( subpix )
 			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
 			finder.preblur_and_fill(small_input);
 			finder.initialize_binary();
-			std::vector<Center2D> v_s = finder.subpix();
+			std::vector<Center2D> v_s;
+			finder.subpix(v_s);
 			std::copy(v_s.begin(), v_s.end(), std::back_inserter(v));
 		}
 		BOOST_REQUIRE_EQUAL(v.size(), 6);
@@ -482,7 +486,8 @@ BOOST_AUTO_TEST_SUITE( subpix )
 			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
 			finder.preblur_and_fill(small_input);
 			finder.initialize_binary();
-			std::vector<Center2D> v_s = finder.subpix();
+			std::vector<Center2D> v_s;
+			finder.subpix(v_s);
 			std::copy(v_s.begin(), v_s.end(), std::back_inserter(v));
 		}
 		BOOST_REQUIRE_EQUAL(v.size(), 7);
@@ -523,8 +528,9 @@ BOOST_AUTO_TEST_SUITE( subpix )
 		finder.preblur_and_fill(input);
 		finder.initialize_binary();
 		boost::progress_timer ti;
+		std::vector<Center2D> v;
 		for (size_t i=0; i<100; ++i)
-			std::vector<Center2D> v = finder.subpix();
+			 finder.subpix(v);
 		std::cout<<"100 subpixel resolutions in ";
 	}
 
@@ -890,7 +896,8 @@ BOOST_AUTO_TEST_SUITE( octave )
 		finder.preblur_and_fill(input);
 		finder.initialize_binary();
 		BOOST_REQUIRE_EQUAL(finder.get_binary(3)(0, 100), 1);
-		std::vector<Center2D> v = finder.subpix();
+		std::vector<Center2D> v;
+		finder.subpix(v);
 		BOOST_REQUIRE_EQUAL(v.size(), 1);
 		//x
 		BOOST_CHECK_GE(v[0][0], 99);
@@ -954,7 +961,8 @@ BOOST_AUTO_TEST_SUITE( octave )
 			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
 			finder.preblur_and_fill(small_input);
 			finder.initialize_binary();
-			std::vector<Center2D> v_s = finder.subpix();
+			std::vector<Center2D> v_s;
+			finder.subpix(v_s);
 			std::copy(v_s.begin(), v_s.end(), std::back_inserter(v));
 		}
 		BOOST_REQUIRE_EQUAL(v.size(), 6);
@@ -979,7 +987,8 @@ BOOST_AUTO_TEST_SUITE( octave )
 			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
 			finder.preblur_and_fill(small_input);
 			finder.initialize_binary();
-			std::vector<Center2D> v_s = finder.subpix();
+			std::vector<Center2D> v_s;
+			finder.subpix(v_s);
 			BOOST_REQUIRE_EQUAL(v_s.size(), 1);
 			std::copy(v_s.begin(), v_s.end(), std::back_inserter(v));
 			for(size_t c=0; c<v_s.size(); ++c)
@@ -1192,6 +1201,12 @@ BOOST_AUTO_TEST_SUITE( trajectories )
 		BOOST_REQUIRE(ti[5].exist(4));
 		BOOST_CHECK_EQUAL(ti[5][4], 2);
 		BOOST_CHECK_EQUAL(ti.getTraj(4,2), 5);
+
+	}
+BOOST_AUTO_TEST_SUITE_END()
+BOOST_AUTO_TEST_SUITE( Reconstructor )
+	BOOST_AUTO_TEST_CASE( reconstructor )
+	{
 
 	}
 BOOST_AUTO_TEST_SUITE_END()

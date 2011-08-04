@@ -6,6 +6,7 @@
 #include <opencv/highgui.h>
 #include <boost/ptr_container/ptr_vector.hpp>
 #include <list>
+#include <memory>
 
 namespace Colloids
 {
@@ -35,8 +36,8 @@ namespace Colloids
             void fill(const cv::Mat &input);
             void preblur_and_fill(const cv::Mat &input);
             virtual void initialize_binary(const double &max_ratio = 1.1);
-            std::vector<Center2D> subpix() const;
-            Center2D single_subpix(const cv::Vec3i & ci) const;
+            void subpix(std::vector<Center2D>& centers) const;
+            void single_subpix(const cv::Vec3i & ci, Center2D &c) const;
             virtual Center2D spatial_subpix(const cv::Vec3i & ci) const;
             virtual double scale_subpix(const cv::Vec3i & ci) const;
             void scale(Center2D &c) const{

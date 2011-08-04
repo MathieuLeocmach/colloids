@@ -353,22 +353,20 @@ double Colloids::OctaveFinder1D::scale_subpix(const cv::Vec3i & ci) const
 	return k - 1.05*s + 0.08*pow(s,2) - pow(2,-2/(double)this->get_n_layers())+0.025*k -0.025;
 }
 
-	Center2D Colloids::OctaveFinder::single_subpix(const cv::Vec3i & ci) const
+	void Colloids::OctaveFinder::single_subpix(const cv::Vec3i & ci, Center2D &c) const
     {
-        Center2D c = this->spatial_subpix(ci);
+        c = this->spatial_subpix(ci);
         c.r = this->scale_subpix(ci);
-        return c;
     }
 
-    std::vector<Center2D> Colloids::OctaveFinder::subpix() const
+    void Colloids::OctaveFinder::subpix(std::vector<Center2D> &centers) const
     {
-        std::vector<Center2D> centers;
-        centers.reserve(this->centers_no_subpix.size());
+        centers.clear();
+        centers.resize(this->centers_no_subpix.size());
         //subpixel resolution in pixel units
-        for(std::list<cv::Vec3i>::const_iterator ci = this->centers_no_subpix.begin();ci != this->centers_no_subpix.end();++ci)
-            centers.push_back(this->single_subpix(*ci));
-
-        return centers;
+        std::list<cv::Vec3i>::const_iterator ci = this->centers_no_subpix.begin();
+        for(size_t c=0; c<centers.size(); ++c)
+        	this->single_subpix(*ci++, centers[c]);
     }
 
     std::vector<Center2D> Colloids::OctaveFinder::operator ()(const cv::Mat & input, const bool preblur)
@@ -380,7 +378,8 @@ double Colloids::OctaveFinder1D::scale_subpix(const cv::Vec3i & ci) const
             this->fill(input);
 
         this->initialize_binary();
-        std::vector<Center2D> centers = this->subpix();
+        std::vector<Center2D> centers;
+        this->subpix(centers);
         for(size_t c=0; c<centers.size(); ++c)
         	this->scale(centers[c]);
         return centers;

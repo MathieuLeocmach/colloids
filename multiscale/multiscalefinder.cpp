@@ -110,7 +110,8 @@ namespace Colloids {
     	//subpixel resolution
     	for(size_t o=0; o<this->octaves.size(); ++o)
     	{
-    		std::vector<Center2D> v = this->octaves[o]->subpix();
+    		std::vector<Center2D> v;
+    		this->octaves[o]->subpix(v);
     		//correct the seam between octaves in sizing precision
     		if(o>0)
 				for(size_t p=0; p<v.size(); ++p)
