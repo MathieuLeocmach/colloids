@@ -66,6 +66,11 @@ void Reconstructor::push_back(const Frame &fr, const double &tolerance)
 	this->last_frame = fr;
 }
 
+void Reconstructor::split_clusters()
+{
+
+}
+
 void Reconstructor::links_by_brute_force(const Frame& fr, std::vector<double> &distances, std::vector<size_t> &from, std::vector<size_t> &to) const
 {
 	const size_t n = fr.size() * this->last_frame.size();
@@ -136,8 +141,8 @@ void Reconstructor::links_by_RStarTree(const Frame& fr, std::vector<double> &dis
 			if(dist < pow(this->last_frame[p].r + fr[*it].r + 2*tolerance, 2))
 			{
 				distances.push_back(dist);
-				from.push_back(*it);
-				to.push_back(p);
+				from.push_back(p);
+				to.push_back(*it);
 			}
 		}
 	}
