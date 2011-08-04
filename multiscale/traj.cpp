@@ -49,7 +49,7 @@ namespace Colloids {
 	{
 		if(distances.size() != p_from.size() || p_from.size() != p_to.size())
 			throw std::invalid_argument("TrajIndex::add_Frame: All arguments must have the same size");
-		if(*std::max_element(p_to.begin(), p_to.end()) >= frame_size)
+		if(!p_to.empty() && *std::max_element(p_to.begin(), p_to.end()) >= frame_size)
 			throw std::invalid_argument("TrajIndex::add_Frame: The largest particle index in the new frame is larger than the new frame size");
 		std::list<Link> bonds;
 		for(size_t i=0; i< distances.size(); ++i)
