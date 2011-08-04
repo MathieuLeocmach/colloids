@@ -3,6 +3,7 @@
 
 #include "multiscalefinder.hpp"
 #include "traj.hpp"
+#include "reconstructor.h"
 #include <fstream>
 #include <boost/test/unit_test.hpp>
 #include <boost/progress.hpp>
@@ -1204,9 +1205,28 @@ BOOST_AUTO_TEST_SUITE( trajectories )
 
 	}
 BOOST_AUTO_TEST_SUITE_END()
-BOOST_AUTO_TEST_SUITE( Reconstructor )
+BOOST_AUTO_TEST_SUITE( Reconstruction )
 	BOOST_AUTO_TEST_CASE( reconstructor )
 	{
+		Reconstructor rec;
+		BOOST_REQUIRE(rec.empty());
+		Reconstructor::Frame centers(1);
+		centers.back().r=1;
+		rec.push_back(centers);
+		BOOST_REQUIRE_EQUAL(rec.size(), 1);
+		BOOST_REQUIRE_EQUAL(rec.nb_cluster(), 1);
+		BOOST_CHECK_CLOSE(rec.get_clusters().front().back().r, 1.0, 1e-9);
+		rec.push_back(centers);
+		BOOST_REQUIRE_EQUAL(rec.size(), 2);
+		BOOST_REQUIRE_EQUAL(rec.nb_cluster(), 1);
+		BOOST_CHECK_CLOSE(rec.get_clusters().front().back().r, 1.0, 1e-9);
+		Center2D c(10.0, 0.5);
+		centers.push_back(c);
+		rec.push_back(centers);
+		BOOST_REQUIRE_EQUAL(rec.size(), 3);
+		BOOST_REQUIRE_EQUAL(rec.nb_cluster(), 2);
+		BOOST_CHECK_CLOSE(rec.get_clusters().front().back().r, 1.0, 1e-9);
+		BOOST_CHECK_CLOSE(rec.get_clusters().back().back().r, 0.5, 1e-9);
 
 	}
 BOOST_AUTO_TEST_SUITE_END()

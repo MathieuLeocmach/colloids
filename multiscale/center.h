@@ -17,7 +17,7 @@ namespace Colloids {
 	{
 		double r, intensity;
 
-		Center(const double &v=0.0) : r(0), intensity(0)
+		Center(const double &v=0.0, const double &r=0, const double &i=0) : r(r), intensity(i)
 		{
 			std::fill(this->begin(), this->end(), v);
 		};

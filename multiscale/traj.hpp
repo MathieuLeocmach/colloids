@@ -65,7 +65,7 @@ namespace Colloids
 	 * \brief Trajectory index links "frames" of instantaneous objects (ex: positions) into persisting objects (ex:trajectories).
 	 * Frames can be 2D slices of a 3D data set and then a given trajectory links the positions of slices of the same 3D object.
 	*/
-    class TrajIndex
+    class TrajIndex : boost::noncopyable
     {
         private:
     	boost::ptr_vector<Traj> tr2pos;
