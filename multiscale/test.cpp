@@ -530,9 +530,9 @@ BOOST_AUTO_TEST_SUITE( subpix )
 		finder.initialize_binary();
 		boost::progress_timer ti;
 		std::vector<Center2D> v;
-		for (size_t i=0; i<100; ++i)
+		for (size_t i=0; i<10000; ++i)
 			 finder.subpix(v);
-		std::cout<<"100 subpixel resolutions in ";
+		std::cout<<"10000 subpixel resolutions in ";
 	}
 
 
@@ -1231,6 +1231,16 @@ BOOST_AUTO_TEST_SUITE( Reconstruction )
 		centers.push_back(c);
 		rec.push_back(centers);
 		BOOST_REQUIRE_EQUAL(rec.size(), 3);
+		BOOST_REQUIRE_EQUAL(rec.nb_cluster(), 2);
+		BOOST_CHECK_CLOSE(rec.get_clusters().front().back().r, 1.0, 1e-9);
+		BOOST_CHECK_CLOSE(rec.get_clusters().back().back().r, 0.5, 1e-9);
+		//particles too far away
+		rec.clear();
+		centers.resize(1);
+		rec.push_back(centers);
+		centers.assign(1, c);
+		rec.push_back(centers);
+		BOOST_REQUIRE_EQUAL(rec.size(), 2);
 		BOOST_REQUIRE_EQUAL(rec.nb_cluster(), 2);
 		BOOST_CHECK_CLOSE(rec.get_clusters().front().back().r, 1.0, 1e-9);
 		BOOST_CHECK_CLOSE(rec.get_clusters().back().back().r, 0.5, 1e-9);

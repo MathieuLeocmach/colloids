@@ -43,6 +43,9 @@ namespace Colloids
 		std::deque<Cluster> clusters;
 		Frame last_frame;
 
+		void links_by_brute_force(const Frame& fr, std::vector<double> &distances, std::vector<size_t> &from, std::vector<size_t> &to) const;
+		void links_by_RStarTree(const Frame& fr, std::vector<double> &distances, std::vector<size_t> &from, std::vector<size_t> &to) const;
+
 	};
 
 }
