@@ -29,7 +29,11 @@ public:
 	const double & get_prefactor() const {return this->octaves[0]->get_prefactor();}
 	void set_radius_preblur(const double &k=1.6);
 	//processing
-	std::vector<Center2D> operator()(const cv::Mat &input);
+	void fill(const cv::Mat &input);
+	void initialize_binary();
+	void subpix(std::vector<Center2D>& centers) const;
+	void get_centers(const cv::Mat &input, std::vector<Center2D>& centers);
+	inline std::vector<Center2D> operator()(const cv::Mat &input);
 	virtual const cv::Vec3i previous_octave_coords(const Center2D &v) const;
 	virtual const cv::Mat_<double> downscale(const size_t &o) = 0;
 	virtual void seam(Center2D &v, const size_t &o) const =0;
@@ -40,6 +44,16 @@ protected:
 	cv::Mat_<double> small, upscaled;
 	MultiscaleFinder(){};
 };
+
+/**
+ * \brief Convenient return-by-value operator wrapped around get_centers
+ */
+inline std::vector<Center2D> MultiscaleFinder::operator ()(const cv::Mat & input)
+{
+	std::vector<Center2D> centers;
+	this->get_centers(input, centers);
+	return centers;
+}
 
 class MultiscaleFinder2D : public MultiscaleFinder
 {
@@ -58,6 +72,8 @@ public:
 	virtual const cv::Mat_<double> downscale(const size_t &o);
 	virtual void seam(Center2D &v, const size_t &o) const;
 };
+
+
 
 }
 

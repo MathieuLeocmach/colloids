@@ -55,20 +55,21 @@ namespace Colloids {
     		this->octaves[o]->set_radius_preblur(k);
     }
 
-    std::vector<Center2D> MultiscaleFinder::operator ()(const cv::Mat & input)
+    /**
+     * \brief fill all the octaves
+     */
+    void MultiscaleFinder::fill(const cv::Mat & input)
     {
     	if(input.rows != (int)this->get_width())
     	{
     		std::cerr<< "input.rows="<<input.rows<<"\twidth="<<this->get_width()<<std::endl;
-    		throw std::invalid_argument("MultiscaleFinder::operator () : the input's rows must match the width of the finder");
+    		throw std::invalid_argument("MultiscaleFinder::fill : the input's rows must match the width of the finder");
     	}
     	if(input.cols != (int)this->get_height())
     	{
     		std::cerr<< "input.cols="<<input.cols<<"\theight="<<this->get_height()<<std::endl;
-    	    throw std::invalid_argument("MultiscaleFinder::operator () : the input's cols must match the height of the finder");
+    	    throw std::invalid_argument("MultiscaleFinder::fill : the input's cols must match the height of the finder");
     	}
-
-    	//fill all the octaves
 
     	input.convertTo(small, this->small.type());
     	//upscale the input to fill the first octave
@@ -93,16 +94,27 @@ namespace Colloids {
     	//For higher octaves we use the second to last layer of the previous octave, dowsampled
     	for(size_t o=2; o<this->octaves.size(); ++o)
     		this->octaves[o]->fill(this->downscale(o));
-
-    	//Initialize binary
+    }
+    /**
+     * \brief Locate centers with pixel resolutions and scale resolution
+     */
+	void MultiscaleFinder::initialize_binary()
+	{
+		//initialize binary for each octave
     	for(size_t o=0; o<this->octaves.size(); ++o)
 			this->octaves[o]->initialize_binary();
     	//Remove pixel centers that exist in consecutive octaves
     	for(size_t o=0; o<this->octaves.size()-1; ++o)
     		this->octaves[o]->seam_binary(*this->octaves[o+1]);
+	}
 
-    	//reserve memory for the center container
-    	std::vector<Center2D> centers;
+	/**
+	 * \brief Locate centers with subpixel and subscale resolution
+	 */
+	void MultiscaleFinder::subpix(std::vector<Center2D> &centers) const
+	{
+		centers.clear();
+		//reserve memory for the center container
     	size_t n_centers = 0;
     	for(size_t o=0; o<this->octaves.size(); ++o)
     		n_centers += this->octaves[o]->get_nb_centers();
@@ -128,9 +140,17 @@ namespace Colloids {
 				centers.push_back(v[c]);
 			}
     	}
+	}
+	/**
+	 * Efficient processing pipeline from the input image to the output centers
+	 */
+	void MultiscaleFinder::get_centers(const cv::Mat & input, std::vector<Center2D>& centers)
+	{
+		this->fill(input);
+		this->initialize_binary();
+		this->subpix(centers);
+	}
 
-    	return centers;
-    }
     const cv::Vec3i MultiscaleFinder::previous_octave_coords(const Center2D &v) const
     {
     	const double n = this->get_n_layers();
