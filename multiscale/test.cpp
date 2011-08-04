@@ -1216,6 +1216,13 @@ BOOST_AUTO_TEST_SUITE( Reconstruction )
 		BOOST_REQUIRE_EQUAL(rec.size(), 1);
 		BOOST_REQUIRE_EQUAL(rec.nb_cluster(), 1);
 		BOOST_CHECK_CLOSE(rec.get_clusters().front().back().r, 1.0, 1e-9);
+		rec.clear();
+		BOOST_REQUIRE(rec.empty());
+		BOOST_REQUIRE_EQUAL(rec.nb_cluster(), 0);
+		rec.push_back(centers);
+		BOOST_REQUIRE_EQUAL(rec.size(), 1);
+		BOOST_REQUIRE_EQUAL(rec.nb_cluster(), 1);
+		BOOST_CHECK_CLOSE(rec.get_clusters().front().back().r, 1.0, 1e-9);
 		rec.push_back(centers);
 		BOOST_REQUIRE_EQUAL(rec.size(), 2);
 		BOOST_REQUIRE_EQUAL(rec.nb_cluster(), 1);

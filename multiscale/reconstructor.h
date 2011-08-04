@@ -29,7 +29,7 @@ namespace Colloids
 		inline bool empty() const {return !trajectories.get();}
 		inline const size_t size() const {return empty()?0:trajectories->nbFrames();}
 		inline const size_t nb_cluster() const {return clusters.size();}
-		inline const std::list<Cluster>& get_clusters() const {return clusters;}
+		inline const std::deque<Cluster>& get_clusters() const {return clusters;}
 		inline const TrajIndex& get_trajectories() const {assert(!empty()); return *trajectories;}
 
 		//processing
@@ -40,7 +40,7 @@ namespace Colloids
 
 	private:
 		std::auto_ptr<TrajIndex> trajectories;
-		std::list<Cluster> clusters;
+		std::deque<Cluster> clusters;
 		Frame last_frame;
 
 	};
