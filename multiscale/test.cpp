@@ -1206,7 +1206,7 @@ BOOST_AUTO_TEST_SUITE( trajectories )
 	}
 BOOST_AUTO_TEST_SUITE_END()
 BOOST_AUTO_TEST_SUITE( Reconstruction )
-	BOOST_AUTO_TEST_CASE( reconstructor )
+	BOOST_AUTO_TEST_CASE( add_frame )
 	{
 		Reconstructor rec;
 		BOOST_REQUIRE(rec.empty());
@@ -1241,11 +1241,33 @@ BOOST_AUTO_TEST_SUITE( Reconstruction )
 		BOOST_REQUIRE_EQUAL(rec.nb_cluster(), 2);
 		BOOST_CHECK_CLOSE(rec.get_clusters().front().back().r, 0.5, 1e-9);
 		BOOST_CHECK_CLOSE(rec.get_clusters().back().back().r, 1.0, 1e-9);
+		//More centers in a frame
+		centers.push_back(Center2D(4,3));
+		rec.push_back(centers);
+		BOOST_REQUIRE_EQUAL(rec.size(), 5);
+		BOOST_REQUIRE_EQUAL(rec.nb_cluster(), 3);
+		BOOST_CHECK_CLOSE(rec.get_clusters().front().back().r, 0.5, 1e-9);
+		BOOST_CHECK_CLOSE(rec.get_clusters()[1].back().r, 1.0, 1e-9);
+		BOOST_CHECK_CLOSE(rec.get_clusters().back().back().r, 3.0, 1e-9);
+		//less centers in a frame
+		centers.erase(centers.begin());
+		rec.push_back(centers);
+		BOOST_REQUIRE_EQUAL(rec.size(), 6);
+		BOOST_REQUIRE_EQUAL(rec.nb_cluster(), 3);
+		BOOST_REQUIRE_CLOSE(rec.get_clusters().front().back()[2], 4, 1e-9);
+		BOOST_CHECK_CLOSE(rec.get_clusters().front().back().r, 0.5, 1e-9);
+		BOOST_CHECK_CLOSE(rec.get_clusters()[1].back().r, 1.0, 1e-9);
+		BOOST_CHECK_CLOSE(rec.get_clusters().back().back().r, 3.0, 1e-9);
+
+	}
+	BOOST_AUTO_TEST_CASE( far )
+	{
 		//particles too far away
-		rec.clear();
-		centers = Reconstructor::Frame(1);
+		Reconstructor rec;
+		Reconstructor::Frame centers(1);
 		centers.back().r=1;
 		rec.push_back(centers);
+		Center2D c(10.0, 0.5);
 		centers.assign(1, c);
 		rec.push_back(centers);
 		BOOST_REQUIRE_EQUAL(rec.size(), 2);
@@ -1263,7 +1285,29 @@ BOOST_AUTO_TEST_SUITE( Reconstruction )
 		BOOST_REQUIRE_EQUAL(rec.nb_cluster(), 1);
 		BOOST_CHECK_CLOSE(rec.get_clusters().front().front().r, 1.0, 1e-9);
 		BOOST_CHECK_CLOSE(rec.get_clusters().front().back().r, 0.5, 1e-9);
-
+	}
+	BOOST_AUTO_TEST_CASE( cluster_split )
+	{
+		//no need to split
+		Reconstructor rec;
+		Reconstructor::Frame centers(1, Center2D(0, 1));
+		for(size_t i=0; i<32; ++i)
+			rec.push_back(centers);
+		BOOST_REQUIRE_EQUAL(rec.size(), 32);
+		BOOST_REQUIRE_EQUAL(rec.nb_cluster(), 1);
+		rec.split_clusters();
+		BOOST_REQUIRE_EQUAL(rec.nb_cluster(), 1);
+		//need to split
+		rec.clear();
+		for(size_t i=0; i<16; ++i)
+			rec.push_back(centers);
+		centers[0][0] = 1;
+		for(size_t i=0; i<16; ++i)
+			rec.push_back(centers);
+		BOOST_REQUIRE_EQUAL(rec.size(), 32);
+		BOOST_REQUIRE_EQUAL(rec.nb_cluster(), 1);
+		rec.split_clusters();
+		BOOST_REQUIRE_EQUAL(rec.nb_cluster(), 2);
 	}
 BOOST_AUTO_TEST_SUITE_END()
 
