@@ -26,6 +26,13 @@ namespace Colloids {
 			std::copy(c.begin(), c.end(), this->begin());
 			this->back() = additional_coord;
 		};
+		inline double operator-(Center<D> other) const
+		{
+			double d = 0;
+			for(size_t i=0; i<this->size(); ++i)
+				d += pow((*this)[i]-other[i], 2);
+			return d;
+		}
 	};
 	typedef Center<2> Center2D;
 	typedef Center<3> Center3D;
