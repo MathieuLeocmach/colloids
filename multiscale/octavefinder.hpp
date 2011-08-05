@@ -6,7 +6,6 @@
 #include <opencv/highgui.h>
 #include <boost/ptr_container/ptr_vector.hpp>
 #include <list>
-#include <memory>
 
 namespace Colloids
 {
