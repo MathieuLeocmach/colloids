@@ -88,10 +88,11 @@ namespace Colloids {
 				this->upscaled(2*i+1, 2*j+1) = 0.25*(small(i,j)+small(i+1,j)+small(i, j+1)+small(i+1, j+1));
 
     	this->octaves[0]->preblur_and_fill(this->upscaled);
-    	//Octave 1 corresponds to the size of the input image.
-    	//To avoid errors in the upsampling+downsampling process, we use the input directly
-    	this->octaves[1]->preblur_and_fill(input);
-    	//For higher octaves we use the second to last layer of the previous octave, dowsampled
+    	if(this->octaves.size()>1)
+			//Octave 1 corresponds to the size of the input image.
+			//To avoid errors in the upsampling+downsampling process, we use the input directly
+			this->octaves[1]->preblur_and_fill(input);
+    	//For higher octaves we use the second to last layer of the previous octave, downsampled
     	for(size_t o=2; o<this->octaves.size(); ++o)
     		this->octaves[o]->fill(this->downscale(o));
     }
