@@ -36,7 +36,7 @@ namespace Colloids
 		void clear();
 		void push_back(const Frame &fr, const double &tolerance=0.1);
 		void split_clusters();
-		void get_blobs(std::list<Center3D>& blobs);
+		void get_blobs(std::deque<Center3D>& blobs);
 
 	private:
 		std::auto_ptr<TrajIndex> trajectories;

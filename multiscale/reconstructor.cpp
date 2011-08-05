@@ -104,9 +104,31 @@ void Reconstructor::split_clusters()
 	}
 }
 
-void Reconstructor::get_blobs(std::list<Center3D>& blobs)
+void Reconstructor::get_blobs(std::deque<Center3D>& blobs)
 {
-
+	blobs.clear();
+	for(std::deque<Cluster>::const_iterator cl=this->clusters.begin(); cl!=this->clusters.end(); ++cl)
+	{
+		if(cl->size()<3)
+			continue;
+		//copy the radii
+		cv::Mat_<double> radii(1, cl->size());
+		radii.setTo(0);
+		Cluster::const_iterator c=cl->begin();
+		for(size_t i=0; i<cl->size(); ++i)
+		{
+			radii(0, i) = c->r;
+			c++;
+		}
+		MultiscaleFinder1D finder(cl->size());
+		std::vector<Center2D> bls;
+		finder.get_centers(radii, bls);
+		if(bls.empty())
+		{
+			//the signal is probably too short to localize a blob. We just take the maximum of the signal.
+			blobs.push_back(*std::max_element(cl->begin(), cl->end(), compare_radii<3>()));
+		}
+	}
 }
 
 void Reconstructor::links_by_brute_force(const Frame& fr, std::vector<double> &distances, std::vector<size_t> &from, std::vector<size_t> &to) const
