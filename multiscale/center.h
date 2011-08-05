@@ -37,6 +37,12 @@ namespace Colloids {
 	typedef Center<2> Center2D;
 	typedef Center<3> Center3D;
 
+	template<int D>
+	struct compare_radii : std::binary_function<bool, const Center<D>&, const Center<D>& >
+	{
+		bool operator()(const Center<D>& a, const Center<D> &b) const {return a.r < b.r;}
+	};
+
 }
 
 #endif /* CENTER_H_ */
