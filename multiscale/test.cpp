@@ -809,6 +809,23 @@ BOOST_AUTO_TEST_SUITE( multiscale_call )
 		f<<std::endl;
 		BOOST_REQUIRE_EQUAL(v.size(), large_radii.size());
 	}
+	BOOST_AUTO_TEST_CASE( multiscale_minimum_detector_size )
+	{
+		int i = 16;
+		std::vector<Center2D> v(1);
+		while(i>0 && v.size()>0)
+		{
+			i--;
+			BOOST_CHECKPOINT("i="<<i);
+			MultiscaleFinder2D finder(i,i);
+			cv::Mat_<uchar>input(16*i, 16*i), small_input(i,i);
+			input.setTo(0);
+			cv::circle(input, cv::Point(8*i, 8*i), 16*2.88, 255, -1);
+			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
+			v =	finder(small_input);
+		}
+		BOOST_WARN_MESSAGE(false, "An multiscale detector smaller than "<< (i+1)<<" pixels cannot detect anything");
+	}
 BOOST_AUTO_TEST_SUITE_END()
 
 BOOST_AUTO_TEST_SUITE_END() //multiscale
@@ -1437,6 +1454,21 @@ BOOST_AUTO_TEST_SUITE( Reconstruction )
 		BOOST_CHECK_LE(rec.get_clusters().back().front()[2], 13);
 		BOOST_CHECK_GE(rec.get_clusters().back().back()[2], 19);
 		BOOST_CHECK_LE(rec.get_clusters()[1].front()[2], 26);
+	}
+	BOOST_AUTO_TEST_CASE( one_sphere )
+	{
+		Reconstructor rec;
+		//slice a sphere of radius 4
+		for(size_t z=0; z<8; ++z)
+			rec.push_back(Reconstructor::Frame(1, Center2D(0, sqrt(4*4-pow(z-4.0, 2)))));
+		BOOST_REQUIRE_EQUAL(rec.nb_cluster(), 1);
+		std::deque<Center3D> centers;
+		rec.get_blobs(centers);
+		BOOST_REQUIRE_EQUAL(centers.size(), 1);
+		BOOST_CHECK_CLOSE(centers.front()[0], 0, 1e-9);
+		BOOST_CHECK_CLOSE(centers.front()[1], 0, 1e-9);
+		BOOST_CHECK_CLOSE(centers.front()[2], 4, 2);
+		BOOST_CHECK_CLOSE(centers.front().r, 4, 2);
 	}
 BOOST_AUTO_TEST_SUITE_END()
 
