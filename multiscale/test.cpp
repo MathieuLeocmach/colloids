@@ -149,6 +149,12 @@ BOOST_AUTO_TEST_SUITE( octave_fill )
 		images_are_close(finder.get_layersG(3), other, 1e-9);
 		other += finder.get_layers(3);
 		images_are_close(finder.get_layersG(4), other, 1e-9);
+		//the inner data should not change type when filled with something else than double
+		cv::Mat_<unsigned char>input2(64, 64);
+		input2.setTo(0);
+		input2(32,32)=1;
+		finder.fill(input2);
+		BOOST_CHECK_EQUAL(finder.get_layersG(0).type(), input.type());
 	}
 	BOOST_AUTO_TEST_CASE( fill_rectangular )
 	{
@@ -559,7 +565,7 @@ BOOST_AUTO_TEST_SUITE( octave_limit_cases )
 
 	BOOST_AUTO_TEST_CASE( octave_minimum_detector_size )
 	{
-		int i = 32;
+		int i = 16;
 		std::vector<Center2D> v(1);
 		while(i>0 && v.size()>0)
 		{
@@ -587,7 +593,7 @@ BOOST_AUTO_TEST_SUITE( octave_limit_cases )
 			cv::circle(input, cv::Point(32*16, i), 32*4, 255, -1);
 			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
 			std::vector<Center2D> v_s = finder(small_input, true);
-			BOOST_CHECK_MESSAGE(
+			BOOST_REQUIRE_MESSAGE(
 				v_s.size()==1,
 				""<<((v_s.size()==0)?"No center":"More than one center")<<" for input position "<<position
 				);
@@ -633,6 +639,23 @@ BOOST_AUTO_TEST_SUITE( octave_limit_cases )
 			f << distance << "\t" << v_s[0][1] << "\t" << v_s[1][1] << "\t" << v_s[0].r << "\n";
 		}
 		f<<std::endl;
+	}
+
+	BOOST_AUTO_TEST_CASE( octave_minimum_signal_intensity )
+	{
+		OctaveFinder finder(32,32);
+		cv::Mat_<double> input(32,32);
+		int i = 0;
+		std::vector<Center2D> v(1);
+		while(i<10 & v.size()>0)
+		{
+			i++;
+			input.setTo(0);
+			cv::circle(input, cv::Point(16, 16), 3, pow(0.5, i), -1);
+			v =	finder(input, true);
+		}
+		BOOST_WARN_MESSAGE(i>10, "Cannot detect intensities below "<< pow(0.5, i-1));
+		BOOST_CHECK_LT(finder.get_layers(1)(16,16), 0);
 	}
 BOOST_AUTO_TEST_SUITE_END()
 
@@ -888,6 +911,17 @@ BOOST_AUTO_TEST_SUITE( octave )
 		BOOST_CHECK_LT(finder.gaussianResponse(0, 128, 10.5), finder.gaussianResponse(0, 128, 0));
 		BOOST_CHECK_LT(finder.gaussianResponse(0, 128, 15.5), finder.gaussianResponse(0, 128, 5));
 	}
+	BOOST_AUTO_TEST_CASE( asymetrical )
+	{
+		OctaveFinder1D finder(32);
+		cv::Mat_<double>input(1, 32);
+		input.setTo(0);
+		std::fill_n(&input(0, 10), 7, 1);
+		BOOST_REQUIRE_EQUAL(finder(input).size(), 1);
+		input.setTo(0);
+		std::fill_n(&input(0, 10), 6, 1);
+		BOOST_REQUIRE_EQUAL(finder(input).size(), 1);
+	}
 	BOOST_AUTO_TEST_CASE( subpix )
 	{
 		OctaveFinder1D finder(256);
@@ -1005,8 +1039,56 @@ BOOST_AUTO_TEST_SUITE( octave )
 		for (size_t i=0; i<v.size();++i)
 			BOOST_REQUIRE_CLOSE(v[i].r, (2+i/16.0), 2.5);
 	}
-	BOOST_AUTO_TEST_SUITE_END() //octave
 
+	BOOST_AUTO_TEST_CASE( octave_minimum_detected_size )
+	{
+		OctaveFinder1D finder(32);
+		cv::Mat_<uchar>input(1, 16*32), small_input(1,32);
+		int i = 0;
+		std::vector<Center2D> v(1);
+		while(3-0.01*i>0 && v.size()>0)
+		{
+			i++;
+			input.setTo(0);
+			cv::circle(input, cv::Point(16*16, 0), 16*(3-0.01*i), 255, -1);
+			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
+			v =	finder(small_input, true);
+		}
+		BOOST_WARN_MESSAGE(false, "Cannot detect sizes below "<< (3-0.01*(i-1))<<" pixels in 1D");
+	}
+
+	BOOST_AUTO_TEST_CASE( octave_minimum_detector_size )
+	{
+		int i = 32;
+		std::vector<Center2D> v(1);
+		while(i>0 && v.size()>0)
+		{
+			i--;
+			OctaveFinder1D finder(i);
+			cv::Mat_<uchar>input(1, 16*i), small_input(1,i);
+			input.setTo(0);
+			cv::circle(input, cv::Point(8*i, 0), 16*2, 255, -1);
+			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
+			v =	finder(small_input, true);
+		}
+		BOOST_WARN_MESSAGE(false, "An 1D octave detector smaller than "<< (i+1)<<" pixels cannot detect anything");
+	}
+	BOOST_AUTO_TEST_CASE( octave_minimum_signal_intensity )
+	{
+		OctaveFinder1D finder(16);
+		cv::Mat_<double> input(1,16);
+		int i = 0;
+		std::vector<Center2D> v(1);
+		while(i<10 & v.size()>0)
+		{
+			i++;
+			input.setTo(0);
+			cv::circle(input, cv::Point(8, 0), 4, pow(0.5, i), -1);
+			v =	finder(input, true);
+		}
+		BOOST_WARN_MESSAGE(i>10, "Cannot detect intensities below "<< pow(0.5, i-1)<<" in 1D");
+	}
+BOOST_AUTO_TEST_SUITE_END() //octave
 BOOST_AUTO_TEST_SUITE( multiscale )
 
 	BOOST_AUTO_TEST_CASE( multiscale_constructor_1D )
@@ -1032,7 +1114,7 @@ BOOST_AUTO_TEST_SUITE( multiscale )
 		BOOST_CHECK_EQUAL(finder.get_octave(5).get_height(), 16);
 		BOOST_CHECK_EQUAL(finder.get_octave(5).get_n_layers(), 3);
 	}
-	BOOST_AUTO_TEST_CASE( miltiscale1D_single_blob )
+	BOOST_AUTO_TEST_CASE( multiscale1D_single_blob )
 	{
 		MultiscaleFinder1D finder;
 		cv::Mat_<double>input(1, 256);
@@ -1203,6 +1285,21 @@ BOOST_AUTO_TEST_SUITE( trajectories )
 		BOOST_CHECK_EQUAL(ti[5][4], 2);
 		BOOST_CHECK_EQUAL(ti.getTraj(4,2), 5);
 
+		//frame with no link
+		ti.add_Frame(4, std::vector<double>(), std::vector<size_t>(), std::vector<size_t>());
+		BOOST_REQUIRE_EQUAL(ti.nbFrames(), 6);
+		BOOST_REQUIRE_EQUAL(ti.size(), 10);
+		BOOST_REQUIRE_EQUAL(ti.getInverse(5).size(), 4);
+		BOOST_REQUIRE_EQUAL(ti[1].size(), 5);
+		BOOST_CHECK_EQUAL(ti[1][4], 1);
+		BOOST_CHECK_EQUAL(ti.getTraj(4,1), 1);
+		BOOST_REQUIRE(!ti[2].exist(5));
+		BOOST_CHECK_EQUAL(ti[2][4], 0);
+		BOOST_CHECK_EQUAL(ti.getTraj(4,0), 2);
+		BOOST_REQUIRE(!ti[5].exist(5));
+		BOOST_CHECK_EQUAL(ti[5][4], 2);
+		BOOST_CHECK_EQUAL(ti.getTraj(4,2), 5);
+
 	}
 BOOST_AUTO_TEST_SUITE_END()
 BOOST_AUTO_TEST_SUITE( Reconstruction )
@@ -1291,23 +1388,55 @@ BOOST_AUTO_TEST_SUITE( Reconstruction )
 		//no need to split
 		Reconstructor rec;
 		Reconstructor::Frame centers(1, Center2D(0, 1));
-		for(size_t i=0; i<32; ++i)
+		for(size_t i=0; i<16; ++i)
 			rec.push_back(centers);
-		BOOST_REQUIRE_EQUAL(rec.size(), 32);
+		BOOST_REQUIRE_EQUAL(rec.size(), 16);
 		BOOST_REQUIRE_EQUAL(rec.nb_cluster(), 1);
 		rec.split_clusters();
 		BOOST_REQUIRE_EQUAL(rec.nb_cluster(), 1);
 		//need to split
 		rec.clear();
-		for(size_t i=0; i<16; ++i)
+		for(size_t i=0; i<6; ++i)
 			rec.push_back(centers);
-		centers[0][0] = 1;
-		for(size_t i=0; i<16; ++i)
+		for(size_t i=0; i<7; ++i)
+		{
+			centers[0][0] += 0.1;
 			rec.push_back(centers);
-		BOOST_REQUIRE_EQUAL(rec.size(), 32);
+		}
+		for(size_t i=0; i<7; ++i)
+			rec.push_back(centers);
+		BOOST_REQUIRE_EQUAL(rec.size(), 20);
 		BOOST_REQUIRE_EQUAL(rec.nb_cluster(), 1);
 		rec.split_clusters();
 		BOOST_REQUIRE_EQUAL(rec.nb_cluster(), 2);
+		BOOST_CHECK_GE(rec.get_clusters().front().back()[2], 6);
+		BOOST_CHECK_LE(rec.get_clusters().back().front()[2], 10);
+		//need to split, with magnitude contrast
+		rec.clear();
+		for(size_t i=0; i<6; ++i)
+			rec.push_back(centers);
+		for(size_t i=0; i<7; ++i)
+		{
+			centers[0][0] += 0.05;
+			rec.push_back(centers);
+		}
+		for(size_t i=0; i<6; ++i)
+			rec.push_back(centers);
+		for(size_t i=0; i<7; ++i)
+		{
+			centers[0][0] += 0.1;
+			rec.push_back(centers);
+		}
+		for(size_t i=0; i<7; ++i)
+			rec.push_back(centers);
+		BOOST_REQUIRE_EQUAL(rec.size(), 33);
+		BOOST_REQUIRE_EQUAL(rec.nb_cluster(), 1);
+		rec.split_clusters();
+		BOOST_REQUIRE_EQUAL(rec.nb_cluster(), 3);
+		BOOST_CHECK_GE(rec.get_clusters().front().back()[2], 6);
+		BOOST_CHECK_LE(rec.get_clusters().back().front()[2], 13);
+		BOOST_CHECK_GE(rec.get_clusters().back().back()[2], 19);
+		BOOST_CHECK_LE(rec.get_clusters()[1].front()[2], 26);
 	}
 BOOST_AUTO_TEST_SUITE_END()
 

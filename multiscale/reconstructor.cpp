@@ -7,6 +7,7 @@
 
 #include "reconstructor.h"
 #include "RStarTree/RStarTree.h"
+#include "multiscalefinder.hpp"
 #include <math.h>
 
 using namespace std;
@@ -28,7 +29,9 @@ void Reconstructor::clear()
 	this->trajectories.reset();
 	this->last_frame.clear();
 }
-
+/**
+ * \param tolerance Fraction of the contact distance (sum of radii) accepted. For tolerance<=1 accept overlap only.
+ */
 void Reconstructor::push_back(const Frame &fr, const double &tolerance)
 {
 	if(this->empty())
@@ -68,6 +71,41 @@ void Reconstructor::push_back(const Frame &fr, const double &tolerance)
 
 void Reconstructor::split_clusters()
 {
+	const size_t cl_end =  this->clusters.size();
+	for(size_t cl=0; cl<cl_end;++cl)
+	{
+		if(this->clusters[cl].size()<6)
+			continue;
+		//compute the position gradient
+		cv::Mat_<double> grad(1, this->clusters[cl].size()-1);
+		Cluster::const_iterator c0 = this->clusters[cl].begin(), c1 = this->clusters[cl].begin();
+		c1++;
+		for(int i=0; i<grad.cols; ++i)
+		{
+			grad(0, i) = pow((*c0)[0]-(*c1)[0], 2) + pow((*c0)[1]-(*c1)[1], 2);
+			c0++;
+			c1++;
+		}
+		//feed into a Multiscale finder to find altitude where the position is moving a lot function of altitude
+		MultiscaleFinder1D finder(grad.cols);
+		std::vector<Center2D> blobs;
+		finder.get_centers(grad, blobs);
+		if(blobs.empty())
+			continue;
+
+		//split, from end to begin
+		for(size_t i=0; i<blobs.size(); ++i)
+		{
+			this->clusters.push_back(Cluster());
+			Cluster::iterator u = this->clusters[cl].begin();
+			std::advance(u, (size_t)blobs[blobs.size()-i-1][0]);
+			this->clusters.back().splice(this->clusters.back().begin(), this->clusters[cl], u, this->clusters[cl].end());
+		}
+	}
+}
+
+void Reconstructor::get_blobs(std::list<Center3D>& blobs)
+{
 
 }
 
@@ -88,13 +126,13 @@ void Reconstructor::links_by_brute_force(const Frame& fr, std::vector<double> &d
 		}
 }
 
-inline RStarBoundingBox<2,double> get_bb(const Center2D &c, const double &tolerance=0.0)
+inline RStarBoundingBox<2,double> get_bb(const Center2D &c, const double &tolerance=1.0)
 {
 	RStarBoundingBox<2,double> bb;
-	bb.edges[0].first = c[0] - c.r - tolerance;
-	bb.edges[1].first = c[1] - c.r - tolerance;
-	bb.edges[0].second = c[0] + c.r + tolerance;
-	bb.edges[1].second = c[1] + c.r + tolerance;
+	bb.edges[0].first = c[0] - c.r * tolerance;
+	bb.edges[1].first = c[1] - c.r * tolerance;
+	bb.edges[0].second = c[0] + c.r * tolerance;
+	bb.edges[1].second = c[1] + c.r * tolerance;
 	return bb;
 }
 typedef RStarTree<size_t, 2, 4, 32, double> 	RTree;
@@ -110,7 +148,9 @@ struct Gatherer {
 		gathered->push_back(leaf->leaf);
 	}
 };
-
+/**
+ * \param tolerance Fraction of the contact distance (sum of radii) accepted. For tolerance<=1 accept overlap only.
+ */
 void Reconstructor::links_by_RStarTree(const Frame& fr, std::vector<double> &distances, std::vector<size_t> &from, std::vector<size_t> &to, const double &tolerance) const
 {
 	//(over)reserve memory
@@ -138,7 +178,7 @@ void Reconstructor::links_by_RStarTree(const Frame& fr, std::vector<double> &dis
 		for(std::list<size_t>::const_iterator it= ngb1.begin(); it!=ngb1.end(); ++it)
 		{
 			const double dist = pow(this->last_frame[p][0] - fr[*it][0], 2) + pow(this->last_frame[p][1] - fr[*it][1], 2);
-			if(dist < pow(this->last_frame[p].r + fr[*it].r + 2*tolerance, 2))
+			if(dist < pow((this->last_frame[p].r + fr[*it].r) * tolerance, 2))
 			{
 				distances.push_back(dist);
 				from.push_back(p);
