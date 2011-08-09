@@ -317,7 +317,7 @@ def clusters2particles(clusters, k=1.6, n=3, noDuplicate=True, outputFinders=Fal
     N = max(map(len, clusters))
     finders = [MultiscaleBlobFinder([l], n, 3) for l in range(5, N+1)]
     for cl in clusters:
-        #a cluster that appeara in less than 3 slices is not a real particle
+        #a cluster that appears in less than 3 slices is not a real particle
         if len(cl)<3:
             continue
         #No blob can be extracted out of too short signal
@@ -427,6 +427,16 @@ def split_clusters(clusters, centers):
         clusters.append(out)
         clusters[i] = [p for p,c in zip(k, core) if c]
     return clusters
+
+def radius2scale(R, k=1.6, n=3.0):
+    return n / np.log(2) * np.log(
+        R/k * np.sqrt(n*(2**(2.0/n) - 1)/(2 * dim* np.log(2)))
+        ) -1
+
+def scale2radius(x, k=1.6, n=3.0, dim=2):
+    return k * 2**((x+1)/float(n))*np.sqrt(
+        2 * dim * np.log(2) / float(n) / (2**(2.0/n)-1)
+        )
 
 class OctaveBlobFinder:
     """Locator of bright blobs in an image of fixed shape. Works on a single octave."""
@@ -593,7 +603,7 @@ Returns an array of (x, y, r, -intensity in scale space)"""
         self.time_subpix += time.clock() - t0
         #convert scale to size
         n = (len(self.layers)-2)
-        centers[:,-2] = 2*k*np.sqrt(np.log(2) / (2**(2.0 / n) - 1.0)) * 2**((centers[:,-2] + 1.0) / n)
+        centers[:,-2] = k*np.sqrt(2 * (self.layers.ndim-1) * np.log(2) / (2**(2.0 / n) - 1.0)) * 2**((centers[:,-2] + 1.0) / n)
         self.noutputs += len(centers)
         return centers
         
