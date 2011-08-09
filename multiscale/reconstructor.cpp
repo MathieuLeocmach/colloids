@@ -104,30 +104,51 @@ void Reconstructor::split_clusters()
 	}
 }
 
-void Reconstructor::get_blobs(std::deque<Center3D>& blobs)
+void Reconstructor::get_blobs(std::deque<Center3D>& centers)
 {
-	blobs.clear();
+	const size_t margin = 6;
+	centers.clear();
 	for(std::deque<Cluster>::const_iterator cl=this->clusters.begin(); cl!=this->clusters.end(); ++cl)
 	{
-		if(cl->size()<3)
+		if(cl->size()<margin)
 			continue;
-		//copy the radii
-		cv::Mat_<double> radii(1, cl->size());
+		//copy the radii adding margins on each size to allow blob tracking on short signals
+		cv::Mat_<double> radii(1, cl->size()+2*margin);
 		radii.setTo(0);
 		Cluster::const_iterator c=cl->begin();
 		for(size_t i=0; i<cl->size(); ++i)
 		{
-			radii(0, i) = c->r;
+			radii(0, i+margin) = c->r;
 			c++;
 		}
-		MultiscaleFinder1D finder(cl->size());
-		std::vector<Center2D> bls;
-		finder.get_centers(radii, bls);
-		if(bls.empty())
+		MultiscaleFinder1D finder(radii.cols);
+		std::vector<Center2D> blobs;
+		finder.get_centers(radii, blobs);
+		for(std::vector<Center2D>::const_iterator b=blobs.begin(); b!=blobs.end(); ++b)
+		{
+			//get in the cluster just before the blob
+			const size_t pos = (*b)[0];
+			if(pos<margin || pos>cl->size()+margin)
+				continue;
+			const double frac = (*b)[0] - pos;
+			Cluster::const_iterator it = cl->begin();
+			std::advance(it, pos-margin);
+			//add the center
+			centers.push_back(*it);
+			//centers.back()[2] = (*b)[0] - margin;
+			//modulate by the next position (that may be closer to the blob position)
+			it++;
+			centers.back()[0] += frac * ((*it)[0] - centers.back()[0]);
+			centers.back()[1] += frac * ((*it)[1] - centers.back()[1]);
+			centers.back()[2] += frac * ((*it)[2] - centers.back()[2]) - 0.5;
+			centers.back().r += frac * (it->r - centers.back().r);
+			centers.back().intensity += frac * (it->intensity - centers.back().intensity);
+		}
+		/*if(blobs.empty())
 		{
 			//the signal is probably too short to localize a blob. We just take the maximum of the signal.
-			blobs.push_back(*std::max_element(cl->begin(), cl->end(), compare_radii<3>()));
-		}
+			centers.push_back(*std::max_element(cl->begin(), cl->end(), compare_radii<3>()));
+		}*/
 	}
 }
 

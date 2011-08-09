@@ -1458,17 +1458,30 @@ BOOST_AUTO_TEST_SUITE( Reconstruction )
 	BOOST_AUTO_TEST_CASE( one_sphere )
 	{
 		Reconstructor rec;
-		//slice a sphere of radius 4
-		for(size_t z=0; z<8; ++z)
-			rec.push_back(Reconstructor::Frame(1, Center2D(0, sqrt(4*4-pow(z-4.0, 2)))));
-		BOOST_REQUIRE_EQUAL(rec.nb_cluster(), 1);
-		std::deque<Center3D> centers;
-		rec.get_blobs(centers);
-		BOOST_REQUIRE_EQUAL(centers.size(), 1);
-		BOOST_CHECK_CLOSE(centers.front()[0], 0, 1e-9);
-		BOOST_CHECK_CLOSE(centers.front()[1], 0, 1e-9);
-		BOOST_CHECK_CLOSE(centers.front()[2], 4, 2);
-		BOOST_CHECK_CLOSE(centers.front().r, 4, 2);
+		std::ofstream f("one_sphere.out");
+		for(int z0=0; z0<10; ++z0)
+		{
+			//slice a sphere of radius 4 centeres on 4+z0/10
+			const double pos = 4.0 + z0 / 10.0;
+			for(size_t z=0; z<10; ++z)
+			{
+				const double radsq =  4*4-pow(z - pos, 2);
+				if(radsq >= 0)
+					rec.push_back(Reconstructor::Frame(1, Center2D(0, sqrt(radsq))));
+				else
+					rec.push_back(Reconstructor::Frame());
+			}
+			BOOST_REQUIRE_EQUAL(rec.nb_cluster(), 1);
+			std::deque<Center3D> centers;
+			rec.get_blobs(centers);
+			BOOST_REQUIRE_EQUAL(centers.size(), 1);
+			BOOST_CHECK_CLOSE(centers.front()[0], 0, 1e-9);
+			BOOST_CHECK_CLOSE(centers.front()[1], 0, 1e-9);
+			BOOST_CHECK_CLOSE(centers.front()[2], pos, 2);
+			BOOST_CHECK_CLOSE(centers.front().r, 4, 2);
+			f<<pos<<"\t"<<centers.front()[2]<<"\n";
+			rec.clear();
+		}
 	}
 BOOST_AUTO_TEST_SUITE_END()
 
