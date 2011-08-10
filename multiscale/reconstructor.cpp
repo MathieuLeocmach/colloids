@@ -113,17 +113,38 @@ void Reconstructor::get_blobs(std::deque<Center3D>& centers)
 		if(cl->size()<margin)
 			continue;
 		//copy the radii adding margins on each size to allow blob tracking on short signals
-		cv::Mat_<double> radii(1, cl->size()+2*margin);
-		radii.setTo(0);
+		cv::Mat_<double> signal(1, cl->size()+2*margin);
+		signal.setTo(0);
 		Cluster::const_iterator c=cl->begin();
 		for(size_t i=0; i<cl->size(); ++i)
 		{
-			radii(0, i+margin) = c->r;
+			signal(0, i+margin) = c->r;
 			c++;
 		}
-		MultiscaleFinder1D finder(radii.cols);
-		std::vector<Center2D> blobs;
-		finder.get_centers(radii, blobs);
+		MultiscaleFinder1D finder(signal.cols);
+		std::vector<Center2D> blobs, blo;
+		finder.get_centers(signal, blobs);
+
+		//do the same with minus the intensity
+		signal.setTo(0);
+		c=cl->begin();
+		for(size_t i=0; i<cl->size(); ++i)
+		{
+			signal(0, i+margin) = -c->intensity;
+			c++;
+		}
+		finder.get_centers(signal, blo);
+		//insert the intensity blobs only if they do not overlap radius blobs
+		blobs.reserve(blo.size());
+		for(size_t b=0; b<blo.size(); ++b)
+		{
+			bool ok = true;
+			for(size_t a=0; a<blobs.size() && ok; ++a)
+				ok = !(std::abs(blo[b][0] - blobs[a][0]) < blo[b].r + blobs[a].r);
+			if(ok)
+				blobs.push_back(blo[b]);
+		}
+
 		for(std::vector<Center2D>::const_iterator b=blobs.begin(); b!=blobs.end(); ++b)
 		{
 			//get in the cluster just before the blob
