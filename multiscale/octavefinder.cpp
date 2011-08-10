@@ -185,9 +185,12 @@ void Colloids::OctaveFinder1D::initialize_binary(const double & max_ratio)
 					if(k2 < k || i2 < i || k2 > k + 1 || i2 > i + 1)
 						*b = this->layers[mk](0, mi) <= this->layers[k2](0, i2);
 			//Eliminating edge response in 1D is more tricky
-			//We look is the pixel is also a local maximum in the gaussian layer
-			for(size_t i2 = mi - 1;i2 < mi + 2 && *b;++i2)
-				*b = this->layersG[mk](0, mi) >= this->layersG[mk](0, i2);
+			//We look for pixels where the ratio between the Laplacian and gradient values is large
+			if(*b)
+			{
+				const double * v = &this->layersG[mk](0, mi);
+				*b = std::abs((*(v+1) + *(v-1) - 2 * *v) / (*(v+1) - *(v-1))) > 0.5;
+			}
 			if(*b){
 				cv::Vec3i c;
 				c[0] = mi;
