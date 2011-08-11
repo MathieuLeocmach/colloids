@@ -4,6 +4,7 @@
 #include "multiscalefinder.hpp"
 #include "traj.hpp"
 #include "reconstructor.h"
+#include "locatorfromlif.h"
 #include <fstream>
 #include <boost/test/unit_test.hpp>
 #include <boost/progress.hpp>
@@ -1192,6 +1193,41 @@ BOOST_AUTO_TEST_SUITE( multiscale )
 		f<<std::endl;
 		BOOST_REQUIRE_EQUAL(v.size(), large_radii.size());
 	}
+	BOOST_AUTO_TEST_CASE( multiscale1D_close_neighbours )
+	{
+		MultiscaleFinder1D finder(64);
+		//cv cannot draw circle sizes better than a pixel, so the input image is drawn in high resolution
+		cv::Mat_<uchar>input(1, 32*64), small_input(1, 64);
+		std::vector<Center2D> v_s(2);
+		std::ofstream f("close_neighbours1D.out");
+		for(int i = 32*32; i>8*32 && v_s.size()==2; --i)
+		{
+			const double distance = i/32.0;
+			BOOST_TEST_CHECKPOINT("distance = "<<distance);
+			input.setTo(0);
+			cv::circle(input, cv::Point(32*16, 0), 32*3, 255, -1);
+			cv::circle(input, cv::Point(32*16+i, 0), 32*3, 255, -1);
+			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
+			finder.get_centers(small_input, v_s);
+			if(v_s.size()!=2)
+			{
+				BOOST_WARN_MESSAGE(false, "Cannot differentiate step-like 1D blobs with edges closer than "<<distance/3-2<<" radius");
+				std::ofstream out("close_neighbours1D.layersG");
+				for(size_t j=0; j<64; ++j)
+				{
+					for(size_t l=0; l<finder.get_n_layers()+3; ++l)
+						out<<finder.get_octave(1).get_layersG(l)(0, j)<<"\t";
+					out<<"\n";
+				}
+				break;
+			}
+			BOOST_CHECK_CLOSE(v_s[0][0], 16, distance<16?6:2);
+			BOOST_REQUIRE_CLOSE(v_s[1][0], 16+distance, distance<16?6:2);
+			BOOST_CHECK_CLOSE(v_s[0].r, 3, distance<16?6:2);
+			BOOST_CHECK_CLOSE(v_s[1][0] - v_s[0][0], distance, distance<9.03125?21:2);
+			f << distance << "\t" << v_s[0][0] << "\t" << v_s[1][0] << "\t" << v_s[0].r << "\n";
+		}
+	}
 BOOST_AUTO_TEST_SUITE_END() //multiscale
 
 BOOST_AUTO_TEST_SUITE_END() //1D
@@ -1463,7 +1499,7 @@ BOOST_AUTO_TEST_SUITE( Reconstruction )
 		{
 			//slice a sphere of radius 4 centeres on 4+z0/10
 			const double pos = 4.0 + z0 / 10.0;
-			for(size_t z=0; z<10; ++z)
+			for(int z=0; z<10; ++z)
 			{
 				const double radsq =  4*4-pow(z - pos, 2);
 				if(radsq >= 0)
@@ -1483,5 +1519,54 @@ BOOST_AUTO_TEST_SUITE( Reconstruction )
 			rec.clear();
 		}
 	}
+	/*BOOST_AUTO_TEST_CASE( two_identical_spheres )
+	{
+		Reconstructor rec;
+		//std::ofstream f("one_sphere.out");
+		for(int z0=1; z0<10; ++z0)
+		{
+			//slice a sphere of radius 4 centeres on 4
+			for(int z=0; z<8; ++z)
+			{
+				const double radsq =  4*4-pow(z - 4, 2);
+				rec.push_back(Reconstructor::Frame(1, Center2D(0, sqrt(radsq))));
+			}
+			rec.push_back(Reconstructor::Frame(1, Center2D(0, 1)));
+			//slice a sphere of radius 4 centeres on 8+z0/10
+			const double pos = 4.0 + z0 / 10.0;
+			for(int z=0; z<10; ++z)
+			{
+				const double radsq =  4*4-pow(z - pos, 2);
+				if(radsq >= 0)
+					rec.push_back(Reconstructor::Frame(1, Center2D(0, sqrt(radsq))));
+				else
+					rec.push_back(Reconstructor::Frame(1, Center2D(0, 1)));
+			}
+			BOOST_REQUIRE_MESSAGE(rec.nb_cluster()==1, ""<<rec.nb_cluster()<<" clusters at pos="<<pos);
+			std::deque<Center3D> centers;
+			rec.get_blobs(centers);
+			BOOST_REQUIRE_MESSAGE(centers.size()==2, ""<<centers.size()<<" centers at pos="<<pos);
+			BOOST_CHECK_CLOSE(centers.front()[0], 0, 1e-9);
+			BOOST_CHECK_CLOSE(centers.front()[1], 0, 1e-9);
+			BOOST_CHECK_CLOSE(std::min(centers.front()[2], centers.back()[2]), 4, 2);
+			BOOST_CHECK_CLOSE(centers.front().r, 4, 2);
+			BOOST_CHECK_CLOSE(centers.back()[0], 0, 1e-9);
+			BOOST_CHECK_CLOSE(centers.back()[1], 0, 1e-9);
+			BOOST_CHECK_CLOSE(std::max(centers.front()[2], centers.back()[2]), pos+7, 2);
+			BOOST_CHECK_CLOSE(centers.back().r, 4, 2);
+			//f<<pos<<"\t"<<centers.front()[2]<<"\n";
+			rec.clear();
+		}
+	}*/
 BOOST_AUTO_TEST_SUITE_END()
-
+BOOST_AUTO_TEST_SUITE( LifTrack )
+	BOOST_AUTO_TEST_CASE( fill )
+	{
+		LifReader reader("/home/mathieu/Code_data/liftest/Tsuru11dm_phi=52.53_J36.lif");
+		LocatorFromLif locator(&reader.getSerie(0));
+		BOOST_CHECK_EQUAL(cv::sum(locator.get_slice())[0], 0);
+		locator.fill_next_slice();
+		BOOST_CHECK_EQUAL(cv::sum(locator.get_slice())[0], 5357342);
+		BOOST_CHECK_EQUAL(locator.get_reconstructor().size(), 1);
+	}
+BOOST_AUTO_TEST_SUITE_END()
