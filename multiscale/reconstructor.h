@@ -21,6 +21,7 @@ namespace Colloids
 	public:
 		typedef std::list<Center3D> Cluster;
 		typedef std::vector<Center2D> Frame;
+		typedef std::deque<Center3D> OutputType;
 
 		Reconstructor();
 		virtual ~Reconstructor();
@@ -36,7 +37,7 @@ namespace Colloids
 		void clear();
 		void push_back(const Frame &fr, const double &tolerance=0.1);
 		void split_clusters();
-		void get_blobs(std::deque<Center3D>& blobs);
+		void get_blobs(OutputType& blobs);
 
 	private:
 		std::auto_ptr<TrajIndex> trajectories;
