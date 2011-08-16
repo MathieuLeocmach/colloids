@@ -137,7 +137,7 @@ void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
 					//H Bay, a Ess, T Tuytelaars, and L Vangool,
 					//Computer Vision and Image Understanding 110, 346-359 (2008)
 					const double detH = hess[0] * hess[1] - pow(hess[2], 2), ratio = pow(hess[0] + hess[1], 2) / (4.0 * hess[0] * hess[1]);
-					*b = !(detH < 0 || ratio > max_ratio);
+					*b = !((detH < 0 && 1+detH*detH > 1) || ratio > max_ratio);
 					if(*b){
 						cv::Vec3i c;
 						c[0] = mi;
@@ -211,28 +211,16 @@ Center2D Colloids::OctaveFinder::spatial_subpix(const cv::Vec3i & ci) const
         //If possible, we use the Gaussian layer below the detected scale
         //to have better spatial resolution
         const cv::Mat_<double> & l = (k>0 ? this->layersG[k-1] : this->layersG[k]);
-        grad(0,0) = (l(j, i+1) - l(j, i-1))/2.0;
-        grad(1,0) = (l(j+1, i) - l(j-1, i))/2.0;
-        hess(0,0) = l(j, i+1) -2*l(j, i) + l(j, i-1);
-        hess(1,1) = l(j+1, i) -2*l(j, i) + l(j-1, i);
-        hess(0,1) = 0.25*(l(j+1, i+1) +l(j-1, i-1) - l(j+1, i-1) - l(j-1, i+1));
-        hess(1,0) = hess(0,1);
-        if(cv::invert(hess, hess_inv))
-        {
-        	//Matrix is not invertible, so we compute the shifts axis by axis
-        	c[0] = i + 0.5 - (hess(0,0)==0 ? 0 : grad(0,0)/hess(0,0));
-        	c[1] = j + 0.5 - (hess(1,1)==0 ? 0 : grad(1,0)/hess(1,1));
-        	c.intensity = this->layers[k](j, i);
-        }
-        else
-        {
-			d = hess_inv*grad;
-			c[0] = i+0.5 - (d(0,0)<0.5 && d(0,0)>-0.5)?d(0,0):0;
-			c[1] = j+0.5 - (d(1,0)<0.5 && d(1,0)>-0.5)?d(1,0):0;
-			u = grad.t()*d;
-			c.intensity = this->layers[k](j, i) - 0.5*u(0,0);
-        }
-        return c;
+        const double a[4] = {
+        		(l(j, i+1) - l(j, i-1))/2.0,
+        		(l(j+1, i) - l(j-1, i))/2.0,
+        		l(j, i+1) -2*l(j, i) + l(j, i-1),
+        		l(j+1, i) -2*l(j, i) + l(j-1, i)
+        };
+        c[0] = i + 0.5 - (a[2]==0 ? 0 : a[0]/a[2]);
+		c[1] = j + 0.5 - (a[3]==0 ? 0 : a[1]/a[3]);
+		c.intensity = this->layers[k](j, i);
+		return c;
 }
 Center2D Colloids::OctaveFinder1D::spatial_subpix(const cv::Vec3i & ci) const
 {
