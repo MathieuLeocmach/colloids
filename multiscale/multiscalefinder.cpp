@@ -42,7 +42,7 @@ namespace Colloids {
 	}
 
 	MultiscaleFinder::~MultiscaleFinder() {
-		while(this->octaves.empty())
+		while(!this->octaves.empty())
 		{
 			delete octaves.back();
 			octaves.pop_back();
