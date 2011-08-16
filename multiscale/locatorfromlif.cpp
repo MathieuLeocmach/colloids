@@ -10,7 +10,7 @@
 namespace Colloids {
 
 LocatorFromLif::LocatorFromLif(LifSerie * serie):
-		serie(serie), input(serie->begin()), t(0), z(0)
+		serie(serie), t(0), input(serie->begin())
 {
 	this->dims = serie->getSpatialDimensions();
 	this->total_t = serie->getNbTimeSteps();
@@ -24,9 +24,12 @@ LocatorFromLif::~LocatorFromLif() {
 
     void LocatorFromLif::fill_next_slice()
     {
-    	if(this->t >= this->total_t || this->z >= this->dims[2])
+    	std::vector<Center2D> centers;
+    	if(this->t >= this->total_t || this->get_z() >= this->dims[2])
     		throw std::out_of_range("End of file reached");
-
+    	this->serie->fill2DBuffer(static_cast<void*>(this->slice.data), this->t, this->get_z());
+    	this->finder->get_centers(this->slice, centers);
+    	this->rec.push_back(centers);
     }
 
 }

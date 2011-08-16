@@ -22,6 +22,7 @@ public:
 	//accessors
 	const Reconstructor & get_reconstructor() const {return this->rec;};
 	const cv::Mat_<unsigned char> & get_slice() const {return this->slice;};
+	const size_t get_z() const {return get_reconstructor().size();}
 
 	//processing
 	void fill_next_slice();
@@ -32,7 +33,7 @@ private:
 	Reconstructor rec;
 	cv::Mat_<unsigned char> slice;
 	std::vector<size_t> dims;
-	size_t t, total_t, z;
+	size_t t, total_t;
 	std::istreambuf_iterator<char> input;
 };
 
