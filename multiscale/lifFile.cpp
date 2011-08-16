@@ -105,6 +105,14 @@ size_t LifSerieHeader::getNbPixelsInOneTimeStep() const
     return accumulate(dims.begin(), dims.end(), 1, multiplies<size_t>());
 }
 
+/** @brief get the number of pixels in one slice, ie the product of the two first spatial dimensions  */
+size_t LifSerieHeader::getNbPixelsInOneSlice() const
+{
+    vector<size_t> dims = getSpatialDimensions();
+    dims.resize(2, 1);
+    return accumulate(dims.begin(), dims.end(), 1, multiplies<size_t>());
+}
+
 /** @brief get the ratio (Z voxel size)/(X voxel size)  */
 double LifSerieHeader::getZXratio() const
 {
@@ -251,6 +259,18 @@ void LifSerie::fill3DBuffer(void* buffer, size_t t)
     unsigned long int frameDataSize = getNbPixelsInOneTimeStep()*channels.size();
     file.seekg(getOffset(t) ,ios::beg);
     file.read(pos,frameDataSize);
+}
+
+/**
+    \brief fill a memory buffer that already has the good dimension
+    If more than one channel, all channels are retrieved interlaced
+  */
+void LifSerie::fill2DBuffer(void* buffer, size_t t, size_t z)
+{
+    char *pos = static_cast<char*>(buffer);
+    unsigned long int sliceDataSize = getNbPixelsInOneSlice()*channels.size();
+    file.seekg(getOffset(t) + z *  sliceDataSize, ios::beg);
+    file.read(pos, sliceDataSize);
 }
 
 /** @brief return an iterator to the begining of the data of time step t

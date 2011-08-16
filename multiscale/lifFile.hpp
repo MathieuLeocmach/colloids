@@ -66,6 +66,7 @@ class LifSerieHeader
         size_t getNbTimeSteps() const;
         std::vector<size_t> getSpatialDimensions() const;
         size_t getNbPixelsInOneTimeStep() const;
+        size_t getNbPixelsInOneSlice() const;
         double getZXratio() const;
         const std::map<std::string, DimensionData>& getDimensionsData() const {return dimensions;};
         const std::vector<ChannelData>& getChannels() const {return channels;};
@@ -89,6 +90,7 @@ class LifSerie : public LifSerieHeader, boost::noncopyable
         explicit LifSerie(LifSerieHeader serie, const std::string &filename, unsigned long long offset, unsigned long long memorySize);
 
         void fill3DBuffer(void* buffer, size_t t=0);
+        void fill2DBuffer(void* buffer, size_t t=0, size_t z=0);
         std::istreambuf_iterator<char> begin(size_t t=0);
         std::streampos tellg(){return file.tellg();}
 
