@@ -220,15 +220,15 @@ Center2D Colloids::OctaveFinder::spatial_subpix(const cv::Vec3i & ci) const
         if(cv::invert(hess, hess_inv))
         {
         	//Matrix is not invertible, so we compute the shifts axis by axis
-        	c[0] = i + 0.5 - grad(0,0)/hess(0,0);
-        	c[1] = j + 0.5 - grad(1,0)/hess(1,1);
+        	c[0] = i + 0.5 - (hess(0,0)==0 ? 0 : grad(0,0)/hess(0,0));
+        	c[1] = j + 0.5 - (hess(1,1)==0 ? 0 : grad(1,0)/hess(1,1));
         	c.intensity = this->layers[k](j, i);
         }
         else
         {
 			d = hess_inv*grad;
-			c[0] = i+0.5 - d(0,0);
-			c[1] = j+0.5 - d(1,0);
+			c[0] = i+0.5 - (d(0,0)<0.5 && d(0,0)>-0.5)?d(0,0):0;
+			c[1] = j+0.5 - (d(1,0)<0.5 && d(1,0)>-0.5)?d(1,0):0;
 			u = grad.t()*d;
 			c.intensity = this->layers[k](j, i) - 0.5*u(0,0);
         }
