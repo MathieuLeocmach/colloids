@@ -15,7 +15,9 @@ namespace Colloids {
 
 	MultiscaleFinder2D::MultiscaleFinder2D(const int nrows, const int ncols, const int nbLayers, const double &preblur_radius)
 	{
-		this->octaves.reserve((size_t)min(log(nrows/12.0)/log(2), log(ncols/12.0)/log(2)));
+		//must not fail if the image is too small, construct the 0th octave anyway
+		const int s = (nrows<12 || ncols<12)?1:(log(min(nrows, ncols)/6)/log(2));
+		this->octaves.reserve((size_t)s);
 		this->octaves.push_back(new OctaveFinder(2*nrows, 2*ncols, nbLayers, preblur_radius));
 		int ocr = nrows, occ = ncols;
 		while(ocr >= 12 && occ >= 12)
@@ -29,7 +31,9 @@ namespace Colloids {
 	}
 	MultiscaleFinder1D::MultiscaleFinder1D(const int ncols, const int nbLayers, const double &preblur_radius)
 	{
-		this->octaves.reserve((size_t)(log(ncols/12.0)/log(2)));
+		//must not fail if the signal is too short, construct the 0th octave anyway
+		const int s = (ncols<12)?1:(log(ncols/6)/log(2));
+		this->octaves.reserve((size_t)s);
 		this->octaves.push_back(new OctaveFinder1D(2*ncols, nbLayers, preblur_radius));
 		int occ = ncols;
 		while(occ >= 12)
