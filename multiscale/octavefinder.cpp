@@ -252,13 +252,12 @@ double Colloids::OctaveFinder::gaussianResponse(const size_t & j, const size_t &
 		const int m = ((int)(sigma*4+0.5)*2 + 1)|1;
 		vector<double> gx(m, 0.0);
 		cv::Mat_<double> kernel = cv::getGaussianKernel(m, sigma, this->layersG[0].type());
-		if(this->get_width()==1)
-			for(int x=0; x<m; ++x)
-				gx[x] += layersG[k](0, i-x+m/2);
-		else
-			for(int x=0; x<m; ++x)
-				for(int y=0; y<m; ++y)
-					gx[x] += layersG[k](j-y+m/2, i-x+m/2) * kernel(y,0);
+		for(int x=0; x<m; ++x)
+			for(int y=0; y<m; ++y)
+				gx[x] += layersG[k](
+						cv::borderInterpolate(j-y+m/2, this->get_width(), cv::BORDER_DEFAULT),
+						cv::borderInterpolate(i-x+m/2, this->get_height(), cv::BORDER_DEFAULT)
+								) * kernel(y,0);
 		double resp = 0.0;
 		for(int x=0; x<m; ++x)
 			resp += gx[x] * kernel(x,0);
@@ -282,7 +281,7 @@ double Colloids::OctaveFinder1D::gaussianResponse(const size_t & j, const size_t
 	cv::Mat_<double> kernel = cv::getGaussianKernel(m, sigma, this->layersG[0].type());
 	double resp = 0.0;
 	for(int x=0; x<m; ++x)
-		resp += layersG[k](0, i-x+m/2) * kernel(x,0);
+		resp += layersG[k](0, cv::borderInterpolate(i-x+m/2, this->get_height(), cv::BORDER_DEFAULT)) * kernel(x,0);
 	return resp;
 }
 
