@@ -814,7 +814,7 @@ BOOST_AUTO_TEST_SUITE( multiscale_call )
 	{
 		int i = 16;
 		std::vector<Center2D> v(1);
-		while(i>0 && v.size()>0)
+		while(i>6 && v.size()>0)
 		{
 			i--;
 			BOOST_CHECKPOINT("i="<<i);
@@ -1559,8 +1559,36 @@ BOOST_AUTO_TEST_SUITE( Reconstruction )
 		}
 	}*/
 BOOST_AUTO_TEST_SUITE_END()
+BOOST_AUTO_TEST_SUITE( Lif )
+	BOOST_AUTO_TEST_CASE( export_z_scan )
+	{
+		LifReader reader("/home/mathieu/Code_data/liftest/Tsuru11dm_phi=52.53_J36.lif");
+		LifSerie &serie = reader.getSerie(0);
+		std::vector<size_t> dims = serie.getSpatialDimensions();
+		BOOST_CHECK_GE(dims.size(), 2);
+		cv::Mat_<unsigned char> slice(dims[0], dims[1]);
+		cv::Mat color_slice(slice.size(), CV_8UC3);
+		BOOST_CHECK_GT(dims.size(), 2);
+		const size_t total_z = dims.size()>2 ? dims[2] : 1;
+		BOOST_CHECK_EQUAL(total_z, 256);
+		cv::VideoWriter w("z_scan.avi", CV_FOURCC('D', 'I', 'V', 'X'), 16, slice.size(), true);
+		for(size_t z=0; z<total_z; ++z)
+		{
+			serie.fill2DBuffer(static_cast<void*>(slice.data), 0, z);
+			unsigned char *c = color_slice.data;
+			cv::Mat_<unsigned char>::const_iterator b = slice.begin();
+			while(b!=slice.end())
+			{
+				*c++ = *b;
+				*c++ = *b;
+				*c++ = *b++;
+			}
+			w << color_slice;
+		}
+	}
+BOOST_AUTO_TEST_SUITE_END()
 BOOST_AUTO_TEST_SUITE( LifTrack )
-	BOOST_AUTO_TEST_CASE( fill )
+	BOOST_AUTO_TEST_CASE( fill_one_slice )
 	{
 		LifReader reader("/home/mathieu/Code_data/liftest/Tsuru11dm_phi=52.53_J36.lif");
 		LocatorFromLif locator(&reader.getSerie(0));
@@ -1568,5 +1596,19 @@ BOOST_AUTO_TEST_SUITE( LifTrack )
 		locator.fill_next_slice();
 		BOOST_CHECK_EQUAL(cv::sum(locator.get_slice())[0], 5357342);
 		BOOST_CHECK_EQUAL(locator.get_reconstructor().size(), 1);
+		locator.clear();
+		BOOST_CHECK_EQUAL(cv::sum(locator.get_slice())[0], 0);
+		BOOST_CHECK_EQUAL(locator.get_z(), 0);
+	}
+	BOOST_AUTO_TEST_CASE( fill_one_stack )
+	{
+		LifReader reader("/home/mathieu/Code_data/liftest/Tsuru11dm_phi=52.53_J36.lif");
+		LocatorFromLif locator(&reader.getSerie(0));
+		locator.fill_time_step();
+		BOOST_CHECK_EQUAL(locator.get_z(), 256);
+		LocatorFromLif::Centers centers;
+		locator.get_centers(centers);
+		BOOST_CHECK_EQUAL(locator.get_t(), 1);
+		BOOST_REQUIRE(!centers.empty());
 	}
 BOOST_AUTO_TEST_SUITE_END()
