@@ -37,6 +37,7 @@
 #include <deque>
 #include <map>
 #include <stdexcept>
+#include <memory>
 #include <boost/utility.hpp>
 #include <boost/ptr_container/ptr_vector.hpp>
 
@@ -127,7 +128,7 @@ class LifHeader : boost::noncopyable
 
 class LifReader : boost::noncopyable
 {
-    LifHeader *header;
+    std::auto_ptr<LifHeader> header;
     std::ifstream file;
     std::streampos fileSize;
     boost::ptr_vector<LifSerie> series;

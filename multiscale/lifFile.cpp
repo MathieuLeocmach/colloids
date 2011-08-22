@@ -392,7 +392,7 @@ LifReader::LifReader(const string &filename) : file(filename.c_str(), ios::in | 
         xmlString.push_back(xmlHeader[2*p]);
     delete[] xmlHeader;
 
-    header = new LifHeader(xmlString);
+    header.reset(new LifHeader(xmlString));
 
     size_t s = 0;
     while (file.tellg() < fileSize)
