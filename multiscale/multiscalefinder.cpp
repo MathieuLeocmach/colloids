@@ -26,8 +26,8 @@ namespace Colloids {
 			ocr /= 2;
 			occ /= 2;
 		}
-		this->small = cv::Mat_<double>(nrows, ncols);
-		this->upscaled = cv::Mat_<double>(2*nrows, 2*ncols);
+		this->small = cv::Mat_<double>(nrows, ncols, 0.0);
+		this->upscaled = cv::Mat_<double>(2*nrows, 2*ncols, 0.0);
 	}
 	MultiscaleFinder1D::MultiscaleFinder1D(const int ncols, const int nbLayers, const double &preblur_radius)
 	{
@@ -41,8 +41,8 @@ namespace Colloids {
 			this->octaves.push_back(new OctaveFinder1D(occ, nbLayers, preblur_radius));
 			occ /= 2;
 		}
-		this->small = cv::Mat_<double>(1, ncols);
-		this->upscaled = cv::Mat_<double>(1, 2*ncols);
+		this->small = cv::Mat_<double>(1, ncols, 0.0);
+		this->upscaled = cv::Mat_<double>(1, 2*ncols, 0.0);
 	}
 
 	MultiscaleFinder::~MultiscaleFinder() {
@@ -82,13 +82,13 @@ namespace Colloids {
     		for(int i=0; 2*i<this->upscaled.rows; ++i)
     			this->upscaled(2*i, 2*j) = small(i,j);
     	for(int j=0; 2*j<this->upscaled.cols; ++j)
-			for(int i=0; 2*i+1<this->upscaled.rows; ++i)
+			for(int i=0; 2*i+1<this->upscaled.rows && i+1<small.rows; ++i)
 				this->upscaled(2*i+1, 2*j) = 0.5*(small(i,j)+small(i+1,j));
-    	for(int j=0; 2*j+1<this->upscaled.cols; ++j)
+    	for(int j=0; 2*j+1<this->upscaled.cols && j+1<small.cols; ++j)
 			for(int i=0; 2*i<this->upscaled.rows; ++i)
 				this->upscaled(2*i, 2*j+1) = 0.5*(small(i,j)+small(i, j+1));
-    	for(int j=0; 2*j+1<this->upscaled.cols; ++j)
-			for(int i=0; 2*i+1<this->upscaled.rows; ++i)
+    	for(int j=0; 2*j+1<this->upscaled.cols && j+1<small.cols; ++j)
+			for(int i=0; 2*i+1<this->upscaled.rows && i+1<small.rows; ++i)
 				this->upscaled(2*i+1, 2*j+1) = 0.25*(small(i,j)+small(i+1,j)+small(i, j+1)+small(i+1, j+1));
 
     	this->octaves[0]->preblur_and_fill(this->upscaled);
@@ -174,8 +174,8 @@ namespace Colloids {
 				cv::Range(0, this->octaves[o]->get_height())
 		);
 		const cv::Mat_<double> & a = this->octaves[o-1]->get_layersG(this->octaves[o-1]->get_n_layers());
-		for(int j=0; j<roi2.rows; ++j)
-			for(int i=0; i<roi2.cols; ++i)
+		for(int j=0; j<roi2.cols && 2*j+1<a.cols; ++j)
+			for(int i=0; i<roi2.rows && 2*i+1<a.rows; ++i)
 				roi2(i,j) = (a(2*i, 2*j) + a(2*i+1, 2*j) + a(2*i, 2*j+1) + a(2*i+1, 2*j+1))/4.0;
 		return roi2;
 	}
