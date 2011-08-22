@@ -6,6 +6,7 @@
  */
 
 #include "reconstructor.h"
+//#include <kdtree++/kdtree.hpp>
 #include "RStarTree/RStarTree.h"
 #include "multiscalefinder.hpp"
 #include <math.h>
@@ -47,7 +48,7 @@ void Reconstructor::push_back(const Frame &fr, const double &tolerance)
 		//use RStarTree spatial indexing
 		this->links_by_RStarTree(fr, distances, from, to, tolerance);
 		//brute force
-		//this->links_by_brute_force(fr, distances, from, to);
+		//this->links_by_brute_force(fr, distances, from, to, tolerance);
 		//remember the time step and the number of previously existing trajectories
 		const size_t
 			t = this->size(),
@@ -173,20 +174,24 @@ void Reconstructor::get_blobs(std::deque<Center3D>& centers)
 	}
 }
 
-void Reconstructor::links_by_brute_force(const Frame& fr, std::vector<double> &distances, std::vector<size_t> &from, std::vector<size_t> &to) const
+void Reconstructor::links_by_brute_force(const Frame& fr, std::vector<double> &distances, std::vector<size_t> &from, std::vector<size_t> &to, const double &tolerance) const
 {
 	const size_t n = fr.size() * this->last_frame.size();
-	distances.resize(n);
-	from.resize(n);
-	to.resize(n);
-	std::vector<double>::iterator d = distances.begin();
-	std::vector<size_t>::iterator i = from.begin(), j = to.begin();
+	distances.reserve(n);
+	from.reserve(n);
+	to.reserve(n);
+	std::back_insert_iterator<std::vector<double> > d(distances);
+	std::back_insert_iterator<std::vector<size_t> > i(from), j(to);
 	for(size_t f=0; f<this->last_frame.size(); ++f)
 		for(size_t t=0; t<fr.size(); ++t)
 		{
-			*i++ = f;
-			*j++ = t;
-			*d++ = pow(this->last_frame[f][0] - fr[t][0], 2) + pow(this->last_frame[f][1] - fr[t][1], 2);
+			const double dist = pow(this->last_frame[f][0] - fr[t][0], 2) + pow(this->last_frame[f][1] - fr[t][1], 2);
+			if(dist < pow((this->last_frame[f].r + fr[t].r) * tolerance, 2))
+			{
+				*i++ = f;
+				*j++ = t;
+				*d++ = dist;
+			}
 		}
 }
 
@@ -252,5 +257,47 @@ void Reconstructor::links_by_RStarTree(const Frame& fr, std::vector<double> &dis
 	}
 
 }
+
+/**
+ * \param tolerance Fraction of the contact distance (sum of radii) accepted. For tolerance<=1 accept overlap only.
+ */
+/*void Reconstructor::links_by_kdTree(const Frame& fr, std::vector<double> &distances, std::vector<size_t> &from, std::vector<size_t> &to, const double &tolerance) const
+{
+	typedef KDTree::KDTree<2, Center2D> tree_type;
+	//(over)reserve memory
+	const size_t n = 12 * max(fr.size(), this->last_frame.size());
+	distances.clear();
+	distances.reserve(n);
+	from.clear();
+	from.reserve(n);
+	to.clear();
+	to.reserve(n);
+
+	//spatial index the new frame
+	tree_type tree;
+	for(size_t p=0; p<fr.size(); ++p)
+		tree.insert(p);
+
+	//for each particle in previous frame, get all the particles in new frame that have an overlap with it
+	for(size_t p=0; p<this->last_frame.size(); ++p)
+	{
+		std::list<size_t> ngb1;
+		tree.Query(
+				RTree::AcceptOverlapping(get_bb(this->last_frame[p], tolerance)),
+				Gatherer(ngb1)
+		);
+		for(std::list<size_t>::const_iterator it= ngb1.begin(); it!=ngb1.end(); ++it)
+		{
+			const double dist = pow(this->last_frame[p][0] - fr[*it][0], 2) + pow(this->last_frame[p][1] - fr[*it][1], 2);
+			if(dist < pow((this->last_frame[p].r + fr[*it].r) * tolerance, 2))
+			{
+				distances.push_back(dist);
+				from.push_back(p);
+				to.push_back(*it);
+			}
+		}
+	}
+
+}*/
 
 }//namespace Colloids
