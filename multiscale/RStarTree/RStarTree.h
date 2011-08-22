@@ -35,6 +35,7 @@
 #include <algorithm>
 #include <cassert>
 #include <functional>
+#include <memory>
 
 #include <iostream>
 #include <sstream>
@@ -159,9 +160,9 @@ public:
 		newLeaf->leaf  = leaf;
 
 		// create a new root node if necessary
-		if (!m_root)
+		if (!m_root.get())
 		{
-			m_root = new Node();
+			m_root.reset(new Node());
 			m_root->hasLeaves = true;
 
 			// reserve memory
@@ -171,7 +172,7 @@ public:
 		}
 		else
 			// start the insertion process
-			InsertInternal(newLeaf, m_root);
+			InsertInternal(newLeaf, m_root.get());
 
 		m_size += 1;
 	}
@@ -244,10 +245,10 @@ public:
 	template <typename Acceptor, typename Visitor>
 	Visitor Query(const Acceptor &accept, Visitor visitor)
 	{
-		if (m_root)
+		if (m_root.get())
 		{
 			QueryFunctor<Acceptor, Visitor> query(accept, visitor);
-			query(m_root);
+			query(m_root.get());
 		}
 
 		return visitor;
@@ -255,10 +256,10 @@ public:
 	template <typename Acceptor, typename Visitor>
 	Visitor Query(const Acceptor &accept, Visitor visitor) const
 	{
-		if (m_root)
+		if (m_root.get())
 		{
 			QueryFunctor<Acceptor, Visitor> query(accept, visitor);
-			query(m_root);
+			query(m_root.get());
 		}
 
 		return visitor;
@@ -288,7 +289,7 @@ public:
 		std::list<Leaf*> itemsToReinsert;
 
 		RemoveFunctor<Acceptor, LeafRemover> remove(accept, leafRemover, &itemsToReinsert, &m_size);
-		remove(m_root, true);
+		remove(m_root.get(), true);
 
 		if (!itemsToReinsert.empty())
 		{
@@ -300,7 +301,7 @@ public:
 			// BulkInsert(itemsToReinsert, m_root);
 
 			for(;it != end; it++)
-				InsertInternal(*it, m_root);
+				InsertInternal(*it, m_root.get());
 		}
 	}
 
@@ -450,7 +451,7 @@ protected:
 		// OT1: If the level is not the root level AND this is the first
 		// call of OverflowTreatment in the given level during the
 		// insertion of one data rectangle, then invoke Reinsert
-		if (level != m_root && firstInsert)
+		if (level != m_root.get() && firstInsert)
 		{
 			Reinsert(level);
 			return NULL;
@@ -459,14 +460,14 @@ protected:
 		Node * splitItem = Split(level);
 
 		// If OverflowTreatment caused a split of the root, create a new root
-		if (level == m_root)
+		if (level == m_root.get())
 		{
 			Node * newRoot = new Node();
 			newRoot->hasLeaves = false;
 
 			// reserve memory
 			newRoot->items.reserve(min_child_items);
-			newRoot->items.push_back(m_root);
+			newRoot->items.push_back(m_root.release());
 			newRoot->items.push_back(splitItem);
 
 			// Do I4 here for the new root item
@@ -474,7 +475,7 @@ protected:
 			for_each(newRoot->items.begin(), newRoot->items.end(), StretchBoundingBox<BoundedItem>(&newRoot->bound));
 
 			// and we're done
-			m_root = newRoot;
+			m_root.reset(newRoot);
 			return NULL;
 		}
 
@@ -639,7 +640,7 @@ protected:
 		// minimum distance (= close reinsert), invoke Insert
 		// to reinsert the items
 		for (typename std::vector< BoundedItem* >::iterator it = removed_items.begin(); it != removed_items.end(); it++)
-			InsertInternal( static_cast<Leaf*>(*it), m_root, false);
+			InsertInternal( static_cast<Leaf*>(*it), m_root.get(), false);
 	}
 
 	/****************************************************************
@@ -841,7 +842,7 @@ protected:
 
 
 private:
-	Node * m_root;
+	std::auto_ptr<Node> m_root;
 
 	std::size_t m_size;
 };
