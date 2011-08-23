@@ -252,12 +252,9 @@ double Colloids::OctaveFinder::gaussianResponse(const size_t & j, const size_t &
 		const int m = ((int)(sigma*4+0.5)*2 + 1)|1;
 		vector<double> gx(m, 0.0);
 		cv::Mat_<double> kernel = cv::getGaussianKernel(m, sigma, this->layersG[0].type());
-		for(int x=0; x<m; ++x)
-			for(int y=0; y<m; ++y)
-				gx[x] += layersG[k](
-						cv::borderInterpolate(j-y+m/2, this->get_width(), cv::BORDER_DEFAULT),
-						cv::borderInterpolate(i-x+m/2, this->get_height(), cv::BORDER_DEFAULT)
-								) * kernel(y,0);
+		for(int x=max(0, (int)i+m/2+1-this->get_width()); x<min(m, (int)i+m/2+1); ++x)
+			for(int y=max(0, (int)j+m/2+1-this->get_height()); y<min(m, (int)j+m/2+1); ++y)
+				gx[x] += layersG[k](j-y+m/2, i-x+m/2) * kernel(y,0);
 		double resp = 0.0;
 		for(int x=0; x<m; ++x)
 			resp += gx[x] * kernel(x,0);
