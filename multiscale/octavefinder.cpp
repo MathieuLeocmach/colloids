@@ -96,19 +96,18 @@ void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
 	for(size_t k = 1;k < (size_t)(((this->layers.size() - 1)));k += 2)
 		for(size_t j = 1;j < (size_t)(((this->get_width() - 1)));j += 2)
 			for(size_t i = 1;i < (size_t)(((this->get_height() - 1)));i += 2){
-				size_t mi = i;
-				size_t mj = j;
-				size_t mk = k;
-				//accept degenerated minima in the block, but select only one
-				for(size_t k2 = k;k2 < k + 2;++k2)
-					for(size_t j2 = j;j2 < j + 2;++j2)
-						for(size_t i2 = i;i2 < i + 2;++i2)
-							if(this->layers[k2](j2, i2) <= this->layers[mk](mj, mi)){
-								mi = i2;
-								mj = j2;
-								mk = k2;
-							}
-
+				//copy the whole neighbourhood together for locality
+				boost::array<double, 8> ngb = {{
+						this->layers[k](j, i), this->layers[k](j, i+1),
+						this->layers[k](j+1, i), this->layers[k](j+1, i+1),
+						this->layers[k+1](j, i), this->layers[k+1](j, i+1),
+						this->layers[k+1](j+1, i), this->layers[k+1](j+1, i+1)
+				}};
+				const boost::array<double, 8>::const_iterator mpos = std::min_element(ngb.begin(), ngb.end());
+				const int ml = mpos-ngb.begin();
+				size_t mi = i + !!(ml&1);
+				size_t mj = j + !!(ml&2);
+				size_t mk = k + !!(ml&4);
 
 
 				//maxima cannot be on the last layer or on image edges
@@ -118,13 +117,13 @@ void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
 				bool *b = &this->binary[mk - 1](mj, mi);
 				//consider only negative minima
 				//with a value that is actually different from zero
-				*b = (this->layers[mk](mj, mi) < 0) && (1 + pow(this->layers[mk](mj, mi), 2) > 1);
+				*b = (*mpos < 0) && (1 + pow(*mpos, 2) > 1);
 				//remove the minima if one of its neighbours outside the block has lower value
 				for(size_t k2 = mk - 1;k2 < mk + 2 && *b;++k2)
 					for(size_t j2 = mj - 1;j2 < mj + 2 && *b;++j2)
 						for(size_t i2 = mi - 1;i2 < mi + 2 && *b;++i2)
 							if(k2 < k || j2 < j || i2 < i || k2 > k + 1 || j2 > j + 1 || i2 > i + 1)
-								*b = this->layers[mk](mj, mi) <= this->layers[k2](j2, i2);
+								*b = *mpos <= this->layers[k2](j2, i2);
 
 
 
