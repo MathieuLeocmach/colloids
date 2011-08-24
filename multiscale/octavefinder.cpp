@@ -169,22 +169,28 @@ void Colloids::OctaveFinder1D::initialize_binary(const double & max_ratio)
         this->binary[i].setTo(0);
 
 	for(size_t k = 1;k < (size_t)(((this->layers.size() - 1)));k += 2)
-		for(size_t i = 1;i < (size_t)(((this->get_height() - 1)));i += 2)
+	{
+		boost::array<const double*, 2> ngb_ptr = {{
+							&this->layers[k](0, this->sizes[k]+1),
+							&this->layers[k+1](0, this->sizes[k]+1)
+		}};
+		for(size_t i = this->sizes[k]+1;i < (size_t)(((this->get_height() -this->sizes[k]- 1)));i += 2)
 		{
-			size_t mi = i;
-			size_t mk = k;
-			//accept degenerated minima in the block, but select only one
-			for(size_t k2 = k;k2 < k + 2;++k2)
-				for(size_t i2 = i;i2 < i + 2;++i2)
-					if(this->layers[k2](0, i2) <= this->layers[mk](0, mi)){
-						mi = i2;
-						mk = k2;
-					}
+			//copy the whole neighbourhood together for locality
+			boost::array<double, 4> ngb = {{
+					*ngb_ptr[0]++, *ngb_ptr[0]++,
+					*ngb_ptr[1]++, *ngb_ptr[1]++
+			}};
+			const boost::array<double, 4>::const_iterator mpos = std::min_element(ngb.begin(), ngb.end());
+			const int ml = mpos-ngb.begin();
+			size_t mi = i + !!(ml&1);
+			size_t mk = k + !!(ml&2);
 			//maxima cannot be on the last layer or on image edges
 			if(mk > this->binary.size() || !((this->sizes[mk] <= mi) && (mi < (size_t)(((this->get_height() - this->sizes[mk]))))))
 				continue;
 			bool *b = &this->binary[mk - 1](0, mi);
-			*b = (this->layers[mk](0, mi) < 0) && (1 + pow(this->layers[mk](0, mi), 2) > 1);
+			*b = (*mpos < 0) && (1 + pow(*mpos, 2) > 1);
+
 			//remove the minima if one of its neighbours outside the block has lower value
 			for(size_t k2 = mk - 1;k2 < mk + 2 && *b;++k2)
 				for(size_t i2 = mi - 1;i2 < mi + 2 && *b;++i2)
@@ -205,6 +211,7 @@ void Colloids::OctaveFinder1D::initialize_binary(const double & max_ratio)
 				this->centers_no_subpix.push_back(c);
 			}
 		}
+	}
 }
 
 Center2D Colloids::OctaveFinder::spatial_subpix(const cv::Vec3i & ci) const
