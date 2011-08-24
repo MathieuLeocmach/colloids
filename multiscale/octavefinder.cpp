@@ -94,8 +94,8 @@ void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
         this->binary[i].setTo(0);
 
 	for(size_t k = 1;k < (size_t)(((this->layers.size() - 1)));k += 2)
-		for(size_t j = 1;j < (size_t)(((this->get_width() - 1)));j += 2)
-			for(size_t i = 1;i < (size_t)(((this->get_height() - 1)));i += 2){
+		for(size_t j = this->sizes[k]+1;j < (size_t)(((this->get_width() - this->sizes[k]- 1)));j += 2)
+			for(size_t i = this->sizes[k]+1;i < (size_t)(((this->get_height() -this->sizes[k] - 1)));i += 2){
 				//copy the whole neighbourhood together for locality
 				boost::array<double, 8> ngb = {{
 						this->layers[k](j, i), this->layers[k](j, i+1),
