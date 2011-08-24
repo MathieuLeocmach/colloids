@@ -2,8 +2,9 @@
 #define OCTAVEFINDER_H
 
 #include "center.h"
-#include <opencv/cv.h>
-#include <opencv/highgui.h>
+#include <opencv2/core/core.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/highgui/highgui.hpp>
 #include <boost/ptr_container/ptr_vector.hpp>
 #include <list>
 
