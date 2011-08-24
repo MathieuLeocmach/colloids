@@ -95,13 +95,20 @@ void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
 
 	for(size_t k = 1;k < (size_t)(((this->layers.size() - 1)));k += 2)
 		for(size_t j = this->sizes[k]+1;j < (size_t)(((this->get_width() - this->sizes[k]- 1)));j += 2)
+		{
+			boost::array<const double*, 4> ngb_ptr = {{
+					&this->layers[k](j, this->sizes[k]+1),
+					&this->layers[k](j+1, this->sizes[k]+1),
+					&this->layers[k+1](j, this->sizes[k]+1),
+					&this->layers[k+1](j+1, this->sizes[k]+1)
+			}};
 			for(size_t i = this->sizes[k]+1;i < (size_t)(((this->get_height() -this->sizes[k] - 1)));i += 2){
 				//copy the whole neighbourhood together for locality
 				boost::array<double, 8> ngb = {{
-						this->layers[k](j, i), this->layers[k](j, i+1),
-						this->layers[k](j+1, i), this->layers[k](j+1, i+1),
-						this->layers[k+1](j, i), this->layers[k+1](j, i+1),
-						this->layers[k+1](j+1, i), this->layers[k+1](j+1, i+1)
+						*ngb_ptr[0]++, *ngb_ptr[0]++,
+						*ngb_ptr[1]++, *ngb_ptr[1]++,
+						*ngb_ptr[2]++, *ngb_ptr[2]++,
+						*ngb_ptr[3]++, *ngb_ptr[3]++
 				}};
 				const boost::array<double, 8>::const_iterator mpos = std::min_element(ngb.begin(), ngb.end());
 				const int ml = mpos-ngb.begin();
@@ -145,8 +152,8 @@ void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
 						this->centers_no_subpix.push_back(c);
 					}
 				}
-
 			}
+		}
 }
 /**
  * \brief Detect local minima of the scale space
@@ -333,7 +340,7 @@ double Colloids::OctaveFinder1D::scale_subpix(const cv::Vec3i & ci) const
 	const size_t i = ci[0], j = ci[1], k = ci[2];
 	double h = 1.0/3.0;
 	boost::array<double,7> a;
-	for(int u=0; u<a.size();++u)
+	for(int u=0; u<(int)a.size();++u)
 		a[u] = this->gaussianResponse(j, i, k - 3*h + u*h);
 	double s = 2*h * (a[5] -2*a[3] + a[1])/(a[6] -3*a[4] +3*a[2] -a[0]);
 	return k - 1.05*s + 0.08*pow(s,2) - pow(2,-2/(double)this->get_n_layers())+0.025*k -0.025;
