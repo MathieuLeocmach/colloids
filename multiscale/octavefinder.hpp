@@ -30,6 +30,7 @@ namespace Colloids
 			inline const cv::Mat_<double> & get_layersG(const size_t l) const {return layersG[l];}
 			inline const cv::Mat_<double> & get_layers(const size_t l) const {return layers[l];}
 			inline const size_t get_nb_centers() const {return centers_no_subpix.size();}
+			static const cv::Mat_<double>& get_kernel(const double &sigma);
 
             //processing
             void fill(const cv::Mat &input);
@@ -55,6 +56,7 @@ namespace Colloids
             std::vector<size_t> sizes;
             std::list<cv::Vec3i> centers_no_subpix;
             double preblur_radius, prefactor;
+            static std::map<size_t, cv::Mat_<double> > kernels;
 
             void fill_iterative_radii(const double &k=1.6);
     };

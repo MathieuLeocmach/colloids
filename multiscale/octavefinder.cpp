@@ -8,6 +8,21 @@ using namespace std;
 
 namespace Colloids {
 
+std::map<size_t, cv::Mat_<double> > OctaveFinder::kernels;
+
+const cv::Mat_<double>& OctaveFinder::get_kernel(const double &sigma)
+{
+	const int m = ((int)(sigma*4+0.5)*2 + 1)|1;
+	//grab the kernel if it already exists within 1% precision
+	std::map<size_t, cv::Mat_<double> >::iterator ker = kernels.find(100*sigma);
+	if(ker==kernels.end())
+		ker = kernels.insert(std::make_pair(
+				100*sigma,
+				cv::getGaussianKernel(m, sigma, CV_32F)
+		)).first;
+	return ker->second;
+}
+
 OctaveFinder::OctaveFinder(const int nrows, const int ncols, const int nbLayers, const double &preblur_radius):
 		iterative_radii(nbLayers+2), iterative_gaussian_filters(nbLayers+2), sizes(nbLayers+3)
 {
@@ -262,9 +277,9 @@ double Colloids::OctaveFinder::gaussianResponse(const size_t & j, const size_t &
 			return this->layersG[k](j, i);
 		const double sigma = this->get_iterative_radius(scale, (double)k);
 		//opencv is NOT dealing right with ROI (even if boasting about it), so we do it by hand
-		const int m = ((int)(sigma*4+0.5)*2 + 1)|1;
+		const cv::Mat_<double>& kernel = get_kernel(sigma);
+		const int m = kernel.rows;
 		vector<double> gx(m, 0.0);
-		cv::Mat_<double> kernel = cv::getGaussianKernel(m, sigma, this->layersG[0].type());
 		for(int x=max(0, (int)i+m/2+1-this->get_width()); x<min(m, (int)i+m/2+1); ++x)
 			for(int y=max(0, (int)j+m/2+1-this->get_height()); y<min(m, (int)j+m/2+1); ++y)
 				gx[x] += layersG[k](j-y+m/2, i-x+m/2) * kernel(y,0);
@@ -287,8 +302,8 @@ double Colloids::OctaveFinder1D::gaussianResponse(const size_t & j, const size_t
 		return this->layersG[k](j, i);
 	const double sigma = this->get_iterative_radius(scale, (double)k);
 	//opencv is NOT dealing right with ROI (even if boasting about it), so we do it by hand
-	const int m = ((int)(sigma*4+0.5)*2 + 1)|1;
-	cv::Mat_<double> kernel = cv::getGaussianKernel(m, sigma, this->layersG[0].type());
+	const cv::Mat_<double>& kernel = get_kernel(sigma);
+	const int m = kernel.rows;
 	double resp = 0.0;
 	for(int x=0; x<m; ++x)
 		resp += layersG[k](0, cv::borderInterpolate(i-x+m/2, this->get_height(), cv::BORDER_DEFAULT)) * kernel(x,0);
