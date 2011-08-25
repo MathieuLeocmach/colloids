@@ -13,13 +13,13 @@
 
 using namespace Colloids;
 
-void images_are_close(const cv::Mat &a, const cv::Mat &b, double precision=1e-9)
+void images_are_close(const cv::Mat &a, const cv::Mat &b, float precision=1e-5)
 {
-	cv::Mat_<double> M = cv::abs(a)+cv::abs(b);
+	OctaveFinder::Image  M = cv::abs(a)+cv::abs(b);
 	double peak = *std::max_element(M.begin(), M.end());
 	BOOST_REQUIRE_CLOSE(cv::sum(a)[0], cv::sum(b)[0], precision/peak);
-	cv::Mat_<double> diff = cv::abs(a-b) / peak;
-	cv::MatConstIterator_<double> u = diff.begin();
+	OctaveFinder::Image  diff = cv::abs(a-b) / peak;
+	cv::MatConstIterator_<float> u = diff.begin();
 	for(int i=0; i<a.rows; i++)
 		for(int j=0; j<a.cols; j++)
 		{
@@ -114,7 +114,7 @@ BOOST_AUTO_TEST_SUITE( octave_fill )
 	BOOST_AUTO_TEST_CASE( fill_test )
 	{
 		OctaveFinder finder(64, 64);
-		cv::Mat_<double>input(64, 64), other(64, 64);
+		OctaveFinder::Image input(64, 64), other(64, 64);
 		//the finder should contain a copy of the input data
 		input.setTo(1);
 		finder.fill(input);
@@ -128,28 +128,28 @@ BOOST_AUTO_TEST_SUITE( octave_fill )
 		BOOST_CHECK_NE(cv::sum(finder.get_layersG(0))[0], cv::sum(input)[0]);
 		finder.fill(input);
 		//Gaussian blur should be normalized
-		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(0))[0], cv::sum(finder.get_layersG(1))[0], 1e-9);
-		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(1))[0], cv::sum(finder.get_layersG(2))[0], 1e-9);
-		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(2))[0], cv::sum(finder.get_layersG(3))[0], 1e-9);
-		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(3))[0], cv::sum(finder.get_layersG(4))[0], 1e-9);
-		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(0))[0], cv::sum(finder.get_layersG(4))[0], 1e-9);
+		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(0))[0], cv::sum(finder.get_layersG(1))[0], 1e-5);
+		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(1))[0], cv::sum(finder.get_layersG(2))[0], 1e-5);
+		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(2))[0], cv::sum(finder.get_layersG(3))[0], 1e-5);
+		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(3))[0], cv::sum(finder.get_layersG(4))[0], 1e-5);
+		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(0))[0], cv::sum(finder.get_layersG(4))[0], 1e-5);
 		//The second to last Gaussian layer should be a good approxiation
 		//to the input blurred by a two time larger radius than the preblur
 		cv::GaussianBlur(input, other, cv::Size(0,0), 2*1.6);
 		finder.preblur_and_fill(input);
-		BOOST_REQUIRE_CLOSE(cv::sum(finder.get_layersG(3))[0], cv::sum(other)[0], 1e-9);
+		BOOST_REQUIRE_CLOSE(cv::sum(finder.get_layersG(3))[0], cv::sum(other)[0], 1e-5);
 		BOOST_CHECK_CLOSE(finder.get_layersG(3)(32,32), other(32,32), 1e-2);
 		images_are_close(finder.get_layersG(3), other, 1e-4);
 		//Sum of layers should reconstruct blurred image
 		other = finder.get_layersG(0) + finder.get_layers(0);
 		BOOST_REQUIRE_CLOSE(cv::sum(finder.get_layersG(1))[0], cv::sum(other)[0], 1e-9);
-		images_are_close(finder.get_layersG(1), other, 1e-9);
+		images_are_close(finder.get_layersG(1), other);
 		other += finder.get_layers(1);
-		images_are_close(finder.get_layersG(2), other, 1e-9);
+		images_are_close(finder.get_layersG(2), other);
 		other += finder.get_layers(2);
-		images_are_close(finder.get_layersG(3), other, 1e-9);
+		images_are_close(finder.get_layersG(3), other);
 		other += finder.get_layers(3);
-		images_are_close(finder.get_layersG(4), other, 1e-9);
+		images_are_close(finder.get_layersG(4), other);
 		//the inner data should not change type when filled with something else than double
 		cv::Mat_<unsigned char>input2(64, 64);
 		input2.setTo(0);
@@ -160,7 +160,7 @@ BOOST_AUTO_TEST_SUITE( octave_fill )
 	BOOST_AUTO_TEST_CASE( fill_rectangular )
 	{
 		OctaveFinder finder(51, 103);
-		cv::Mat_<double>input(51, 103), other(51, 103);
+		OctaveFinder::Image input(51, 103), other(51, 103);
 		//the finder should contain a copy of the input data
 		input.setTo(0);
 		input(32,32)=1.0;
@@ -179,7 +179,7 @@ BOOST_AUTO_TEST_SUITE( octave_fill )
 	BOOST_AUTO_TEST_CASE( fill_speed )
 	{
 		OctaveFinder finder;
-		cv::Mat_<double>input(256, 256);
+		OctaveFinder::Image input(256, 256);
 		input.setTo(0);
 		cv::circle(input, cv::Point(128, 128), 4, 1.0, -1);
 		boost::progress_timer ti;
@@ -194,7 +194,7 @@ BOOST_AUTO_TEST_SUITE( local_max )
 	BOOST_AUTO_TEST_CASE( single_circle )
 	{
 		OctaveFinder finder;
-		cv::Mat_<double>input(256, 256);
+		OctaveFinder::Image input(256, 256);
 		input.setTo(0);
 		cv::circle(input, cv::Point(128, 128), 4, 1.0, -1);
 		finder.preblur_and_fill(input);
@@ -240,7 +240,7 @@ BOOST_AUTO_TEST_SUITE( local_max )
 	BOOST_AUTO_TEST_CASE( empty_rectangular )
 	{
 		OctaveFinder finder(128, 512, 10, 2.8);
-		cv::Mat_<double>input(128, 512);
+		OctaveFinder::Image input(128, 512);
 		input.setTo(0);
 		finder.preblur_and_fill(input);
 		finder.initialize_binary();
@@ -255,7 +255,7 @@ BOOST_AUTO_TEST_SUITE( local_max )
 	BOOST_AUTO_TEST_CASE( local_max_rectangular )
 	{
 		OctaveFinder finder(151, 103);
-		cv::Mat_<double>input(151, 103), other(151, 103);
+		OctaveFinder::Image input(151, 103), other(151, 103);
 		//the finder should contain a copy of the input data
 		input.setTo(0);
 		cv::circle(input, cv::Point(32, 32), 4, 1.0, -1);
@@ -277,7 +277,7 @@ BOOST_AUTO_TEST_SUITE( local_max )
 	BOOST_AUTO_TEST_CASE( multiple_circles_on_edges )
 	{
 		OctaveFinder finder;
-		cv::Mat_<double>input(256, 256);
+		OctaveFinder::Image input(256, 256);
 		input.setTo(0);
 		//circles on the edges
 		for(int i=0; i<8; ++i)
@@ -303,7 +303,7 @@ BOOST_AUTO_TEST_SUITE( local_max )
 	BOOST_AUTO_TEST_CASE( multiple_circles_various_sizes )
 	{
 		OctaveFinder finder;
-		cv::Mat_<double>input(256, 256);
+		OctaveFinder::Image input(256, 256);
 		input.setTo(0);
 		for(int i=0; i<7; ++i)
 			cv::circle(input, cv::Point(128, (i+1)*32), i+1, 1.0, -1);
@@ -333,7 +333,7 @@ BOOST_AUTO_TEST_SUITE( local_max )
 	BOOST_AUTO_TEST_CASE( ellipses )
 	{
 		OctaveFinder finder;
-		cv::Mat_<double>input(256, 256);
+		OctaveFinder::Image input(256, 256);
 		input.setTo(0);
 		for(int i=0; i<7; ++i)
 			for(int j=0; j<7; ++j)
@@ -353,7 +353,7 @@ BOOST_AUTO_TEST_SUITE( local_max )
 	BOOST_AUTO_TEST_CASE( local_max_speed )
 	{
 		OctaveFinder finder;
-		cv::Mat_<double>input(256, 256);
+		OctaveFinder::Image input(256, 256);
 		input.setTo(0);
 		cv::circle(input, cv::Point(128, 128), 4, 1.0, -1);
 		finder.preblur_and_fill(input);
@@ -370,7 +370,7 @@ BOOST_AUTO_TEST_SUITE( subpix )
 	BOOST_AUTO_TEST_CASE( subpix_single_circle )
 	{
 		OctaveFinder finder;
-		cv::Mat_<double>input(256, 256);
+		OctaveFinder::Image input(256, 256);
 		input.setTo(0);
 		cv::circle(input, cv::Point(100, 200), 4, 1.0, -1);
 		finder.preblur_and_fill(input);
@@ -433,7 +433,7 @@ BOOST_AUTO_TEST_SUITE( subpix )
 	BOOST_AUTO_TEST_CASE( subpix_rectangular )
 	{
 		OctaveFinder finder(503, 151);
-		cv::Mat_<double>input(503, 151);
+		OctaveFinder::Image input(503, 151);
 		input.setTo(0);
 		cv::circle(input, cv::Point(100, 200), 4, 1.0, -1);
 		finder.preblur_and_fill(input);
@@ -530,7 +530,7 @@ BOOST_AUTO_TEST_SUITE( subpix )
 	BOOST_AUTO_TEST_CASE( subpix_speed )
 	{
 		OctaveFinder finder;
-		cv::Mat_<double>input(256, 256);
+		OctaveFinder::Image input(256, 256);
 		input.setTo(0);
 		cv::circle(input, cv::Point(128, 128), 4, 1.0, -1);
 		finder.preblur_and_fill(input);
@@ -645,10 +645,10 @@ BOOST_AUTO_TEST_SUITE( octave_limit_cases )
 	BOOST_AUTO_TEST_CASE( octave_minimum_signal_intensity )
 	{
 		OctaveFinder finder(32,32);
-		cv::Mat_<double> input(32,32);
+		OctaveFinder::Image  input(32,32);
 		int i = 0;
 		std::vector<Center2D> v(1);
-		while(i<10 & v.size()>0)
+		while(i<10 && v.size()>0)
 		{
 			i++;
 			input.setTo(0);
@@ -714,7 +714,7 @@ BOOST_AUTO_TEST_SUITE( multiscale_call )
 	BOOST_AUTO_TEST_CASE( single_circle )
 	{
 		MultiscaleFinder2D finder;
-		cv::Mat_<double>input(256, 256);
+		OctaveFinder::Image input(256, 256);
 		input.setTo(0);
 		cv::circle(input, cv::Point(128, 128), 4, 1.0, -1);
 		std::vector<Center2D> v = finder(input);
@@ -742,7 +742,7 @@ BOOST_AUTO_TEST_SUITE( multiscale_call )
 	{
 		MultiscaleFinder2D finder(101, 155);
 		BOOST_REQUIRE_EQUAL(finder.get_n_octaves(), 5);
-		cv::Mat_<double>input(101, 155);
+		OctaveFinder::Image input(101, 155);
 		input.setTo(0);
 		cv::circle(input, cv::Point(28, 28), 2, 1.0, -1);
 		std::vector<Center2D> v = finder(input);
@@ -847,7 +847,7 @@ BOOST_AUTO_TEST_SUITE( octave )
 	BOOST_AUTO_TEST_CASE( fill )
 	{
 		OctaveFinder1D finder(64);
-		cv::Mat_<double>input(1, 64), other(1, 64);
+		OctaveFinder::Image input(1, 64), other(1, 64);
 		//the finder should contain a copy of the input data
 		input.setTo(1);
 		finder.fill(input);
@@ -861,33 +861,33 @@ BOOST_AUTO_TEST_SUITE( octave )
 		BOOST_CHECK_NE(cv::sum(finder.get_layersG(0))[0], cv::sum(input)[0]);
 		finder.fill(input);
 		//Gaussian blur should be normalized
-		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(0))[0], cv::sum(finder.get_layersG(1))[0], 1e-9);
-		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(1))[0], cv::sum(finder.get_layersG(2))[0], 1e-9);
-		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(2))[0], cv::sum(finder.get_layersG(3))[0], 1e-9);
-		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(3))[0], cv::sum(finder.get_layersG(4))[0], 1e-9);
-		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(0))[0], cv::sum(finder.get_layersG(4))[0], 1e-9);
+		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(0))[0], cv::sum(finder.get_layersG(1))[0], 1e-5);
+		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(1))[0], cv::sum(finder.get_layersG(2))[0], 1e-5);
+		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(2))[0], cv::sum(finder.get_layersG(3))[0], 1e-5);
+		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(3))[0], cv::sum(finder.get_layersG(4))[0], 1e-5);
+		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(0))[0], cv::sum(finder.get_layersG(4))[0], 1e-5);
 		//The second to last Gaussian layer should be a good approxiation
 		//to the input blurred by a two time larger radius than the preblur
 		cv::GaussianBlur(input, other, cv::Size(0,0), 2*1.6);
 		finder.preblur_and_fill(input);
-		BOOST_REQUIRE_CLOSE(cv::sum(finder.get_layersG(3))[0], cv::sum(other)[0], 1e-9);
+		BOOST_REQUIRE_CLOSE(cv::sum(finder.get_layersG(3))[0], cv::sum(other)[0], 1e-5);
 		BOOST_CHECK_CLOSE(finder.get_layersG(3)(0, 32), other(0, 32), 1e-2);
 		images_are_close(finder.get_layersG(3), other, 1e-4);
 		//Sum of layers should reconstruct blurred image
 		other = finder.get_layersG(0) + finder.get_layers(0);
 		BOOST_REQUIRE_CLOSE(cv::sum(finder.get_layersG(1))[0], cv::sum(other)[0], 1e-9);
-		images_are_close(finder.get_layersG(1), other, 1e-9);
+		images_are_close(finder.get_layersG(1), other);
 		other += finder.get_layers(1);
-		images_are_close(finder.get_layersG(2), other, 1e-9);
+		images_are_close(finder.get_layersG(2), other);
 		other += finder.get_layers(2);
-		images_are_close(finder.get_layersG(3), other, 1e-9);
+		images_are_close(finder.get_layersG(3), other);
 		other += finder.get_layers(3);
-		images_are_close(finder.get_layersG(4), other, 1e-9);
+		images_are_close(finder.get_layersG(4), other);
 	}
 	BOOST_AUTO_TEST_CASE( single_1Dblob )
 	{
 		OctaveFinder1D finder(256);
-		cv::Mat_<double>input(1, 256);
+		OctaveFinder::Image input(1, 256);
 		input.setTo(0);
 		cv::circle(input, cv::Point(128, 0), 3, 1.0, -1);
 		for(int i=128-3; i<128+4; ++i)
@@ -932,7 +932,7 @@ BOOST_AUTO_TEST_SUITE( octave )
 	BOOST_AUTO_TEST_CASE( asymetrical )
 	{
 		OctaveFinder1D finder(32);
-		cv::Mat_<double>input(1, 32);
+		OctaveFinder::Image input(1, 32);
 		input.setTo(0);
 		std::fill_n(&input(0, 10), 7, 1);
 		BOOST_REQUIRE_EQUAL(finder(input).size(), 1);
@@ -943,7 +943,7 @@ BOOST_AUTO_TEST_SUITE( octave )
 	BOOST_AUTO_TEST_CASE( subpix )
 	{
 		OctaveFinder1D finder(256);
-		cv::Mat_<double>input(1, 256);
+		OctaveFinder::Image input(1, 256);
 		input.setTo(0);
 		cv::circle(input, cv::Point(100, 0), 3, 1.0, -1);
 		finder.preblur_and_fill(input);
@@ -1094,10 +1094,10 @@ BOOST_AUTO_TEST_SUITE( octave )
 	BOOST_AUTO_TEST_CASE( octave_minimum_signal_intensity )
 	{
 		OctaveFinder1D finder(16);
-		cv::Mat_<double> input(1,16);
+		OctaveFinder::Image  input(1,16);
 		int i = 0;
 		std::vector<Center2D> v(1);
-		while(i<10 & v.size()>0)
+		while(i<10 && v.size()>0)
 		{
 			i++;
 			input.setTo(0);
@@ -1135,7 +1135,7 @@ BOOST_AUTO_TEST_SUITE( multiscale )
 	BOOST_AUTO_TEST_CASE( multiscale1D_single_blob )
 	{
 		MultiscaleFinder1D finder;
-		cv::Mat_<double>input(1, 256);
+		OctaveFinder::Image input(1, 256);
 		input.setTo(0);
 		cv::circle(input, cv::Point(128, 0), 3, 1.0, -1);
 		std::vector<Center2D> v = finder(input);
@@ -1604,10 +1604,19 @@ BOOST_AUTO_TEST_SUITE( LifTrack )
 	{
 		LifReader reader("/home/mathieu/Code_data/liftest/Tsuru11dm_phi=52.53_J36.lif");
 		LocatorFromLif locator(&reader.getSerie(0));
-		locator.fill_time_step();
+		{
+			std::cout<<"fill_time_step ";
+			boost::progress_timer ti;
+			locator.fill_time_step();
+		}
 		BOOST_CHECK_EQUAL(locator.get_z(), 256);
 		LocatorFromLif::Centers centers;
-		locator.get_centers(centers);
+		{
+			std::cout<<"get_centers ";
+			boost::progress_timer ti;
+			locator.get_centers(centers);
+		}
+		std::cout<<std::endl;
 		BOOST_CHECK_EQUAL(locator.get_t(), 1);
 		BOOST_REQUIRE(!centers.empty());
 	}

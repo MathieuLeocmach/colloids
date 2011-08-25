@@ -26,8 +26,8 @@ namespace Colloids {
 			ocr /= 2;
 			occ /= 2;
 		}
-		this->small = cv::Mat_<double>(nrows, ncols, 0.0);
-		this->upscaled = cv::Mat_<double>(2*nrows, 2*ncols, 0.0);
+		this->small = Image(nrows, ncols, 0.0);
+		this->upscaled = Image(2*nrows, 2*ncols, 0.0);
 	}
 	MultiscaleFinder1D::MultiscaleFinder1D(const int ncols, const int nbLayers, const double &preblur_radius)
 	{
@@ -41,8 +41,8 @@ namespace Colloids {
 			this->octaves.push_back(new OctaveFinder1D(occ, nbLayers, preblur_radius));
 			occ /= 2;
 		}
-		this->small = cv::Mat_<double>(1, ncols, 0.0);
-		this->upscaled = cv::Mat_<double>(1, 2*ncols, 0.0);
+		this->small = Image(1, ncols, 0.0);
+		this->upscaled = Image(1, 2*ncols, 0.0);
 	}
 
 	MultiscaleFinder::~MultiscaleFinder() {
@@ -166,27 +166,27 @@ namespace Colloids {
 		return vi;
     }
 
-    const cv::Mat_<double> MultiscaleFinder2D::downscale(const size_t &o)
+    const MultiscaleFinder::Image MultiscaleFinder2D::downscale(const size_t &o)
 	{
     	//second to last Gaussian layer of octave o-1 has a blurring radius two time larger than the original
-		cv::Mat_<double> roi2 = small(
+    	Image roi2 = small(
 				cv::Range(0, this->octaves[o]->get_width()),
 				cv::Range(0, this->octaves[o]->get_height())
 		);
-		const cv::Mat_<double> & a = this->octaves[o-1]->get_layersG(this->octaves[o-1]->get_n_layers());
+		const Image & a = this->octaves[o-1]->get_layersG(this->octaves[o-1]->get_n_layers());
 		for(int j=0; j<roi2.cols && 2*j+1<a.cols; ++j)
 			for(int i=0; i<roi2.rows && 2*i+1<a.rows; ++i)
 				roi2(i,j) = (a(2*i, 2*j) + a(2*i+1, 2*j) + a(2*i, 2*j+1) + a(2*i+1, 2*j+1))/4.0;
 		return roi2;
 	}
-    const cv::Mat_<double> MultiscaleFinder1D::downscale(const size_t &o)
+    const MultiscaleFinder::Image MultiscaleFinder1D::downscale(const size_t &o)
 	{
 		//second to last Gaussian layer of octave o-1 has a blurring radius two time larger than the original
-		cv::Mat_<double> roi2 = small(
+    	Image roi2 = small(
 				cv::Range(0, this->octaves[o]->get_width()),
 				cv::Range(0, this->octaves[o]->get_height())
 		);
-		const cv::Mat_<double> & a = this->octaves[o-1]->get_layersG(this->octaves[o-1]->get_n_layers());
+		const Image & a = this->octaves[o-1]->get_layersG(this->octaves[o-1]->get_n_layers());
 		for(int i=0; i<roi2.cols; ++i)
 			roi2(0, i) = (a(0, 2*i) + a(0, 2*i+1))/2.0;
 		return roi2;

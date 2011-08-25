@@ -14,6 +14,8 @@ namespace Colloids
     class OctaveFinder : boost::noncopyable
     {
         public:
+			typedef cv::Mat_<float> Image;
+
             OctaveFinder(const int nrows=256, const int ncols=256, const int nbLayers=3, const double &preblur_radius=1.6);
             virtual ~OctaveFinder();
 
@@ -28,8 +30,8 @@ namespace Colloids
             const double get_iterative_radius(const double &larger, const double &smaller) const;
             const size_t & get_size(const size_t l) const {return this->sizes[l];};
             inline const cv::Mat_<bool> & get_binary(const size_t l) const {return binary[l-1];};
-			inline const cv::Mat_<double> & get_layersG(const size_t l) const {return layersG[l];}
-			inline const cv::Mat_<double> & get_layers(const size_t l) const {return layers[l];}
+			inline const Image & get_layersG(const size_t l) const {return layersG[l];}
+			inline const Image & get_layers(const size_t l) const {return layers[l];}
 			inline const size_t get_nb_centers() const {return centers_no_subpix.size();}
 			static const cv::Mat_<double>& get_kernel(const double &sigma);
 
@@ -50,7 +52,7 @@ namespace Colloids
 
 
     protected:
-            std::vector<cv::Mat_<double> > layersG, layers;
+            std::vector<Image > layersG, layers;
             std::vector<cv::Mat_<bool> > binary;
             std::vector<double> iterative_radii;
             std::vector<cv::FilterEngine> iterative_gaussian_filters;

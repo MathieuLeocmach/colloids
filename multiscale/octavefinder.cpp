@@ -28,10 +28,10 @@ OctaveFinder::OctaveFinder(const int nrows, const int ncols, const int nbLayers,
 {
     this->layersG.reserve(nbLayers+3);
     for (int i = 0; i<nbLayers+3; ++i)
-    	this->layersG.push_back(cv::Mat_<double>(nrows, ncols));
+    	this->layersG.push_back(Image(nrows, ncols));
     this->layers.reserve(nbLayers+2);
 	for (int i = 0; i<nbLayers+2; ++i)
-		this->layers.push_back(cv::Mat_<double>(nrows, ncols));
+		this->layers.push_back(Image(nrows, ncols));
 	this->binary.reserve(nbLayers+2);
 	for (int i = 0; i<nbLayers; ++i)
 		this->binary.push_back(cv::Mat_<bool>::zeros(nrows, ncols));
@@ -90,7 +90,7 @@ void Colloids::OctaveFinder::preblur_and_fill(const cv::Mat &input)
 		os << "OctaveFinder::preblur_and_fill : the input's cols ("<<input.cols<<") must match the height of the finder ("<<this->get_height()<<")";
 		throw std::invalid_argument(os.str().c_str());
 	}
-	cv::Mat_<double> blurred(input.size());
+	Image blurred(input.size());
 	cv::GaussianBlur(input, blurred, cv::Size(0,0), this->preblur_radius);
 	this->fill(blurred);
 }
@@ -111,7 +111,7 @@ void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
 	for(size_t k = 1;k < (size_t)(((this->layers.size() - 1)));k += 2)
 		for(size_t j = this->sizes[k]+1;j < (size_t)(((this->get_width() - this->sizes[k]- 1)));j += 2)
 		{
-			boost::array<const double*, 4> ngb_ptr = {{
+			boost::array<const float*, 4> ngb_ptr = {{
 					&this->layers[k](j, this->sizes[k]+1),
 					&this->layers[k](j+1, this->sizes[k]+1),
 					&this->layers[k+1](j, this->sizes[k]+1),
@@ -119,13 +119,13 @@ void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
 			}};
 			for(size_t i = this->sizes[k]+1;i < (size_t)(((this->get_height() -this->sizes[k] - 1)));i += 2){
 				//copy the whole neighbourhood together for locality
-				boost::array<double, 8> ngb = {{
+				boost::array<float, 8> ngb = {{
 						*ngb_ptr[0]++, *ngb_ptr[0]++,
 						*ngb_ptr[1]++, *ngb_ptr[1]++,
 						*ngb_ptr[2]++, *ngb_ptr[2]++,
 						*ngb_ptr[3]++, *ngb_ptr[3]++
 				}};
-				const boost::array<double, 8>::const_iterator mpos = std::min_element(ngb.begin(), ngb.end());
+				const boost::array<float, 8>::const_iterator mpos = std::min_element(ngb.begin(), ngb.end());
 				const int ml = mpos-ngb.begin();
 				size_t mi = i + !!(ml&1);
 				size_t mj = j + !!(ml&2);
@@ -185,18 +185,18 @@ void Colloids::OctaveFinder1D::initialize_binary(const double & max_ratio)
 
 	for(size_t k = 1;k < (size_t)(((this->layers.size() - 1)));k += 2)
 	{
-		boost::array<const double*, 2> ngb_ptr = {{
+		boost::array<const float*, 2> ngb_ptr = {{
 							&this->layers[k](0, this->sizes[k]+1),
 							&this->layers[k+1](0, this->sizes[k]+1)
 		}};
 		for(size_t i = this->sizes[k]+1;i < (size_t)(((this->get_height() -this->sizes[k]- 1)));i += 2)
 		{
 			//copy the whole neighbourhood together for locality
-			boost::array<double, 4> ngb = {{
+			boost::array<float, 4> ngb = {{
 					*ngb_ptr[0]++, *ngb_ptr[0]++,
 					*ngb_ptr[1]++, *ngb_ptr[1]++
 			}};
-			const boost::array<double, 4>::const_iterator mpos = std::min_element(ngb.begin(), ngb.end());
+			const boost::array<float, 4>::const_iterator mpos = std::min_element(ngb.begin(), ngb.end());
 			const int ml = mpos-ngb.begin();
 			size_t mi = i + !!(ml&1);
 			size_t mk = k + !!(ml&2);
@@ -215,7 +215,7 @@ void Colloids::OctaveFinder1D::initialize_binary(const double & max_ratio)
 			//We look for pixels where the ratio between the Laplacian and gradient values is large
 			if(*b)
 			{
-				const double * v = &this->layersG[mk](0, mi);
+				const float * v = &this->layersG[mk](0, mi);
 				*b = std::abs((*(v+1) + *(v-1) - 2 * *v) / (*(v+1) - *(v-1))) > 0.5;
 			}
 			if(*b){
@@ -238,7 +238,7 @@ Center2D Colloids::OctaveFinder::spatial_subpix(const cv::Vec3i & ci) const
         //it is better to find the maximum of Gausian rather than the minimum of DoG.
         //If possible, we use the Gaussian layer below the detected scale
         //to have better spatial resolution
-        const cv::Mat_<double> & l = (k>0 ? this->layersG[k-1] : this->layersG[k]);
+        const Image & l = (k>0 ? this->layersG[k-1] : this->layersG[k]);
         const double a[4] = {
         		(l(j, i+1) - l(j, i-1))/2.0,
         		(l(j+1, i) - l(j-1, i))/2.0,
@@ -258,7 +258,7 @@ Center2D Colloids::OctaveFinder1D::spatial_subpix(const cv::Vec3i & ci) const
 		//it is better to find the maximum of Gausian rather than the minimum of DoG.
 		//If possible, we use the Gaussian layer below the detected scale
 		//to have better spatial resolution
-        const cv::Mat_<double> & l = (k>0 ? this->layersG[k-1] : this->layersG[k]);
+        const Image & l = (k>0 ? this->layersG[k-1] : this->layersG[k]);
         c[0] = ci[0] + 0.5 - (l(0, i+1) - l(0, i-1)) / 2.0 / (l(0, i+1) -2*l(0, i) + l(0, i-1));
         c[1] = 0;
         c.intensity = this->layers[k](0, i) - 0.25 * (c[0]-i) * (l(0, i+1) - l(0, i-1));
