@@ -26,6 +26,7 @@ public:
 	const size_t get_z() const {return get_reconstructor().size();}
 	const size_t size() const {return total_t;}
 	const size_t & get_t() const {return t;}
+	const MultiscaleFinder2D& get_finder() const{return *finder;}
 
 	//processing
 	void clear();
