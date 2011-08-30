@@ -78,7 +78,7 @@ void Reconstructor::split_clusters()
 		if(this->clusters[cl].size()<6)
 			continue;
 		//compute the position gradient
-		cv::Mat_<double> grad(1, this->clusters[cl].size()-1);
+		OctaveFinder::Image grad(1, this->clusters[cl].size()-1);
 		Cluster::const_iterator c0 = this->clusters[cl].begin(), c1 = this->clusters[cl].begin();
 		c1++;
 		for(int i=0; i<grad.cols; ++i)
@@ -114,12 +114,13 @@ void Reconstructor::get_blobs(std::deque<Center3D>& centers)
 		if(cl->size()<margin)
 			continue;
 		//copy the radii adding margins on each size to allow blob tracking on short signals
-		cv::Mat_<double> signal(1, cl->size()+2*margin);
+		OctaveFinder::Image signal(1, cl->size()+2*margin);
 		signal.setTo(0);
 		Cluster::const_iterator c=cl->begin();
+		OctaveFinder::PixelType * s= &signal(0, margin);
 		for(size_t i=0; i<cl->size(); ++i)
 		{
-			signal(0, i+margin) = c->r;
+			*s++ = c->r;
 			c++;
 		}
 		MultiscaleFinder1D finder(signal.cols);
@@ -129,9 +130,10 @@ void Reconstructor::get_blobs(std::deque<Center3D>& centers)
 		//do the same with minus the intensity
 		signal.setTo(0);
 		c=cl->begin();
+		s= &signal(0, margin);
 		for(size_t i=0; i<cl->size(); ++i)
 		{
-			signal(0, i+margin) = -c->intensity;
+			*s++ = -c->intensity;
 			c++;
 		}
 		finder.get_centers(signal, blo);
