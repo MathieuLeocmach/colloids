@@ -103,12 +103,13 @@ void Colloids::OctaveFinder::preblur_and_fill(const cv::Mat &input)
  */
 void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
 {
+	const size_t nblayers = this->binary.size();
     //initialize
 	this->centers_no_subpix.clear();
-    for(size_t i = 0;i < this->binary.size();++i)
+    for(size_t i = 0;i < nblayers;++i)
         this->binary[i].setTo(0);
 
-	for(size_t k = 1;k < (size_t)(((this->layers.size() - 1)));k += 2)
+	for(size_t k = 1;k < nblayers+1;k += 2)
 		for(size_t j = this->sizes[k]+1;j < (size_t)(((this->get_width() - this->sizes[k]- 1)));j += 2)
 		{
 			boost::array<const float*, 4> ngb_ptr = {{
@@ -133,7 +134,7 @@ void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
 
 
 				//maxima cannot be on the last layer or on image edges
-				if(mk > this->binary.size() || !((this->sizes[mk] <= mj) && (mj < (size_t)(((this->get_width() - this->sizes[mk])))) && (this->sizes[mk] <= mi) && (mi < (size_t)(((this->get_height() - this->sizes[mk]))))))
+				if(mk > nblayers || !((this->sizes[mk] <= mj) && (mj < (size_t)(((this->get_width() - this->sizes[mk])))) && (this->sizes[mk] <= mi) && (mi < (size_t)(((this->get_height() - this->sizes[mk]))))))
 					continue;
 
 				bool *b = &this->binary[mk - 1](mj, mi);
@@ -280,12 +281,23 @@ double Colloids::OctaveFinder::gaussianResponse(const size_t & j, const size_t &
 		const cv::Mat_<double>& kernel = get_kernel(sigma);
 		const int m = kernel.rows;
 		vector<double> gx(m, 0.0);
-		for(int x=max(0, (int)i+m/2+1-this->get_width()); x<min(m, (int)i+m/2+1); ++x)
-			for(int y=max(0, (int)j+m/2+1-this->get_height()); y<min(m, (int)j+m/2+1); ++y)
-				gx[x] += layersG[k](j-y+m/2, i-x+m/2) * kernel(y,0);
+		const int xmin = max(0, (int)i+m/2+1-this->get_width()),
+				xmax = min(m, (int)i+m/2+1),
+				ymin = max(0, (int)j+m/2+1-this->get_height()),
+				ymax = min(m, (int)j+m/2+1);
+		const double *ker = &kernel(ymin,0);
+		for(int y=ymin; y<ymax; ++y)
+		{
+			const OctaveFinder::PixelType * v = &layersG[k](j-y+m/2, i-xmin+m/2);
+			for(int x=xmin; x<xmax; ++x)
+				gx[x] += *v-- * *ker;
+			ker++;
+		}
+
 		double resp = 0.0;
+		ker = &kernel(0,0);
 		for(int x=0; x<m; ++x)
-			resp += gx[x] * kernel(x,0);
+			resp += gx[x] * *ker++;
 
         return resp;
 }

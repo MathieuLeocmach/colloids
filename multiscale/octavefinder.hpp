@@ -14,7 +14,8 @@ namespace Colloids
     class OctaveFinder : boost::noncopyable
     {
         public:
-			typedef cv::Mat_<float> Image;
+			typedef float PixelType;
+			typedef cv::Mat_<PixelType> Image;
 
             OctaveFinder(const int nrows=256, const int ncols=256, const int nbLayers=3, const double &preblur_radius=1.6);
             virtual ~OctaveFinder();
