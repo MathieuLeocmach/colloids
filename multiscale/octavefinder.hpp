@@ -24,7 +24,7 @@ namespace Colloids
             inline const int & get_height() const {return this->layers[0].cols; };
             inline const size_t get_n_layers() const {return this->layers.size()-2;};
             const double & get_radius_preblur() const {return this->preblur_radius;}
-            void set_radius_preblur(const double &k=1.6);
+            virtual void set_radius_preblur(const double &k=1.6);
             const double & get_prefactor() const {return this->prefactor;}
             const double & get_iterative_radius(const size_t l) const {return this->iterative_radii[l];};
             const double get_iterative_radius(const double &larger, const double &smaller) const;
@@ -36,7 +36,7 @@ namespace Colloids
 			static const cv::Mat_<double>& get_kernel(const double &sigma);
 
             //processing
-            void fill(const cv::Mat &input);
+            virtual void fill(const cv::Mat &input);
             void preblur_and_fill(const cv::Mat &input);
             virtual void initialize_binary(const double &max_ratio = 1.1);
             void subpix(std::vector<Center2D>& centers) const;
