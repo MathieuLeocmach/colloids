@@ -37,6 +37,7 @@ public:
 	inline std::vector<Center2D> operator()(const cv::Mat &input);
 	virtual const cv::Vec3i previous_octave_coords(const Center2D &v) const;
 	virtual const Image downscale(const size_t &o) = 0;
+	void upscale();
 	virtual void seam(Center2D &v, const size_t &o) const =0;
 
 

@@ -78,19 +78,7 @@ namespace Colloids {
     	input.convertTo(small, this->small.type());
     	//upscale the input to fill the first octave
     	//cv::resize does not work with double input, so we do it by hand
-    	for(int j=0; 2*j<this->upscaled.cols; ++j)
-    		for(int i=0; 2*i<this->upscaled.rows; ++i)
-    			this->upscaled(2*i, 2*j) = small(i,j);
-    	for(int j=0; 2*j<this->upscaled.cols; ++j)
-			for(int i=0; 2*i+1<this->upscaled.rows && i+1<small.rows; ++i)
-				this->upscaled(2*i+1, 2*j) = 0.5*(small(i,j)+small(i+1,j));
-    	for(int j=0; 2*j+1<this->upscaled.cols && j+1<small.cols; ++j)
-			for(int i=0; 2*i<this->upscaled.rows; ++i)
-				this->upscaled(2*i, 2*j+1) = 0.5*(small(i,j)+small(i, j+1));
-    	for(int j=0; 2*j+1<this->upscaled.cols && j+1<small.cols; ++j)
-			for(int i=0; 2*i+1<this->upscaled.rows && i+1<small.rows; ++i)
-				this->upscaled(2*i+1, 2*j+1) = 0.25*(small(i,j)+small(i+1,j)+small(i, j+1)+small(i+1, j+1));
-
+    	this->upscale();
     	this->octaves[0]->preblur_and_fill(this->upscaled);
     	if(this->octaves.size()>1)
 			//Octave 1 corresponds to the size of the input image.
@@ -191,6 +179,47 @@ namespace Colloids {
 			roi2(0, i) = (a(0, 2*i) + a(0, 2*i+1))/2.0;
 		return roi2;
 	}
+    void MultiscaleFinder::upscale()
+    {
+    	for(int j=0; 2*j<this->upscaled.rows; ++j)
+		{
+			OctaveFinder::PixelType * u = &this->upscaled(2*j, 0);
+			const OctaveFinder::PixelType * s = &this->small(j,0);
+			for(int i=0; 2*i<this->upscaled.cols; ++i)
+			{
+				*u++ = *s++;
+				u++;
+			}
+			u = &this->upscaled(2*j, 1);
+			s = &this->small(j,0);
+			for(int i=0; 2*i+1<this->upscaled.cols && i+1<small.cols; ++i)
+			{
+				*u = 0.5 * *s++;
+				*u++ += 0.5 * *s;
+				u++;
+			}
+		}
+		for(int j=0; 2*j+1<this->upscaled.rows && j+1<small.rows; ++j)
+		{
+			OctaveFinder::PixelType * u = &this->upscaled(2*j+1, 0);
+			const OctaveFinder::PixelType * s1 = &this->small(j,0);
+			const OctaveFinder::PixelType * s2 = &this->small(j+1,0);
+			for(int i=0; 2*i<this->upscaled.cols; ++i)
+			{
+				*u++ = 0.5 * (*s1++ + *s2++);
+				u++;
+			}
+			u = &this->upscaled(2*j+1, 1);
+			s1 = &this->small(j,0);
+			s2 = &this->small(j+1,0);
+			for(int i=0; 2*i+1<this->upscaled.cols && i+1<small.cols; ++i)
+			{
+				*u = 0.25 * (*s1++ + *s2++);
+				*u++ += 0.25 * (*s1 + *s2);
+				u++;
+			}
+		}
+    }
     void MultiscaleFinder2D::seam(Center2D &v, const size_t &o) const
     {
 		if(v.r<1)
