@@ -636,7 +636,7 @@ BOOST_AUTO_TEST_SUITE( octave_limit_cases )
 			cv::waitKey();*/
 			BOOST_REQUIRE_CLOSE(v_s[1][1], 16+distance, distance<16?6:2);
 			BOOST_CHECK_CLOSE(v_s[0].r, 4, distance<16?6:2);
-			BOOST_CHECK_CLOSE(v_s[1][1] - v_s[0][1], distance, distance<9.03125?21:2);
+			BOOST_CHECK_CLOSE(v_s[1][1] - v_s[0][1], distance, distance<9.06375?22:2);
 			f << distance << "\t" << v_s[0][1] << "\t" << v_s[1][1] << "\t" << v_s[0].r << "\n";
 		}
 		f<<std::endl;
@@ -870,7 +870,7 @@ BOOST_AUTO_TEST_SUITE( octave )
 		//to the input blurred by a two time larger radius than the preblur
 		cv::GaussianBlur(input, other, cv::Size(0,0), 2*1.6);
 		finder.preblur_and_fill(input);
-		BOOST_REQUIRE_CLOSE(cv::sum(finder.get_layersG(3))[0], cv::sum(other)[0], 1e-5);
+		BOOST_REQUIRE_CLOSE(cv::sum(finder.get_layersG(3))[0], cv::sum(other)[0], 1e-4);
 		BOOST_CHECK_CLOSE(finder.get_layersG(3)(0, 32), other(0, 32), 1e-2);
 		images_are_close(finder.get_layersG(3), other, 1e-4);
 		//Sum of layers should reconstruct blurred image
@@ -1185,6 +1185,19 @@ BOOST_AUTO_TEST_SUITE( multiscale )
 					v_s.size()==1,
 					""<<v_s.size()<<" centers for input radius "<<radius
 					);
+			if(v_s.size()>1)
+			{
+				for(size_t o=0; o<finder.get_n_octaves(); ++o)
+				{
+					std::cout<<finder.get_octave(o).get_nb_centers()<<" centers in octave "<<o<<" at"<<std::endl;
+					for(size_t l=1; l<finder.get_n_layers()+1; ++l)
+						for(size_t i=0; i<finder.get_octave(o).get_height(); ++i)
+							if(finder.get_octave(o).get_binary(l)(0,i))
+							{
+								std::cout<<"\tl="<<l<<"\ti="<<i<<std::endl;
+							}
+				}
+			}
 			BOOST_TEST_CHECKPOINT("radius = "<<radius<<" copy");
 			std::copy(v_s.begin(), v_s.end(), std::back_inserter(v));
 			for(size_t j=0; j<v_s.size(); ++j)
@@ -1619,5 +1632,6 @@ BOOST_AUTO_TEST_SUITE( LifTrack )
 		std::cout<<std::endl;
 		BOOST_CHECK_EQUAL(locator.get_t(), 1);
 		BOOST_REQUIRE(!centers.empty());
+		BOOST_REQUIRE_EQUAL(centers.size(), 7946);
 	}
 BOOST_AUTO_TEST_SUITE_END()

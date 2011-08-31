@@ -32,7 +32,7 @@ OctaveFinder::OctaveFinder(const int nrows, const int ncols, const int nbLayers,
     this->layers.reserve(nbLayers+2);
 	for (int i = 0; i<nbLayers+2; ++i)
 		this->layers.push_back(Image(nrows, ncols));
-	this->binary.reserve(nbLayers+2);
+	this->binary.reserve(nbLayers);
 	for (int i = 0; i<nbLayers; ++i)
 		this->binary.push_back(cv::Mat_<bool>::zeros(nrows, ncols));
 	this->set_radius_preblur(preblur_radius);
@@ -47,6 +47,11 @@ void Colloids::OctaveFinder::set_radius_preblur(const double &k)
 {
 	this->preblur_radius = k;
 	this->fill_iterative_radii(k);
+	this->preblur_filter = cv::createGaussianFilter(
+			this->layersG.front().type(),
+			cv::Size(0,0),
+			this->preblur_radius
+	);
 }
 
 void Colloids::OctaveFinder::fill(const cv::Mat &input)
@@ -65,6 +70,13 @@ void Colloids::OctaveFinder::fill(const cv::Mat &input)
 	}
 
 	input.convertTo(this->layersG[0], this->layersG[0].type());
+	this->_fill_internal();
+}
+/**
+ * \brief Fill the layers (G and DoG) from the data in the first Gaussian layer
+ */
+void Colloids::OctaveFinder::_fill_internal()
+{
 	//iterative Gaussian blur
 	for(size_t i=0; i<this->layersG.size()-1; ++i)
 		this->iterative_gaussian_filters[i].apply(
@@ -90,9 +102,10 @@ void Colloids::OctaveFinder::preblur_and_fill(const cv::Mat &input)
 		os << "OctaveFinder::preblur_and_fill : the input's cols ("<<input.cols<<") must match the height of the finder ("<<this->get_height()<<")";
 		throw std::invalid_argument(os.str().c_str());
 	}
-	Image blurred(input.size());
-	cv::GaussianBlur(input, blurred, cv::Size(0,0), this->preblur_radius);
-	this->fill(blurred);
+	input.convertTo(this->layersG[1], this->layersG[1].type());
+	this->preblur_filter->apply(this->layersG[1], this->layersG.front());
+	//cv::GaussianBlur(this->layersG[1], this->layersG.front(), cv::Size(0,0), this->preblur_radius);
+	this->_fill_internal();
 }
 
 /**
@@ -436,7 +449,7 @@ void OctaveFinder::seam_binary(OctaveFinder & other)
 	while(c!=a.centers_no_subpix.end())
 	{
 		if(
-			((*c)[2] == a.get_n_layers()) &&
+			((*c)[2] == (int)a.get_n_layers()) &&
 			(b.binary.front()((*c)[1]/sf+0.5, (*c)[0]/sf+0.5)) &&
 			(a.layers[(*c)[2]]((*c)[1], (*c)[0]) > b.layers[1]((*c)[1]/sf+0.5, (*c)[0]/sf+0.5))
 			)
@@ -450,14 +463,19 @@ void OctaveFinder::seam_binary(OctaveFinder & other)
 	c = b.centers_no_subpix.begin();
 	while(c!=b.centers_no_subpix.end())
 	{
-		if(
-			((*c)[2] == 1) &&
-			(a.binary.back()((*c)[1]*sf+0.5, (*c)[0]*sf+0.5)) &&
-			(b.layers[1]((*c)[1], (*c)[0]) > a.layers[a.get_n_layers()]((*c)[1]*sf+0.5, (*c)[0]*sf+0.5))
-			)
+		if((*c)[2] == 1)
 		{
-			b.binary.front()((*c)[1], (*c)[0]) = false;
-			c = b.centers_no_subpix.erase(c);
+			//a has higher resolution than b, so we must look at all pixels of a that overlap with the pixel of b
+			bool *bb = &b.binary.front()((*c)[1], (*c)[0]);
+			const PixelType vb = b.layers[1]((*c)[1], (*c)[0]);
+			for(size_t j=max(0, (int)(((*c)[1]-1)*sf)); j<(size_t)(((*c)[1]+1)*sf) && j<(size_t)a.get_width(); ++j)
+				for(size_t i=max(0, (int)(((*c)[0]-1)*sf)); i<(size_t)(((*c)[0]+1)*sf) && i<(size_t)a.get_height(); ++i)
+					*bb &= !(a.binary.back()(j, i) && (vb > a.layers[a.get_n_layers()](j, i)));
+
+			if(*bb)
+				c++;
+			else
+				c = b.centers_no_subpix.erase(c);
 		}
 		else c++;
 	}

@@ -61,7 +61,9 @@ namespace Colloids
             std::list<cv::Vec3i> centers_no_subpix;
             double preblur_radius, prefactor;
             static std::map<size_t, cv::Mat_<double> > kernels;
+            cv::Ptr<cv::FilterEngine> preblur_filter;
 
+            void _fill_internal();
             void fill_iterative_radii(const double &k=1.6);
     };
 
