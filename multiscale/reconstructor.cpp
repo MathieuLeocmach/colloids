@@ -9,6 +9,7 @@
 //#include <kdtree++/kdtree.hpp>
 #include "RStarTree/RStarTree.h"
 #include "multiscalefinder.hpp"
+#include <boost/ptr_container/ptr_map.hpp>
 #include <math.h>
 
 using namespace std;
@@ -109,10 +110,20 @@ void Reconstructor::get_blobs(std::deque<Center3D>& centers)
 {
 	const size_t margin = 6;
 	centers.clear();
+	boost::ptr_map<size_t, MultiscaleFinder1D> finders;
 	for(std::deque<Cluster>::const_iterator cl=this->clusters.begin(); cl!=this->clusters.end(); ++cl)
 	{
 		if(cl->size()<margin)
 			continue;
+		//fetch the needed 1D finder
+		boost::ptr_map<size_t, MultiscaleFinder1D>::iterator f_it = finders.find(cl->size());
+		if(f_it==finders.end())
+		{
+			std::auto_ptr<MultiscaleFinder1D> finder(new MultiscaleFinder1D(cl->size()+2*margin));
+			f_it = finders.insert(cl->size(), finder).first;
+		}
+		MultiscaleFinder1D &finder = *f_it->second;
+
 		//copy the radii adding margins on each size to allow blob tracking on short signals
 		OctaveFinder::Image signal(1, cl->size()+2*margin);
 		signal.setTo(0);
@@ -123,7 +134,6 @@ void Reconstructor::get_blobs(std::deque<Center3D>& centers)
 			*s++ = c->r;
 			c++;
 		}
-		MultiscaleFinder1D finder(signal.cols);
 		std::vector<Center2D> blobs, blo;
 		finder.get_centers(signal, blobs);
 
