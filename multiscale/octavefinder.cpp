@@ -110,15 +110,18 @@ void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
         this->binary[i].setTo(0);
 
 	for(size_t k = 1;k < nblayers+1;k += 2)
-		for(size_t j = this->sizes[k]+1;j < (size_t)(((this->get_width() - this->sizes[k]- 1)));j += 2)
+	{
+		const Image & layer0 = this->layers[k], layer1 = this->layers[k+1];
+		const size_t si = this->sizes[k];
+		for(size_t j = this->sizes[k]+1;j < (size_t)(((this->get_width() - si- 1)));j += 2)
 		{
 			boost::array<const float*, 4> ngb_ptr = {{
-					&this->layers[k](j, this->sizes[k]+1),
-					&this->layers[k](j+1, this->sizes[k]+1),
-					&this->layers[k+1](j, this->sizes[k]+1),
-					&this->layers[k+1](j+1, this->sizes[k]+1)
+					&layer0(j, si+1),
+					&layer0(j+1, si+1),
+					&layer1(j, si+1),
+					&layer1(j+1, si+1)
 			}};
-			for(size_t i = this->sizes[k]+1;i < (size_t)(((this->get_height() -this->sizes[k] - 1)));i += 2){
+			for(size_t i = si+1;i < (size_t)(((this->get_height() -si - 1)));i += 2){
 				//copy the whole neighbourhood together for locality
 				boost::array<float, 8> ngb = {{
 						*ngb_ptr[0]++, *ngb_ptr[0]++,
@@ -172,6 +175,7 @@ void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
 				}
 			}
 		}
+	}
 }
 /**
  * \brief Detect local minima of the scale space
