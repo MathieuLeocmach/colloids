@@ -127,6 +127,8 @@ void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
 						*ngb_ptr[3]++, *ngb_ptr[3]++
 				}};
 				const boost::array<float, 8>::const_iterator mpos = std::min_element(ngb.begin(), ngb.end());
+				if(*mpos>=0.0)
+					continue;
 				const int ml = mpos-ngb.begin();
 				size_t mi = i + !!(ml&1);
 				size_t mj = j + !!(ml&2);
@@ -198,6 +200,8 @@ void Colloids::OctaveFinder1D::initialize_binary(const double & max_ratio)
 					*ngb_ptr[1]++, *ngb_ptr[1]++
 			}};
 			const boost::array<float, 4>::const_iterator mpos = std::min_element(ngb.begin(), ngb.end());
+			if(*mpos>=0.0)
+					continue;
 			const int ml = mpos-ngb.begin();
 			size_t mi = i + !!(ml&1);
 			size_t mk = k + !!(ml&2);
