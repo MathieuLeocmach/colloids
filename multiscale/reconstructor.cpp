@@ -119,6 +119,7 @@ void Reconstructor::get_blobs(std::deque<Center3D>& centers)
 		boost::ptr_map<size_t, MultiscaleFinder1D>::iterator f_it = finders.find(cl->size());
 		if(f_it==finders.end())
 		{
+			//create the finder and cache it
 			std::auto_ptr<MultiscaleFinder1D> finder(new MultiscaleFinder1D(cl->size()+2*margin));
 			f_it = finders.insert(cl->size(), finder).first;
 		}

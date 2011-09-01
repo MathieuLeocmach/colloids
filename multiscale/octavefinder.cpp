@@ -442,40 +442,40 @@ double Colloids::OctaveFinder1D::scale_subpix(const cv::Vec3i & ci) const
 void OctaveFinder::seam_binary(OctaveFinder & other)
 {
 	const double sizefactor = this->get_height()/other.get_height();
-	OctaveFinder & a = sizefactor>1?(*this):other, &b = sizefactor>1?other:(*this);
+	OctaveFinder & highRes = sizefactor>1?(*this):other, &lowRes = sizefactor>1?other:(*this);
 	const double sf = sizefactor>1?sizefactor:(1.0/sizefactor);
-	//centers in a that corresponds to a lower intensity in b
-	std::list<cv::Vec3i>::iterator c = a.centers_no_subpix.begin();
-	while(c!=a.centers_no_subpix.end())
+	//centers in highRes that corresponds to a lower intensity in lowRes
+	std::list<cv::Vec3i>::iterator c = highRes.centers_no_subpix.begin();
+	while(c!=highRes.centers_no_subpix.end())
 	{
 		if(
-			((*c)[2] == (int)a.get_n_layers()) &&
-			(b.binary.front()((*c)[1]/sf+0.5, (*c)[0]/sf+0.5)) &&
-			(a.layers[(*c)[2]]((*c)[1], (*c)[0]) > b.layers[1]((*c)[1]/sf+0.5, (*c)[0]/sf+0.5))
+			((*c)[2] == (int)highRes.get_n_layers()) &&
+			(lowRes.binary.front()((*c)[1]/sf+0.5, (*c)[0]/sf+0.5)) &&
+			(highRes.layers[(*c)[2]]((*c)[1], (*c)[0]) > lowRes.layers[1]((*c)[1]/sf+0.5, (*c)[0]/sf+0.5))
 			)
 		{
-			a.binary[(*c)[2]-1]((*c)[1], (*c)[0]) = false;
-			c = a.centers_no_subpix.erase(c);
+			highRes.binary[(*c)[2]-1]((*c)[1], (*c)[0]) = false;
+			c = highRes.centers_no_subpix.erase(c);
 		}
 		else c++;
 	}
-	//centers in b that corresponds to a lower intensity in a
-	c = b.centers_no_subpix.begin();
-	while(c!=b.centers_no_subpix.end())
+	//centers in lowRes that corresponds to a lower intensity in highRes
+	c = lowRes.centers_no_subpix.begin();
+	while(c!=lowRes.centers_no_subpix.end())
 	{
 		if((*c)[2] == 1)
 		{
-			//a has higher resolution than b, so we must look at all pixels of a that overlap with the pixel of b
-			bool *bb = &b.binary.front()((*c)[1], (*c)[0]);
-			const PixelType vb = b.layers[1]((*c)[1], (*c)[0]);
-			for(size_t j=max(0, (int)(((*c)[1]-1)*sf)); j<(size_t)(((*c)[1]+1)*sf) && j<(size_t)a.get_width(); ++j)
-				for(size_t i=max(0, (int)(((*c)[0]-1)*sf)); i<(size_t)(((*c)[0]+1)*sf) && i<(size_t)a.get_height(); ++i)
-					*bb &= !(a.binary.back()(j, i) && (vb > a.layers[a.get_n_layers()](j, i)));
+			//we must look at all pixels of highRes that overlap with the pixel of lowRes
+			bool *b = &lowRes.binary.front()((*c)[1], (*c)[0]);
+			const PixelType vb = lowRes.layers[1]((*c)[1], (*c)[0]);
+			for(size_t j=max(0, (int)(((*c)[1]-1)*sf)); j<(size_t)(((*c)[1]+1)*sf) && j<(size_t)highRes.get_width(); ++j)
+				for(size_t i=max(0, (int)(((*c)[0]-1)*sf)); i<(size_t)(((*c)[0]+1)*sf) && i<(size_t)highRes.get_height(); ++i)
+					*b &= !(highRes.binary.back()(j, i) && (vb > highRes.layers[highRes.get_n_layers()](j, i)));
 
-			if(*bb)
+			if(*b)
 				c++;
 			else
-				c = b.centers_no_subpix.erase(c);
+				c = lowRes.centers_no_subpix.erase(c);
 		}
 		else c++;
 	}
