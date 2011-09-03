@@ -110,13 +110,14 @@ void Reconstructor::split_clusters()
 
 void Reconstructor::get_blobs(std::deque<Center3D>& centers)
 {
-	const size_t margin = 6;
+	//const size_t margin = 6;
 	centers.clear();
 	boost::ptr_map<size_t, MultiscaleFinder1D> finders;
 	for(std::deque<Cluster>::const_iterator cl=this->clusters.begin(); cl!=this->clusters.end(); ++cl)
 	{
-		if(cl->size()<margin)
+		if(cl->size()*3<6)
 			continue;
+		const size_t margin = cl->size();
 		//fetch the needed 1D finder
 		boost::ptr_map<size_t, MultiscaleFinder1D>::iterator f_it = finders.find(cl->size());
 		if(f_it==finders.end())
