@@ -33,8 +33,11 @@ void Reconstructor::clear()
 /**
  * \param tolerance Fraction of the contact distance (sum of radii) accepted. For tolerance<=1 accept overlap only.
  */
-void Reconstructor::push_back(const Frame &fr, const double &tolerance)
+void Reconstructor::push_back(const Frame &frame, const double &tolerance)
 {
+	//remove overlapping
+	Frame fr = frame;
+	std::auto_ptr<RTree> tree = removeOverlapping<2>(fr);
 	if(this->empty())
 	{
 		this->trajectories.reset(new TrajIndex(fr.size()));
@@ -45,8 +48,8 @@ void Reconstructor::push_back(const Frame &fr, const double &tolerance)
 	{
 		std::vector<double> distances;
 		std::vector<size_t> from, to;
-		//use RStarTree spatial indexing
-		this->links_by_RStarTree(fr, distances, from, to, tolerance);
+		//use RStarTree spatial indexing to create links
+		this->links_by_RStarTree(fr, *tree, distances, from, to, tolerance);
 		//brute force
 		//this->links_by_brute_force(fr, distances, from, to, tolerance);
 		//remember the time step and the number of previously existing trajectories
@@ -207,13 +210,11 @@ void Reconstructor::links_by_brute_force(const Frame& fr, std::vector<double> &d
 		}
 }
 
-typedef RStarTree<size_t, 2, 4, 32, double> 	RTree;
-
 
 /**
  * \param tolerance Fraction of the contact distance (sum of radii) accepted. For tolerance<=1 accept overlap only.
  */
-void Reconstructor::links_by_RStarTree(const Frame& fr, std::vector<double> &distances, std::vector<size_t> &from, std::vector<size_t> &to, const double &tolerance) const
+void Reconstructor::links_by_RStarTree(const Frame& fr, const RTree& tree, std::vector<double> &distances, std::vector<size_t> &from, std::vector<size_t> &to, const double &tolerance) const
 {
 	//(over)reserve memory
 	const size_t n = 12 * max(fr.size(), this->last_frame.size());
@@ -225,9 +226,9 @@ void Reconstructor::links_by_RStarTree(const Frame& fr, std::vector<double> &dis
 	to.reserve(n);
 
 	//spatial index the new frame
-	RTree tree;
+	/*RTree tree;
 	for(size_t p=0; p<fr.size(); ++p)
-		tree.Insert(p, get_bb(fr[p]));
+		tree.Insert(p, get_bb(fr[p]));*/
 
 	//for each particle in previous frame, get all the particles in new frame that have an overlap with it
 	for(size_t p=0; p<this->last_frame.size(); ++p)

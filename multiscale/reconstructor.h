@@ -22,6 +22,7 @@ namespace Colloids
 		typedef std::list<Center3D> Cluster;
 		typedef std::vector<Center2D> Frame;
 		typedef std::deque<Center3D> OutputType;
+		typedef RStarTree<size_t, 2, 4, 32, double> RTree;
 
 		Reconstructor();
 		virtual ~Reconstructor();
@@ -45,7 +46,7 @@ namespace Colloids
 		Frame last_frame;
 
 		void links_by_brute_force(const Frame& fr, std::vector<double> &distances, std::vector<size_t> &from, std::vector<size_t> &to, const double &tolerance=1.0) const;
-		void links_by_RStarTree(const Frame& fr, std::vector<double> &distances, std::vector<size_t> &from, std::vector<size_t> &to, const double &tolerance=1.0) const;
+		void links_by_RStarTree(const Frame& fr, const RTree& tree, std::vector<double> &distances, std::vector<size_t> &from, std::vector<size_t> &to, const double &tolerance=1.0) const;
 		void links_by_kdtree(const Frame& fr, std::vector<double> &distances, std::vector<size_t> &from, std::vector<size_t> &to, const double &tolerance=1.0) const;
 
 	};
