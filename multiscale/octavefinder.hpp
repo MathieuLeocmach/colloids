@@ -39,7 +39,7 @@ namespace Colloids
             //processing
             virtual void fill(const cv::Mat &input);
             void preblur_and_fill(const cv::Mat &input);
-            virtual void initialize_binary(const double &max_ratio = 1.1);
+            virtual void initialize_binary(const double &max_ratio = 1.2);
             void subpix(std::vector<Center2D>& centers) const;
             void single_subpix(const cv::Vec3i & ci, Center2D &c) const;
             virtual Center2D spatial_subpix(const cv::Vec3i & ci) const;

@@ -172,11 +172,15 @@ void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
 				//remove the local minima that are edges (elongated objects)
 				if(*b){
 					//hessian matrix
-					const double hess[3] = {this->layers[mk](mj - 1, mi) - 2 * this->layers[mk](mj, mi) + this->layers[mk](mj + 1, mi), this->layers[mk](mj, mi - 1) - 2 * this->layers[mk](mj, mi) + this->layers[mk](mj, mi + 1), this->layers[mk](mj - 1, mi - 1) + this->layers[mk](mj + 1, mi + 1) - this->layers[mk](mj + 1, mi - 1) - this->layers[mk](mj - 1, mi + 1)};
+					const double hess[3] = {
+							this->layers[mk](mj - 1, mi) - 2 * this->layers[mk](mj, mi) + this->layers[mk](mj + 1, mi),
+							this->layers[mk](mj, mi - 1) - 2 * this->layers[mk](mj, mi) + this->layers[mk](mj, mi + 1),
+							this->layers[mk](mj - 1, mi - 1) + this->layers[mk](mj + 1, mi + 1) - this->layers[mk](mj + 1, mi - 1) - this->layers[mk](mj - 1, mi + 1)};
 					//determinant of the Hessian, for the coefficient see
 					//H Bay, a Ess, T Tuytelaars, and L Vangool,
 					//Computer Vision and Image Understanding 110, 346-359 (2008)
-					const double detH = hess[0] * hess[1] - pow(hess[2], 2), ratio = pow(hess[0] + hess[1], 2) / (4.0 * hess[0] * hess[1]);
+					const double detH = hess[0] * hess[1] - pow(hess[2], 2),
+							ratio = pow(hess[0] + hess[1], 2) / (4.0 * hess[0] * hess[1]);
 					*b = !((detH < 0 && 1+detH*detH > 1) || ratio > max_ratio);
 					if(*b){
 						cv::Vec3i c;
