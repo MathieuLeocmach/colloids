@@ -16,6 +16,7 @@ namespace Colloids {
 	template<int D>
 	struct Center : boost::array<double, D>
 	{
+		static const int dimension = D;
 		double r, intensity;
 
 		explicit Center(const double &v=0.0, const double &r=0, const double &i=0) : r(r), intensity(i)
@@ -57,6 +58,17 @@ namespace Colloids {
 		{
 			bb.edges[d].first = c[d] - c.r * tolerance;
 			bb.edges[d].second = c[d] + c.r * tolerance;
+		}
+		return bb;
+	}
+	template<int D>
+	inline RStarBoundingBox<D,double> get_bb_margin(const Center<D> &c, const double &margin=0.0)
+	{
+		RStarBoundingBox<D,double> bb;
+		for(size_t d=0; d<D; ++d)
+		{
+			bb.edges[d].first = c[d] - margin;
+			bb.edges[d].second = c[d] + margin;
 		}
 		return bb;
 	}
@@ -108,6 +120,29 @@ namespace Colloids {
 		}
 		centers.swap(filtered);
 		return tree;
+	}
+	template<int D>
+	void removeOverlapping_brute_force(std::vector<Center<D> > &centers)
+	{
+		typedef std::vector<Center<D> > Centers;
+		Centers filtered;
+		filtered.reserve(centers.size());
+		//sort the centers by decreasing response (increasing negative intensity)
+		std::sort(centers.begin(), centers.end(), compare_intensities<D>());
+		//insert the centers one by one, if no overlap
+		for(size_t p=0; p<centers.size(); ++p)
+		{
+			bool is_overlapping = false;
+			for(size_t q=0; q<filtered.size(); ++q)
+				if(centers[p]-filtered[q] < pow(centers[p].r + filtered[q].r ,2))
+				{
+					is_overlapping = true;
+					break;
+				}
+			if(!is_overlapping)
+				filtered.push_back(centers[p]);
+		}
+		centers.swap(filtered);
 	}
 
 }

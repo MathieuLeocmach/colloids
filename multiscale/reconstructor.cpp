@@ -33,7 +33,7 @@ void Reconstructor::clear()
 /**
  * \param tolerance Fraction of the contact distance (sum of radii) accepted. For tolerance<=1 accept overlap only.
  */
-void Reconstructor::push_back(const Frame &frame, const double &tolerance)
+void Reconstructor::push_back(const Frame &frame, const double &max_dist)
 {
 	//remove overlapping
 	Frame fr = frame;
@@ -49,7 +49,7 @@ void Reconstructor::push_back(const Frame &frame, const double &tolerance)
 		std::vector<double> distances;
 		std::vector<size_t> from, to;
 		//use RStarTree spatial indexing to create links
-		this->links_by_RStarTree(fr, *tree, distances, from, to, tolerance);
+		this->links_by_RStarTree(fr, *tree, distances, from, to, max_dist);
 		//brute force
 		//this->links_by_brute_force(fr, distances, from, to, tolerance);
 		//remember the time step and the number of previously existing trajectories
@@ -78,22 +78,53 @@ void Reconstructor::split_clusters()
 	const size_t cl_end =  this->clusters.size();
 	for(size_t cl=0; cl<cl_end;++cl)
 	{
+		if(this->clusters[cl].size()<3)
+			continue;
+		std::vector<double> grad(this->clusters[cl].size()-2);
+		Cluster::const_iterator p=this->clusters[cl].begin(), q=this->clusters[cl].begin();
+		q++; q++;
+		for(size_t i=0; i<this->clusters[cl].size()-2; ++i)
+			grad[i] = pow((*p)[0]-(*q)[0], 2) + pow((*p)[1]-(*q)[1], 2);
+		//look for local maxima of gradient
+		std::list<size_t> blobs;
+		for(size_t i=0; i<grad.size()-2; ++i)
+			if(grad[i]<=grad[i+1] && grad[i+2]<=grad[i+1] && grad[i+1]>1)
+				blobs.push_back(i+2);
+		//split, from end to begin
+		for(std::list<size_t>::reverse_iterator it=blobs.rbegin(); it!=blobs.rend(); ++it)
+		{
+			this->clusters.push_back(Cluster());
+			Cluster::iterator u = this->clusters[cl].begin();
+			std::advance(u, *it);
+			this->clusters.back().splice(this->clusters.back().begin(), this->clusters[cl], u, this->clusters[cl].end());
+		}
+	}
+	/*boost::ptr_map<size_t, MultiscaleFinder1D> finders;
+	const size_t cl_end =  this->clusters.size();
+	for(size_t cl=0; cl<cl_end;++cl)
+	{
 		if(this->clusters[cl].size()<6)
 			continue;
-		//compute the position gradient
-		OctaveFinder::Image grad(1, this->clusters[cl].size()-1);
-		Cluster::const_iterator c0 = this->clusters[cl].begin(), c1 = this->clusters[cl].begin();
-		c1++;
-		for(int i=0; i<grad.cols; ++i)
+		OctaveFinder::Image signal(1, this->clusters[cl].size());
+		//fetch the needed 1D finder
+		boost::ptr_map<size_t, MultiscaleFinder1D>::iterator f_it = finders.find(this->clusters[cl].size());
+		if(f_it==finders.end())
 		{
-			grad(0, i) = pow((*c0)[0]-(*c1)[0], 2) + pow((*c0)[1]-(*c1)[1], 2);
-			c0++;
-			c1++;
+			//create the finder and cache it
+			std::auto_ptr<MultiscaleFinder1D> finder(new MultiscaleFinder1D(this->clusters[cl].size()));
+			f_it = finders.insert(this->clusters[cl].size(), finder).first;
 		}
-		//feed into a Multiscale finder to find altitude where the position is moving a lot function of altitude
-		MultiscaleFinder1D finder(grad.cols);
+		MultiscaleFinder1D &finder = *f_it->second;
+		Cluster::const_iterator p=this->clusters[cl].begin(), q=this->clusters[cl].begin();
+		q++;
+		OctaveFinder::PixelType * s= &signal(0, 0);
+		for(size_t i=0; i<this->clusters[cl].size()-1; ++i)
+		{
+			*s++ = -(*p++ - *q++);
+		}
+		//where does the radius get smaller
 		std::vector<Center2D> blobs;
-		finder.get_centers(grad, blobs);
+		finder.get_centers(signal, blobs);
 		if(blobs.empty())
 			continue;
 
@@ -105,7 +136,7 @@ void Reconstructor::split_clusters()
 			std::advance(u, (size_t)blobs[blobs.size()-i-1][0]);
 			this->clusters.back().splice(this->clusters.back().begin(), this->clusters[cl], u, this->clusters[cl].end());
 		}
-	}
+	}*/
 }
 
 void Reconstructor::get_blobs(std::deque<Center3D>& centers)
@@ -130,7 +161,8 @@ void Reconstructor::get_blobs(std::deque<Center3D>& centers)
 
 		//copy the radii adding margins on each size to allow blob tracking on short signals
 		OctaveFinder::Image signal(1, cl->size()+2*margin);
-		signal.setTo(0);
+		signal.setTo(0.9*cl->back().r);
+		std::fill_n(signal.begin(), margin, 0.9*cl->front().r);
 		Cluster::const_iterator c=cl->begin();
 		OctaveFinder::PixelType * s= &signal(0, margin);
 		for(size_t i=0; i<cl->size(); ++i)
@@ -140,27 +172,7 @@ void Reconstructor::get_blobs(std::deque<Center3D>& centers)
 		}
 		std::vector<Center2D> blobs, blo;
 		finder.get_centers(signal, blobs);
-
-		//do the same with minus the intensity
-		signal.setTo(0);
-		c=cl->begin();
-		s= &signal(0, margin);
-		for(size_t i=0; i<cl->size(); ++i)
-		{
-			*s++ = -c->intensity;
-			c++;
-		}
-		finder.get_centers(signal, blo);
-		//insert the intensity blobs only if they do not overlap radius blobs
-		blobs.reserve(blo.size());
-		for(size_t b=0; b<blo.size(); ++b)
-		{
-			bool ok = true;
-			for(size_t a=0; a<blobs.size() && ok; ++a)
-				ok = !(std::abs(blo[b][0] - blobs[a][0]) < blo[b].r + blobs[a].r);
-			if(ok)
-				blobs.push_back(blo[b]);
-		}
+		removeOverlapping_brute_force(blobs);
 
 		for(std::vector<Center2D>::const_iterator b=blobs.begin(); b!=blobs.end(); ++b)
 		{
@@ -215,7 +227,7 @@ void Reconstructor::links_by_brute_force(const Frame& fr, std::vector<double> &d
 /**
  * \param tolerance Fraction of the contact distance (sum of radii) accepted. For tolerance<=1 accept overlap only.
  */
-void Reconstructor::links_by_RStarTree(const Frame& fr, const RTree& tree, std::vector<double> &distances, std::vector<size_t> &from, std::vector<size_t> &to, const double &tolerance) const
+void Reconstructor::links_by_RStarTree(const Frame& fr, const RTree& tree, std::vector<double> &distances, std::vector<size_t> &from, std::vector<size_t> &to, const double &max_dist) const
 {
 	//(over)reserve memory
 	const size_t n = 12 * max(fr.size(), this->last_frame.size());
@@ -232,17 +244,18 @@ void Reconstructor::links_by_RStarTree(const Frame& fr, const RTree& tree, std::
 		tree.Insert(p, get_bb(fr[p]));*/
 
 	//for each particle in previous frame, get all the particles in new frame that have an overlap with it
+	const double max_distsq = max_dist * max_dist;
 	for(size_t p=0; p<this->last_frame.size(); ++p)
 	{
 		std::list<size_t> ngb1;
 		tree.Query(
-				RTree::AcceptOverlapping(get_bb(this->last_frame[p], tolerance)),
+				RTree::AcceptOverlapping(get_bb_margin(this->last_frame[p], max_dist)),
 				Gatherer<2>(ngb1)
 		);
 		for(std::list<size_t>::const_iterator it= ngb1.begin(); it!=ngb1.end(); ++it)
 		{
 			const double dist = pow(this->last_frame[p][0] - fr[*it][0], 2) + pow(this->last_frame[p][1] - fr[*it][1], 2);
-			if(dist < pow((this->last_frame[p].r + fr[*it].r) * tolerance, 2))
+			if(dist < max_distsq)
 			{
 				distances.push_back(dist);
 				from.push_back(p);
