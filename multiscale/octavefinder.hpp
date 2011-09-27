@@ -6,6 +6,7 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <boost/ptr_container/ptr_vector.hpp>
+#include <boost/iostreams/device/mapped_file.hpp>
 #include <list>
 
 namespace Colloids
@@ -21,8 +22,8 @@ namespace Colloids
             virtual ~OctaveFinder();
 
             //accessors
-            inline const int & get_width() const {return this->layers[0].rows; };
-            inline const int & get_height() const {return this->layers[0].cols; };
+            inline const int & get_width() const {return this->layers[0].size[this->layers[0].dims-2];};
+            inline const int & get_height() const {return this->layers[0].size[this->layers[0].dims-1]; };
             inline const size_t get_n_layers() const {return this->layers.size()-2;};
             const double & get_radius_preblur() const {return this->preblur_radius;}
             virtual void set_radius_preblur(const double &k=1.6);
@@ -77,6 +78,22 @@ namespace Colloids
 			virtual Center2D spatial_subpix(const cv::Vec3i & ci) const;
 			virtual double scale_subpix(const cv::Vec3i & ci) const;
 			virtual double gaussianResponse(const size_t &j, const size_t &i, const double & scale) const;
+    };
+
+    class OctaveFinder3D : public OctaveFinder
+    {
+		public:
+			OctaveFinder3D(const int nplanes=256, const int nrows=256, const int ncols=256, const int nbLayers=3, const double &preblur_radius=1.6);
+			virtual ~OctaveFinder3D();
+
+			/*virtual void initialize_binary(const double &max_ratio = 1.1);
+			virtual Center2D spatial_subpix(const cv::Vec3i & ci) const;
+			virtual double scale_subpix(const cv::Vec3i & ci) const;
+			virtual double gaussianResponse(const size_t &j, const size_t &i, const double & scale) const;*/
+
+		protected:
+			boost::iostreams::mapped_file file;
+			std::string path;
     };
 };
 #endif // OCTAVEFINDER_H

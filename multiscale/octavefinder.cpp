@@ -38,9 +38,48 @@ OctaveFinder::OctaveFinder(const int nrows, const int ncols, const int nbLayers,
 	this->set_radius_preblur(preblur_radius);
 }
 
+OctaveFinder3D::OctaveFinder3D(const int nplanes, const int nrows, const int ncols, const int nbLayers, const double &preblur_radius) :
+	OctaveFinder(0, 0, nbLayers, preblur_radius)
+{
+	//random file name in the working directory
+	this->path.reserve(30);
+	this->path.push_back('_');
+	this->path.push_back('_');
+	for(int i=0; i<28;++i)
+		this->path.push_back('a'+rand()*('Z'-'a'));
+	//create a memory mapped file to contain the images data
+	boost::iostreams::mapped_file_params params(this->path);
+	const size_t nbpixels =  nplanes * nrows * ncols;
+	params.new_file_size = nbpixels * sizeof(PixelType) * (2 * nbLayers + 5) + nbpixels * nbLayers;
+	params.flags = boost::iostreams::mapped_file::readwrite;
+	this->file.open(params);
+	//create the images inside the memory mapped file
+	int dims[3] = {nplanes, nrows, ncols};
+	for (int i = 0; i<nbLayers+3; ++i)
+		this->layersG[i] = cv::Mat(
+				3, dims, layersG[i].type(),
+				(void*)(this->file.data() + i * nbpixels * sizeof(PixelType))
+				);
+	for (int i = 0; i<nbLayers+2; ++i)
+		this->layers[i] = cv::Mat(
+				3, dims, layers[i].type(),
+				(void*)(this->file.data() + (i + layersG.size()) * nbpixels * sizeof(PixelType))
+				);
+	for (int i = 0; i<nbLayers; ++i)
+		this->binary[i] = cv::Mat(
+				3, dims, binary[i].type(),
+				(void*)(this->file.data() + (2 * nbLayers + 5) * nbpixels * sizeof(PixelType) + i * nbpixels)
+				);
+}
+
 OctaveFinder::~OctaveFinder()
 {
     //dtor
+}
+
+OctaveFinder3D::~OctaveFinder3D()
+{
+	remove(this->path.c_str());
 }
 
 void Colloids::OctaveFinder::set_radius_preblur(const double &k)
