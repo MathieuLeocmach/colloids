@@ -70,6 +70,13 @@ OctaveFinder3D::OctaveFinder3D(const int nplanes, const int nrows, const int nco
 				3, dims, binary[i].type(),
 				(void*)(this->file.data() + (2 * nbLayers + 5) * nbpixels * sizeof(PixelType) + i * nbpixels)
 				);
+	//create supplementary image headers for layersG data of shape (nplanes, nrows*ncols)
+	this->layersG2D.reserve(nbLayers+3);
+	for (int i = 0; i<nbLayers+3; ++i)
+		this->layersG2D.push_back(cv::Mat(
+				nplanes, nrows*ncols, layersG[i].type(),
+				(void*)(this->file.data() + i * nbpixels * sizeof(PixelType))
+				));
 }
 
 OctaveFinder::~OctaveFinder()
@@ -95,18 +102,19 @@ void Colloids::OctaveFinder::set_radius_preblur(const double &k)
 
 void Colloids::OctaveFinder::fill(const cv::Mat &input)
 {
-	if(input.rows != this->get_width())
+	if(input.dims != this->layersG.front().dims)
 	{
 		std::ostringstream os;
-		os << "OctaveFinder::fill : the input's rows ("<<input.rows<<") must match the width of the finder ("<<this->get_width()<<")";
+		os << "OctaveFinder::fill : the input's dimension ("<<input.dims<<") must match the dimension of the finder ("<<this->layersG.front().dims<<")";
 		throw std::invalid_argument(os.str().c_str());
 	}
-	if(input.cols != this->get_height())
-	{
-		std::ostringstream os;
-		os << "OctaveFinder::fill : the input's cols ("<<input.cols<<") must match the height of the finder ("<<this->get_height()<<")";
-		throw std::invalid_argument(os.str().c_str());
-	}
+	for(int d=0; d<input.dims; ++d)
+		if(input.size[d] != this->layersG.front().size[d])
+		{
+			std::ostringstream os;
+			os << "OctaveFinder::fill : the input's "<<d<< "th dimension ("<<input.size[d]<<") must match the one of the finder ("<<this->layersG.front().size[d]<<")";
+			throw std::invalid_argument(os.str().c_str());
+		}
 
 	input.convertTo(this->layersG[0], this->layersG[0].type());
 	this->_fill_internal();
@@ -129,18 +137,19 @@ void Colloids::OctaveFinder::_fill_internal()
 
 void Colloids::OctaveFinder::preblur_and_fill(const cv::Mat &input)
 {
-	if(input.rows != this->get_width())
+	if(input.dims != this->layersG.front().dims)
 	{
 		std::ostringstream os;
-		os << "OctaveFinder::preblur_and_fill : the input's rows ("<<input.rows<<") must match the width of the finder ("<<this->get_width()<<")";
+		os << "OctaveFinder::preblur_and_fill : the input's dimension ("<<input.dims<<") must match the dimension of the finder ("<<this->layersG.front().dims<<")";
 		throw std::invalid_argument(os.str().c_str());
 	}
-	if(input.cols != this->get_height())
-	{
-		std::ostringstream os;
-		os << "OctaveFinder::preblur_and_fill : the input's cols ("<<input.cols<<") must match the height of the finder ("<<this->get_height()<<")";
-		throw std::invalid_argument(os.str().c_str());
-	}
+	for(int d=0; d<input.dims; ++d)
+		if(input.size[d] != this->layersG.front().size[d])
+		{
+			std::ostringstream os;
+			os << "OctaveFinder::preblur_and_fill : the input's "<<d<< "th dimension ("<<input.size[d]<<") must match the one of the finder ("<<this->layersG.front().size[d]<<")";
+			throw std::invalid_argument(os.str().c_str());
+		}
 	input.convertTo(this->layersG[1], this->layersG[1].type());
 	this->preblur_filter->apply(this->layersG[1], this->layersG.front());
 	//cv::GaussianBlur(this->layersG[1], this->layersG.front(), cv::Size(0,0), this->preblur_radius);

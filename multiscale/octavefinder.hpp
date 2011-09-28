@@ -38,7 +38,7 @@ namespace Colloids
 			static const cv::Mat_<double>& get_kernel(const double &sigma);
 
             //processing
-            virtual void fill(const cv::Mat &input);
+            void fill(const cv::Mat &input);
             void preblur_and_fill(const cv::Mat &input);
             virtual void initialize_binary(const double &max_ratio = 1.2);
             void subpix(std::vector<Center2D>& centers) const;
@@ -64,7 +64,7 @@ namespace Colloids
             static std::map<size_t, cv::Mat_<double> > kernels;
             cv::Ptr<cv::FilterEngine> preblur_filter;
 
-            void _fill_internal();
+            virtual void _fill_internal();
             void fill_iterative_radii(const double &k=1.6);
     };
 
@@ -86,6 +86,8 @@ namespace Colloids
 			OctaveFinder3D(const int nplanes=256, const int nrows=256, const int ncols=256, const int nbLayers=3, const double &preblur_radius=1.6);
 			virtual ~OctaveFinder3D();
 
+			inline const int & get_depth() const {return this->layers[0].size[this->layers[0].dims-3];};
+
 			/*virtual void initialize_binary(const double &max_ratio = 1.1);
 			virtual Center2D spatial_subpix(const cv::Vec3i & ci) const;
 			virtual double scale_subpix(const cv::Vec3i & ci) const;
@@ -94,6 +96,7 @@ namespace Colloids
 		protected:
 			boost::iostreams::mapped_file file;
 			std::string path;
+			std::vector<Image > layersG2D;
     };
 };
 #endif // OCTAVEFINDER_H
