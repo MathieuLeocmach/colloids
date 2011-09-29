@@ -36,6 +36,7 @@ namespace Colloids {
 			return d;
 		}
 	};
+	typedef Center<1> Center1D;
 	typedef Center<2> Center2D;
 	typedef Center<3> Center3D;
 
