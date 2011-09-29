@@ -1418,12 +1418,17 @@ BOOST_AUTO_TEST_SUITE( local_max )
 		for(int k=0; k<input.size[0]; ++k)
 		{
 			const double Rsq = 4*4 - (k-32)*(k-32);
-			if(Rsq>0)
+			if(Rsq>=0)
 			{
 				OctaveFinder::Image slice(input.size[1], input.size[2], &input.at<float>(k));
-				cv::circle(slice, cv::Point(32, 32), (int)(sqrt(Rsq)+0.5), 1.0, -1);
+				cv::circle(slice, cv::Point(32, 32), (int)(sqrt(Rsq)), 1.0, -1);
 			}
 		}
+		for(int i=0; i<64; ++i)
+			BOOST_CHECK_MESSAGE(
+					input(32, 32, i)==input(i, 32, 32),
+					"input(32, 32, "<<i<<"){"<<input(32, 32, i)<<"} != input("<<i<<", 32, 32){"<<input(i, 32, 32)<<"}"
+					);
 		finder.preblur_and_fill(input);
 		//with a radius of 4, the maximum should be in layer 1
 		BOOST_CHECK_GE(finder.get_layers(0)(32, 32, 32), finder.get_layers(1)(32, 32, 32));
@@ -1439,11 +1444,13 @@ BOOST_AUTO_TEST_SUITE( local_max )
 		double global_min = *std::min_element(min_layers, min_layers+5);
 		BOOST_CHECK_CLOSE(finder.get_layers(1)(32, 32, 32), global_min, 1e-9);
 
-		BOOST_CHECK_EQUAL(finder.get_binary(1)(32, 32), true);
-		BOOST_CHECK_EQUAL(finder.get_binary(1)(33, 32), false);
-		BOOST_CHECK_EQUAL(finder.get_binary(1)(32, 33), false);
-		BOOST_CHECK_EQUAL(finder.get_binary(1)(31, 32), false);
-		BOOST_CHECK_EQUAL(finder.get_binary(1)(32, 31), false);
+		BOOST_CHECK_EQUAL(finder.get_binary(1)(32, 32, 32), true);
+		BOOST_CHECK_EQUAL(finder.get_binary(1)(32, 33, 32), false);
+		BOOST_CHECK_EQUAL(finder.get_binary(1)(32, 32, 33), false);
+		BOOST_CHECK_EQUAL(finder.get_binary(1)(32, 31, 32), false);
+		BOOST_CHECK_EQUAL(finder.get_binary(1)(32, 32, 31), false);
+		BOOST_CHECK_EQUAL(finder.get_binary(1)(33, 32, 32), false);
+		BOOST_CHECK_EQUAL(finder.get_binary(1)(31, 32, 32), false);
 		BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(2))[0], 0);
 		BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(1))[0], 1);
 		BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(3))[0], 0);

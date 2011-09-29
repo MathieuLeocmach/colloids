@@ -89,8 +89,8 @@ namespace Colloids
 
 			inline const int & get_depth() const {return this->layers[0].size[this->layers[0].dims-3];};
 
-			/*virtual void initialize_binary(const double &max_ratio = 1.1);
-			virtual Center2D spatial_subpix(const cv::Vec3i & ci) const;
+			virtual void initialize_binary(const double &max_ratio = 1.1);
+			/*virtual Center2D spatial_subpix(const cv::Vec3i & ci) const;
 			virtual double scale_subpix(const cv::Vec3i & ci) const;
 			virtual double gaussianResponse(const size_t &j, const size_t &i, const double & scale) const;*/
 

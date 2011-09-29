@@ -356,6 +356,103 @@ void Colloids::OctaveFinder1D::initialize_binary(const double & max_ratio)
 	}
 }
 
+void Colloids::OctaveFinder3D::initialize_binary(const double & max_ratio)
+{
+	const size_t nblayers = this->binary.size();
+    //initialize
+	this->centers_no_subpix.clear();
+    for(size_t i = 0;i < nblayers;++i)
+        this->binary[i].setTo(0);
+
+	for(size_t l = 1;l < nblayers+1;l += 2)
+	{
+		const Image & layer0 = this->layers[l], layer1 = this->layers[l+1];
+		const size_t si = this->sizes[l];
+		for(size_t k = this->sizes[l]+1;k < (size_t)(((layer0.size[0] - si- 1)));k += 2)
+		for(size_t j = this->sizes[l]+1;j < (size_t)(((layer0.size[1] - si- 1)));j += 2)
+		{
+			boost::array<const float*, 8> ngb_ptr = {{
+					&layer0(k, j, si+1),
+					&layer0(k, j+1, si+1),
+					&layer0(k+1, j, si+1),
+					&layer0(k+1, j+1, si+1),
+					&layer1(k, j, si+1),
+					&layer1(k, j+1, si+1),
+					&layer1(k+1, j, si+1),
+					&layer1(k+1, j+1, si+1)
+			}};
+			for(size_t i = si+1;i < (size_t)(((this->get_height() -si - 1)));i += 2){
+				//copy the whole neighbourhood together for locality
+				boost::array<float, 16> ngb = {{
+						*ngb_ptr[0]++, *ngb_ptr[0]++,
+						*ngb_ptr[1]++, *ngb_ptr[1]++,
+						*ngb_ptr[2]++, *ngb_ptr[2]++,
+						*ngb_ptr[3]++, *ngb_ptr[3]++,
+						*ngb_ptr[4]++, *ngb_ptr[4]++,
+						*ngb_ptr[5]++, *ngb_ptr[5]++,
+						*ngb_ptr[6]++, *ngb_ptr[6]++,
+						*ngb_ptr[7]++, *ngb_ptr[7]++
+				}};
+				const boost::array<float, 8>::const_iterator mpos = std::min_element(ngb.begin(), ngb.end());
+				if(*mpos>=0.0)
+					continue;
+				const int mm = mpos-ngb.begin();
+				size_t mi = i + !!(mm&1);
+				size_t mj = j + !!(mm&2);
+				size_t mk = k + !!(mm&4);
+				size_t ml = l + !!(mm&8);
+
+
+				//maxima cannot be on the last layer or on image edges
+				if(ml > nblayers || !(
+						(this->sizes[ml] <= mk) && (mk < (size_t)(((layer0.size[0] - this->sizes[mk])))) &&
+						(this->sizes[ml] <= mj) && (mj < (size_t)(((layer0.size[1] - this->sizes[ml])))) &&
+						(this->sizes[ml] <= mi) && (mi < (size_t)(((layer0.size[2] - this->sizes[ml]))))
+						))
+					continue;
+
+				bool *b = &this->binary[ml - 1](mk, mj, mi);
+				//consider only negative minima
+				//with a value that is actually different from zero
+				*b = (*mpos < 0) && (1 + pow(*mpos, 2) > 1);
+				//remove the minima if one of its neighbours outside the block has lower value
+				for(size_t l2 = ml - 1;l2 < ml + 2 && *b;++l2)
+					for(size_t k2 = mk - 1;k2 < mk + 2 && *b;++k2)
+						for(size_t j2 = mj - 1;j2 < mj + 2 && *b;++j2)
+							for(size_t i2 = mi - 1;i2 < mi + 2 && *b;++i2)
+								if(l2 < l || k2 < k || j2 < j || i2 < i || l2 > l + 1 || k2 > k +1 || j2 > j + 1 || i2 > i + 1)
+									*b = *mpos <= this->layers[l2](k2, j2, i2);
+
+
+
+
+				//remove the local minima that are edges (elongated objects) in XY
+				if(*b){
+					//hessian matrix
+					const double hess[3] = {
+							this->layers[ml](mk, mj - 1, mi) - 2 * this->layers[ml](mk, mj, mi) + this->layers[ml](mk, mj + 1, mi),
+							this->layers[ml](mk, mj, mi - 1) - 2 * this->layers[ml](mk, mj, mi) + this->layers[ml](mk, mj, mi + 1),
+							this->layers[ml](mk, mj - 1, mi - 1) + this->layers[ml](mk, mj + 1, mi + 1) - this->layers[ml](mk, mj + 1, mi - 1) - this->layers[ml](mk, mj - 1, mi + 1)};
+					//determinant of the Hessian, for the coefficient see
+					//H Bay, a Ess, T Tuytelaars, and L Vangool,
+					//Computer Vision and Image Understanding 110, 346-359 (2008)
+					const double detH = hess[0] * hess[1] - pow(hess[2], 2),
+							ratio = pow(hess[0] + hess[1], 2) / (4.0 * hess[0] * hess[1]);
+					*b = !((detH < 0 && 1+detH*detH > 1) || ratio > max_ratio);
+					if(*b){
+						cv::Vec3i c;
+						c[0] = mi;
+						c[1] = mj;
+						c[2] = mk;
+						//c[3] = ml;
+						this->centers_no_subpix.push_back(c);
+					}
+				}
+			}
+		}
+	}
+}
+
 Center2D Colloids::OctaveFinder::spatial_subpix(const cv::Vec3i & ci) const
 {
         const size_t i = ci[0], j = ci[1], k = ci[2];
