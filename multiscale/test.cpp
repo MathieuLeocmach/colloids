@@ -1344,11 +1344,11 @@ BOOST_AUTO_TEST_SUITE_END() //constructors
 
 BOOST_AUTO_TEST_SUITE( octave3D_fill )
 
-BOOST_AUTO_TEST_CASE( fill_test )
+	BOOST_AUTO_TEST_CASE( fill3D_test )
 	{
 		OctaveFinder3D finder(64, 64, 64);
 		int dims[3] = {64,64,64};
-		OctaveFinder::Image input(3, dims), other(3, dims);
+		OctaveFinder::Image input(3, dims);
 		//the finder should contain a copy of the input data
 		input.setTo(1);
 		finder.fill(input);
@@ -1374,7 +1374,96 @@ BOOST_AUTO_TEST_CASE( fill_test )
 		BOOST_CHECK_CLOSE(finder.get_layersG(1).at<float>(31, 32, 32), finder.get_layersG(1).at<float>(32, 31, 32), 1e-5);
 		BOOST_CHECK_CLOSE(finder.get_layersG(1).at<float>(31, 32, 32), finder.get_layersG(1).at<float>(32, 32, 31), 1e-5);
 	}
+	BOOST_AUTO_TEST_CASE( fill3D_rectangular )
+	{
+		OctaveFinder3D finder(60, 63, 65);
+		int dims[3] = {60,63,65};
+		OctaveFinder::Image input(3, dims);
+		//the finder should contain a copy of the input data
+		input.setTo(1);
+		finder.fill(input);
+		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(0))[0], 60*63*65, 1e-5);
+		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(0))[0], cv::sum(input)[0], 1e-5);
+		images_are_close(finder.get_layersG(0), input, 1e-4);
+		//the internal layersG[0] should not be the same object as the input, but a deep copy
+		input.setTo(0);
+		input.at<float>(32, 33, 31) = 1.0;
+		BOOST_CHECK_NE(cv::sum(finder.get_layersG(0))[0], 1.0);
+		BOOST_CHECK_NE(cv::sum(finder.get_layersG(0))[0], cv::sum(input)[0]);
+		finder.fill(input);
+		//Gaussian blur should be normalized
+		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(0))[0], cv::sum(finder.get_layersG(1))[0], 1e-5);
+		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(1))[0], cv::sum(finder.get_layersG(2))[0], 1e-5);
+		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(2))[0], cv::sum(finder.get_layersG(3))[0], 1e-5);
+		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(3))[0], cv::sum(finder.get_layersG(4))[0], 1e-5);
+		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(0))[0], cv::sum(finder.get_layersG(4))[0], 1e-5);
+		//The blur should have acted in all directions
+		BOOST_CHECK_GT(finder.get_layersG(1).at<float>(32, 33, 30), 0);
+		BOOST_CHECK_GT(finder.get_layersG(1).at<float>(32, 32, 31), 0);
+		BOOST_CHECK_GT(finder.get_layersG(1).at<float>(31, 33, 31), 0);
+		BOOST_CHECK_CLOSE(finder.get_layersG(1).at<float>(31, 33, 31), finder.get_layersG(1).at<float>(32, 32, 31), 1e-5);
+		BOOST_CHECK_CLOSE(finder.get_layersG(1).at<float>(31, 33, 31), finder.get_layersG(1).at<float>(32, 33, 30), 1e-5);
+	}
 BOOST_AUTO_TEST_SUITE_END() //fill
+
+BOOST_AUTO_TEST_SUITE( local_max )
+
+	BOOST_AUTO_TEST_CASE( single_sphere )
+	{
+		OctaveFinder3D finder(64, 64, 64);
+		int dims[3] = {64,64,64};
+		OctaveFinder::Image input(3, dims);
+		input.setTo(0);
+		//draw a sphere plane by plane
+		for(int k=0; k<input.size[0]; ++k)
+		{
+			const double Rsq = 4*4 - (k-32)*(k-32);
+			if(Rsq>0)
+			{
+				OctaveFinder::Image slice(input.size[1], input.size[2], &input.at<float>(k));
+				cv::circle(slice, cv::Point(32, 32), (int)(sqrt(Rsq)+0.5), 1.0, -1);
+			}
+		}
+		finder.preblur_and_fill(input);
+		//with a radius of 4, the maximum should be in layer 1
+		BOOST_CHECK_GE(finder.get_layers(0)(32, 32, 32), finder.get_layers(1)(32, 32, 32));
+		BOOST_CHECK_LE(finder.get_layers(1)(32, 32, 32), finder.get_layers(2)(32, 32, 32));
+		BOOST_CHECK_LE(finder.get_layers(2)(32, 32, 32), finder.get_layers(3)(32, 32, 32));
+		BOOST_CHECK_LE(finder.get_layers(3)(32, 32, 32), finder.get_layers(4)(32, 32, 32));
+		finder.initialize_binary();
+
+		//The minimum should be at the center of the circle
+		double min_layers[5];
+		for (int l=0; l<5; ++l)
+			min_layers[l] =  *std::min_element(finder.get_layers(l).begin(), finder.get_layers(l).end());
+		double global_min = *std::min_element(min_layers, min_layers+5);
+		BOOST_CHECK_CLOSE(finder.get_layers(1)(32, 32, 32), global_min, 1e-9);
+
+		BOOST_CHECK_EQUAL(finder.get_binary(1)(32, 32), true);
+		BOOST_CHECK_EQUAL(finder.get_binary(1)(33, 32), false);
+		BOOST_CHECK_EQUAL(finder.get_binary(1)(32, 33), false);
+		BOOST_CHECK_EQUAL(finder.get_binary(1)(31, 32), false);
+		BOOST_CHECK_EQUAL(finder.get_binary(1)(32, 31), false);
+		BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(2))[0], 0);
+		BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(1))[0], 1);
+		BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(3))[0], 0);
+		/*cv::namedWindow("truc");
+		cv::imshow("truc", 255*finder.get_binary(2));
+		cv::waitKey();*/
+		//gaussian response
+		/*BOOST_CHECK_LT(finder.gaussianResponse(128, 128, 2.5), finder.gaussianResponse(128, 128, 2.0));
+		BOOST_CHECK_LT(finder.gaussianResponse(128, 128, 3.5), finder.gaussianResponse(128, 128, 2.5));
+		BOOST_CHECK_LT(finder.gaussianResponse(128, 128, 3.5), finder.gaussianResponse(128, 128, 3.0));
+		BOOST_CHECK_GT(finder.gaussianResponse(128, 128, 2.5)-finder.gaussianResponse(128, 128, 1.5), finder.get_layers(2)(128, 128));
+		BOOST_CHECK_GT(finder.gaussianResponse(128, 128, 3.5)-finder.gaussianResponse(128, 128, 2.5), finder.get_layers(2)(128, 128));
+		//lower bound
+		BOOST_CHECK_LT(finder.gaussianResponse(128, 128, 1.5), finder.gaussianResponse(128, 128, 1.0));
+		BOOST_CHECK_LT(finder.gaussianResponse(128, 128, 0.5), finder.gaussianResponse(128, 128, 0));
+		//further than the top layer
+		BOOST_CHECK_LT(finder.gaussianResponse(128, 128, 10.5), finder.gaussianResponse(128, 128, 0));
+		BOOST_CHECK_LT(finder.gaussianResponse(128, 128, 15.5), finder.gaussianResponse(128, 128, 5));*/
+	}
+BOOST_AUTO_TEST_SUITE_END() //local_max3D
 
 BOOST_AUTO_TEST_SUITE_END() //octave 3D
 

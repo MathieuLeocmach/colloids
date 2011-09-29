@@ -161,6 +161,33 @@ void Colloids::OctaveFinder3D::_fill_internal()
 		cv::subtract(this->layersG[i+1], this->layersG[i], this->layers[i]);
 }
 
+void Colloids::OctaveFinder::preblur(const cv::Mat &input)
+{
+	this->preblur_filter->apply(input, this->layersG.front());
+}
+
+void Colloids::OctaveFinder3D::preblur(const cv::Mat &input)
+{
+	//Z out of place
+	cv::Mat input2D(
+			input.size[0], input.size[1]*input.size[2],
+			input.type(),(void*)input.data
+			);
+	this->preblur_Zfilter->apply(input2D, this->layersG2D.front());
+	//X and Y inplace
+	for(int k=0; k<this->layersG.front().size[0]; ++k)
+	{
+		cv::Mat slice(
+				this->layersG.front().size[1],
+				this->layersG.front().size[2],
+				this->layersG.front().type(),
+				(void*)&this->layersG.front()(k)
+				);
+		this->preblur_filter->apply(slice, slice);
+	}
+
+}
+
 void Colloids::OctaveFinder::preblur_and_fill(const cv::Mat &input)
 {
 	if(input.dims != this->layersG.front().dims)
@@ -177,7 +204,7 @@ void Colloids::OctaveFinder::preblur_and_fill(const cv::Mat &input)
 			throw std::invalid_argument(os.str().c_str());
 		}
 	input.convertTo(this->layersG[1], this->layersG[1].type());
-	this->preblur_filter->apply(this->layersG[1], this->layersG.front());
+	this->preblur(this->layersG[1]);
 	//cv::GaussianBlur(this->layersG[1], this->layersG.front(), cv::Size(0,0), this->preblur_radius);
 	this->_fill_internal();
 }
@@ -621,6 +648,12 @@ void Colloids::OctaveFinder3D::fill_iterative_radii()
 				kx, get_kernel(this->iterative_radii[i]),
 				cv::Point(-1,-1), 0, cv::BORDER_DEFAULT
 		);
+	this->preblur_Zfilter = createSeparableLinearFilter
+	(
+			this->layersG[0].type(), this->layersG[0].type(),
+			kx, get_kernel(this->preblur_radius),
+			cv::Point(-1,-1), 0, cv::BORDER_DEFAULT
+	);
 }
 
 
