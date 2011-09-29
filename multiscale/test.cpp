@@ -266,17 +266,18 @@ BOOST_AUTO_TEST_SUITE( local_max )
 		cv::imshow("truc", 255*finder.get_binary(2));
 		cv::waitKey();*/
 		//gaussian response
-		BOOST_CHECK_LT(finder.gaussianResponse(128, 128, 2.5), finder.gaussianResponse(128, 128, 2.0));
-		BOOST_CHECK_LT(finder.gaussianResponse(128, 128, 3.5), finder.gaussianResponse(128, 128, 2.5));
-		BOOST_CHECK_LT(finder.gaussianResponse(128, 128, 3.5), finder.gaussianResponse(128, 128, 3.0));
-		BOOST_CHECK_GT(finder.gaussianResponse(128, 128, 2.5)-finder.gaussianResponse(128, 128, 1.5), finder.get_layers(2)(128, 128));
-		BOOST_CHECK_GT(finder.gaussianResponse(128, 128, 3.5)-finder.gaussianResponse(128, 128, 2.5), finder.get_layers(2)(128, 128));
+		int ci[2] = {128, 128};
+		BOOST_CHECK_LT(finder.gaussianResponse(ci, 2.5), finder.gaussianResponse(ci, 2.0));
+		BOOST_CHECK_LT(finder.gaussianResponse(ci, 3.5), finder.gaussianResponse(ci, 2.5));
+		BOOST_CHECK_LT(finder.gaussianResponse(ci, 3.5), finder.gaussianResponse(ci, 3.0));
+		BOOST_CHECK_GT(finder.gaussianResponse(ci, 2.5)-finder.gaussianResponse(ci, 1.5), finder.get_layers(2)(128, 128));
+		BOOST_CHECK_GT(finder.gaussianResponse(ci, 3.5)-finder.gaussianResponse(ci, 2.5), finder.get_layers(2)(128, 128));
 		//lower bound
-		BOOST_CHECK_LT(finder.gaussianResponse(128, 128, 1.5), finder.gaussianResponse(128, 128, 1.0));
-		BOOST_CHECK_LT(finder.gaussianResponse(128, 128, 0.5), finder.gaussianResponse(128, 128, 0));
+		BOOST_CHECK_LT(finder.gaussianResponse(ci, 1.5), finder.gaussianResponse(ci, 1.0));
+		BOOST_CHECK_LT(finder.gaussianResponse(ci, 0.5), finder.gaussianResponse(ci, 0));
 		//further than the top layer
-		BOOST_CHECK_LT(finder.gaussianResponse(128, 128, 10.5), finder.gaussianResponse(128, 128, 0));
-		BOOST_CHECK_LT(finder.gaussianResponse(128, 128, 15.5), finder.gaussianResponse(128, 128, 5));
+		BOOST_CHECK_LT(finder.gaussianResponse(ci, 10.5), finder.gaussianResponse(ci, 0));
+		BOOST_CHECK_LT(finder.gaussianResponse(ci, 15.5), finder.gaussianResponse(ci, 5));
 	}
 
 	BOOST_AUTO_TEST_CASE( empty_rectangular )
@@ -431,19 +432,21 @@ BOOST_AUTO_TEST_SUITE( subpix )
 		BOOST_CHECK_GE(v[0].r, 1);
 		BOOST_CHECK_LE(v[0].r, 3);
 		//gaussian response
-		BOOST_CHECK_CLOSE(finder.gaussianResponse(200, 100, 2.0), finder.get_layersG(2)(200, 100), 1e-9);
-		BOOST_CHECK_CLOSE(finder.gaussianResponse(200, 100, 3.0)-finder.gaussianResponse(200, 100, 2.0), finder.get_layers(2)(200, 100), 1e-9);
-		BOOST_CHECK_LT(finder.gaussianResponse(100, 200, 2.0), finder.gaussianResponse(200, 100, 2.0));
-		BOOST_CHECK_LT(finder.gaussianResponse(100, 200, 2.5), finder.gaussianResponse(200, 100, 2.5));
-		BOOST_CHECK_LT(finder.gaussianResponse(200, 100, 3.0), finder.gaussianResponse(200, 100, 2.0));
-		BOOST_CHECK_LT(finder.gaussianResponse(200, 100, 2.5), finder.gaussianResponse(200, 100, 2.0));
-		BOOST_CHECK_LT(finder.gaussianResponse(200, 100, 3.5), finder.gaussianResponse(200, 100, 2.5));
-		BOOST_CHECK_LT(finder.gaussianResponse(200, 100, 3.5), finder.gaussianResponse(200, 100, 3.0));
-		BOOST_CHECK_GT(finder.gaussianResponse(200, 100, 2.5)-finder.gaussianResponse(200, 100, 1.5), finder.get_layers(2)(200, 100));
-		BOOST_CHECK_GT(finder.gaussianResponse(200, 100, 3.5)-finder.gaussianResponse(200, 100, 2.5), finder.get_layers(2)(200, 100));
+		int ci[2] = {100, 200};
+		int ic[2] = {200, 100};
+		BOOST_CHECK_CLOSE(finder.gaussianResponse(ci, 2.0), finder.get_layersG(2)(200, 100), 1e-9);
+		BOOST_CHECK_CLOSE(finder.gaussianResponse(ci, 3.0)-finder.gaussianResponse(ci, 2.0), finder.get_layers(2)(200, 100), 1e-9);
+		BOOST_CHECK_LT(finder.gaussianResponse(ic, 2.0), finder.gaussianResponse(ci, 2.0));
+		BOOST_CHECK_LT(finder.gaussianResponse(ic, 2.5), finder.gaussianResponse(ci, 2.5));
+		BOOST_CHECK_LT(finder.gaussianResponse(ci, 3.0), finder.gaussianResponse(ci, 2.0));
+		BOOST_CHECK_LT(finder.gaussianResponse(ci, 2.5), finder.gaussianResponse(ci, 2.0));
+		BOOST_CHECK_LT(finder.gaussianResponse(ci, 3.5), finder.gaussianResponse(ci, 2.5));
+		BOOST_CHECK_LT(finder.gaussianResponse(ci, 3.5), finder.gaussianResponse(ci, 3.0));
+		BOOST_CHECK_GT(finder.gaussianResponse(ci, 2.5)-finder.gaussianResponse(ci, 1.5), finder.get_layers(2)(200, 100));
+		BOOST_CHECK_GT(finder.gaussianResponse(ci, 3.5)-finder.gaussianResponse(ci, 2.5), finder.get_layers(2)(200, 100));
 		boost::array<double,8> sublayerG;
 		for(int u = 0;u < 3;++u)
-			sublayerG[u] = finder.gaussianResponse(200, 100, 2 - 0.5 + u);
+			sublayerG[u] = finder.gaussianResponse(ci, 2 - 0.5 + u);
 		boost::array<double,5> a = {{
 			finder.get_layers(1)(200, 100),
 			sublayerG[1] - sublayerG[0],
@@ -459,7 +462,7 @@ BOOST_AUTO_TEST_SUITE( subpix )
 		BOOST_CHECK_GT(ds, 0);
 		BOOST_CHECK_LT(ds, 0.5);
 		for(size_t u = 0;u < sublayerG.size(); ++u)
-			sublayerG[u] = finder.gaussianResponse(200, 100, z - 1 + 0.5*u);
+			sublayerG[u] = finder.gaussianResponse(ci, z - 1 + 0.5*u);
 		for(size_t u =0; u<a.size();++u)
 			a[u] = sublayerG[u+2] - sublayerG[u];
 		BOOST_CHECK_LT(a[0], 0);
@@ -640,14 +643,15 @@ BOOST_AUTO_TEST_SUITE( octave_limit_cases )
 				v_s.size()==1,
 				""<<((v_s.size()==0)?"No center":"More than one center")<<" for input position "<<position
 				);
-			BOOST_CHECK_GT(finder.gaussianResponse(position, 16, 0), 0);
-			BOOST_CHECK_LT(finder.gaussianResponse(position, 16, 3.5), finder.gaussianResponse(position, 16, 3));
-			BOOST_CHECK_LT(finder.gaussianResponse(position, 16, 3), finder.gaussianResponse(position, 16, 2.5));
-			BOOST_CHECK_LT(finder.gaussianResponse(position, 16, 2.5), finder.gaussianResponse(position, 16, 2));
-			BOOST_CHECK_LT(finder.gaussianResponse(position, 16, 2), finder.gaussianResponse(position, 16, 1.5));
-			BOOST_CHECK_LT(finder.gaussianResponse(position, 16, 1.5), finder.gaussianResponse(position, 16, 1));
-			BOOST_CHECK_LT(finder.gaussianResponse(position, 16, 1), finder.gaussianResponse(position, 16, 0.5));
-			BOOST_CHECK_LT(finder.gaussianResponse(position, 16, 0.5), finder.gaussianResponse(position, 16, 0));
+			int ci[2] = {16, position};
+			BOOST_CHECK_GT(finder.gaussianResponse(ci, 0), 0);
+			BOOST_CHECK_LT(finder.gaussianResponse(ci, 3.5), finder.gaussianResponse(ci, 3));
+			BOOST_CHECK_LT(finder.gaussianResponse(ci, 3), finder.gaussianResponse(ci, 2.5));
+			BOOST_CHECK_LT(finder.gaussianResponse(ci, 2.5), finder.gaussianResponse(ci, 2));
+			BOOST_CHECK_LT(finder.gaussianResponse(ci, 2), finder.gaussianResponse(ci, 1.5));
+			BOOST_CHECK_LT(finder.gaussianResponse(ci, 1.5), finder.gaussianResponse(ci, 1));
+			BOOST_CHECK_LT(finder.gaussianResponse(ci, 1), finder.gaussianResponse(ci, 0.5));
+			BOOST_CHECK_LT(finder.gaussianResponse(ci, 0.5), finder.gaussianResponse(ci, 0));
 			BOOST_CHECK_CLOSE(v_s[0].r, 4, 50);
 			for(size_t j=0; j<v_s.size(); ++j)
 				f << position << "\t" << v_s[j][1] << "\t"  << v_s[j].r << "\n";
@@ -961,17 +965,18 @@ BOOST_AUTO_TEST_SUITE( octave )
 		cv::imshow("truc", 255*finder.get_binary(2));
 		cv::waitKey();*/
 		//gaussian response
-		BOOST_CHECK_LT(finder.gaussianResponse(0, 128, 2.5), finder.gaussianResponse(0, 128, 2.0));
-		BOOST_CHECK_LT(finder.gaussianResponse(0, 128, 3.5), finder.gaussianResponse(0, 128, 2.5));
-		BOOST_CHECK_LT(finder.gaussianResponse(0, 128, 3.5), finder.gaussianResponse(0, 128, 3.0));
-		BOOST_CHECK_GT(finder.gaussianResponse(0, 128, 3.5)-finder.gaussianResponse(0, 128, 2.5), finder.get_layers(3)(0, 128));
-		BOOST_CHECK_GT(finder.gaussianResponse(0, 128, 4.5)-finder.gaussianResponse(0, 128, 3.5), finder.get_layers(3)(0, 128));
+		int ci [1] = {128};
+		BOOST_CHECK_LT(finder.gaussianResponse(ci, 2.5), finder.gaussianResponse(ci, 2.0));
+		BOOST_CHECK_LT(finder.gaussianResponse(ci, 3.5), finder.gaussianResponse(ci, 2.5));
+		BOOST_CHECK_LT(finder.gaussianResponse(ci, 3.5), finder.gaussianResponse(ci, 3.0));
+		BOOST_CHECK_GT(finder.gaussianResponse(ci, 3.5)-finder.gaussianResponse(ci, 2.5), finder.get_layers(3)(0, 128));
+		BOOST_CHECK_GT(finder.gaussianResponse(ci, 4.5)-finder.gaussianResponse(ci, 3.5), finder.get_layers(3)(0, 128));
 		//lower bound
-		BOOST_CHECK_LT(finder.gaussianResponse(0, 128, 1.5), finder.gaussianResponse(0, 128, 1.0));
-		BOOST_CHECK_LT(finder.gaussianResponse(0, 128, 0.5), finder.gaussianResponse(0, 128, 0));
+		BOOST_CHECK_LT(finder.gaussianResponse(ci, 1.5), finder.gaussianResponse(ci, 1.0));
+		BOOST_CHECK_LT(finder.gaussianResponse(ci, 0.5), finder.gaussianResponse(ci, 0));
 		//further than the top layer
-		BOOST_CHECK_LT(finder.gaussianResponse(0, 128, 10.5), finder.gaussianResponse(0, 128, 0));
-		BOOST_CHECK_LT(finder.gaussianResponse(0, 128, 15.5), finder.gaussianResponse(0, 128, 5));
+		BOOST_CHECK_LT(finder.gaussianResponse(ci, 10.5), finder.gaussianResponse(ci, 0));
+		BOOST_CHECK_LT(finder.gaussianResponse(ci, 15.5), finder.gaussianResponse(ci, 5));
 	}
 	BOOST_AUTO_TEST_CASE( asymetrical )
 	{
@@ -1007,18 +1012,19 @@ BOOST_AUTO_TEST_SUITE( octave )
 		BOOST_CHECK_LE(v[0].r, 4);
 		//gaussian response
 		BOOST_CHECKPOINT("gaussian response");
-		BOOST_CHECK_CLOSE(finder.gaussianResponse(0, 100, 2.0), finder.get_layersG(2)(0, 100), 1e-9);
-		BOOST_CHECK_CLOSE(finder.gaussianResponse(0, 100, 3.0)-finder.gaussianResponse(0, 100, 2.0), finder.get_layers(2)(0, 100), 1e-9);
-		BOOST_CHECK_LT(finder.gaussianResponse(0, 100, 3.0), finder.gaussianResponse(0, 100, 2.0));
-		BOOST_CHECK_LT(finder.gaussianResponse(0, 100, 2.5), finder.gaussianResponse(0, 100, 2.0));
-		BOOST_CHECK_LT(finder.gaussianResponse(0, 100, 3.5), finder.gaussianResponse(0, 100, 2.5));
-		BOOST_CHECK_LT(finder.gaussianResponse(0, 100, 3.5), finder.gaussianResponse(0, 100, 3.0));
-		BOOST_CHECK_GT(finder.gaussianResponse(0, 100, 3.5)-finder.gaussianResponse(0, 100, 2.5), finder.get_layers(3)(0, 100));
-		BOOST_CHECK_GT(finder.gaussianResponse(0, 100, 4.5)-finder.gaussianResponse(0, 100, 3.5), finder.get_layers(3)(0, 100));
+		int ci[1] = {100};
+		BOOST_CHECK_CLOSE(finder.gaussianResponse(ci, 2.0), finder.get_layersG(2)(0, 100), 1e-9);
+		BOOST_CHECK_CLOSE(finder.gaussianResponse(ci, 3.0)-finder.gaussianResponse(ci, 2.0), finder.get_layers(2)(0, 100), 1e-9);
+		BOOST_CHECK_LT(finder.gaussianResponse(ci, 3.0), finder.gaussianResponse(ci, 2.0));
+		BOOST_CHECK_LT(finder.gaussianResponse(ci, 2.5), finder.gaussianResponse(ci, 2.0));
+		BOOST_CHECK_LT(finder.gaussianResponse(ci, 3.5), finder.gaussianResponse(ci, 2.5));
+		BOOST_CHECK_LT(finder.gaussianResponse(ci, 3.5), finder.gaussianResponse(ci, 3.0));
+		BOOST_CHECK_GT(finder.gaussianResponse(ci, 3.5)-finder.gaussianResponse(ci, 2.5), finder.get_layers(3)(0, 100));
+		BOOST_CHECK_GT(finder.gaussianResponse(ci, 4.5)-finder.gaussianResponse(ci, 3.5), finder.get_layers(3)(0, 100));
 		BOOST_CHECKPOINT("sublayers 1");
 		boost::array<double,8> sublayerG;
 		for(size_t u = 0;u < sublayerG.size(); ++u)
-			sublayerG[u] = finder.gaussianResponse(0, 100, 2 + 0.5*u);
+			sublayerG[u] = finder.gaussianResponse(ci, 2 + 0.5*u);
 		boost::array<double,5> a;
 		for(size_t u =0; u<a.size();++u)
 			a[u] = sublayerG[u+2] - sublayerG[u];
@@ -1033,7 +1039,7 @@ BOOST_AUTO_TEST_SUITE( octave )
 		BOOST_CHECK_LT(ds, 0.5);
 		BOOST_CHECKPOINT("sublayers 2");
 		for(size_t u = 0;u < sublayerG.size(); ++u)
-			sublayerG[u] = finder.gaussianResponse(0, 100, z - 1 + 0.5*u);
+			sublayerG[u] = finder.gaussianResponse(ci, z - 1 + 0.5*u);
 		for(size_t u =0; u<a.size();++u)
 			a[u] = sublayerG[u+2] - sublayerG[u];
 		BOOST_CHECK_LT(a[0], 0);

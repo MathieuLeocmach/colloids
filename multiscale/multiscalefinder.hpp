@@ -123,7 +123,10 @@ template<>
 inline void MultiscaleFinder::seam(Center2D &v, const size_t &o) const
 {
 	if(v.r<1)
-		v.r = this->octaves[o]->scale_subpix(this->previous_octave_coords(v)) - this->get_n_layers();
+	{
+		cv::Vec3i ci = this->previous_octave_coords(v);
+		v.r = this->octaves[o]->scale_subpix(&ci[0]) - this->get_n_layers();
+	}
 }
 
 }

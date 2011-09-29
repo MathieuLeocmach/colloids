@@ -489,7 +489,7 @@ Center2D Colloids::OctaveFinder1D::spatial_subpix(const cv::Vec3i & ci) const
         return c;
 }
 
-double Colloids::OctaveFinder::gaussianResponse(const size_t & j, const size_t & i, const double & scale) const
+double Colloids::OctaveFinder::gaussianResponse(const int* ci, const double & scale) const
 {
         if(scale < 0)
             throw std::invalid_argument("Colloids::OctaveFinder::gaussianResponse: the scale must be positive.");
@@ -498,20 +498,20 @@ double Colloids::OctaveFinder::gaussianResponse(const size_t & j, const size_t &
         if (k>=this->layersG.size())
         	k = this->layersG.size()-1;
 		if((scale - k) * (scale - k) + 1 == 1)
-			return this->layersG[k](j, i);
+			return this->layersG[k](ci[1], ci[0]);
 		const double sigma = this->get_iterative_radius(scale, (double)k);
 		//opencv is NOT dealing right with ROI (even if boasting about it), so we do it by hand
 		const cv::Mat_<double>& kernel = get_kernel(sigma);
 		const int m = kernel.rows;
 		vector<double> gx(m, 0.0);
-		const int xmin = max(0, (int)i+m/2+1-this->get_width()),
-				xmax = min(m, (int)i+m/2+1),
-				ymin = max(0, (int)j+m/2+1-this->get_height()),
-				ymax = min(m, (int)j+m/2+1);
+		const int xmin = max(0, (int)ci[0]+m/2+1-this->get_width()),
+				xmax = min(m, (int)ci[0]+m/2+1),
+				ymin = max(0, (int)ci[1]+m/2+1-this->get_height()),
+				ymax = min(m, (int)ci[1]+m/2+1);
 		const double *ker = &kernel(ymin,0);
 		for(int y=ymin; y<ymax; ++y)
 		{
-			const OctaveFinder::PixelType * v = &layersG[k](j-y+m/2, i-xmin+m/2);
+			const OctaveFinder::PixelType * v = &layersG[k](ci[1]-y+m/2, ci[0]-xmin+m/2);
 			for(int x=xmin; x<xmax; ++x)
 				gx[x] += *v-- * *ker;
 			ker++;
@@ -525,7 +525,7 @@ double Colloids::OctaveFinder::gaussianResponse(const size_t & j, const size_t &
         return resp;
 }
 
-double Colloids::OctaveFinder1D::gaussianResponse(const size_t & j, const size_t & i, const double & scale) const
+double Colloids::OctaveFinder1D::gaussianResponse(const int* ci, const double & scale) const
 {
 	if(scale < 0)
 		throw std::invalid_argument("Colloids::OctaveFinder::gaussianResponse: the scale must be positive.");
@@ -534,44 +534,44 @@ double Colloids::OctaveFinder1D::gaussianResponse(const size_t & j, const size_t
 	if (k>=this->layersG.size())
 		k = this->layersG.size()-1;
 	if((scale - k) * (scale - k) + 1 == 1)
-		return this->layersG[k](j, i);
+		return this->layersG[k](0, ci[0]);
 	const double sigma = this->get_iterative_radius(scale, (double)k);
 	//opencv is NOT dealing right with ROI (even if boasting about it), so we do it by hand
 	const cv::Mat_<double>& kernel = get_kernel(sigma);
 	const int m = kernel.rows;
 	double resp = 0.0;
 	for(int x=0; x<m; ++x)
-		resp += layersG[k](0, cv::borderInterpolate(i-x+m/2, this->get_height(), cv::BORDER_DEFAULT)) * kernel(x,0);
+		resp += layersG[k](0, cv::borderInterpolate(ci[0]-x+m/2, this->get_height(), cv::BORDER_DEFAULT)) * kernel(x,0);
 	return resp;
 }
 
-double Colloids::OctaveFinder::scale_subpix(const cv::Vec3i & ci) const
+double Colloids::OctaveFinder::scale_subpix(const int* ci) const
 {
-    	const size_t i = ci[0], j = ci[1], k = ci[2];
+    	const size_t i = ci[0], j = ci[1], l = ci[2];
 		//scale is better defined if we consider only the central pixel at different scales
 		//Compute intermediate variables to do a quadratic estimate of the derivative
 		boost::array<double,8> sublayerG;
 		for(size_t u = 0;u < sublayerG.size(); ++u)
-			sublayerG[u] = this->gaussianResponse(j, i, k - 1 + 0.5*u);
+			sublayerG[u] = this->gaussianResponse(ci, l - 1 + 0.5*u);
 
 		boost::array<double,5> a;
 		for(size_t u =0; u<a.size();++u)
 			a[u] = sublayerG[u+2] - sublayerG[u];
 		//Apply newton's method using quadratic estimate of the derivative
-		double s = k - (-a[4] + 8*a[3] - 8*a[1] + a[0])/6.0 /(a[4]-2*a[2]+a[0]);
+		double s = l - (-a[4] + 8*a[3] - 8*a[1] + a[0])/6.0 /(a[4]-2*a[2]+a[0]);
 		//saturate the results
-		if(s>k+0.5)
-			s= k + 0.5;
-		if(s<k-0.5)
-			s= k- 0.5;
+		if(s>l+0.5)
+			s= l + 0.5;
+		if(s<l-0.5)
+			s= l- 0.5;
 		//second round of newton's method
 		if(s>=1)
 		{
-			if(s+0.1<k)
+			if(s+0.1<l)
 			{
-				s= k- 0.5;
+				s= l- 0.5;
 			for(size_t u = 0;u < sublayerG.size(); ++u)
-				sublayerG[u] = this->gaussianResponse(j, i, s - 1 + 0.5*u);
+				sublayerG[u] = this->gaussianResponse(ci, s - 1 + 0.5*u);
 			for(size_t u =0; u<a.size();++u)
 				a[u] = sublayerG[u+2] - sublayerG[u];
 			s -= (-a[4] + 8*a[3] - 8*a[1] + a[0])/6.0 /(a[4]-2*a[2]+a[0]);
@@ -581,32 +581,32 @@ double Colloids::OctaveFinder::scale_subpix(const cv::Vec3i & ci) const
 		{
 			//for sizes significantly below the sampled scale
 			//the linear estimate of the derivative is (marginally) better
-			if(s+0.25<k)
-				s = k - (a[3] - a[1])/(a[4]-2*a[2]+a[0]);
+			if(s+0.25<l)
+				s = l - (a[3] - a[1])/(a[4]-2*a[2]+a[0]);
 		}
-		if(s<k-0.5)
-			s= k- 0.5;
-		if(s>k+0.5)
-			s= k + 0.5;
+		if(s<l-0.5)
+			s= l- 0.5;
+		if(s>l+0.5)
+			s= l + 0.5;
 		return s;
 }
-double Colloids::OctaveFinder1D::scale_subpix(const cv::Vec3i & ci) const
+double Colloids::OctaveFinder1D::scale_subpix(const int* ci) const
 {
 	//Empirical correction
 	//return ci[2] + 1.1*(OctaveFinder::scale_subpix(ci)-ci[2]) - 0.1/ci[2]- 0.1;//-0.025*this->layers.size();
-	const size_t i = ci[0], j = ci[1], k = ci[2];
+	const size_t l = ci[2];
 	double h = 1.0/3.0;
 	boost::array<double,7> a;
 	for(int u=0; u<(int)a.size();++u)
-		a[u] = this->gaussianResponse(j, i, k - 3*h + u*h);
+		a[u] = this->gaussianResponse(ci, l - 3*h + u*h);
 	double s = 2*h * (a[5] -2*a[3] + a[1])/(a[6] -3*a[4] +3*a[2] -a[0]);
-	return k - 1.05*s + 0.08*pow(s,2) - pow(2,-2/(double)this->get_n_layers())+0.025*k -0.025;
+	return l - 1.05*s + 0.08*pow(s,2) - pow(2,-2/(double)this->get_n_layers())+0.025*l -0.025;
 }
 
 	void Colloids::OctaveFinder::single_subpix(const cv::Vec3i & ci, Center2D &c) const
     {
         c = this->spatial_subpix(ci);
-        c.r = this->scale_subpix(ci);
+        c.r = this->scale_subpix(&ci[0]);
     }
 
     void Colloids::OctaveFinder::subpix(std::vector<Center2D> &centers) const
