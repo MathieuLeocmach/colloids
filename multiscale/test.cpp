@@ -5,12 +5,14 @@
 #include "traj.hpp"
 #include "reconstructor.h"
 #include "locatorfromlif.h"
-#include <fstream>
+#include "OnDiskArray.h"
 #include <boost/test/unit_test.hpp>
 #include <boost/progress.hpp>
 #include <boost/array.hpp>
+#include <fstream>
 #include <set>
 #include <limits>
+#include <numeric>
 
 using namespace Colloids;
 
@@ -40,6 +42,45 @@ struct by_coordinate : std::binary_function<const T&, const T&, bool>
 		return a[N] < b[N];
 	}
 };
+
+BOOST_AUTO_TEST_SUITE( onDisk )
+
+	BOOST_AUTO_TEST_CASE( onDisk_constructor )
+	{
+		std::vector<size_t> dims(3, 256);
+		{
+			OnDiskArray a("test.array", dims, sizeof(float));
+			{
+				std::ifstream f("test.array");
+				BOOST_REQUIRE(f.good());
+				f.seekg(0, std::ios::end);
+				BOOST_REQUIRE_EQUAL(f.tellg(), 256*256*256*sizeof(float));
+			}
+			BOOST_REQUIRE_EQUAL(a.get_dims().size(), 3);
+			BOOST_CHECK_EQUAL(a.get_dims()[0], 256);
+			BOOST_CHECK_EQUAL(a.get_dims()[1], 256);
+			BOOST_CHECK_EQUAL(a.get_dims()[2], 256);
+			std::vector<size_t>pos (3,0);
+			BOOST_CHECK_EQUAL(a.get_offset(pos), 0);
+			BOOST_CHECK_EQUAL(a.get_offset(std::vector<size_t>(3,1)), (256*256*1+256*1+1)*sizeof(float));
+			a.write(pos, (unsigned char)255);
+			BOOST_CHECK_EQUAL(a.read<unsigned char>(pos), 255);
+			a.write(pos, 17.0f);
+			BOOST_CHECK_CLOSE(a.read<float>(pos), 17.0f, 1e-5);
+			std::vector<float> line(256, 19.0f);
+			a.writeline(std::vector<size_t>(2,0), (char*)&line[0]);
+			BOOST_CHECK_EQUAL(a.get_line_offset(std::vector<size_t>(2,0)), 0);
+			BOOST_CHECK_EQUAL(a.get_line_offset(std::vector<size_t>(2,1)), (256*1+1)*256*sizeof(float));
+			BOOST_CHECK_CLOSE(a.read<float>(pos), 19.0f, 1e-5);
+			pos.back() = 255;
+			BOOST_CHECK_EQUAL(a.get_offset(pos), 255*sizeof(float));
+			BOOST_CHECK_CLOSE(a.read<float>(pos), 19.0f, 1e-5);
+		}
+		std::ifstream f("test.array");
+		BOOST_REQUIRE(!f.good());
+	}
+
+BOOST_AUTO_TEST_SUITE_END() //onDisk
 
 BOOST_AUTO_TEST_SUITE( twoD )
 
@@ -134,7 +175,7 @@ BOOST_AUTO_TEST_SUITE( octave_fill )
 		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(2))[0], cv::sum(finder.get_layersG(3))[0], 1e-5);
 		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(3))[0], cv::sum(finder.get_layersG(4))[0], 1e-5);
 		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(0))[0], cv::sum(finder.get_layersG(4))[0], 1e-5);
-		//The second to last Gaussian layer should be a good approxiation
+		//The second to last Gaussian layer should be a good approximation
 		//to the input blurred by a two time larger radius than the preblur
 		cv::GaussianBlur(input, other, cv::Size(0,0), 2*1.6);
 		finder.preblur_and_fill(input);
@@ -1181,6 +1222,7 @@ BOOST_AUTO_TEST_SUITE( multiscale )
 			cv::circle(input, cv::Point(32*pow(2, s), 0), *lr, 255, -1);
 			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
 			std::vector<Center2D> v_s = finder(small_input);
+			//removeOverlapping_brute_force(v_s);
 			BOOST_TEST_CHECKPOINT("radius = "<<radius<<" size");
 			BOOST_CHECK_MESSAGE(
 					v_s.size()==1,
@@ -1242,9 +1284,101 @@ BOOST_AUTO_TEST_SUITE( multiscale )
 			f << distance << "\t" << v_s[0][0] << "\t" << v_s[1][0] << "\t" << v_s[0].r << "\n";
 		}
 	}
+	BOOST_AUTO_TEST_CASE( multiscale1D_real_data )
+	{
+		boost::array<float, 10> signal = {{3.1579 ,  3.57596,  3.59357,  3.73922,  3.72126,  3.66554, 3.67778,  3.57596,  2.9114 ,  3.207}};
+		cv::Mat_<float> input_margin(1, signal.size()*3, 0.0f);
+		std::copy(signal.begin(), signal.end(), input_margin.begin()+signal.size());
+		MultiscaleFinder1D finder_margin(input_margin.cols);
+		std::vector<Center2D> blobs_margin = finder_margin(input_margin);
+		std::ofstream f_margin("multiscale1D_real_data_margin.layersG");
+		BOOST_REQUIRE_GE(finder_margin.get_n_octaves(), 2);
+		for(size_t l=0; l<finder_margin.get_n_layers()+2; ++l)
+		{
+			std::copy(
+					finder_margin.get_octave(1).get_layersG(l).begin(),
+					finder_margin.get_octave(1).get_layersG(l).end(),
+					std::ostream_iterator<float>(f_margin, " "));
+			f_margin<<"\n";
+		}
+		BOOST_REQUIRE_EQUAL(blobs_margin.size(), 1);
+		BOOST_CHECK_CLOSE(blobs_margin[0][0], 14.63085423, 2);
+	}
 BOOST_AUTO_TEST_SUITE_END() //multiscale
 
 BOOST_AUTO_TEST_SUITE_END() //1D
+
+BOOST_AUTO_TEST_SUITE( threeD )
+
+BOOST_AUTO_TEST_SUITE( octave3D )
+
+BOOST_AUTO_TEST_SUITE( octave3D_constructors )
+
+	BOOST_AUTO_TEST_CASE( octave3D_constructor_square )
+    {
+        OctaveFinder3D finder;
+        BOOST_CHECK_EQUAL(finder.get_depth(), 256);
+        BOOST_CHECK_EQUAL(finder.get_width(), 256);
+        BOOST_CHECK_EQUAL(finder.get_height(), 256);
+        BOOST_CHECK_EQUAL(finder.get_n_layers(), 3);
+
+    }
+	BOOST_AUTO_TEST_CASE( octave3D_constructor_rectangular_flat )
+    {
+        OctaveFinder3D finder(12, 128, 512, 1, 1.0);
+        BOOST_CHECK_EQUAL(finder.get_depth(), 12);
+        BOOST_CHECK_EQUAL(finder.get_width(), 128);
+        BOOST_CHECK_EQUAL(finder.get_height(), 512);
+        BOOST_CHECK_EQUAL(finder.get_n_layers(), 1);
+    }
+	BOOST_AUTO_TEST_CASE( octave3D_constructor_rectangular_ten_layers )
+    {
+		OctaveFinder3D finder(12, 128, 512, 10, 2.8);
+        BOOST_CHECK_EQUAL(finder.get_depth(), 12);
+		BOOST_CHECK_EQUAL(finder.get_width(), 128);
+		BOOST_CHECK_EQUAL(finder.get_height(), 512);
+		BOOST_CHECK_EQUAL(finder.get_n_layers(), 10);
+	}
+
+BOOST_AUTO_TEST_SUITE_END() //constructors
+
+BOOST_AUTO_TEST_SUITE( octave3D_fill )
+
+BOOST_AUTO_TEST_CASE( fill_test )
+	{
+		OctaveFinder3D finder(64, 64, 64);
+		int dims[3] = {64,64,64};
+		OctaveFinder::Image input(3, dims), other(3, dims);
+		//the finder should contain a copy of the input data
+		input.setTo(1);
+		finder.fill(input);
+		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(0))[0], 64*64*64, 1e-5);
+		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(0))[0], cv::sum(input)[0], 1e-5);
+		images_are_close(finder.get_layersG(0), input, 1e-4);
+		//the internal layersG[0] should not be the same object as the input, but a deep copy
+		input.setTo(0);
+		input.at<float>(32, 32, 32) = 1.0;
+		BOOST_CHECK_NE(cv::sum(finder.get_layersG(0))[0], 1.0);
+		BOOST_CHECK_NE(cv::sum(finder.get_layersG(0))[0], cv::sum(input)[0]);
+		finder.fill(input);
+		//Gaussian blur should be normalized
+		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(0))[0], cv::sum(finder.get_layersG(1))[0], 1e-5);
+		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(1))[0], cv::sum(finder.get_layersG(2))[0], 1e-5);
+		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(2))[0], cv::sum(finder.get_layersG(3))[0], 1e-5);
+		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(3))[0], cv::sum(finder.get_layersG(4))[0], 1e-5);
+		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(0))[0], cv::sum(finder.get_layersG(4))[0], 1e-5);
+		//The blur should have acted in all directions
+		BOOST_CHECK_GT(finder.get_layersG(1).at<float>(32, 32, 31), 0);
+		BOOST_CHECK_GT(finder.get_layersG(1).at<float>(32, 31, 32), 0);
+		BOOST_CHECK_GT(finder.get_layersG(1).at<float>(31, 32, 32), 0);
+		BOOST_CHECK_CLOSE(finder.get_layersG(1).at<float>(31, 32, 32), finder.get_layersG(1).at<float>(32, 31, 32), 1e-5);
+		BOOST_CHECK_CLOSE(finder.get_layersG(1).at<float>(31, 32, 32), finder.get_layersG(1).at<float>(32, 32, 31), 1e-5);
+	}
+BOOST_AUTO_TEST_SUITE_END() //fill
+
+BOOST_AUTO_TEST_SUITE_END() //octave 3D
+
+BOOST_AUTO_TEST_SUITE_END() //threeD
 
 BOOST_AUTO_TEST_SUITE( trajectories )
 	BOOST_AUTO_TEST_CASE( traj )
@@ -1370,7 +1504,7 @@ BOOST_AUTO_TEST_SUITE( trajectories )
 	}
 BOOST_AUTO_TEST_SUITE_END()
 BOOST_AUTO_TEST_SUITE( Overlap )
-	BOOST_AUTO_TEST_CASE(Overlap)
+	BOOST_AUTO_TEST_CASE(Overlap_RTree)
 	{
 		typedef RStarTree<size_t, 2, 4, 32, double> RTree;
 		std::vector<Center2D> centers;
@@ -1412,6 +1546,50 @@ BOOST_AUTO_TEST_SUITE( Overlap )
 		c.intensity = -3.0;
 		centers.push_back(c);
 		tree = removeOverlapping(centers);
+		BOOST_REQUIRE_EQUAL(centers.size(), 1);
+		BOOST_CHECK_CLOSE(centers[0].intensity, -3, 1e-9);
+	}
+	BOOST_AUTO_TEST_CASE(Overlap_Brute)
+	{
+		std::vector<Center2D> centers;
+		removeOverlapping_brute_force(centers);
+		BOOST_REQUIRE(centers.empty());
+		Center2D c(0, 1, 0);
+		centers.push_back(c);
+		removeOverlapping_brute_force(centers);
+		BOOST_REQUIRE_EQUAL(centers.size(), 1);
+		centers.push_back(c);
+		removeOverlapping_brute_force(centers);
+		BOOST_REQUIRE_EQUAL(centers.size(), 1);
+		c.intensity = -1.0;
+		centers.push_back(c);
+		removeOverlapping_brute_force(centers);
+		BOOST_REQUIRE_EQUAL(centers.size(), 1);
+		BOOST_CHECK_CLOSE(centers[0].intensity, -1, 1e-9);
+		c[0] = 3;
+		c.intensity = -2.0;
+		centers.push_back(c);
+		removeOverlapping_brute_force(centers);
+		BOOST_REQUIRE_EQUAL(centers.size(), 2);
+		BOOST_CHECK_CLOSE(centers[0].intensity, -2, 1e-9);
+		BOOST_CHECK_CLOSE(centers[1].intensity, -1, 1e-9);
+		c[0] = 2;
+		c.intensity = 0;
+		c.r = 1.1;
+		centers.push_back(c);
+		removeOverlapping_brute_force(centers);
+		BOOST_REQUIRE_EQUAL(centers.size(), 2);
+		BOOST_CHECK_CLOSE(centers[0].intensity, -2, 1e-9);
+		BOOST_CHECK_CLOSE(centers[1].intensity, -1, 1e-9);
+		c.intensity = -1.5;
+		centers.push_back(c);
+		removeOverlapping_brute_force(centers);
+		BOOST_REQUIRE_EQUAL(centers.size(), 2);
+		BOOST_CHECK_CLOSE(centers[0].intensity, -2, 1e-9);
+		BOOST_CHECK_CLOSE(centers[1].intensity, -1, 1e-9);
+		c.intensity = -3.0;
+		centers.push_back(c);
+		removeOverlapping_brute_force(centers);
 		BOOST_REQUIRE_EQUAL(centers.size(), 1);
 		BOOST_CHECK_CLOSE(centers[0].intensity, -3, 1e-9);
 	}
@@ -1491,13 +1669,36 @@ BOOST_AUTO_TEST_SUITE( Reconstruction )
 		centers.back().r=1;
 		rec.push_back(centers);
 		centers.assign(1, c);
-		rec.push_back(centers, 10);
+		rec.push_back(centers, 15);
 		BOOST_REQUIRE_EQUAL(rec.size(), 2);
 		BOOST_REQUIRE_EQUAL(rec.nb_cluster(), 1);
 		BOOST_CHECK_CLOSE(rec.get_clusters().front().front().r, 1.0, 1e-9);
 		BOOST_CHECK_CLOSE(rec.get_clusters().front().back().r, 0.5, 1e-9);
 	}
-	BOOST_AUTO_TEST_CASE( cluster_split )
+	BOOST_AUTO_TEST_CASE( real_data )
+	{
+		Reconstructor rec;
+		Reconstructor::Frame centers(1);
+		centers.back()[0] = 112.91;
+		centers.back()[1] = 120.444;
+		centers.back().r = 1.70649;
+		rec.push_back(centers);
+		centers.back()[0] = 112.358;
+		centers.back()[1] = 120.663;
+		centers.back().r = 1.71538;
+		rec.push_back(centers);
+		centers.back()[0] = 112.431;
+		centers.back()[1] = 121.25;
+		centers.back().r = 1.59051;
+		rec.push_back(centers);
+		centers.back()[0] = 112.502;
+		centers.back()[1] = 120.567;
+		centers.back().r = 1.58156;
+		rec.push_back(centers);
+		BOOST_REQUIRE_EQUAL(rec.size(), 4);
+		BOOST_REQUIRE_EQUAL(rec.nb_cluster(), 1);
+	}
+	/*BOOST_AUTO_TEST_CASE( cluster_split )
 	{
 		//no need to split
 		Reconstructor rec;
@@ -1552,6 +1753,166 @@ BOOST_AUTO_TEST_SUITE( Reconstruction )
 		BOOST_CHECK_GE(rec.get_clusters().back().back()[2], 19);
 		BOOST_CHECK_LE(rec.get_clusters()[1].front()[2], 26);
 	}
+	BOOST_AUTO_TEST_CASE( split_real )
+	{
+		Reconstructor rec;
+		Reconstructor::Frame centers(1);
+		centers.back()[0] = 109.843;
+		centers.back()[1] = 127.541;
+		centers.back().r = 2.83824;
+		centers.back().intensity = -5.8995;
+		rec.push_back(centers);
+		centers.back()[0] = 110.112;
+		centers.back()[1] = 127.957;
+		centers.back().r = 2.85067;
+		centers.back().intensity = -6.68224;
+		rec.push_back(centers);
+		centers.back()[0] = 109.975;
+		centers.back()[1] = 127.733;
+		centers.back().r = 2.73108;
+		centers.back().intensity = -6.93194;
+		rec.push_back(centers);
+		centers.back()[0] = 110.168;
+		centers.back()[1] = 127.88;
+		centers.back().r = 2.54598;
+		centers.back().intensity = -7.28323;
+		rec.push_back(centers);
+		centers.back()[0] = 110.117;
+		centers.back()[1] = 127.984;
+		centers.back().r = 2.63205;
+		centers.back().intensity = -7.36591;
+		rec.push_back(centers);
+		centers.back()[0] = 110.781;
+		centers.back()[1] = 127.935;
+		centers.back().r = 2.78161;
+		centers.back().intensity = -6.05116;
+		rec.push_back(centers);
+		centers.back()[0] = 110.714;
+		centers.back()[1] = 127.818;
+		centers.back().r = 2.63343;
+		centers.back().intensity = -6.07131;
+		rec.push_back(centers);
+		centers.back()[0] = 111.183;
+		centers.back()[1] = 127.836;
+		centers.back().r = 3.11998;
+		centers.back().intensity = -7.8848;
+		rec.push_back(centers);
+		centers.back()[0] = 111.281;
+		centers.back()[1] = 127.663;
+		centers.back().r = 3.44455;
+		centers.back().intensity = -9.67106;
+		rec.push_back(centers);
+		centers.back()[0] = 111.304;
+		centers.back()[1] = 127.587;
+		centers.back().r = 3.58571;
+		centers.back().intensity = -12.0548;
+		rec.push_back(centers);
+		centers.back()[0] = 111.714;
+		centers.back()[1] = 127.506;
+		centers.back().r = 3.66983;
+		centers.back().intensity = -12.5797;
+		rec.push_back(centers);
+		centers.back()[0] = 111.663;
+		centers.back()[1] = 127.511;
+		centers.back().r = 3.72784;
+		centers.back().intensity = -12.6989;
+		rec.push_back(centers);
+		centers.back()[0] = 111.488;
+		centers.back()[1] = 127.865;
+		centers.back().r = 3.54346;
+		centers.back().intensity = -12.9572;
+		rec.push_back(centers);
+		centers.back()[0] = 111.433;
+		centers.back()[1] = 127.599;
+		centers.back().r = 3.31208;
+		centers.back().intensity = -11.081;
+		rec.push_back(centers);
+		centers.back()[0] = 111.525;
+		centers.back()[1] = 127.506;
+		centers.back().r = 3.1168 ;
+		centers.back().intensity = -9.94293;
+		rec.push_back(centers);
+		centers.back()[0] = 111.267;
+		centers.back()[1] = 127.671;
+		centers.back().r = 2.72046;
+		centers.back().intensity = -6.34706;
+		rec.push_back(centers);
+		BOOST_REQUIRE_EQUAL(rec.size(), 16);
+		BOOST_REQUIRE_EQUAL(rec.nb_cluster(), 1);
+		OctaveFinder::Image signal(1, 16*3);
+		//const double minrad = std::min_element(rec.get_clusters()[0].begin(), rec.get_clusters()[0].end(), compare_radii<3>())->r;
+		std::fill(&signal(0,0), &signal(0,16), 0.0);
+		OctaveFinder::PixelType * s = &signal(0,16);
+		for(std::list<Center3D>::const_iterator it = rec.get_clusters()[0].begin(); it!=rec.get_clusters()[0].end(); ++it)
+			*s++ = it->intensity;
+		std::fill(signal.begin()+32, signal.end(), 0.0);
+		MultiscaleFinder1D finder(16*3);
+		BOOST_CHECK(!finder(signal).empty());
+		std::ofstream f0("split_real.layersG0");
+		for(size_t l=0; l<finder.get_n_layers()+3; ++l)
+		{
+			std::copy(
+					finder.get_octave(0).get_layersG(l).begin(),
+					finder.get_octave(0).get_layersG(l).end(),
+					std::ostream_iterator<float>(f0, "\t"));
+			f0<<"\n";
+		}
+		std::ofstream f("split_real.layersG");
+		for(size_t l=0; l<finder.get_n_layers()+3; ++l)
+		{
+			std::copy(
+					finder.get_octave(1).get_layersG(l).begin(),
+					finder.get_octave(1).get_layersG(l).end(),
+					std::ostream_iterator<float>(f, "\t"));
+			f<<"\n";
+		}
+		rec.split_clusters();
+		BOOST_REQUIRE_EQUAL(rec.nb_cluster(), 2);
+	}*/
+	BOOST_AUTO_TEST_CASE( real_long )
+	{
+		Reconstructor rec;
+		Reconstructor::Frame frame(1);
+		std::ifstream input("real.blob");
+		while(input.good())
+		{
+			input >> frame.back()[0] >> frame.back()[1];
+			input >> frame.back().r >> frame.back().r;
+			input >> frame.back().intensity;
+			if(input.good())
+				rec.push_back(frame);
+		}
+		BOOST_REQUIRE_EQUAL(rec.size(), 74);
+		BOOST_REQUIRE_EQUAL(rec.nb_cluster(), 1);
+		std::deque<Center3D> cen;
+		rec.get_blobs(cen);
+		BOOST_CHECK_EQUAL(cen.size(), 7);
+		std::vector<Center3D> centers(cen.begin(), cen.end());
+		removeOverlapping_brute_force<3>(centers);
+		BOOST_CHECK_EQUAL(centers.size(), cen.size());
+	}
+	/*BOOST_AUTO_TEST_CASE( real_3particles )
+	{
+		Reconstructor rec;
+		Reconstructor::Frame frame(1);
+		std::ifstream input("real2.blob");
+		while(input.good())
+		{
+			input >> frame.back()[0] >> frame.back()[1];
+			input >> frame.back().r >> frame.back().r;
+			input >> frame.back().intensity;
+			if(input.good())
+				rec.push_back(frame);
+		}
+		BOOST_REQUIRE_EQUAL(rec.size(), 21);
+		BOOST_REQUIRE_EQUAL(rec.nb_cluster(), 1);
+		std::deque<Center3D> cen;
+		rec.get_blobs(cen);
+		BOOST_CHECK_EQUAL(cen.size(), 3);
+		std::vector<Center3D> centers(cen.begin(), cen.end());
+		removeOverlapping_brute_force<3>(centers);
+		BOOST_CHECK_EQUAL(centers.size(), cen.size());
+	}
 	BOOST_AUTO_TEST_CASE( one_sphere )
 	{
 		Reconstructor rec;
@@ -1559,7 +1920,7 @@ BOOST_AUTO_TEST_SUITE( Reconstruction )
 		for(int z0=0; z0<10; ++z0)
 		{
 			//slice a sphere of radius 4 centeres on 4+z0/10
-			const double pos = 4.0 + z0 / 10.0;
+			const double pos = 4.01 + z0 / 10.0;
 			for(int z=0; z<10; ++z)
 			{
 				const double radsq =  4*4-pow(z - pos, 2);
@@ -1579,7 +1940,7 @@ BOOST_AUTO_TEST_SUITE( Reconstruction )
 			f<<pos<<"\t"<<centers.front()[2]<<"\n";
 			rec.clear();
 		}
-	}
+	}*/
 	/*BOOST_AUTO_TEST_CASE( two_identical_spheres )
 	{
 		Reconstructor rec;
@@ -1620,7 +1981,7 @@ BOOST_AUTO_TEST_SUITE( Reconstruction )
 		}
 	}*/
 BOOST_AUTO_TEST_SUITE_END()
-BOOST_AUTO_TEST_SUITE( Lif )
+/*BOOST_AUTO_TEST_SUITE( Lif )
 	BOOST_AUTO_TEST_CASE( export_z_scan )
 	{
 		LifReader reader("/home/mathieu/Code_data/liftest/Tsuru11dm_phi=52.53_J36.lif");
@@ -1660,6 +2021,25 @@ BOOST_AUTO_TEST_SUITE( LifTrack )
 		locator.clear();
 		BOOST_CHECK_EQUAL(cv::sum(locator.get_slice())[0], 0);
 		BOOST_CHECK_EQUAL(locator.get_z(), 0);
+		MultiscaleFinder2D finder;
+		cv::Mat_<unsigned char> slice(256, 256, (unsigned char)0);
+		reader.getSerie(0).fill2DBuffer(static_cast<void*>(slice.data), 0, 114);
+		std::vector<Center2D> centers = finder(slice);
+		for(size_t l=1; l<finder.get_n_layers()+1; ++l)
+		{
+			std::ostringstream os;
+			os << "fill_one_slice_bin_l" <<l<<".raw";
+			std::ofstream out(os.str().c_str());
+			out.write((char*)finder.get_octave(1).get_binary(l).data, 256*256);
+		}
+		for(size_t l=0; l<finder.get_n_layers()+3; ++l)
+		{
+			std::ostringstream os;
+			os << "fill_one_slice_layerG_l" <<l<<".raw";
+			std::ofstream out(os.str().c_str());
+			out.write((char*)finder.get_octave(1).get_layersG(l).data, 256*256*finder.get_octave(1).get_layersG(l).elemSize());
+		}
+		BOOST_CHECK_EQUAL(finder.get_octave(1).get_binary(1)(110, 111), true);
 	}
 	BOOST_AUTO_TEST_CASE( fill_one_stack )
 	{
@@ -1720,6 +2100,11 @@ BOOST_AUTO_TEST_SUITE( LifTrack )
 			for(Clusters::const_iterator cl=cl_min;cl!=cl_max;++cl)
 				for(Cluster::const_iterator p = cl->begin(); p!=cl->end(); ++p)
 					f_cl<< p->r <<"\n";
+			f_cl<<"SCALARS response double\n"
+					"LOOKUP_TABLE default\n";
+			for(Clusters::const_iterator cl=cl_min;cl!=cl_max;++cl)
+				for(Cluster::const_iterator p = cl->begin(); p!=cl->end(); ++p)
+					f_cl<< p->intensity <<"\n";
 			f_cl.close();
 			cl_min = cl_max;
 		}
@@ -1733,7 +2118,7 @@ BOOST_AUTO_TEST_SUITE( LifTrack )
 		std::cout<<std::endl;
 		BOOST_CHECK_EQUAL(locator.get_t(), 1);
 		BOOST_REQUIRE(!centers.empty());
-		BOOST_REQUIRE_EQUAL(centers.size(), 7946);
+		BOOST_CHECK_EQUAL(centers.size(), 7951);
 		//export to VTK format for human-eye comparison
 		std::ofstream f_rec("fill_one_stack_reconstructed.vtk");
 		f_rec<<"# vtk DataFile Version 3.0\n"
@@ -1754,4 +2139,4 @@ BOOST_AUTO_TEST_SUITE( LifTrack )
 			f_rec<< p->r <<"\n";
 		f_rec.close();
 	}
-BOOST_AUTO_TEST_SUITE_END()
+BOOST_AUTO_TEST_SUITE_END()*/
