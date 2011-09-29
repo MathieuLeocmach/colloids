@@ -65,7 +65,7 @@ namespace Colloids
             cv::Ptr<cv::FilterEngine> preblur_filter;
 
             virtual void _fill_internal();
-            void fill_iterative_radii(const double &k=1.6);
+            virtual void fill_iterative_radii();
     };
 
     class OctaveFinder1D : public OctaveFinder
@@ -97,6 +97,10 @@ namespace Colloids
 			boost::iostreams::mapped_file file;
 			std::string path;
 			std::vector<Image > layersG2D;
+			std::vector<cv::FilterEngine> iterative_Zgaussian_filters;
+			virtual void fill_iterative_radii();
+
+			virtual void _fill_internal();
     };
 };
 #endif // OCTAVEFINDER_H

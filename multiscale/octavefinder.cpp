@@ -39,14 +39,14 @@ OctaveFinder::OctaveFinder(const int nrows, const int ncols, const int nbLayers,
 }
 
 OctaveFinder3D::OctaveFinder3D(const int nplanes, const int nrows, const int ncols, const int nbLayers, const double &preblur_radius) :
-	OctaveFinder(0, 0, nbLayers, preblur_radius)
+	OctaveFinder(0, 0, nbLayers, preblur_radius), iterative_Zgaussian_filters(nbLayers+2)
 {
 	//random file name in the working directory
 	this->path.reserve(30);
 	this->path.push_back('_');
 	this->path.push_back('_');
 	for(int i=0; i<28;++i)
-		this->path.push_back('a'+rand()*('Z'-'a'));
+		this->path.push_back('a'+rand()%('Z'-'a'));
 	//create a memory mapped file to contain the images data
 	boost::iostreams::mapped_file_params params(this->path);
 	const size_t nbpixels =  nplanes * nrows * ncols;
@@ -74,9 +74,10 @@ OctaveFinder3D::OctaveFinder3D(const int nplanes, const int nrows, const int nco
 	this->layersG2D.reserve(nbLayers+3);
 	for (int i = 0; i<nbLayers+3; ++i)
 		this->layersG2D.push_back(cv::Mat(
-				nplanes, nrows*ncols, layersG[i].type(),
-				(void*)(this->file.data() + i * nbpixels * sizeof(PixelType))
+				nplanes, nrows*ncols, layersG[0].type(),
+				(void*)this->layersG[i].data
 				));
+	this->set_radius_preblur(preblur_radius);
 }
 
 OctaveFinder::~OctaveFinder()
@@ -92,7 +93,7 @@ OctaveFinder3D::~OctaveFinder3D()
 void Colloids::OctaveFinder::set_radius_preblur(const double &k)
 {
 	this->preblur_radius = k;
-	this->fill_iterative_radii(k);
+	this->fill_iterative_radii();
 	this->preblur_filter = cv::createGaussianFilter(
 			this->layersG.front().type(),
 			cv::Size(0,0),
@@ -130,6 +131,31 @@ void Colloids::OctaveFinder::_fill_internal()
 				this->layersG[i],
 				this->layersG[i+1]
 				);
+	//difference of Gaussians
+	for(size_t i=0; i<this->layers.size(); ++i)
+		cv::subtract(this->layersG[i+1], this->layersG[i], this->layers[i]);
+}
+
+void Colloids::OctaveFinder3D::_fill_internal()
+{
+	//iterative Gaussian blur
+	for(size_t i=0; i<this->layersG.size()-1; ++i)
+	{
+		//Z out of place
+		this->iterative_Zgaussian_filters[i].apply(this->layersG2D[i], this->layersG2D[i+1]);
+		//X and Y inplace
+		for(int k=0; k<this->layersG[i+1].size[0]; ++k)
+		{
+			cv::Mat slice(
+					this->layersG[i+1].size[1],
+					this->layersG[i+1].size[2],
+					this->layersG[i+1].type(),
+					(void*)&this->layersG[i+1](k)
+					);
+			this->iterative_gaussian_filters[i].apply(slice, slice);
+		}
+	}
+
 	//difference of Gaussians
 	for(size_t i=0; i<this->layers.size(); ++i)
 		cv::subtract(this->layersG[i+1], this->layersG[i], this->layers[i]);
@@ -534,12 +560,12 @@ void OctaveFinder::seam_binary(OctaveFinder & other)
 
 }
 
-void Colloids::OctaveFinder::fill_iterative_radii(const double & k)
+void Colloids::OctaveFinder::fill_iterative_radii()
 {
 		//target blurring radii
         vector<double> sigmas(this->get_n_layers()+3);
         for(size_t i=0; i<sigmas.size(); ++i)
-        	sigmas[i] = k * pow(2, i/double(this->get_n_layers()));
+        	sigmas[i] = this->preblur_radius * pow(2, i/double(this->get_n_layers()));
         //corresponding blob sizes
         const double n = this->get_n_layers();
         if(this->get_height()==1 || this->get_width()==1)
@@ -561,6 +587,40 @@ void Colloids::OctaveFinder::fill_iterative_radii(const double & k)
         			cv::Size(0,0),
         			this->iterative_radii[i]
         	);
+}
+
+void Colloids::OctaveFinder3D::fill_iterative_radii()
+{
+	const double n = this->get_n_layers();
+	//target blurring radii
+	vector<double> sigmas(this->get_n_layers()+3);
+	for(size_t i=0; i<sigmas.size(); ++i)
+		sigmas[i] = this->preblur_radius * pow(2, i/n);
+	//corresponding blob sizes
+	this->prefactor = 2.0 * sqrt(2.0 * log(2.0) / n / (pow(2.0, 2.0 / n) - 1));
+	vector<size_t>::iterator si = this->sizes.begin();
+	for(vector<double>::const_iterator sig=sigmas.begin(); sig!=sigmas.end(); sig++)
+		*si++ = static_cast<size_t>((*sig * prefactor) + 0.5);
+	//iterative blurring radii
+	transform(sigmas.begin(), sigmas.end(), sigmas.begin(), sigmas.begin(), multiplies<double>());
+	for(size_t i=0; i<this->iterative_radii.size(); ++i)
+		this->iterative_radii[i] = sqrt(sigmas[i+1] - sigmas[i]);
+	//iterative gaussian filters
+	for(size_t i=0; i<this->iterative_radii.size(); ++i)
+		this->iterative_gaussian_filters[i] = *cv::createGaussianFilter
+		(
+				this->layersG[0].type(),
+				cv::Size(0,0),
+				this->iterative_radii[i]
+		);
+	cv::Mat_<double> kx(1,1, 1.0);
+	for(size_t i=0; i<this->iterative_radii.size(); ++i)
+		this->iterative_Zgaussian_filters[i] = *createSeparableLinearFilter
+		(
+				this->layersG[0].type(), this->layersG[0].type(),
+				kx, get_kernel(this->iterative_radii[i]),
+				cv::Point(-1,-1), 0, cv::BORDER_DEFAULT
+		);
 }
 
 

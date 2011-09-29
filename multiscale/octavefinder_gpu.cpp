@@ -22,7 +22,7 @@ OctaveFinder_GPU::~OctaveFinder_GPU()
 void Colloids::OctaveFinder_GPU::set_radius_preblur(const double &k)
 {
 	this->preblur_radius = k;
-	this->fill_iterative_radii(k);
+	this->fill_iterative_radii();
 	this->initialize_gpu();
 }
 
