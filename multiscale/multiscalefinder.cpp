@@ -101,59 +101,6 @@ namespace Colloids {
     		this->octaves[o]->seam_binary(*this->octaves[o+1]);
 	}
 
-	/**
-	 * \brief Locate centers with subpixel and subscale resolution
-	 */
-	void MultiscaleFinder::subpix(std::vector<Center2D> &centers) const
-	{
-		centers.clear();
-		//reserve memory for the center container
-    	size_t n_centers = 0;
-    	for(size_t o=0; o<this->octaves.size(); ++o)
-    		n_centers += this->octaves[o]->get_nb_centers();
-    	centers.reserve(n_centers);
-    	//subpixel resolution
-    	for(size_t o=0; o<this->octaves.size(); ++o)
-    	{
-    		std::vector<Center2D> v;
-    		this->octaves[o]->subpix(v);
-    		//correct the seam between octaves in sizing precision
-    		if(o>0)
-				for(size_t p=0; p<v.size(); ++p)
-					this->seam(v[p], o-1);
-    		//transform scale coordinate in size coordinate
-    		for(size_t c=0; c< v.size(); ++c)
-    			this->octaves[o]->scale(v[c]);
-			//stack up
-			for(size_t c=0; c<v.size(); ++c)
-			{
-				v[c][0] *= pow(2.0, (int)(o)-1);
-				v[c][1] *= pow(2.0, (int)(o)-1);
-				v[c].r *= pow(2.0, (int)(o)-1);
-				centers.push_back(v[c]);
-			}
-    	}
-	}
-	/**
-	 * Efficient processing pipeline from the input image to the output centers
-	 */
-	void MultiscaleFinder::get_centers(const cv::Mat & input, std::vector<Center2D>& centers)
-	{
-		this->fill(input);
-		this->initialize_binary();
-		this->subpix(centers);
-	}
-
-    const cv::Vec3i MultiscaleFinder::previous_octave_coords(const Center2D &v) const
-    {
-    	const double n = this->get_n_layers();
-    	cv::Vec3i vi;
-		for(int u=0; u<2; ++u)
-			vi[u] = (int)(v[u]*2+0.5);
-		vi[2] = int(v.r + n + 0.5);
-		return vi;
-    }
-
     const MultiscaleFinder::Image MultiscaleFinder2D::downscale(const size_t &o)
 	{
     	//second to last Gaussian layer of octave o-1 has a blurring radius two time larger than the original
@@ -220,13 +167,4 @@ namespace Colloids {
 			}
 		}
     }
-    void MultiscaleFinder2D::seam(Center2D &v, const size_t &o) const
-    {
-		if(v.r<1)
-			v.r = this->octaves[o]->scale_subpix(this->previous_octave_coords(v)) - this->get_n_layers();
-	}
-    void MultiscaleFinder1D::seam(Center2D &v, const size_t &o) const
-	{
-    	//nothing
-	}
 }

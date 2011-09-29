@@ -759,7 +759,8 @@ BOOST_AUTO_TEST_SUITE( multiscale_call )
 		OctaveFinder::Image input(256, 256);
 		input.setTo(0);
 		cv::circle(input, cv::Point(128, 128), 4, 1.0, -1);
-		std::vector<Center2D> v = finder(input);
+		std::vector<Center2D> v;
+		finder.get_centers(input, v);
 		//the first octave's should be the same as the one of a Octavefinder of the same size
 		OctaveFinder ofinder;
 		ofinder.preblur_and_fill(input);
@@ -787,7 +788,8 @@ BOOST_AUTO_TEST_SUITE( multiscale_call )
 		OctaveFinder::Image input(101, 155);
 		input.setTo(0);
 		cv::circle(input, cv::Point(28, 28), 2, 1.0, -1);
-		std::vector<Center2D> v = finder(input);
+		std::vector<Center2D> v;
+		finder.get_centers(input, v);
 		//the first octave's should be the same as the one of a OctaveFinder of the same size
 		OctaveFinder ofinder(101, 155);
 		ofinder.preblur_and_fill(input);
@@ -821,7 +823,7 @@ BOOST_AUTO_TEST_SUITE( multiscale_call )
 		MultiscaleFinder2D finder(pow(2, s+1), pow(2, s+1));
 		//cv cannot draw circle sizes better than a pixel, so the input image is drawn in high resolution
 		cv::Mat_<uchar>input(32*pow(2, s+1), 32*pow(2, s+1)), small_input(pow(2, s+1), pow(2, s+1));
-		std::vector<Center2D> v;
+		std::vector<Center2D> v, v_s;
 		std::ofstream f("multiscale_relative_sizes.out");
 		std::set<int> large_radii;
 		for(int k=1; k<s-1; ++k)
@@ -834,7 +836,7 @@ BOOST_AUTO_TEST_SUITE( multiscale_call )
 			BOOST_TEST_CHECKPOINT("radius = "<<radius<<" call");
 			cv::circle(input, cv::Point(32*pow(2, s), 32*pow(2, s)), *lr, 255, -1);
 			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
-			std::vector<Center2D> v_s = finder(small_input);
+			finder.get_centers(small_input, v_s);
 			for(size_t j=0; j<v_s.size(); ++j)
 				f << radius << "\t" << v_s[j].r << "\n";
 			BOOST_TEST_CHECKPOINT("radius = "<<radius<<" size");
@@ -865,7 +867,7 @@ BOOST_AUTO_TEST_SUITE( multiscale_call )
 			input.setTo(0);
 			cv::circle(input, cv::Point(8*i, 8*i), 16*2.88, 255, -1);
 			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
-			v =	finder(small_input);
+			finder.get_centers(small_input, v);
 		}
 		BOOST_WARN_MESSAGE(false, "An multiscale detector smaller than "<< (i+1)<<" pixels cannot detect anything");
 	}
@@ -1180,7 +1182,8 @@ BOOST_AUTO_TEST_SUITE( multiscale )
 		OctaveFinder::Image input(1, 256);
 		input.setTo(0);
 		cv::circle(input, cv::Point(128, 0), 3, 1.0, -1);
-		std::vector<Center2D> v = finder(input);
+		std::vector<Center2D> v;
+		finder.get_centers(input, v);
 		//the first octave's should be the same as the one of an Octavefinder of the same size
 		OctaveFinder1D ofinder;
 		ofinder.preblur_and_fill(input);
@@ -1207,7 +1210,7 @@ BOOST_AUTO_TEST_SUITE( multiscale )
 		MultiscaleFinder1D finder(pow(2, s+1));
 		//cv cannot draw circle sizes better than a pixel, so the input image is drawn in high resolution
 		cv::Mat_<uchar>input(1, 32*pow(2, s+1)), small_input(1, pow(2, s+1));
-		std::vector<Center2D> v;
+		std::vector<Center2D> v, v_s;
 		std::ofstream f("multiscale1D_relative_sizes.out");
 		std::set<int> large_radii;
 		for(int k=1; k<s-1; ++k)
@@ -1221,7 +1224,7 @@ BOOST_AUTO_TEST_SUITE( multiscale )
 			BOOST_TEST_CHECKPOINT("radius = "<<radius<<" call");
 			cv::circle(input, cv::Point(32*pow(2, s), 0), *lr, 255, -1);
 			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
-			std::vector<Center2D> v_s = finder(small_input);
+			finder.get_centers(small_input, v_s);
 			//removeOverlapping_brute_force(v_s);
 			BOOST_TEST_CHECKPOINT("radius = "<<radius<<" size");
 			BOOST_CHECK_MESSAGE(
@@ -1290,7 +1293,8 @@ BOOST_AUTO_TEST_SUITE( multiscale )
 		cv::Mat_<float> input_margin(1, signal.size()*3, 0.0f);
 		std::copy(signal.begin(), signal.end(), input_margin.begin()+signal.size());
 		MultiscaleFinder1D finder_margin(input_margin.cols);
-		std::vector<Center2D> blobs_margin = finder_margin(input_margin);
+		std::vector<Center2D> blobs_margin;
+		finder_margin.get_centers(input_margin, blobs_margin);
 		std::ofstream f_margin("multiscale1D_real_data_margin.layersG");
 		BOOST_REQUIRE_GE(finder_margin.get_n_octaves(), 2);
 		for(size_t l=0; l<finder_margin.get_n_layers()+2; ++l)

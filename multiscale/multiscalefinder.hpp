@@ -32,13 +32,13 @@ public:
 	//processing
 	void fill(const cv::Mat &input);
 	void initialize_binary();
-	void subpix(std::vector<Center2D>& centers) const;
-	void get_centers(const cv::Mat &input, std::vector<Center2D>& centers);
-	inline std::vector<Center2D> operator()(const cv::Mat &input);
-	virtual const cv::Vec3i previous_octave_coords(const Center2D &v) const;
+	template<int D>	inline void subpix(std::vector<Center<D> >& centers) const;
+	template<int D>
+	inline void get_centers(const cv::Mat &input, std::vector<Center<D> >& centers);
+	template<int D> const cv::Vec<int, D+1> previous_octave_coords(const Center<D> &v) const;
 	virtual const Image downscale(const size_t &o) = 0;
 	void upscale();
-	virtual void seam(Center2D &v, const size_t &o) const =0;
+	template<int D> inline void seam(Center<D> &v, const size_t &o) const{};
 
 
 protected:
@@ -47,23 +47,12 @@ protected:
 	MultiscaleFinder(){};
 };
 
-/**
- * \brief Convenient return-by-value operator wrapped around get_centers
- */
-inline std::vector<Center2D> MultiscaleFinder::operator ()(const cv::Mat & input)
-{
-	std::vector<Center2D> centers;
-	this->get_centers(input, centers);
-	return centers;
-}
-
 class MultiscaleFinder2D : public MultiscaleFinder
 {
 public:
 	MultiscaleFinder2D(const int nrows=256, const int ncols=256, const int nbLayers=3, const double &preblur_radius=1.6);
 	virtual const size_t get_width() const {return this->octaves[0]->get_width()/2; };
 	virtual const Image downscale(const size_t &o);
-	virtual void seam(Center2D &v, const size_t &o) const;
 };
 
 class MultiscaleFinder1D : public MultiscaleFinder
@@ -72,10 +61,70 @@ public:
 	MultiscaleFinder1D(const int ncols=256, const int nbLayers=3, const double &preblur_radius=1.6);
 	virtual const size_t get_width() const {return 1; };
 	virtual const Image downscale(const size_t &o);
-	virtual void seam(Center2D &v, const size_t &o) const;
 };
 
+/**
+ * \brief Locate centers with subpixel and subscale resolution
+ */
+template<int D>
+void MultiscaleFinder::subpix(std::vector<Center<D> > &centers) const
+{
+	centers.clear();
+	//reserve memory for the center container
+	size_t n_centers = 0;
+	for(size_t o=0; o<this->octaves.size(); ++o)
+		n_centers += this->octaves[o]->get_nb_centers();
+	centers.reserve(n_centers);
+	//subpixel resolution
+	for(size_t o=0; o<this->octaves.size(); ++o)
+	{
+		std::vector<Center<D> > v;
+		this->octaves[o]->subpix(v);
+		//correct the seam between octaves in sizing precision
+		if(o>0)
+			for(size_t p=0; p<v.size(); ++p)
+				this->seam(v[p], o-1);
+		//transform scale coordinate in size coordinate
+		for(size_t c=0; c< v.size(); ++c)
+			this->octaves[o]->scale(v[c]);
+		//stack up
+		for(size_t c=0; c<v.size(); ++c)
+		{
+			for(int d=0; d<D; ++d)
+			v[c][d] *= pow(2.0, (int)(o)-1);
+			v[c].r *= pow(2.0, (int)(o)-1);
+			centers.push_back(v[c]);
+		}
+	}
+}
 
+/**
+ * Efficient processing pipeline from the input image to the output centers
+ */
+template<int D>
+inline void MultiscaleFinder::get_centers(const cv::Mat & input, std::vector<Center<D> >& centers)
+{
+	this->fill(input);
+	this->initialize_binary();
+	this->subpix(centers);
+}
+
+template<int D>
+const cv::Vec<int, D+1> MultiscaleFinder::previous_octave_coords(const Center<D> &v) const
+{
+	const double n = this->get_n_layers();
+	cv::Vec<int, D+1> vi;
+	for(int u=0; u<D; ++u)
+		vi[u] = (int)(v[u]*2+0.5);
+	vi[D] = int(v.r + n + 0.5);
+	return vi;
+}
+template<>
+inline void MultiscaleFinder::seam(Center2D &v, const size_t &o) const
+{
+	if(v.r<1)
+		v.r = this->octaves[o]->scale_subpix(this->previous_octave_coords(v)) - this->get_n_layers();
+}
 
 }
 
