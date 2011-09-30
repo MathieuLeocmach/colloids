@@ -682,21 +682,6 @@ void Colloids::OctaveFinder::single_subpix(const std::vector<int> &ci, Center_ba
 	c.r = this->scale_subpix(ci);
 }
 
-std::vector<Center2D> Colloids::OctaveFinder::operator ()(const cv::Mat & input, const bool preblur)
-{
-	if(preblur)
-		this->preblur_and_fill(input);
-
-	else
-		this->fill(input);
-
-	this->initialize_binary();
-	std::vector<Center2D> centers;
-	this->subpix(centers);
-	for(size_t c=0; c<centers.size(); ++c)
-		this->scale(centers[c]);
-	return centers;
-}
 const double OctaveFinder::get_iterative_radius(const double & larger, const double & smaller) const
 {
 	return this->preblur_radius * sqrt(pow(2.0, 2.0*larger/this->get_n_layers()) - pow(2.0, 2.0*smaller/this->get_n_layers()));

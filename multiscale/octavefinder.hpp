@@ -49,7 +49,8 @@ namespace Colloids
             void scale(Center_base &c) const{
             	c.r = this->prefactor * this->preblur_radius * pow(2.0, (c.r + 1) / this->get_n_layers());
             };
-            std::vector<Center2D> operator()(const cv::Mat &input, const bool preblur=false);
+            template<int D>
+            std::vector<Center<D> > get_centers(const cv::Mat &input, const bool preblur=false);
             virtual double gaussianResponse(const std::vector<int> &ci, const double & scale) const;
             virtual void seam_binary(OctaveFinder & other);
 
@@ -93,7 +94,7 @@ namespace Colloids
 
 			virtual void initialize_binary(const double &max_ratio = 1.1);
 			virtual void spatial_subpix(const std::vector<int> &ci, Center_base& c) const;
-			/*virtual double scale_subpix(const std::vector<int> &ci) const;*/
+			//virtual double scale_subpix(const std::vector<int> &ci) const;
 			virtual double gaussianResponse(const std::vector<int> &ci, const double & scale) const;
 			virtual void seam_binary(OctaveFinder & other);
 
@@ -118,8 +119,22 @@ namespace Colloids
 		std::list<std::vector<int> >::const_iterator ci = this->centers_no_subpix.begin();
 		for(size_t c=0; c<centers.size(); ++c)
 			this->single_subpix(*ci++, centers[c]);
-
-
 	}
+    template<int D>
+    std::vector<Center<D> > OctaveFinder::get_centers(const cv::Mat & input, const bool preblur)
+    {
+    	if(preblur)
+    		this->preblur_and_fill(input);
+
+    	else
+    		this->fill(input);
+
+    	this->initialize_binary();
+    	std::vector<Center<D> > centers;
+    	this->subpix(centers);
+    	for(size_t c=0; c<centers.size(); ++c)
+    		this->scale(centers[c]);
+    	return centers;
+    }
 };
 #endif // OCTAVEFINDER_H

@@ -43,6 +43,37 @@ struct by_coordinate : std::binary_function<const T&, const T&, bool>
 	}
 };
 
+//draw a sphere plane by plane
+void drawsphere(cv::Mat & input, const double &z, const double &y, const double &x, const double &r, const double value=255)
+{
+	for(int k=0; k<input.size[0]; ++k)
+	{
+		const double Rsq = r*r - (k-z)*(k-z);
+		if(Rsq>=0)
+		{
+			cv::Mat slice(input.size[1], input.size[2], input.type(), &input.at<unsigned char>(k,0,0));
+			cv::circle(slice, cv::Point(y, x), (int)(sqrt(Rsq)), value, -1);
+		}
+	}
+}
+template<typename T>
+void volume_shrink(const cv::Mat_<T> & large, cv::Mat_<T> & small, size_t factor)
+{
+	for(int k=0; k<small.size[0]; ++k)
+		for(int j=0; j<small.size[1]; ++j)
+			for(int i=0; i<small.size[2]; ++i)
+			{
+				double v = 0;
+				for(size_t mk=0; mk<factor; ++mk)
+					for(size_t mj=0; mj<factor; ++mj)
+					{
+						const T* a = &large(factor*k+mk, factor*j+mj, factor*i);
+						v += std::accumulate(a, a+factor, 0);
+					}
+				small(k, j, i) = (v/(factor*factor*factor) + 0.5);
+			}
+}
+
 BOOST_AUTO_TEST_SUITE( onDisk )
 
 	BOOST_AUTO_TEST_CASE( onDisk_constructor )
@@ -611,7 +642,7 @@ BOOST_AUTO_TEST_SUITE( octave_limit_cases )
 			input.setTo(0);
 			cv::circle(input, cv::Point(16*16, 16*16), 16*(3-0.01*i), 255, -1);
 			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
-			v =	finder(small_input, true);
+			v =	finder.get_centers<2>(small_input, true);
 		}
 		BOOST_WARN_MESSAGE(false, "Cannot detect sizes below "<< (3-0.01*(i-1))<<" pixels");
 	}
@@ -628,7 +659,7 @@ BOOST_AUTO_TEST_SUITE( octave_limit_cases )
 			input.setTo(0);
 			cv::circle(input, cv::Point(8*i, 8*i), 16*2.88, 255, -1);
 			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
-			v =	finder(small_input, true);
+			v =	finder.get_centers<2>(small_input, true);
 		}
 		BOOST_WARN_MESSAGE(false, "An octave detector smaller than "<< (i+1)<<" pixels cannot detect anything");
 	}
@@ -645,7 +676,7 @@ BOOST_AUTO_TEST_SUITE( octave_limit_cases )
 			input.setTo(0);
 			cv::circle(input, cv::Point(32*16, i), 32*4, 255, -1);
 			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
-			std::vector<Center2D> v_s = finder(small_input, true);
+			std::vector<Center2D> v_s = finder.get_centers<2>(small_input, true);
 			BOOST_REQUIRE_MESSAGE(
 				v_s.size()==1,
 				""<<((v_s.size()==0)?"No center":"More than one center")<<" for input position "<<position
@@ -681,7 +712,7 @@ BOOST_AUTO_TEST_SUITE( octave_limit_cases )
 			cv::circle(input, cv::Point(32*16, 32*16), 32*4, 255, -1);
 			cv::circle(input, cv::Point(32*16, 32*16+i), 32*4, 255, -1);
 			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
-			std::vector<Center2D> v_s = finder(small_input, true);
+			std::vector<Center2D> v_s = finder.get_centers<2>(small_input, true);
 			BOOST_REQUIRE_EQUAL(v_s.size(), 2);
 			BOOST_CHECK_CLOSE(v_s[0][1], 16, distance<16?6:2);
 			/*cv::namedWindow("truc");
@@ -707,7 +738,7 @@ BOOST_AUTO_TEST_SUITE( octave_limit_cases )
 			i++;
 			input.setTo(0);
 			cv::circle(input, cv::Point(16, 16), 3, pow(0.5, i), -1);
-			v =	finder(input, true);
+			v =	finder.get_centers<2>(input, true);
 		}
 		BOOST_WARN_MESSAGE(i>10, "Cannot detect intensities below "<< pow(0.5, i-1));
 		BOOST_CHECK_LT(finder.get_layers(1)(16,16), 0);
@@ -992,10 +1023,10 @@ BOOST_AUTO_TEST_SUITE( octave )
 		OctaveFinder::Image input(1, 32);
 		input.setTo(0);
 		std::fill_n(&input(0, 10), 7, 1);
-		BOOST_REQUIRE_EQUAL(finder(input).size(), 1);
+		BOOST_REQUIRE_EQUAL(finder.get_centers<2>(input).size(), 1);
 		input.setTo(0);
 		std::fill_n(&input(0, 10), 6, 1);
-		BOOST_REQUIRE_EQUAL(finder(input).size(), 1);
+		BOOST_REQUIRE_EQUAL(finder.get_centers<2>(input).size(), 1);
 	}
 	BOOST_AUTO_TEST_CASE( subpix )
 	{
@@ -1125,14 +1156,14 @@ BOOST_AUTO_TEST_SUITE( octave )
 		OctaveFinder1D finder(32);
 		cv::Mat_<uchar>input(1, 16*32), small_input(1,32);
 		int i = 0;
-		std::vector<Center2D> v(1);
+		std::vector<Center1D> v(1);
 		while(3-0.01*i>0 && v.size()>0)
 		{
 			i++;
 			input.setTo(0);
 			cv::circle(input, cv::Point(16*16, 0), 16*(3-0.01*i), 255, -1);
 			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
-			v =	finder(small_input, true);
+			v =	finder.get_centers<1>(small_input, true);
 		}
 		BOOST_WARN_MESSAGE(false, "Cannot detect sizes below "<< (3-0.01*(i-1))<<" pixels in 1D");
 	}
@@ -1140,7 +1171,7 @@ BOOST_AUTO_TEST_SUITE( octave )
 	BOOST_AUTO_TEST_CASE( octave_minimum_detector_size )
 	{
 		int i = 32;
-		std::vector<Center2D> v(1);
+		std::vector<Center1D> v(1);
 		while(i>0 && v.size()>0)
 		{
 			i--;
@@ -1149,7 +1180,7 @@ BOOST_AUTO_TEST_SUITE( octave )
 			input.setTo(0);
 			cv::circle(input, cv::Point(8*i, 0), 16*2, 255, -1);
 			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
-			v =	finder(small_input, true);
+			v =	finder.get_centers<1>(small_input, true);
 		}
 		BOOST_WARN_MESSAGE(false, "An 1D octave detector smaller than "<< (i+1)<<" pixels cannot detect anything");
 	}
@@ -1158,13 +1189,13 @@ BOOST_AUTO_TEST_SUITE( octave )
 		OctaveFinder1D finder(16);
 		OctaveFinder::Image  input(1,16);
 		int i = 0;
-		std::vector<Center2D> v(1);
+		std::vector<Center1D> v(1);
 		while(i<10 && v.size()>0)
 		{
 			i++;
 			input.setTo(0);
 			cv::circle(input, cv::Point(8, 0), 4, pow(0.5, i), -1);
-			v =	finder(input, true);
+			v =	finder.get_centers<1>(input, true);
 		}
 		BOOST_WARN_MESSAGE(i>10, "Cannot detect intensities below "<< pow(0.5, i-1)<<" in 1D");
 	}
@@ -1506,32 +1537,8 @@ BOOST_AUTO_TEST_SUITE( subpix )
 		for(int i=0; i<25; ++i)
 		{
 			input.setTo(0);
-			//draw a sphere plane by plane
-			const double lr = 8*4+i;
-			for(int k=0; k<input.size[0]; ++k)
-			{
-				const double Rsq = lr*lr - (k-8*16)*(k-8*16);
-				if(Rsq>=0)
-				{
-					cv::Mat_<uchar> slice(input.size[1], input.size[2], &input(k,0,0));
-					cv::circle(slice, cv::Point(8*16, 8*16), (int)(sqrt(Rsq)), 255, -1);
-				}
-			}
-			//cv::imshow("XY large", cv::Mat(8*32, 8*32, input.type(), &input(8*16, 0, 0)));
-			//cv::imshow("YZ large", cv::Mat(8*32, 8*32, input.type(), &input(0, 0, 8*16), input.step[1]));
-			for(int k=0; k<small_input.size[0]; ++k)
-				for(int j=0; j<small_input.size[1]; ++j)
-					for(int i=0; i<small_input.size[2]; ++i)
-					{
-						double v = 0;
-						for(int mk=0; mk<8; ++mk)
-							for(int mj=0; mj<8; ++mj)
-								v += std::accumulate(&input(8*k+mk, 8*j+mj, 8*i), (&input(8*k+mk, 8*j+mj, 8*i))+8, 0);
-						small_input(k, j, i) = (v/(8*8*8) + 0.5);
-					}
-			//cv::imshow("XY", cv::Mat(32, 32, small_input.type(), &small_input(16, 0, 0)));
-			//cv::imshow("YZ", cv::Mat(32, 32, small_input.type(), &small_input(0, 0, 16), small_input.step[1]));
-			//cv::waitKey();
+			drawsphere(input, 8*16, 8*16, 8*16, 8*4+i);
+			volume_shrink(input, small_input, 8);
 			finder.preblur_and_fill(small_input);
 			finder.initialize_binary();
 			std::vector<Center3D> v_s;
@@ -1548,11 +1555,110 @@ BOOST_AUTO_TEST_SUITE( subpix )
 		std::ofstream out("subpix_relative_sizes3D");
 		for(size_t c=0; c<v.size(); ++c)
 		{
-			BOOST_CHECK_CLOSE(v[c].r, 4+0.125*c, 2);
+			BOOST_CHECK_CLOSE(v[c].r, 4+0.125*c, 2.5);
 			out<<4+0.125*c<<"\t"<<v[c].r<<"\n";
 		}
 	}
 BOOST_AUTO_TEST_SUITE_END() //subpix 3D
+
+BOOST_AUTO_TEST_SUITE( octave_limit_cases )
+
+	BOOST_AUTO_TEST_CASE( octave3D_minimum_detected_size )
+	{
+		OctaveFinder3D finder(32, 32, 32);
+		//cv cannot draw circle sizes better than a pixel, so the input image is drawn in high resolution
+		int dims[3] = {32,32,32}, ldims[3] = {16*32, 16*32, 16*32};
+		cv::Mat_<uchar>input(3, ldims, (unsigned char)0), small_input(3, dims, (unsigned char)0);
+		int i = 0;
+		std::vector<Center3D> v(1);
+		while(4-0.01*i>0 && v.size()>0)
+		{
+			i++;
+			input.setTo(0);
+			drawsphere(input, 16*16, 16*16, 16*16, 16*(4-0.01*i), 255);
+			volume_shrink(input, small_input, 16);
+			v =	finder.get_centers<3>(small_input, true);
+		}
+		BOOST_WARN_MESSAGE(false, "Cannot detect sizes below "<< (4-0.01*(i-1))<<" pixels in 3D");
+	}
+
+	BOOST_AUTO_TEST_CASE( octave3D_minimum_detector_size )
+	{
+		int i = 16;
+		std::vector<Center3D> v(1);
+		while(i>0 && v.size()>0)
+		{
+			i--;
+			OctaveFinder3D finder(i,i,i);
+			int dims[3] = {i, i, i};
+			cv::Mat_<uchar> input(3, dims);
+			input.setTo(0);
+			drawsphere(input, i/2, i/2, i/2, 4, 255);
+			v =	finder.get_centers<3>(input, true);
+		}
+		BOOST_WARN_MESSAGE(false, "An octave detector smaller than "<< (i+1)<<" pixels cannot detect anything in 3D");
+	}
+	/*BOOST_AUTO_TEST_CASE( size_at_border3D )
+	{
+		OctaveFinder3D finder(32,32,32);
+		//cv cannot draw circle sizes better than a pixel, so the input image is drawn in high resolution
+		cv::Mat_<uchar>input(32*32, 32*32), small_input(32,32);
+		std::ofstream f("pos_size_at_border3D.out");
+		for(int i = 32*16; i>32*4; --i)
+		{
+			const double position = i/32.0;
+			BOOST_TEST_CHECKPOINT("position = "<<position);
+			input.setTo(0);
+			cv::circle(input, cv::Point(32*16, i), 32*4, 255, -1);
+			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
+			std::vector<Center2D> v_s = finder(small_input, true);
+			BOOST_REQUIRE_MESSAGE(
+				v_s.size()==1,
+				""<<((v_s.size()==0)?"No center":"More than one center")<<" for input position "<<position
+				);
+			std::vector<int> ci(2, 16);
+			ci[1] = position;
+			BOOST_CHECK_GT(finder.gaussianResponse(ci, 0), 0);
+			BOOST_CHECK_LT(finder.gaussianResponse(ci, 3.5), finder.gaussianResponse(ci, 3));
+			BOOST_CHECK_LT(finder.gaussianResponse(ci, 3), finder.gaussianResponse(ci, 2.5));
+			BOOST_CHECK_LT(finder.gaussianResponse(ci, 2.5), finder.gaussianResponse(ci, 2));
+			BOOST_CHECK_LT(finder.gaussianResponse(ci, 2), finder.gaussianResponse(ci, 1.5));
+			BOOST_CHECK_LT(finder.gaussianResponse(ci, 1.5), finder.gaussianResponse(ci, 1));
+			BOOST_CHECK_LT(finder.gaussianResponse(ci, 1), finder.gaussianResponse(ci, 0.5));
+			BOOST_CHECK_LT(finder.gaussianResponse(ci, 0.5), finder.gaussianResponse(ci, 0));
+			BOOST_CHECK_CLOSE(v_s[0].r, 4, 50);
+			for(size_t j=0; j<v_s.size(); ++j)
+				f << position << "\t" << v_s[j][1] << "\t"  << v_s[j].r << "\n";
+		}
+		f<<std::endl;
+	}
+
+	BOOST_AUTO_TEST_CASE( close_neighbours3D )
+	{
+		OctaveFinder finder(64,32);
+		//cv cannot draw circle sizes better than a pixel, so the input image is drawn in high resolution
+		cv::Mat_<uchar>input(32*64, 32*32), small_input(64,32);
+		std::ofstream f("close_neighbours.out");
+		for(int i = 32*32; i>7*32; --i)
+		{
+			const double distance = i/32.0;
+			BOOST_TEST_CHECKPOINT("distance = "<<distance);
+			input.setTo(0);
+			cv::circle(input, cv::Point(32*16, 32*16), 32*4, 255, -1);
+			cv::circle(input, cv::Point(32*16, 32*16+i), 32*4, 255, -1);
+			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
+			std::vector<Center2D> v_s = finder(small_input, true);
+			BOOST_REQUIRE_EQUAL(v_s.size(), 2);
+			BOOST_CHECK_CLOSE(v_s[0][1], 16, distance<16?6:2);
+			BOOST_REQUIRE_CLOSE(v_s[1][1], 16+distance, distance<16?6:2);
+			BOOST_CHECK_CLOSE(v_s[0].r, 4, distance<16?6:2);
+			BOOST_CHECK_CLOSE(v_s[1][1] - v_s[0][1], distance, distance<9.06375?22:2);
+			f << distance << "\t" << v_s[0][1] << "\t" << v_s[1][1] << "\t" << v_s[0].r << "\n";
+		}
+		f<<std::endl;
+	}*/
+
+BOOST_AUTO_TEST_SUITE_END() //octave limit cases 3D
 
 BOOST_AUTO_TEST_SUITE_END() //octave 3D
 
