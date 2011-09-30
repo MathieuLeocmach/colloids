@@ -543,6 +543,60 @@ double Colloids::OctaveFinder1D::gaussianResponse(const std::vector<int> &ci, co
 	return resp;
 }
 
+double Colloids::OctaveFinder3D::gaussianResponse(const std::vector<int> &ci, const double & scale) const
+{
+        if(scale < 0)
+            throw std::invalid_argument("Colloids::OctaveFinder::gaussianResponse: the scale must be positive.");
+        if(ci.size()<3)
+        	throw std::invalid_argument("Colloids::OctaveFinder::gaussianResponse: coordinates must be at least 3D.");
+
+        size_t k = (size_t)(scale);
+        if (k>=this->layersG.size())
+        	k = this->layersG.size()-1;
+		if((scale - k) * (scale - k) + 1 == 1)
+			return this->layersG[k](ci[2], ci[1], ci[0]);
+		const double sigma = this->get_iterative_radius(scale, (double)k);
+		//opencv is NOT dealing right with ROI (even if boasting about it), so we do it by hand
+		const cv::Mat_<double>& kernel = get_kernel(sigma);
+		const int m = kernel.rows;
+		Image im(m, m, 0.0f);
+		std::vector<double> gx(m, 0.0);
+		const int xmin = max(0, (int)ci[0]+m/2+1-this->get_width()),
+				xmax = min(m, (int)ci[0]+m/2+1),
+				ymin = max(0, (int)ci[1]+m/2+1-this->get_height()),
+				ymax = min(m, (int)ci[1]+m/2+1),
+				zmin = max(0, (int)ci[2]+m/2+1-this->get_depth()),
+				zmax = min(m, (int)ci[2]+m/2+1);
+
+		const double *ker = &kernel(zmin,0);
+		for(int z=zmin; z<zmax; ++z)
+		{
+			for(int y=ymin; y<ymax; ++y)
+			{
+				const OctaveFinder::PixelType * v = &layersG[k](ci[2]-z+m/2, ci[1]-y+m/2, ci[0]-xmin+m/2);
+				OctaveFinder::PixelType	* re = &im(y, xmin);
+				for(int x=xmin; x<xmax; ++x)
+					*re++ += *v-- * *ker;
+			}
+			ker++;
+		}
+		ker = &kernel(ymin,0);
+		for(int y=ymin; y<ymax; ++y)
+		{
+			const OctaveFinder::PixelType * v = &im(y, xmin);
+			for(int x=xmin; x<xmax; ++x)
+				gx[x] += *v++ * *ker;
+			ker++;
+		}
+
+		double resp = 0.0;
+		ker = &kernel(0,0);
+		for(int x=0; x<m; ++x)
+			resp += gx[x] * *ker++;
+
+        return resp;
+}
+
 double Colloids::OctaveFinder::scale_subpix(const std::vector<int> &ci) const
 {
     	const int &l = ci[2];
@@ -671,9 +725,7 @@ void OctaveFinder::seam_binary(OctaveFinder & other)
 	}
 
 }
-/**
- * \brief Eliminate pixel centers duplicated at the seam between two Octaves
- */
+
 void OctaveFinder1D::seam_binary(OctaveFinder & other)
 {
 	const double sizefactor = this->get_height()/other.get_height();
@@ -706,6 +758,50 @@ void OctaveFinder1D::seam_binary(OctaveFinder & other)
 			const PixelType vb = lowRes.layers[1](0, (*c)[0]);
 			for(size_t i=max(0, (int)(((*c)[0]-1)*sf)); i<(size_t)(((*c)[0]+1)*sf) && i<(size_t)highRes.get_height(); ++i)
 				*b &= !(highRes.binary.back()(0, i) && (vb > highRes.layers[highRes.get_n_layers()](0, i)));
+
+			if(*b)
+				c++;
+			else
+				c = lowRes.centers_no_subpix.erase(c);
+		}
+		else c++;
+	}
+
+}
+void OctaveFinder3D::seam_binary(OctaveFinder & other)
+{
+	const double sizefactor = this->get_height()/other.get_height();
+	OctaveFinder3D & highRes = sizefactor>1?(*this):dynamic_cast<OctaveFinder3D&>(other),
+				&lowRes = sizefactor>1?dynamic_cast<OctaveFinder3D&>(other):(*this);
+	const double sf = sizefactor>1?sizefactor:(1.0/sizefactor);
+	//centers in highRes that corresponds to a lower intensity in lowRes
+	std::list<std::vector<int> >::iterator c = highRes.centers_no_subpix.begin();
+	while(c!=highRes.centers_no_subpix.end())
+	{
+		if(
+			(c->back() == (int)highRes.get_n_layers()) &&
+			(lowRes.binary.front()((*c)[2]/sf+0.5, (*c)[1]/sf+0.5, (*c)[0]/sf+0.5)) &&
+			(highRes.layers[c->back()]((*c)[2], (*c)[1], (*c)[0]) > lowRes.layers[1]((*c)[2]/sf+0.5, (*c)[1]/sf+0.5, (*c)[0]/sf+0.5))
+			)
+		{
+			highRes.binary[c->back()-1]((*c)[2], (*c)[1], (*c)[0]) = false;
+			c = highRes.centers_no_subpix.erase(c);
+		}
+		else c++;
+	}
+	//centers in lowRes that corresponds to a lower intensity in highRes
+	c = lowRes.centers_no_subpix.begin();
+	while(c!=lowRes.centers_no_subpix.end())
+	{
+		if(c->back() == 1)
+		{
+			//we must look at all pixels of highRes that overlap with the pixel of lowRes
+			bool *b = &lowRes.binary.front()((*c)[2], (*c)[1], (*c)[0]);
+			const PixelType vb = lowRes.layers[1]((*c)[2], (*c)[1], (*c)[0]);
+			for(size_t k=max(0, (int)(((*c)[2]-1)*sf)); k<(size_t)(((*c)[2]+1)*sf) && k<(size_t)highRes.get_depth(); ++k)
+				for(size_t j=max(0, (int)(((*c)[1]-1)*sf)); j<(size_t)(((*c)[1]+1)*sf) && j<(size_t)highRes.get_width(); ++j)
+					for(size_t i=max(0, (int)(((*c)[0]-1)*sf)); i<(size_t)(((*c)[0]+1)*sf) && i<(size_t)highRes.get_height(); ++i)
+						*b &= !(highRes.binary.back()(k, j, i) && (vb > highRes.layers[highRes.get_n_layers()](k, j, i)));
 
 			if(*b)
 				c++;
