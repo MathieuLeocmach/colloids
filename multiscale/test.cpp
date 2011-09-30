@@ -1495,6 +1495,65 @@ BOOST_AUTO_TEST_SUITE( local_max )
 	}
 BOOST_AUTO_TEST_SUITE_END() //local_max3D
 
+BOOST_AUTO_TEST_SUITE( subpix )
+	BOOST_AUTO_TEST_CASE( subpix_relative_sizes3D )
+	{
+		OctaveFinder3D finder(32, 32, 32);
+		//cv cannot draw circle sizes better than a pixel, so the input image is drawn in high resolution
+		int dims[3] = {32,32,32}, ldims[3] = {8*32, 8*32, 8*32};
+		cv::Mat_<uchar>input(3, ldims, (unsigned char)0), small_input(3, dims, (unsigned char)0);
+		std::vector<Center3D> v;
+		for(int i=0; i<25; ++i)
+		{
+			input.setTo(0);
+			//draw a sphere plane by plane
+			const double lr = 8*4+i;
+			for(int k=0; k<input.size[0]; ++k)
+			{
+				const double Rsq = lr*lr - (k-8*16)*(k-8*16);
+				if(Rsq>=0)
+				{
+					cv::Mat_<uchar> slice(input.size[1], input.size[2], &input(k,0,0));
+					cv::circle(slice, cv::Point(8*16, 8*16), (int)(sqrt(Rsq)), 255, -1);
+				}
+			}
+			//cv::imshow("XY large", cv::Mat(8*32, 8*32, input.type(), &input(8*16, 0, 0)));
+			//cv::imshow("YZ large", cv::Mat(8*32, 8*32, input.type(), &input(0, 0, 8*16), input.step[1]));
+			for(int k=0; k<small_input.size[0]; ++k)
+				for(int j=0; j<small_input.size[1]; ++j)
+					for(int i=0; i<small_input.size[2]; ++i)
+					{
+						double v = 0;
+						for(int mk=0; mk<8; ++mk)
+							for(int mj=0; mj<8; ++mj)
+								v += std::accumulate(&input(8*k+mk, 8*j+mj, 8*i), (&input(8*k+mk, 8*j+mj, 8*i))+8, 0);
+						small_input(k, j, i) = (v/(8*8*8) + 0.5);
+					}
+			//cv::imshow("XY", cv::Mat(32, 32, small_input.type(), &small_input(16, 0, 0)));
+			//cv::imshow("YZ", cv::Mat(32, 32, small_input.type(), &small_input(0, 0, 16), small_input.step[1]));
+			//cv::waitKey();
+			finder.preblur_and_fill(small_input);
+			finder.initialize_binary();
+			std::vector<Center3D> v_s;
+			finder.subpix(v_s);
+			std::copy(v_s.begin(), v_s.end(), std::back_inserter(v));
+		}
+		BOOST_REQUIRE_EQUAL(v.size(), 25);
+
+		for (int i=1; i<7;++i)
+			BOOST_WARN_MESSAGE(v[0].r< v[7-i].r, "resolution in size is 1/"<<(8*(7-i))<< "th of a scale");
+
+		for(size_t c=0; c<v.size(); ++c)
+			finder.scale(v[c]);
+		std::ofstream out("subpix_relative_sizes3D");
+		for(size_t c=0; c<v.size(); ++c)
+		{
+			BOOST_CHECK_CLOSE(v[c].r, 4+0.125*c, 2);
+			out<<4+0.125*c<<"\t"<<v[c].r<<"\n";
+		}
+	}
+BOOST_AUTO_TEST_SUITE_END() //subpix 3D
+
 BOOST_AUTO_TEST_SUITE_END() //octave 3D
 
 BOOST_AUTO_TEST_SUITE_END() //threeD

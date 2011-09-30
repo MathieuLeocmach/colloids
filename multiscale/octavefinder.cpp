@@ -482,7 +482,28 @@ void Colloids::OctaveFinder1D::spatial_subpix(const std::vector<int> &ci, Center
         c[0] = ci[0] + 0.5 - (l(0, i+1) - l(0, i-1)) / 2.0 / (l(0, i+1) -2*l(0, i) + l(0, i-1));
         c.intensity = this->layers[k](0, i) - 0.25 * (c[0]-i) * (l(0, i+1) - l(0, i-1));
 }
-
+void Colloids::OctaveFinder3D::spatial_subpix(const std::vector<int> &ci, Center_base& c) const
+{
+        const size_t i = ci[0], j = ci[1], k = ci[2], l = ci[3];
+        cv::Mat_<double> hess(2,2), hess_inv(2,2), grad(2,1), d(2,1), u(1,1);
+        //When particles environment is strongly asymmetric (very close particles),
+        //it is better to find the maximum of Gausian rather than the minimum of DoG.
+        //If possible, we use the Gaussian layer below the detected scale
+        //to have better spatial resolution
+        const Image & lay = (l>0 ? this->layersG[l-1] : this->layersG[l]);
+        const double a[6] = {
+        		(lay(k, j, i+1) - lay(k, j, i-1))/2.0,
+        		lay(k, j, i+1) -2*lay(k, j, i) + lay(k, j, i-1),
+        		(lay(k, j+1, i) - lay(k, j-1, i))/2.0,
+        		lay(k, j+1, i) -2*lay(k, j, i) + lay(k, j-1, i),
+        		(lay(k+1, j, i) - lay(k-1, j, i))/2.0,
+        		lay(k+1, j, i) -2*lay(k, j, i) + lay(k-1, j, i)
+        };
+        c[0] = i + 0.5 - (a[1]==0 ? 0 : a[0]/a[1]);
+		c[1] = j + 0.5 - (a[3]==0 ? 0 : a[2]/a[3]);
+		c[2] = k + 0.5 - (a[5]==0 ? 0 : a[4]/a[5]);
+		c.intensity = this->layers[l](k, j, i);
+}
 double Colloids::OctaveFinder::gaussianResponse(const std::vector<int> &ci, const double & scale) const
 {
         if(scale < 0)
@@ -599,7 +620,7 @@ double Colloids::OctaveFinder3D::gaussianResponse(const std::vector<int> &ci, co
 
 double Colloids::OctaveFinder::scale_subpix(const std::vector<int> &ci) const
 {
-    	const int &l = ci[2];
+    	const int &l = ci.back();
 		//scale is better defined if we consider only the central pixel at different scales
 		//Compute intermediate variables to do a quadratic estimate of the derivative
 		boost::array<double,8> sublayerG;
@@ -850,7 +871,7 @@ void Colloids::OctaveFinder3D::fill_iterative_radii()
 	for(size_t i=0; i<sigmas.size(); ++i)
 		sigmas[i] = this->preblur_radius * pow(2, i/n);
 	//corresponding blob sizes
-	this->prefactor = 2.0 * sqrt(2.0 * log(2.0) / n / (pow(2.0, 2.0 / n) - 1));
+	this->prefactor = sqrt(6.0 * log(2.0) / n / (pow(2.0, 2.0 / n) - 1));
 	vector<size_t>::iterator si = this->sizes.begin();
 	for(vector<double>::const_iterator sig=sigmas.begin(); sig!=sigmas.end(); sig++)
 		*si++ = static_cast<size_t>((*sig * prefactor) + 0.5);

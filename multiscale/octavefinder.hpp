@@ -92,8 +92,8 @@ namespace Colloids
 			inline const int & get_depth() const {return this->layers[0].size[this->layers[0].dims-3];};
 
 			virtual void initialize_binary(const double &max_ratio = 1.1);
-			/*virtual void spatial_subpix(const std::vector<int> &ci, Center_base& c) const;
-			virtual double scale_subpix(const std::vector<int> &ci) const;*/
+			virtual void spatial_subpix(const std::vector<int> &ci, Center_base& c) const;
+			/*virtual double scale_subpix(const std::vector<int> &ci) const;*/
 			virtual double gaussianResponse(const std::vector<int> &ci, const double & scale) const;
 			virtual void seam_binary(OctaveFinder & other);
 
