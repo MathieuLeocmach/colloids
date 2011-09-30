@@ -284,7 +284,7 @@ void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
 							ratio = pow(hess[0] + hess[1], 2) / (4.0 * hess[0] * hess[1]);
 					*b = !((detH < 0 && 1+detH*detH > 1) || ratio > max_ratio);
 					if(*b){
-						cv::Vec3i c;
+						std::vector<int> c(3);
 						c[0] = mi;
 						c[1] = mj;
 						c[2] = mk;
@@ -346,10 +346,9 @@ void Colloids::OctaveFinder1D::initialize_binary(const double & max_ratio)
 				*b = std::abs((*(v+1) + *(v-1) - 2 * *v) / (*(v+1) - *(v-1))) > 0.5;
 			}
 			if(*b){
-				cv::Vec3i c;
+				std::vector<int> c(2);
 				c[0] = mi;
-				c[1] = 0;
-				c[2] = mk;
+				c[1] = mk;
 				this->centers_no_subpix.push_back(c);
 			}
 		}
@@ -440,11 +439,11 @@ void Colloids::OctaveFinder3D::initialize_binary(const double & max_ratio)
 							ratio = pow(hess[0] + hess[1], 2) / (4.0 * hess[0] * hess[1]);
 					*b = !((detH < 0 && 1+detH*detH > 1) || ratio > max_ratio);
 					if(*b){
-						cv::Vec3i c;
+						std::vector<int> c(4);
 						c[0] = mi;
 						c[1] = mj;
 						c[2] = mk;
-						//c[3] = ml;
+						c[3] = ml;
 						this->centers_no_subpix.push_back(c);
 					}
 				}
@@ -453,10 +452,9 @@ void Colloids::OctaveFinder3D::initialize_binary(const double & max_ratio)
 	}
 }
 
-Center2D Colloids::OctaveFinder::spatial_subpix(const cv::Vec3i & ci) const
+void Colloids::OctaveFinder::spatial_subpix(const std::vector<int> &ci, Center_base& c) const
 {
         const size_t i = ci[0], j = ci[1], k = ci[2];
-        Center2D c(0.0);
         cv::Mat_<double> hess(2,2), hess_inv(2,2), grad(2,1), d(2,1), u(1,1);
         //When particles environment is strongly asymmetric (very close particles),
         //it is better to find the maximum of Gausian rather than the minimum of DoG.
@@ -472,27 +470,25 @@ Center2D Colloids::OctaveFinder::spatial_subpix(const cv::Vec3i & ci) const
         c[0] = i + 0.5 - (a[2]==0 ? 0 : a[0]/a[2]);
 		c[1] = j + 0.5 - (a[3]==0 ? 0 : a[1]/a[3]);
 		c.intensity = this->layers[k](j, i);
-		return c;
 }
-Center2D Colloids::OctaveFinder1D::spatial_subpix(const cv::Vec3i & ci) const
+void Colloids::OctaveFinder1D::spatial_subpix(const std::vector<int> &ci, Center_base& c) const
 {
-        const size_t i = ci[0], k = ci[2];
-        Center2D c(0.0);
+        const size_t i = ci[0], k = ci.back();
         //When particles environment is strongly asymmetric (very close particles),
 		//it is better to find the maximum of Gausian rather than the minimum of DoG.
 		//If possible, we use the Gaussian layer below the detected scale
 		//to have better spatial resolution
         const Image & l = (k>0 ? this->layersG[k-1] : this->layersG[k]);
         c[0] = ci[0] + 0.5 - (l(0, i+1) - l(0, i-1)) / 2.0 / (l(0, i+1) -2*l(0, i) + l(0, i-1));
-        c[1] = 0;
         c.intensity = this->layers[k](0, i) - 0.25 * (c[0]-i) * (l(0, i+1) - l(0, i-1));
-        return c;
 }
 
-double Colloids::OctaveFinder::gaussianResponse(const int* ci, const double & scale) const
+double Colloids::OctaveFinder::gaussianResponse(const std::vector<int> &ci, const double & scale) const
 {
         if(scale < 0)
             throw std::invalid_argument("Colloids::OctaveFinder::gaussianResponse: the scale must be positive.");
+        if(ci.size()<2)
+        	throw std::invalid_argument("Colloids::OctaveFinder::gaussianResponse: coordinates must be at least 2D.");
 
         size_t k = (size_t)(scale);
         if (k>=this->layersG.size())
@@ -525,10 +521,12 @@ double Colloids::OctaveFinder::gaussianResponse(const int* ci, const double & sc
         return resp;
 }
 
-double Colloids::OctaveFinder1D::gaussianResponse(const int* ci, const double & scale) const
+double Colloids::OctaveFinder1D::gaussianResponse(const std::vector<int> &ci, const double & scale) const
 {
 	if(scale < 0)
 		throw std::invalid_argument("Colloids::OctaveFinder::gaussianResponse: the scale must be positive.");
+	if(ci.size()<1)
+		throw std::invalid_argument("Colloids::OctaveFinder::gaussianResponse: coordinates must be at least 1D.");
 
 	size_t k = (size_t)(scale);
 	if (k>=this->layersG.size())
@@ -545,9 +543,9 @@ double Colloids::OctaveFinder1D::gaussianResponse(const int* ci, const double & 
 	return resp;
 }
 
-double Colloids::OctaveFinder::scale_subpix(const int* ci) const
+double Colloids::OctaveFinder::scale_subpix(const std::vector<int> &ci) const
 {
-    	const size_t i = ci[0], j = ci[1], l = ci[2];
+    	const int &l = ci[2];
 		//scale is better defined if we consider only the central pixel at different scales
 		//Compute intermediate variables to do a quadratic estimate of the derivative
 		boost::array<double,8> sublayerG;
@@ -590,11 +588,11 @@ double Colloids::OctaveFinder::scale_subpix(const int* ci) const
 			s= l + 0.5;
 		return s;
 }
-double Colloids::OctaveFinder1D::scale_subpix(const int* ci) const
+double Colloids::OctaveFinder1D::scale_subpix(const std::vector<int> &ci) const
 {
 	//Empirical correction
 	//return ci[2] + 1.1*(OctaveFinder::scale_subpix(ci)-ci[2]) - 0.1/ci[2]- 0.1;//-0.025*this->layers.size();
-	const size_t l = ci[2];
+	const size_t l = ci.back();
 	double h = 1.0/3.0;
 	boost::array<double,7> a;
 	for(int u=0; u<(int)a.size();++u)
@@ -603,41 +601,31 @@ double Colloids::OctaveFinder1D::scale_subpix(const int* ci) const
 	return l - 1.05*s + 0.08*pow(s,2) - pow(2,-2/(double)this->get_n_layers())+0.025*l -0.025;
 }
 
-	void Colloids::OctaveFinder::single_subpix(const cv::Vec3i & ci, Center2D &c) const
-    {
-        c = this->spatial_subpix(ci);
-        c.r = this->scale_subpix(&ci[0]);
-    }
+void Colloids::OctaveFinder::single_subpix(const std::vector<int> &ci, Center_base &c) const
+{
+	this->spatial_subpix(ci, c);
+	c.r = this->scale_subpix(ci);
+}
 
-    void Colloids::OctaveFinder::subpix(std::vector<Center2D> &centers) const
-    {
-        centers.clear();
-        centers.resize(this->centers_no_subpix.size());
-        //subpixel resolution in pixel units
-        std::list<cv::Vec3i>::const_iterator ci = this->centers_no_subpix.begin();
-        for(size_t c=0; c<centers.size(); ++c)
-        	this->single_subpix(*ci++, centers[c]);
-    }
+std::vector<Center2D> Colloids::OctaveFinder::operator ()(const cv::Mat & input, const bool preblur)
+{
+	if(preblur)
+		this->preblur_and_fill(input);
 
-    std::vector<Center2D> Colloids::OctaveFinder::operator ()(const cv::Mat & input, const bool preblur)
-    {
-        if(preblur)
-            this->preblur_and_fill(input);
+	else
+		this->fill(input);
 
-        else
-            this->fill(input);
-
-        this->initialize_binary();
-        std::vector<Center2D> centers;
-        this->subpix(centers);
-        for(size_t c=0; c<centers.size(); ++c)
-        	this->scale(centers[c]);
-        return centers;
-    }
-    const double OctaveFinder::get_iterative_radius(const double & larger, const double & smaller) const
-    {
-    	return this->preblur_radius * sqrt(pow(2.0, 2.0*larger/this->get_n_layers()) - pow(2.0, 2.0*smaller/this->get_n_layers()));
-    }
+	this->initialize_binary();
+	std::vector<Center2D> centers;
+	this->subpix(centers);
+	for(size_t c=0; c<centers.size(); ++c)
+		this->scale(centers[c]);
+	return centers;
+}
+const double OctaveFinder::get_iterative_radius(const double & larger, const double & smaller) const
+{
+	return this->preblur_radius * sqrt(pow(2.0, 2.0*larger/this->get_n_layers()) - pow(2.0, 2.0*smaller/this->get_n_layers()));
+}
 /**
  * \brief Eliminate pixel centers duplicated at the seam between two Octaves
  */
@@ -647,16 +635,16 @@ void OctaveFinder::seam_binary(OctaveFinder & other)
 	OctaveFinder & highRes = sizefactor>1?(*this):other, &lowRes = sizefactor>1?other:(*this);
 	const double sf = sizefactor>1?sizefactor:(1.0/sizefactor);
 	//centers in highRes that corresponds to a lower intensity in lowRes
-	std::list<cv::Vec3i>::iterator c = highRes.centers_no_subpix.begin();
+	std::list<std::vector<int> >::iterator c = highRes.centers_no_subpix.begin();
 	while(c!=highRes.centers_no_subpix.end())
 	{
 		if(
-			((*c)[2] == (int)highRes.get_n_layers()) &&
+			(c->back() == (int)highRes.get_n_layers()) &&
 			(lowRes.binary.front()((*c)[1]/sf+0.5, (*c)[0]/sf+0.5)) &&
-			(highRes.layers[(*c)[2]]((*c)[1], (*c)[0]) > lowRes.layers[1]((*c)[1]/sf+0.5, (*c)[0]/sf+0.5))
+			(highRes.layers[c->back()]((*c)[1], (*c)[0]) > lowRes.layers[1]((*c)[1]/sf+0.5, (*c)[0]/sf+0.5))
 			)
 		{
-			highRes.binary[(*c)[2]-1]((*c)[1], (*c)[0]) = false;
+			highRes.binary[c->back()-1]((*c)[1], (*c)[0]) = false;
 			c = highRes.centers_no_subpix.erase(c);
 		}
 		else c++;
@@ -665,7 +653,7 @@ void OctaveFinder::seam_binary(OctaveFinder & other)
 	c = lowRes.centers_no_subpix.begin();
 	while(c!=lowRes.centers_no_subpix.end())
 	{
-		if((*c)[2] == 1)
+		if(c->back() == 1)
 		{
 			//we must look at all pixels of highRes that overlap with the pixel of lowRes
 			bool *b = &lowRes.binary.front()((*c)[1], (*c)[0]);
@@ -673,6 +661,51 @@ void OctaveFinder::seam_binary(OctaveFinder & other)
 			for(size_t j=max(0, (int)(((*c)[1]-1)*sf)); j<(size_t)(((*c)[1]+1)*sf) && j<(size_t)highRes.get_width(); ++j)
 				for(size_t i=max(0, (int)(((*c)[0]-1)*sf)); i<(size_t)(((*c)[0]+1)*sf) && i<(size_t)highRes.get_height(); ++i)
 					*b &= !(highRes.binary.back()(j, i) && (vb > highRes.layers[highRes.get_n_layers()](j, i)));
+
+			if(*b)
+				c++;
+			else
+				c = lowRes.centers_no_subpix.erase(c);
+		}
+		else c++;
+	}
+
+}
+/**
+ * \brief Eliminate pixel centers duplicated at the seam between two Octaves
+ */
+void OctaveFinder1D::seam_binary(OctaveFinder & other)
+{
+	const double sizefactor = this->get_height()/other.get_height();
+	OctaveFinder1D & highRes = sizefactor>1?(*this):dynamic_cast<OctaveFinder1D&>(other),
+			&lowRes = sizefactor>1?dynamic_cast<OctaveFinder1D&>(other):(*this);
+	const double sf = sizefactor>1?sizefactor:(1.0/sizefactor);
+	//centers in highRes that corresponds to a lower intensity in lowRes
+	std::list<std::vector<int> >::iterator c = highRes.centers_no_subpix.begin();
+	while(c!=highRes.centers_no_subpix.end())
+	{
+		if(
+			(c->back() == (int)highRes.get_n_layers()) &&
+			(lowRes.binary.front()(0, (*c)[0]/sf+0.5)) &&
+			(highRes.layers[c->back()](0, (*c)[0]) > lowRes.layers[1](0, (*c)[0]/sf+0.5))
+			)
+		{
+			highRes.binary[c->back()-1](0, (*c)[0]) = false;
+			c = highRes.centers_no_subpix.erase(c);
+		}
+		else c++;
+	}
+	//centers in lowRes that corresponds to a lower intensity in highRes
+	c = lowRes.centers_no_subpix.begin();
+	while(c!=lowRes.centers_no_subpix.end())
+	{
+		if(c->back() == 1)
+		{
+			//we must look at all pixels of highRes that overlap with the pixel of lowRes
+			bool *b = &lowRes.binary.front()(0, (*c)[0]);
+			const PixelType vb = lowRes.layers[1](0, (*c)[0]);
+			for(size_t i=max(0, (int)(((*c)[0]-1)*sf)); i<(size_t)(((*c)[0]+1)*sf) && i<(size_t)highRes.get_height(); ++i)
+				*b &= !(highRes.binary.back()(0, i) && (vb > highRes.layers[highRes.get_n_layers()](0, i)));
 
 			if(*b)
 				c++;

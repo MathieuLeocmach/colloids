@@ -35,7 +35,7 @@ public:
 	template<int D>	inline void subpix(std::vector<Center<D> >& centers) const;
 	template<int D>
 	inline void get_centers(const cv::Mat &input, std::vector<Center<D> >& centers);
-	template<int D> const cv::Vec<int, D+1> previous_octave_coords(const Center<D> &v) const;
+	template<int D> const std::vector<int> previous_octave_coords(const Center<D> &v) const;
 	virtual const Image downscale(const size_t &o) = 0;
 	void upscale();
 	template<int D> inline void seam(Center<D> &v, const size_t &o) const{};
@@ -110,10 +110,10 @@ inline void MultiscaleFinder::get_centers(const cv::Mat & input, std::vector<Cen
 }
 
 template<int D>
-const cv::Vec<int, D+1> MultiscaleFinder::previous_octave_coords(const Center<D> &v) const
+const std::vector<int> MultiscaleFinder::previous_octave_coords(const Center<D> &v) const
 {
 	const double n = this->get_n_layers();
-	cv::Vec<int, D+1> vi;
+	std::vector<int> vi(D+1);
 	for(int u=0; u<D; ++u)
 		vi[u] = (int)(v[u]*2+0.5);
 	vi[D] = int(v.r + n + 0.5);
@@ -124,8 +124,8 @@ inline void MultiscaleFinder::seam(Center2D &v, const size_t &o) const
 {
 	if(v.r<1)
 	{
-		cv::Vec3i ci = this->previous_octave_coords(v);
-		v.r = this->octaves[o]->scale_subpix(&ci[0]) - this->get_n_layers();
+		std::vector<int> ci = this->previous_octave_coords(v);
+		v.r = this->octaves[o]->scale_subpix(ci) - this->get_n_layers();
 	}
 }
 

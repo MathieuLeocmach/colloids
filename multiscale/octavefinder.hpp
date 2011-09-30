@@ -41,16 +41,17 @@ namespace Colloids
             void fill(const cv::Mat &input);
             void preblur_and_fill(const cv::Mat &input);
             virtual void initialize_binary(const double &max_ratio = 1.2);
-            void subpix(std::vector<Center2D>& centers) const;
-            void single_subpix(const cv::Vec3i & ci, Center2D &c) const;
-            virtual Center2D spatial_subpix(const cv::Vec3i & ci) const;
-            virtual double scale_subpix(const int* ci) const;
-            void scale(Center2D &c) const{
+            template<int D>
+            inline void subpix(std::vector<Center<D> > &centers) const;
+            void single_subpix(const std::vector<int> &ci, Center_base &c) const;
+            virtual void spatial_subpix(const std::vector<int> &ci, Center_base& c) const;
+            virtual double scale_subpix(const std::vector<int> &ci) const;
+            void scale(Center_base &c) const{
             	c.r = this->prefactor * this->preblur_radius * pow(2.0, (c.r + 1) / this->get_n_layers());
             };
             std::vector<Center2D> operator()(const cv::Mat &input, const bool preblur=false);
-            virtual double gaussianResponse(const int* ci, const double & scale) const;
-            void seam_binary(OctaveFinder & other);
+            virtual double gaussianResponse(const std::vector<int> &ci, const double & scale) const;
+            virtual void seam_binary(OctaveFinder & other);
 
 
     protected:
@@ -59,7 +60,7 @@ namespace Colloids
             std::vector<double> iterative_radii;
             std::vector<cv::FilterEngine> iterative_gaussian_filters;
             std::vector<size_t> sizes;
-            std::list<cv::Vec3i> centers_no_subpix;
+            std::list<std::vector<int> > centers_no_subpix;
             double preblur_radius, prefactor;
             static std::map<size_t, cv::Mat_<double> > kernels;
             cv::Ptr<cv::FilterEngine> preblur_filter;
@@ -76,9 +77,10 @@ namespace Colloids
 				OctaveFinder(1, ncols, nbLayers, preblur_radius){};
 
 			virtual void initialize_binary(const double &max_ratio = 1.1);
-			virtual Center2D spatial_subpix(const cv::Vec3i & ci) const;
-			virtual double scale_subpix(const int* ci) const;
-			virtual double gaussianResponse(const int* ci, const double & scale) const;
+			virtual void spatial_subpix(const std::vector<int> &ci, Center_base& c) const;
+			virtual double scale_subpix(const std::vector<int> &ci) const;
+			virtual double gaussianResponse(const std::vector<int> &ci, const double & scale) const;
+			virtual void seam_binary(OctaveFinder & other);
     };
 
     class OctaveFinder3D : public OctaveFinder
@@ -90,9 +92,10 @@ namespace Colloids
 			inline const int & get_depth() const {return this->layers[0].size[this->layers[0].dims-3];};
 
 			virtual void initialize_binary(const double &max_ratio = 1.1);
-			/*virtual Center2D spatial_subpix(const cv::Vec3i & ci) const;
-			virtual double scale_subpix(const int* ci) const;
-			virtual double gaussianResponse(const int* ci, const double & scale) const;*/
+			/*virtual void spatial_subpix(const std::vector<int> &ci, Center_base& c) const;
+			virtual double scale_subpix(const std::vector<int> &ci) const;
+			virtual double gaussianResponse(const std::vector<int> &ci, const double & scale) const;
+			virtual void seam_binary(OctaveFinder & other);*/
 
 		protected:
 			boost::iostreams::mapped_file file;
@@ -105,5 +108,18 @@ namespace Colloids
 			virtual void preblur(const cv::Mat &input);
 			virtual void _fill_internal();
     };
+
+    template<int D>
+    inline void OctaveFinder::subpix(std::vector<Center<D> > &centers) const
+	{
+		centers.clear();
+		centers.resize(this->centers_no_subpix.size());
+		//subpixel resolution in pixel units
+		std::list<std::vector<int> >::const_iterator ci = this->centers_no_subpix.begin();
+		for(size_t c=0; c<centers.size(); ++c)
+			this->single_subpix(*ci++, centers[c]);
+
+
+	}
 };
 #endif // OCTAVEFINDER_H

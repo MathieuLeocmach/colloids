@@ -266,7 +266,7 @@ BOOST_AUTO_TEST_SUITE( local_max )
 		cv::imshow("truc", 255*finder.get_binary(2));
 		cv::waitKey();*/
 		//gaussian response
-		int ci[2] = {128, 128};
+		std::vector<int> ci(2, 128);
 		BOOST_CHECK_LT(finder.gaussianResponse(ci, 2.5), finder.gaussianResponse(ci, 2.0));
 		BOOST_CHECK_LT(finder.gaussianResponse(ci, 3.5), finder.gaussianResponse(ci, 2.5));
 		BOOST_CHECK_LT(finder.gaussianResponse(ci, 3.5), finder.gaussianResponse(ci, 3.0));
@@ -419,6 +419,15 @@ BOOST_AUTO_TEST_SUITE( subpix )
 		finder.preblur_and_fill(input);
 		finder.initialize_binary();
 		BOOST_CHECK_EQUAL(finder.get_binary(2)(200, 100), 1);
+		std::vector<int> ci(3, 2), ic(3, 2);
+		ci[0] = 100; ic[0] = 200;
+		ci[1] = 200; ic[1] = 100;
+		BOOST_CHECK_GE(finder.scale_subpix(ci),1);
+		BOOST_CHECK_LE(finder.scale_subpix(ci),3);
+		Center2D c;
+		finder.single_subpix(ci, c);
+		BOOST_CHECK_GE(c.r, 1);
+		BOOST_CHECK_LE(c.r, 3);
 		std::vector<Center2D> v;
 		finder.subpix(v);
 		BOOST_REQUIRE_EQUAL(v.size(), 1);
@@ -432,8 +441,6 @@ BOOST_AUTO_TEST_SUITE( subpix )
 		BOOST_CHECK_GE(v[0].r, 1);
 		BOOST_CHECK_LE(v[0].r, 3);
 		//gaussian response
-		int ci[2] = {100, 200};
-		int ic[2] = {200, 100};
 		BOOST_CHECK_CLOSE(finder.gaussianResponse(ci, 2.0), finder.get_layersG(2)(200, 100), 1e-9);
 		BOOST_CHECK_CLOSE(finder.gaussianResponse(ci, 3.0)-finder.gaussianResponse(ci, 2.0), finder.get_layers(2)(200, 100), 1e-9);
 		BOOST_CHECK_LT(finder.gaussianResponse(ic, 2.0), finder.gaussianResponse(ci, 2.0));
@@ -643,7 +650,8 @@ BOOST_AUTO_TEST_SUITE( octave_limit_cases )
 				v_s.size()==1,
 				""<<((v_s.size()==0)?"No center":"More than one center")<<" for input position "<<position
 				);
-			int ci[2] = {16, position};
+			std::vector<int> ci(2, 16);
+			ci[1] = position;
 			BOOST_CHECK_GT(finder.gaussianResponse(ci, 0), 0);
 			BOOST_CHECK_LT(finder.gaussianResponse(ci, 3.5), finder.gaussianResponse(ci, 3));
 			BOOST_CHECK_LT(finder.gaussianResponse(ci, 3), finder.gaussianResponse(ci, 2.5));
@@ -965,7 +973,7 @@ BOOST_AUTO_TEST_SUITE( octave )
 		cv::imshow("truc", 255*finder.get_binary(2));
 		cv::waitKey();*/
 		//gaussian response
-		int ci [1] = {128};
+		std::vector<int> ci(1, 128);
 		BOOST_CHECK_LT(finder.gaussianResponse(ci, 2.5), finder.gaussianResponse(ci, 2.0));
 		BOOST_CHECK_LT(finder.gaussianResponse(ci, 3.5), finder.gaussianResponse(ci, 2.5));
 		BOOST_CHECK_LT(finder.gaussianResponse(ci, 3.5), finder.gaussianResponse(ci, 3.0));
@@ -998,21 +1006,25 @@ BOOST_AUTO_TEST_SUITE( octave )
 		finder.preblur_and_fill(input);
 		finder.initialize_binary();
 		BOOST_REQUIRE_EQUAL(finder.get_binary(3)(0, 100), 1);
-		std::vector<Center2D> v;
+		std::vector<int> ci(2, 3);
+		ci[0] = 100;
+		BOOST_CHECK_GE(finder.scale_subpix(ci),2);
+		BOOST_CHECK_LE(finder.scale_subpix(ci),4);
+		Center1D c;
+		finder.single_subpix(ci, c);
+		BOOST_CHECK_GE(c.r, 2);
+		BOOST_CHECK_LE(c.r, 4);
+		std::vector<Center1D> v;
 		finder.subpix(v);
 		BOOST_REQUIRE_EQUAL(v.size(), 1);
 		//x
 		BOOST_CHECK_GE(v[0][0], 99);
 		BOOST_CHECK_LE(v[0][0], 101);
-		//y
-		BOOST_CHECK_GE(v[0][1], 0);
-		BOOST_CHECK_LT(v[0][1], 1);
 		//scale
 		BOOST_CHECK_GE(v[0].r, 2);
 		BOOST_CHECK_LE(v[0].r, 4);
 		//gaussian response
 		BOOST_CHECKPOINT("gaussian response");
-		int ci[1] = {100};
 		BOOST_CHECK_CLOSE(finder.gaussianResponse(ci, 2.0), finder.get_layersG(2)(0, 100), 1e-9);
 		BOOST_CHECK_CLOSE(finder.gaussianResponse(ci, 3.0)-finder.gaussianResponse(ci, 2.0), finder.get_layers(2)(0, 100), 1e-9);
 		BOOST_CHECK_LT(finder.gaussianResponse(ci, 3.0), finder.gaussianResponse(ci, 2.0));
@@ -1081,7 +1093,7 @@ BOOST_AUTO_TEST_SUITE( octave )
 		OctaveFinder1D finder(64, 3);
 		//cv cannot draw circle sizes better than a pixel, so the input image is drawn in high resolution
 		cv::Mat_<uchar>input(1, 16*64), small_input(1,64);
-		std::vector<Center2D> v;
+		std::vector<Center1D> v;
 		std::ofstream f("1d_relative_sizes.out");
 		for(int i=0; i<32; ++i)
 		{
@@ -1090,7 +1102,7 @@ BOOST_AUTO_TEST_SUITE( octave )
 			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
 			finder.preblur_and_fill(small_input);
 			finder.initialize_binary();
-			std::vector<Center2D> v_s;
+			std::vector<Center1D> v_s;
 			finder.subpix(v_s);
 			BOOST_REQUIRE_EQUAL(v_s.size(), 1);
 			std::copy(v_s.begin(), v_s.end(), std::back_inserter(v));
@@ -1243,7 +1255,7 @@ BOOST_AUTO_TEST_SUITE( multiscale )
 				{
 					std::cout<<finder.get_octave(o).get_nb_centers()<<" centers in octave "<<o<<" at"<<std::endl;
 					for(size_t l=1; l<finder.get_n_layers()+1; ++l)
-						for(size_t i=0; i<finder.get_octave(o).get_height(); ++i)
+						for(int i=0; i<finder.get_octave(o).get_height(); ++i)
 							if(finder.get_octave(o).get_binary(l)(0,i))
 							{
 								std::cout<<"\tl="<<l<<"\ti="<<i<<std::endl;
