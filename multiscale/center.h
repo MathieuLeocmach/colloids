@@ -13,26 +13,36 @@
 
 namespace Colloids {
 
-	template<int D>
-	struct Center : boost::array<double, D>
+	struct Center_base
 	{
-		static const int dimension = D;
 		double r, intensity;
+		explicit Center_base(const double &r=0, const double &i=0) : r(r), intensity(i){};
+		virtual const double& operator[](size_t i) const=0;
+		virtual double& operator[](size_t i)=0;
+	};
 
-		explicit Center(const double &v=0.0, const double &r=0, const double &i=0) : r(r), intensity(i)
+	template<int D>
+	struct Center : public Center_base
+	{
+		boost::array<double, D> coords;
+		static const int dimension = D;
+
+		explicit Center(const double &v=0.0, const double &r=0, const double &i=0) : Center_base(r, i)
 		{
-			std::fill(this->begin(), this->end(), v);
+			std::fill(coords.begin(), coords.end(), v);
 		};
-		explicit Center(const Center<D-1> &c, const double &additional_coord): r(c.r), intensity(c.intensity)
+		explicit Center(const Center<D-1> &c, const double &additional_coord): Center_base(c.r, c.intensity)
 		{
-			std::copy(c.begin(), c.end(), this->begin());
-			this->back() = additional_coord;
+			std::copy(c.coords.begin(), c.coords.end(), coords.begin());
+			coords.back() = additional_coord;
 		};
+		virtual const double& operator[](size_t i) const {return coords[i];};
+		virtual double& operator[](size_t i){return coords[i];};
 		inline double operator-(Center<D> other) const
 		{
 			double d = 0;
-			for(size_t i=0; i<this->size(); ++i)
-				d += pow((*this)[i]-other[i], 2);
+			for(size_t i=0; i<coords.size(); ++i)
+				d += pow(coords[i]-other[i], 2);
 			return d;
 		}
 	};
