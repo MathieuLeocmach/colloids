@@ -1555,7 +1555,7 @@ BOOST_AUTO_TEST_SUITE( subpix )
 		std::ofstream out("subpix_relative_sizes3D");
 		for(size_t c=0; c<v.size(); ++c)
 		{
-			BOOST_CHECK_CLOSE(v[c].r, 4+0.125*c, 2.5);
+			BOOST_CHECK_CLOSE(v[c].r, 4+0.125*c, 2);
 			out<<4+0.125*c<<"\t"<<v[c].r<<"\n";
 		}
 	}
@@ -1584,7 +1584,7 @@ BOOST_AUTO_TEST_SUITE( octave_limit_cases )
 
 	BOOST_AUTO_TEST_CASE( octave3D_minimum_detector_size )
 	{
-		int i = 16;
+		int i = 13;
 		std::vector<Center3D> v(1);
 		while(i>0 && v.size()>0)
 		{
@@ -1598,65 +1598,59 @@ BOOST_AUTO_TEST_SUITE( octave_limit_cases )
 		}
 		BOOST_WARN_MESSAGE(false, "An octave detector smaller than "<< (i+1)<<" pixels cannot detect anything in 3D");
 	}
-	/*BOOST_AUTO_TEST_CASE( size_at_border3D )
+	BOOST_AUTO_TEST_CASE( size_at_border3D )
 	{
-		OctaveFinder3D finder(32,32,32);
+		OctaveFinder3D finder(24,24,24);
 		//cv cannot draw circle sizes better than a pixel, so the input image is drawn in high resolution
-		cv::Mat_<uchar>input(32*32, 32*32), small_input(32,32);
+		int dims[3] = {24,24,24}, ldims[3] = {16*24, 16*24, 16*24};
+		cv::Mat_<uchar>input(3, ldims, (unsigned char)0), small_input(3, dims, (unsigned char)0);
 		std::ofstream f("pos_size_at_border3D.out");
-		for(int i = 32*16; i>32*4; --i)
+		for(int i = 16*12; i>16*5; --i)
 		{
-			const double position = i/32.0;
+			const double position = i/16.0;
 			BOOST_TEST_CHECKPOINT("position = "<<position);
 			input.setTo(0);
-			cv::circle(input, cv::Point(32*16, i), 32*4, 255, -1);
-			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
-			std::vector<Center2D> v_s = finder(small_input, true);
+			drawsphere(input, 16*12, 16*12, i, 16*5, 255);
+			volume_shrink(input, small_input, 16);
+			std::vector<Center3D> v_s = finder.get_centers<3>(small_input, true);
 			BOOST_REQUIRE_MESSAGE(
 				v_s.size()==1,
 				""<<((v_s.size()==0)?"No center":"More than one center")<<" for input position "<<position
 				);
-			std::vector<int> ci(2, 16);
-			ci[1] = position;
-			BOOST_CHECK_GT(finder.gaussianResponse(ci, 0), 0);
-			BOOST_CHECK_LT(finder.gaussianResponse(ci, 3.5), finder.gaussianResponse(ci, 3));
-			BOOST_CHECK_LT(finder.gaussianResponse(ci, 3), finder.gaussianResponse(ci, 2.5));
-			BOOST_CHECK_LT(finder.gaussianResponse(ci, 2.5), finder.gaussianResponse(ci, 2));
-			BOOST_CHECK_LT(finder.gaussianResponse(ci, 2), finder.gaussianResponse(ci, 1.5));
-			BOOST_CHECK_LT(finder.gaussianResponse(ci, 1.5), finder.gaussianResponse(ci, 1));
-			BOOST_CHECK_LT(finder.gaussianResponse(ci, 1), finder.gaussianResponse(ci, 0.5));
-			BOOST_CHECK_LT(finder.gaussianResponse(ci, 0.5), finder.gaussianResponse(ci, 0));
-			BOOST_CHECK_CLOSE(v_s[0].r, 4, 50);
+			std::vector<int> ci(3, 12);
+			ci[0] = position;
+			BOOST_CHECK_CLOSE(v_s[0].r, 5, 50);
 			for(size_t j=0; j<v_s.size(); ++j)
-				f << position << "\t" << v_s[j][1] << "\t"  << v_s[j].r << "\n";
+				f << position << "\t" << v_s[j][0] << "\t"  << v_s[j].r << "\n";
 		}
 		f<<std::endl;
 	}
 
 	BOOST_AUTO_TEST_CASE( close_neighbours3D )
 	{
-		OctaveFinder finder(64,32);
+		OctaveFinder3D finder(36,24,24);
 		//cv cannot draw circle sizes better than a pixel, so the input image is drawn in high resolution
-		cv::Mat_<uchar>input(32*64, 32*32), small_input(64,32);
-		std::ofstream f("close_neighbours.out");
-		for(int i = 32*32; i>7*32; --i)
+		int dims[3] = {36,24,24}, ldims[3] = {16*36, 16*24, 16*24};
+		cv::Mat_<unsigned char>input(3, ldims, (unsigned char)0), small_input(3, dims, (unsigned char)0);
+		std::ofstream f("close_neighbours3D.out");
+		for(int i = 16*20; i>16*6; --i)
 		{
-			const double distance = i/32.0;
+			const double distance = i/16.0;
 			BOOST_TEST_CHECKPOINT("distance = "<<distance);
 			input.setTo(0);
-			cv::circle(input, cv::Point(32*16, 32*16), 32*4, 255, -1);
-			cv::circle(input, cv::Point(32*16, 32*16+i), 32*4, 255, -1);
-			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
-			std::vector<Center2D> v_s = finder(small_input, true);
+			drawsphere(input, 16*12, 16*12, 16*12, 16*4, 255);
+			drawsphere(input, 16*12+i, 16*12, 16*12, 16*4, 255);
+			volume_shrink(input, small_input, 16);
+			std::vector<Center3D> v_s = finder.get_centers<3>(small_input, true);
 			BOOST_REQUIRE_EQUAL(v_s.size(), 2);
-			BOOST_CHECK_CLOSE(v_s[0][1], 16, distance<16?6:2);
-			BOOST_REQUIRE_CLOSE(v_s[1][1], 16+distance, distance<16?6:2);
+			BOOST_CHECK_CLOSE(v_s[0][2], 12, distance<16?6:2);
+			BOOST_REQUIRE_CLOSE(v_s[1][2], 12+distance, distance<16?6:2);
 			BOOST_CHECK_CLOSE(v_s[0].r, 4, distance<16?6:2);
-			BOOST_CHECK_CLOSE(v_s[1][1] - v_s[0][1], distance, distance<9.06375?22:2);
-			f << distance << "\t" << v_s[0][1] << "\t" << v_s[1][1] << "\t" << v_s[0].r << "\n";
+			BOOST_CHECK_CLOSE(v_s[1][2] - v_s[0][2], distance, distance<9.06375?22:2);
+			f << distance << "\t" << v_s[0][2] << "\t" << v_s[1][2] << "\t" << v_s[0].r << "\n";
 		}
 		f<<std::endl;
-	}*/
+	}
 
 BOOST_AUTO_TEST_SUITE_END() //octave limit cases 3D
 

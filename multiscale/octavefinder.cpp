@@ -676,6 +676,12 @@ double Colloids::OctaveFinder1D::scale_subpix(const std::vector<int> &ci) const
 	return l - 1.05*s + 0.08*pow(s,2) - pow(2,-2/(double)this->get_n_layers())+0.025*l -0.025;
 }
 
+double Colloids::OctaveFinder3D::scale_subpix(const std::vector<int> &ci) const
+{
+	//Empirical correction
+	return 0.11125068 + 0.97697195*OctaveFinder::scale_subpix(ci);
+}
+
 void Colloids::OctaveFinder::single_subpix(const std::vector<int> &ci, Center_base &c) const
 {
 	this->spatial_subpix(ci, c);
