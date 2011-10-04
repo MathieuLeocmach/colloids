@@ -47,11 +47,11 @@ namespace Colloids {
 	MultiscaleFinder3D::MultiscaleFinder3D(const int nplanes, const int nrows, const int ncols, const int nbLayers, const double &preblur_radius)
 	{
 		//must not fail if the image is too small, construct the 0th octave anyway
-		const int s = (nplanes<12 || nrows<12 || ncols<12)?1:(log(min(nplanes, min(nrows, ncols))/6)/log(2));
+		const int s = (nplanes<10 || nrows<10 || ncols<10)?1:(log(min(nplanes, min(nrows, ncols))/5)/log(2));
 		this->octaves.reserve((size_t)s);
 		this->octaves.push_back(new OctaveFinder3D(2*nplanes, 2*nrows, 2*ncols, nbLayers, preblur_radius));
 		int opl = nplanes, ocr = nrows, occ = ncols;
-		while(opl >=12 && ocr >= 12 && occ >= 12)
+		while(opl >=10 && ocr >= 10 && occ >= 10)
 		{
 			this->octaves.push_back(new OctaveFinder3D(opl, ocr, occ, nbLayers, preblur_radius));
 			opl /= 2;
@@ -72,11 +72,11 @@ namespace Colloids {
 		this->file.open(params);
 		//create the images inside the memory mapped file
 		int dims[3] = {nplanes, nrows, ncols};
-		this->small = cv::Mat(3, dims, small.type(), (void*)this->file.data());
-		std::fill_n((OctaveFinder::PixelType*)small.data, nbpixels, (OctaveFinder::PixelType)0);
+		this->small = cv::Mat(3, dims, this->octaves[0]->get_layers(0).type(), (void*)this->file.data());
+		this->small.setTo(0);
 		int ldims[3] = {2*nplanes, 2*nrows, 2*ncols};
-		this->upscaled = cv::Mat(3, ldims, small.type(), (void*)this->file.data());
-		std::fill_n((OctaveFinder::PixelType*)upscaled.data, nbpixels*8, (OctaveFinder::PixelType)0);
+		this->upscaled = cv::Mat(3, ldims, small.type(), (void*)(this->file.data() + nbpixels * sizeof(OctaveFinder::PixelType)));
+		this->upscaled.setTo(0);
 
 	}
 
@@ -186,6 +186,7 @@ namespace Colloids {
 	}
     void MultiscaleFinder::upscale()
     {
+    	//fill the even lines
     	for(int j=0; 2*j<this->upscaled.rows; ++j)
 		{
 			OctaveFinder::PixelType * u = &this->upscaled(2*j, 0);
@@ -204,117 +205,56 @@ namespace Colloids {
 				u++;
 			}
 		}
-		for(int j=0; 2*j+1<this->upscaled.rows && j+1<small.rows; ++j)
+    	//fill the odd lines
+    	for(int j=0; 2*j+2<this->upscaled.size[0]; ++j)
 		{
-			OctaveFinder::PixelType * u = &this->upscaled(2*j+1, 0);
-			const OctaveFinder::PixelType * s1 = &this->small(j,0);
-			const OctaveFinder::PixelType * s2 = &this->small(j+1,0);
-			for(int i=0; 2*i<this->upscaled.cols; ++i)
-			{
-				*u++ = 0.5 * (*s1++ + *s2++);
-				u++;
-			}
-			u = &this->upscaled(2*j+1, 1);
-			s1 = &this->small(j,0);
-			s2 = &this->small(j+1,0);
-			for(int i=0; 2*i+1<this->upscaled.cols && i+1<small.cols; ++i)
-			{
-				*u = 0.25 * (*s1++ + *s2++);
-				*u++ += 0.25 * (*s1 + *s2);
-				u++;
-			}
+			OctaveFinder::PixelType * u = &this->upscaled(2*j, 0),
+					* v = &this->upscaled(2*j+1, 0),
+					* w = &this->upscaled(2*j+2, 0);
+			for(int i=0; i<this->upscaled.size[1]; ++i)
+				*v++ = 0.5 * (*u++ + *w++);
 		}
     }
     void MultiscaleFinder3D::upscale()
 	{
-    	for(int k=0; 2*k<this->upscaled.size[0]; ++k)
-    	{
-			for(int j=0; 2*j<this->upscaled.size[1]; ++j)
-			{
-				OctaveFinder::PixelType * u = &this->upscaled(2*k, 2*j, 0);
+    	//fill the even lines of the even planes
+    	for(int k=0; k<this->small.size[0]; ++k)
+    		for(int j=0; j<this->small.size[1]; ++j)
+    		{
+    			OctaveFinder::PixelType * u = &this->upscaled(2*k, 2*j, 0);
 				const OctaveFinder::PixelType * s = &this->small(k, j, 0);
-				for(int i=0; 2*i<this->upscaled.size[2]; ++i)
+				for(int i=0; i<this->small.size[2]; ++i)
 				{
 					*u++ = *s++;
 					u++;
 				}
 				u = &this->upscaled(2*k, 2*j, 1);
 				s = &this->small(k, j, 0);
-				for(int i=0; 2*i+1<this->upscaled.size[2] && i+1<small.size[2]; ++i)
+				for(int i=0; 2*i+2<this->upscaled.size[2]; ++i)
 				{
 					*u = 0.5 * *s++;
 					*u++ += 0.5 * *s;
 					u++;
 				}
-			}
-			for(int j=0; 2*j+1<this->upscaled.size[1] && j+1<small.size[1]; ++j)
-			{
-				OctaveFinder::PixelType * u = &this->upscaled(2*k, 2*j+1, 0);
-				const OctaveFinder::PixelType * s1 = &this->small(k, j,0);
-				const OctaveFinder::PixelType * s2 = &this->small(k, j+1,0);
-				for(int i=0; 2*i<this->upscaled.size[2]; ++i)
-				{
-					*u++ = 0.5 * (*s1++ + *s2++);
-					u++;
-				}
-				u = &this->upscaled(2*k, 2*j+1, 1);
-				s1 = &this->small(k, j,0);
-				s2 = &this->small(k, j+1,0);
-				for(int i=0; 2*i+1<this->upscaled.size[2] && i+1<small.size[2]; ++i)
-				{
-					*u = 0.25 * (*s1++ + *s2++);
-					*u++ += 0.25 * (*s1 + *s2);
-					u++;
-				}
-			}
+    		}
+    	//fill the odd lines of the even planes
+    	for(int k=0; 2*k<this->upscaled.size[0]; ++k)
+    		for(int j=0; 2*j+2<this->upscaled.size[1]; ++j)
+    		{
+    			OctaveFinder::PixelType * u = &this->upscaled(2*k, 2*j, 0),
+    					* v = &this->upscaled(2*k, 2*j+1, 0),
+    					* w = &this->upscaled(2*k, 2*j+2, 0);
+    			for(int i=0; i<this->upscaled.size[2]; ++i)
+    				*v++ = 0.5 * (*u++ + *w++);
+    		}
+    	//fill the odd planes
+    	for(int k=0; 2*k+2<this->upscaled.size[0]; ++k)
+    	{
+    		OctaveFinder::PixelType * u = &this->upscaled(2*k, 0, 0),
+						* v = &this->upscaled(2*k+1, 0, 0),
+						* w = &this->upscaled(2*k+2, 0, 0);
+			for(int i=0; i<this->upscaled.size[1]*this->upscaled.size[2]; ++i)
+				*v++ = 0.5 * (*u++ + *w++);
     	}
-    	for(int k=0; 2*k+1<this->upscaled.size[0] && k+1<small.size[0]; ++k)
-		{
-			for(int j=0; 2*j<this->upscaled.size[1]; ++j)
-			{
-				OctaveFinder::PixelType * u = &this->upscaled(2*k+1, 2*j, 0);
-				const OctaveFinder::PixelType * s1 = &this->small(k, j, 0);
-				const OctaveFinder::PixelType * s2 = &this->small(k+1, j, 0);
-				for(int i=0; 2*i<this->upscaled.size[2]; ++i)
-				{
-					*u = 0.25 * (*s1++ + *s2++);
-					*u++ += 0.25 * (*s1 + *s2);
-					u++;
-				}
-				u = &this->upscaled(2*k+1, 2*j, 1);
-				s1 = &this->small(k, j, 0);
-				s2 = &this->small(k+1, j, 0);
-				for(int i=0; 2*i+1<this->upscaled.size[2] && i+1<small.size[2]; ++i)
-				{
-					*u = 0.25 * (*s1++ + *s2++);
-					*u++ += 0.25 * (*s1 + *s2);
-					u++;
-				}
-			}
-			for(int j=0; 2*j+1<this->upscaled.size[1] && j+1<small.size[1]; ++j)
-			{
-				OctaveFinder::PixelType * u = &this->upscaled(2*k, 2*j+1, 0);
-				const OctaveFinder::PixelType * s1 = &this->small(k, j,0);
-				const OctaveFinder::PixelType * s2 = &this->small(k, j+1,0);
-				const OctaveFinder::PixelType * s3 = &this->small(k+1, j,0);
-				const OctaveFinder::PixelType * s4 = &this->small(k+1, j+1,0);
-				for(int i=0; 2*i<this->upscaled.size[2]; ++i)
-				{
-					*u++ = 0.25 * (*s1++ + *s2++ + *s3++ + *s4++);
-					u++;
-				}
-				u = &this->upscaled(2*k+1, 2*j+1, 1);
-				s1 = &this->small(k, j,0);
-				s2 = &this->small(k, j+1,0);
-				s3 = &this->small(k+1, j,0);
-				s4 = &this->small(k+1, j+1,0);
-				for(int i=0; 2*i+1<this->upscaled.size[2] && i+1<small.size[2]; ++i)
-				{
-					*u = 0.125 * (*s1++ + *s2++ + *s3++ + *s4++);
-					*u++ += 0.125 * (*s1 + *s2 + *s3 + *s4);
-					u++;
-				}
-			}
-		}
 	}
 }

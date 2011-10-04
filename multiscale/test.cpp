@@ -1736,6 +1736,10 @@ BOOST_AUTO_TEST_SUITE( multiscale3D_call )
 		out.write((char*)input.data, 32*32*32);
 		std::vector<Center3D> v;
 		finder.get_centers(input, v);
+		std::ofstream out0("multiscale_single_sphere_o0lg0.raw", std::ios_base::binary);
+		out0.write((char*)finder.get_octave(0).get_layersG(0).data, 64*64*64*sizeof(OctaveFinder::PixelType));
+		std::ofstream out1("multiscale_single_sphere_o1lg0.raw", std::ios_base::binary);
+		out1.write((char*)finder.get_octave(1).get_layersG(0).data, 32*32*32*sizeof(OctaveFinder::PixelType));
 		//with a radius of 5, the maximum should be in layer 2 of octave 1 and nowhere else
 		for(size_t o=0; o<finder.get_n_octaves(); ++o)
 			for(size_t l=1; l<finder.get_n_layers()+1; ++l)
@@ -1754,6 +1758,25 @@ BOOST_AUTO_TEST_SUITE( multiscale3D_call )
 		BOOST_CHECK_CLOSE(v[0][1], 16, 10);
 		BOOST_CHECK_CLOSE(v[0][2], 16, 10);
 		BOOST_CHECK_CLOSE(v[0].r, 5, 2);
+	}
+
+	BOOST_AUTO_TEST_CASE( multiscale3D_minimum_detector_size )
+	{
+		int i = 13;
+		std::vector<Center3D> v(1);
+		while(i>0 && v.size()>0)
+		{
+			i--;
+			MultiscaleFinder3D finder(i,i,i);
+			int dims[3] = {i, i, i};
+			cv::Mat_<uchar> input(3, dims);
+			input.setTo(0);
+			drawsphere(input, i/2, i/2, i/2, 3, (unsigned char)255);
+			finder.get_centers(input, v);
+			std::ofstream f("multiscale3D_minimum_detector_size.raw", std::ios_base::binary);
+			f.write((const char*)finder.get_octave(0).get_layersG(0).data, i*i*i*8*sizeof(OctaveFinder::PixelType));
+		}
+		BOOST_WARN_MESSAGE(false, "An multiscale detector smaller than "<< (i+1)<<" pixels cannot detect anything in 3D");
 	}
 BOOST_AUTO_TEST_SUITE_END() //multiscale 3D call
 
