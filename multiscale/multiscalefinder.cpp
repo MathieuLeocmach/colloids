@@ -44,6 +44,41 @@ namespace Colloids {
 		this->small = Image(1, ncols, 0.0);
 		this->upscaled = Image(1, 2*ncols, 0.0);
 	}
+	MultiscaleFinder3D::MultiscaleFinder3D(const int nplanes, const int nrows, const int ncols, const int nbLayers, const double &preblur_radius)
+	{
+		//must not fail if the image is too small, construct the 0th octave anyway
+		const int s = (nplanes<12 || nrows<12 || ncols<12)?1:(log(min(nplanes, min(nrows, ncols))/6)/log(2));
+		this->octaves.reserve((size_t)s);
+		this->octaves.push_back(new OctaveFinder3D(2*nplanes, 2*nrows, 2*ncols, nbLayers, preblur_radius));
+		int opl = nplanes, ocr = nrows, occ = ncols;
+		while(opl >=12 && ocr >= 12 && occ >= 12)
+		{
+			this->octaves.push_back(new OctaveFinder3D(opl, ocr, occ, nbLayers, preblur_radius));
+			opl /= 2;
+			ocr /= 2;
+			occ /= 2;
+		}
+		//random file name in the working directory
+		this->path.reserve(30);
+		this->path.push_back('_');
+		this->path.push_back('_');
+		for(int i=0; i<28;++i)
+			this->path.push_back('a'+rand()%('Z'-'a'));
+		//create a memory mapped file to contain the images data
+		boost::iostreams::mapped_file_params params(this->path);
+		const size_t nbpixels =  nplanes * nrows * ncols;
+		params.new_file_size = nbpixels * sizeof(OctaveFinder::PixelType) * 9;
+		params.flags = boost::iostreams::mapped_file::readwrite;
+		this->file.open(params);
+		//create the images inside the memory mapped file
+		int dims[3] = {nplanes, nrows, ncols};
+		this->small = cv::Mat(3, dims, small.type(), (void*)this->file.data());
+		std::fill_n((OctaveFinder::PixelType*)small.data, nbpixels, (OctaveFinder::PixelType)0);
+		int ldims[3] = {2*nplanes, 2*nrows, 2*ncols};
+		this->upscaled = cv::Mat(3, ldims, small.type(), (void*)this->file.data());
+		std::fill_n((OctaveFinder::PixelType*)upscaled.data, nbpixels*8, (OctaveFinder::PixelType)0);
+
+	}
 
 	MultiscaleFinder::~MultiscaleFinder() {
 		while(!this->octaves.empty())
@@ -51,6 +86,9 @@ namespace Colloids {
 			delete octaves.back();
 			octaves.pop_back();
 		}
+	}
+	MultiscaleFinder3D::~MultiscaleFinder3D() {
+		remove(this->path.c_str());
 	}
 
     void MultiscaleFinder::set_radius_preblur(const double & k)
@@ -64,12 +102,12 @@ namespace Colloids {
      */
     void MultiscaleFinder::fill(const cv::Mat & input)
     {
-    	if(input.rows != (int)this->get_width())
+    	if(input.size[input.dims-2] != (int)this->get_width())
     	{
     		std::cerr<< "input.rows="<<input.rows<<"\twidth="<<this->get_width()<<std::endl;
     		throw std::invalid_argument("MultiscaleFinder::fill : the input's rows must match the width of the finder");
     	}
-    	if(input.cols != (int)this->get_height())
+    	if(input.size[input.dims-1] != (int)this->get_height())
     	{
     		std::cerr<< "input.cols="<<input.cols<<"\theight="<<this->get_height()<<std::endl;
     	    throw std::invalid_argument("MultiscaleFinder::fill : the input's cols must match the height of the finder");
@@ -126,6 +164,26 @@ namespace Colloids {
 			roi2(0, i) = (a(0, 2*i) + a(0, 2*i+1))/2.0;
 		return roi2;
 	}
+    const MultiscaleFinder::Image MultiscaleFinder3D::downscale(const size_t &o)
+	{
+		//second to last Gaussian layer of octave o-1 has a blurring radius two time larger than the original
+    	int dims[3] = {
+    			dynamic_cast<OctaveFinder3D*>(this->octaves[o])->get_depth(),
+    			this->octaves[o]->get_width(),
+    			this->octaves[o]->get_height()};
+		Image roi2 = cv::Mat(3, dims, small.type(), small.data);
+		const Image & a = this->octaves[o-1]->get_layersG(this->octaves[o-1]->get_n_layers());
+		for(int k=0; k<roi2.size[0] && 2*k+1<a.size[0]; ++k)
+			for(int j=0; j<roi2.size[1] && 2*j+1<a.size[1]; ++j)
+				for(int i=0; i<roi2.size[0] && 2*i+1<a.size[0]; ++i)
+					roi2(k,j,i) = 0.125 * (
+							a(2*k, 2*j, 2*i) + a(2*k, 2*j, 2*i+1) +
+							a(2*k, 2*j+1, 2*i) + a(2*k, 2*j+1, 2*i+1) +
+							a(2*k+1, 2*j, 2*i) + a(2*k+1, 2*j, 2*i+1) +
+							a(2*k+1, 2*j+1, 2*i) + a(2*k+1, 2*j+1, 2*i+1)
+							);
+		return roi2;
+	}
     void MultiscaleFinder::upscale()
     {
     	for(int j=0; 2*j<this->upscaled.rows; ++j)
@@ -167,4 +225,96 @@ namespace Colloids {
 			}
 		}
     }
+    void MultiscaleFinder3D::upscale()
+	{
+    	for(int k=0; 2*k<this->upscaled.size[0]; ++k)
+    	{
+			for(int j=0; 2*j<this->upscaled.size[1]; ++j)
+			{
+				OctaveFinder::PixelType * u = &this->upscaled(2*k, 2*j, 0);
+				const OctaveFinder::PixelType * s = &this->small(k, j, 0);
+				for(int i=0; 2*i<this->upscaled.size[2]; ++i)
+				{
+					*u++ = *s++;
+					u++;
+				}
+				u = &this->upscaled(2*k, 2*j, 1);
+				s = &this->small(k, j, 0);
+				for(int i=0; 2*i+1<this->upscaled.size[2] && i+1<small.size[2]; ++i)
+				{
+					*u = 0.5 * *s++;
+					*u++ += 0.5 * *s;
+					u++;
+				}
+			}
+			for(int j=0; 2*j+1<this->upscaled.size[1] && j+1<small.size[1]; ++j)
+			{
+				OctaveFinder::PixelType * u = &this->upscaled(2*k, 2*j+1, 0);
+				const OctaveFinder::PixelType * s1 = &this->small(k, j,0);
+				const OctaveFinder::PixelType * s2 = &this->small(k, j+1,0);
+				for(int i=0; 2*i<this->upscaled.size[2]; ++i)
+				{
+					*u++ = 0.5 * (*s1++ + *s2++);
+					u++;
+				}
+				u = &this->upscaled(2*k, 2*j+1, 1);
+				s1 = &this->small(k, j,0);
+				s2 = &this->small(k, j+1,0);
+				for(int i=0; 2*i+1<this->upscaled.size[2] && i+1<small.size[2]; ++i)
+				{
+					*u = 0.25 * (*s1++ + *s2++);
+					*u++ += 0.25 * (*s1 + *s2);
+					u++;
+				}
+			}
+    	}
+    	for(int k=0; 2*k+1<this->upscaled.size[0] && k+1<small.size[0]; ++k)
+		{
+			for(int j=0; 2*j<this->upscaled.size[1]; ++j)
+			{
+				OctaveFinder::PixelType * u = &this->upscaled(2*k+1, 2*j, 0);
+				const OctaveFinder::PixelType * s1 = &this->small(k, j, 0);
+				const OctaveFinder::PixelType * s2 = &this->small(k+1, j, 0);
+				for(int i=0; 2*i<this->upscaled.size[2]; ++i)
+				{
+					*u = 0.25 * (*s1++ + *s2++);
+					*u++ += 0.25 * (*s1 + *s2);
+					u++;
+				}
+				u = &this->upscaled(2*k+1, 2*j, 1);
+				s1 = &this->small(k, j, 0);
+				s2 = &this->small(k+1, j, 0);
+				for(int i=0; 2*i+1<this->upscaled.size[2] && i+1<small.size[2]; ++i)
+				{
+					*u = 0.25 * (*s1++ + *s2++);
+					*u++ += 0.25 * (*s1 + *s2);
+					u++;
+				}
+			}
+			for(int j=0; 2*j+1<this->upscaled.size[1] && j+1<small.size[1]; ++j)
+			{
+				OctaveFinder::PixelType * u = &this->upscaled(2*k, 2*j+1, 0);
+				const OctaveFinder::PixelType * s1 = &this->small(k, j,0);
+				const OctaveFinder::PixelType * s2 = &this->small(k, j+1,0);
+				const OctaveFinder::PixelType * s3 = &this->small(k+1, j,0);
+				const OctaveFinder::PixelType * s4 = &this->small(k+1, j+1,0);
+				for(int i=0; 2*i<this->upscaled.size[2]; ++i)
+				{
+					*u++ = 0.25 * (*s1++ + *s2++ + *s3++ + *s4++);
+					u++;
+				}
+				u = &this->upscaled(2*k+1, 2*j+1, 1);
+				s1 = &this->small(k, j,0);
+				s2 = &this->small(k, j+1,0);
+				s3 = &this->small(k+1, j,0);
+				s4 = &this->small(k+1, j+1,0);
+				for(int i=0; 2*i+1<this->upscaled.size[2] && i+1<small.size[2]; ++i)
+				{
+					*u = 0.125 * (*s1++ + *s2++ + *s3++ + *s4++);
+					*u++ += 0.125 * (*s1 + *s2 + *s3 + *s4);
+					u++;
+				}
+			}
+		}
+	}
 }

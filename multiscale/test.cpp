@@ -44,16 +44,25 @@ struct by_coordinate : std::binary_function<const T&, const T&, bool>
 };
 
 //draw a sphere plane by plane
-void drawsphere(cv::Mat & input, const double &z, const double &y, const double &x, const double &r, const double value=255)
+template<class T>
+void drawsphere(cv::Mat_<T> & input, const double &z, const double &y, const double &x, const double &r, const T & value=255)
 {
-	for(int k=0; k<input.size[0]; ++k)
+	for(int k=std::max(0.0, z-r); k<std::min((double)input.size[0], z+r+1); ++k)
 	{
-		const double Rsq = r*r - (k-z)*(k-z);
+		const double dz = pow(k-z, 2);
+		for(int j=std::max(0.0, y-r); j<std::min((double)input.size[1], y+r+1); j++)
+		{
+			const double dy = pow(j-y, 2);
+			for(int i=std::max(0.0, x-r); i<std::min((double)input.size[2], x+r+1); i++)
+				if(pow(i-x, 2) + dy + dz <= r*r)
+					input(k,j,i) = value;
+		}
+		/*const double Rsq = r*r - (k-z)*(k-z);
 		if(Rsq>=0)
 		{
 			cv::Mat slice(input.size[1], input.size[2], input.type(), &input.at<unsigned char>(k,0,0));
 			cv::circle(slice, cv::Point(y, x), (int)(sqrt(Rsq)), value, -1);
-		}
+		}*/
 	}
 }
 template<typename T>
@@ -1534,7 +1543,7 @@ BOOST_AUTO_TEST_SUITE( subpix )
 		int dims[3] = {32,32,32}, ldims[3] = {8*32, 8*32, 8*32};
 		cv::Mat_<uchar>input(3, ldims, (unsigned char)0), small_input(3, dims, (unsigned char)0);
 		std::vector<Center3D> v;
-		for(int i=0; i<25; ++i)
+		for(int i=0; i<24; ++i)
 		{
 			input.setTo(0);
 			drawsphere(input, 8*16, 8*16, 8*16, 8*4+i);
@@ -1545,7 +1554,7 @@ BOOST_AUTO_TEST_SUITE( subpix )
 			finder.subpix(v_s);
 			std::copy(v_s.begin(), v_s.end(), std::back_inserter(v));
 		}
-		BOOST_REQUIRE_EQUAL(v.size(), 25);
+		BOOST_REQUIRE_EQUAL(v.size(), 24);
 
 		for (int i=1; i<7;++i)
 			BOOST_WARN_MESSAGE(v[0].r< v[7-i].r, "resolution in size is 1/"<<(8*(7-i))<< "th of a scale");
@@ -1575,7 +1584,7 @@ BOOST_AUTO_TEST_SUITE( octave_limit_cases )
 		{
 			i++;
 			input.setTo(0);
-			drawsphere(input, 16*16, 16*16, 16*16, 16*(4-0.01*i), 255);
+			drawsphere(input, 16*16, 16*16, 16*16, 16*(4-0.01*i), (unsigned char)255);
 			volume_shrink(input, small_input, 16);
 			v =	finder.get_centers<3>(small_input, true);
 		}
@@ -1593,12 +1602,12 @@ BOOST_AUTO_TEST_SUITE( octave_limit_cases )
 			int dims[3] = {i, i, i};
 			cv::Mat_<uchar> input(3, dims);
 			input.setTo(0);
-			drawsphere(input, i/2, i/2, i/2, 4, 255);
+			drawsphere(input, i/2, i/2, i/2, 4, (unsigned char)255);
 			v =	finder.get_centers<3>(input, true);
 		}
 		BOOST_WARN_MESSAGE(false, "An octave detector smaller than "<< (i+1)<<" pixels cannot detect anything in 3D");
 	}
-	BOOST_AUTO_TEST_CASE( size_at_border3D )
+	/*BOOST_AUTO_TEST_CASE( size_at_border3D )
 	{
 		OctaveFinder3D finder(24,24,24);
 		//cv cannot draw circle sizes better than a pixel, so the input image is drawn in high resolution
@@ -1650,11 +1659,105 @@ BOOST_AUTO_TEST_SUITE( octave_limit_cases )
 			f << distance << "\t" << v_s[0][2] << "\t" << v_s[1][2] << "\t" << v_s[0].r << "\n";
 		}
 		f<<std::endl;
-	}
+	}*/
 
 BOOST_AUTO_TEST_SUITE_END() //octave limit cases 3D
 
 BOOST_AUTO_TEST_SUITE_END() //octave 3D
+
+BOOST_AUTO_TEST_SUITE( multiscale )
+
+BOOST_AUTO_TEST_SUITE( multiscale3D_constructors )
+
+	BOOST_AUTO_TEST_CASE( multiscale3D_constructor_square )
+	{
+		MultiscaleFinder3D finder;
+		BOOST_REQUIRE_EQUAL(finder.get_n_octaves(), 6);
+		BOOST_CHECK_EQUAL(dynamic_cast<const OctaveFinder3D&>(finder.get_octave(1)).get_depth(), 256);
+		BOOST_CHECK_EQUAL(finder.get_octave(1).get_width(), 256);
+		BOOST_CHECK_EQUAL(finder.get_octave(1).get_height(), 256);
+		BOOST_CHECK_EQUAL(finder.get_octave(1).get_n_layers(), 3);
+		BOOST_CHECK_EQUAL(dynamic_cast<const OctaveFinder3D&>(finder.get_octave(0)).get_depth(), 512);
+		BOOST_CHECK_EQUAL(finder.get_octave(0).get_width(), 512);
+		BOOST_CHECK_EQUAL(finder.get_octave(0).get_height(), 512);
+		BOOST_CHECK_EQUAL(finder.get_octave(0).get_n_layers(), 3);
+		BOOST_CHECK_EQUAL(dynamic_cast<const OctaveFinder3D&>(finder.get_octave(2)).get_depth(), 128);
+		BOOST_CHECK_EQUAL(finder.get_octave(2).get_width(), 128);
+		BOOST_CHECK_EQUAL(finder.get_octave(2).get_height(), 128);
+		BOOST_CHECK_EQUAL(finder.get_octave(2).get_n_layers(), 3);
+		BOOST_CHECK_EQUAL(dynamic_cast<const OctaveFinder3D&>(finder.get_octave(3)).get_depth(), 64);
+		BOOST_CHECK_EQUAL(finder.get_octave(3).get_width(), 64);
+		BOOST_CHECK_EQUAL(finder.get_octave(3).get_height(), 64);
+		BOOST_CHECK_EQUAL(finder.get_octave(3).get_n_layers(), 3);
+		BOOST_CHECK_EQUAL(dynamic_cast<const OctaveFinder3D&>(finder.get_octave(4)).get_depth(), 32);
+		BOOST_CHECK_EQUAL(finder.get_octave(4).get_width(), 32);
+		BOOST_CHECK_EQUAL(finder.get_octave(4).get_height(), 32);
+		BOOST_CHECK_EQUAL(finder.get_octave(4).get_n_layers(), 3);
+		BOOST_CHECK_EQUAL(dynamic_cast<const OctaveFinder3D&>(finder.get_octave(5)).get_depth(), 16);
+		BOOST_CHECK_EQUAL(finder.get_octave(5).get_width(), 16);
+		BOOST_CHECK_EQUAL(finder.get_octave(5).get_height(), 16);
+		BOOST_CHECK_EQUAL(finder.get_octave(5).get_n_layers(), 3);
+	}
+	BOOST_AUTO_TEST_CASE( multiscale3D_constructor_rectangular_flat )
+    {
+		MultiscaleFinder3D finder(156, 101, 155, 1, 1.0);
+        BOOST_REQUIRE_EQUAL(finder.get_n_octaves(), 5);
+        BOOST_CHECK_EQUAL(dynamic_cast<const OctaveFinder3D&>(finder.get_octave(1)).get_depth(), 156);
+        BOOST_CHECK_EQUAL(finder.get_octave(1).get_width(), 101);
+        BOOST_CHECK_EQUAL(finder.get_octave(1).get_height(), 155);
+        BOOST_CHECK_EQUAL(dynamic_cast<const OctaveFinder3D&>(finder.get_octave(0)).get_depth(), 312);
+        BOOST_CHECK_EQUAL(finder.get_octave(0).get_width(), 202);
+        BOOST_CHECK_EQUAL(finder.get_octave(0).get_height(), 310);
+        BOOST_CHECK_EQUAL(dynamic_cast<const OctaveFinder3D&>(finder.get_octave(2)).get_depth(), 78);
+        BOOST_CHECK_EQUAL(finder.get_octave(2).get_width(), 50);
+        BOOST_CHECK_EQUAL(finder.get_octave(2).get_height(), 77);
+        BOOST_CHECK_EQUAL(dynamic_cast<const OctaveFinder3D&>(finder.get_octave(3)).get_depth(), 39);
+        BOOST_CHECK_EQUAL(finder.get_octave(3).get_width(), 25);
+        BOOST_CHECK_EQUAL(finder.get_octave(3).get_height(), 38);
+        BOOST_CHECK_EQUAL(dynamic_cast<const OctaveFinder3D&>(finder.get_octave(4)).get_depth(), 19);
+        BOOST_CHECK_EQUAL(finder.get_octave(4).get_width(), 12);
+        BOOST_CHECK_EQUAL(finder.get_octave(4).get_height(), 19);
+        BOOST_CHECK_CLOSE(finder.get_radius_preblur(), 1.0, 1e-9);
+        finder.set_radius_preblur(1.6);
+        BOOST_CHECK_CLOSE(finder.get_radius_preblur(), 1.6, 1e-9);
+    }
+BOOST_AUTO_TEST_SUITE_END()
+
+BOOST_AUTO_TEST_SUITE( multiscale3D_call )
+
+	BOOST_AUTO_TEST_CASE( single_sphere )
+	{
+		MultiscaleFinder3D finder(32, 32, 32);
+		int dims[3] = {32,32,32};
+		cv::Mat_<uchar>input(3, dims, (unsigned char)0);
+		input.setTo(0);
+		drawsphere(input, 16, 16, 16, 5, (unsigned char)255);
+		std::ofstream out("multiscale_single_sphere.raw", std::ios_base::binary);
+		out.write((char*)input.data, 32*32*32);
+		std::vector<Center3D> v;
+		finder.get_centers(input, v);
+		//with a radius of 5, the maximum should be in layer 2 of octave 1 and nowhere else
+		for(size_t o=0; o<finder.get_n_octaves(); ++o)
+			for(size_t l=1; l<finder.get_n_layers()+1; ++l)
+			{
+				const int u = cv::sum(finder.get_octave(o).get_binary(l))[0];
+				BOOST_CHECK_MESSAGE(
+						u == ((o==1 && l==2)?1:0),
+						"Octave "<<o<<" layer "<<l<<" has "<< u <<" center"<<((u>1)?"s":"")
+				);
+			}
+		std::ofstream f("multiscale_single_sphere.out");
+		for(size_t c=0; c<v.size(); ++c)
+			f<<v[c][0]<<"\t"<<v[c][1]<<"\t"<<v[c][2]<<"\t"<<v[c].r<<"\t"<<v[c].intensity<<"\n";
+		BOOST_REQUIRE_EQUAL(v.size(), 1);
+		BOOST_CHECK_CLOSE(v[0][0], 16, 10);
+		BOOST_CHECK_CLOSE(v[0][1], 16, 10);
+		BOOST_CHECK_CLOSE(v[0][2], 16, 10);
+		BOOST_CHECK_CLOSE(v[0].r, 5, 2);
+	}
+BOOST_AUTO_TEST_SUITE_END() //multiscale 3D call
+
+BOOST_AUTO_TEST_SUITE_END() //multiscale 3D
 
 BOOST_AUTO_TEST_SUITE_END() //threeD
 

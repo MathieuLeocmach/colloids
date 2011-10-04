@@ -37,7 +37,7 @@ public:
 	inline void get_centers(const cv::Mat &input, std::vector<Center<D> >& centers);
 	template<int D> const std::vector<int> previous_octave_coords(const Center<D> &v) const;
 	virtual const Image downscale(const size_t &o) = 0;
-	void upscale();
+	virtual void upscale();
 	template<int D> inline void seam(Center<D> &v, const size_t &o) const{};
 
 
@@ -61,6 +61,21 @@ public:
 	MultiscaleFinder1D(const int ncols=256, const int nbLayers=3, const double &preblur_radius=1.6);
 	virtual const size_t get_width() const {return 1; };
 	virtual const Image downscale(const size_t &o);
+};
+
+class MultiscaleFinder3D : public MultiscaleFinder
+{
+public:
+	MultiscaleFinder3D(const int nplanes=256, const int nrows=256, const int ncols=256, const int nbLayers=3, const double &preblur_radius=1.6);
+	virtual ~MultiscaleFinder3D();
+	virtual const size_t get_width() const {return this->octaves[0]->get_width()/2; };
+	const size_t get_depth() const {return dynamic_cast<OctaveFinder3D*>(this->octaves[0])->get_depth()/2; };
+	virtual const Image downscale(const size_t &o);
+	virtual void upscale();
+
+protected:
+	boost::iostreams::mapped_file file;
+	std::string path;
 };
 
 /**
