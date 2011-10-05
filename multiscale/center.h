@@ -60,6 +60,11 @@ namespace Colloids {
 	{
 		bool operator()(const Center<D>& a, const Center<D> &b) const {return a.intensity < b.intensity;}
 	};
+	template<int d>
+	struct compare_coord : std::binary_function<bool, const Center_base&, const Center_base& >
+	{
+		bool operator()(const Center_base& a, const Center_base &b) const {return a[d] < b[d];}
+	};
 
 	template<int D>
 	inline RStarBoundingBox<D,double> get_bb(const Center<D> &c, const double &tolerance=1.0)
