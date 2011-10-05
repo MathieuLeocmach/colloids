@@ -431,13 +431,18 @@ void Colloids::OctaveFinder3D::initialize_binary(const double & max_ratio)
 					const double hess[3] = {
 							this->layers[ml](mk, mj - 1, mi) - 2 * this->layers[ml](mk, mj, mi) + this->layers[ml](mk, mj + 1, mi),
 							this->layers[ml](mk, mj, mi - 1) - 2 * this->layers[ml](mk, mj, mi) + this->layers[ml](mk, mj, mi + 1),
-							this->layers[ml](mk, mj - 1, mi - 1) + this->layers[ml](mk, mj + 1, mi + 1) - this->layers[ml](mk, mj + 1, mi - 1) - this->layers[ml](mk, mj - 1, mi + 1)};
+							this->layers[ml](mk, mj - 1, mi - 1) + this->layers[ml](mk, mj + 1, mi + 1) - this->layers[ml](mk, mj + 1, mi - 1) - this->layers[ml](mk, mj - 1, mi + 1)
+					};
 					//determinant of the Hessian, for the coefficient see
 					//H Bay, a Ess, T Tuytelaars, and L Vangool,
 					//Computer Vision and Image Understanding 110, 346-359 (2008)
 					const double detH = hess[0] * hess[1] - pow(hess[2], 2),
 							ratio = pow(hess[0] + hess[1], 2) / (4.0 * hess[0] * hess[1]);
 					*b = !((detH < 0 && 1+detH*detH > 1) || ratio > max_ratio);
+					*b &= abs(
+							(this->layers[ml](mk+1, mj, mi) - this->layers[ml](mk-1, mj, mi)) /
+							(this->layers[ml](mk+1, mj, mi)-2*this->layers[ml](mk, mj, mi)+this->layers[ml](mk-1, mj, mi))
+							) < 1.0;
 					if(*b){
 						std::vector<int> c(4);
 						c[0] = mi;
@@ -499,9 +504,19 @@ void Colloids::OctaveFinder3D::spatial_subpix(const std::vector<int> &ci, Center
         		(lay(k+1, j, i) - lay(k-1, j, i))/2.0,
         		lay(k+1, j, i) -2*lay(k, j, i) + lay(k-1, j, i)
         };
-        c[0] = i + 0.5 - (a[1]==0 ? 0 : a[0]/a[1]);
-		c[1] = j + 0.5 - (a[3]==0 ? 0 : a[2]/a[3]);
-		c[2] = k + 0.5 - (a[5]==0 ? 0 : a[4]/a[5]);
+        for(size_t d=0; d<3; ++d)
+        {
+        	double shift = a[d]/a[2*d+1];
+        	//in some rare cases (z edges), the shift may be very large if computed from gaussian layers
+        	if(abs(shift)>0.5)
+        	{
+        		PixelType const * v = &this->layers[l](k, j, i);
+        		const size_t step = this->layers[l].step[d]/sizeof(PixelType);
+        		double b[3] = {*(v-step), *v, *(v+step)};
+        		shift = (b[0] - b[2]) /2.0	/ (b[0] - 2 * b[1] + b[2]);
+        	}
+        	c[d] = ci[d] + 0.5 - shift;
+        }
 		c.intensity = this->layers[l](k, j, i);
 }
 double Colloids::OctaveFinder::gaussianResponse(const std::vector<int> &ci, const double & scale) const
@@ -685,6 +700,13 @@ void Colloids::OctaveFinder::single_subpix(const std::vector<int> &ci, Center_ba
 const double OctaveFinder::get_iterative_radius(const double & larger, const double & smaller) const
 {
 	return this->preblur_radius * sqrt(pow(2.0, 2.0*larger/this->get_n_layers()) - pow(2.0, 2.0*smaller/this->get_n_layers()));
+}
+
+const std::vector<int> OctaveFinder::get_center_pixel(const size_t n) const
+{
+	std::list<std::vector<int> >::const_iterator it = this->centers_no_subpix.begin();
+	std::advance(it, n);
+	return *(it);
 }
 /**
  * \brief Eliminate pixel centers duplicated at the seam between two Octaves

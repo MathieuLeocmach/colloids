@@ -35,6 +35,7 @@ namespace Colloids
 			inline const Image & get_layersG(const size_t l) const {return layersG[l];}
 			inline const Image & get_layers(const size_t l) const {return layers[l];}
 			inline const size_t get_nb_centers() const {return centers_no_subpix.size();}
+			const std::vector<int> get_center_pixel(const size_t n) const;
 			static const cv::Mat_<double>& get_kernel(const double &sigma);
 
             //processing
