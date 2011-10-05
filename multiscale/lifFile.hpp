@@ -94,8 +94,6 @@ class LifSerie : public LifSerieHeader, boost::noncopyable
         void fill2DBuffer(void* buffer, size_t t=0, size_t z=0);
         std::istreambuf_iterator<char> begin(size_t t=0);
         std::streampos tellg(){return file.tellg();}
-
-    private:
         unsigned long long getOffset(size_t t=0) const;
 };
 
