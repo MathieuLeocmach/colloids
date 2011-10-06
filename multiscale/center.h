@@ -104,7 +104,7 @@ namespace Colloids {
 	};
 
 	template<int D>
-	std::auto_ptr< RStarTree<size_t, D, 4, 32, double> > removeOverlapping(std::vector<Center<D> > &centers)
+	std::auto_ptr< RStarTree<size_t, D, 4, 32, double> > removeOverlapping(std::vector<Center<D> > &centers, const double &tolerance=0.9)
 	{
 		typedef RStarTree<size_t, D, 4, 32, double> RTree;
 		typedef std::vector<Center<D> > Centers;
@@ -117,7 +117,7 @@ namespace Colloids {
 		for(size_t c=0; c<centers.size(); ++c)
 		{
 			//norm 1 overlapping
-			typename RTree::BoundingBox bb = get_bb(centers[c], 1);
+			typename RTree::BoundingBox bb = get_bb(centers[c], tolerance);
 			std::list<size_t> overlapping;
 			tree->Query(typename RTree::AcceptOverlapping(bb), Gatherer<D>(overlapping));
 			bool is_overlapping = !overlapping.empty();
