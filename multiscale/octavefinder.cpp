@@ -363,7 +363,7 @@ void Colloids::OctaveFinder3D::initialize_binary(const double & max_ratio)
     for(int i = 0;i < nblayers;++i)
         this->binary[i].setTo(0);
     //prepare the cache
-    Image cache(4*4*4, this->get_height(), (PixelType)0);
+    Image cache(2*2*2, this->get_height(), (PixelType)0);
 
 	for(int l = 1;l < nblayers+1;l += 2)
 	{
@@ -373,39 +373,23 @@ void Colloids::OctaveFinder3D::initialize_binary(const double & max_ratio)
 		for(int j = (int)this->sizes[l]+1;j < layer0.size[1] - si- 1;j += 2)
 		{
 			//fill the cache for the whole line of blocks
-			cache.setTo(0);
-			for(int cl=0; cl<4 && cl-1+l<this->layers.size(); ++cl)
-				for(int ck=0; ck<4 && ck-1+k<this->get_depth(); ++ck)
+			for(int cl=0; cl<2; ++cl)
+				for(int ck=0; ck<2; ++ck)
 				{
-					const PixelType * in = &this->layers[cl-1+l](ck-1+k, j-1, 0);
-					PixelType * out = &cache(4*(4*cl+ck), 0);
-					for(int ci=0; ci<4*cache.cols; ++ci)
+					const PixelType * in = &this->layers[cl+l](ck+k, j, 0);
+					PixelType * out = &cache(2*(2*cl+ck), 0);
+					for(int ci=0; ci<2*cache.cols; ++ci)
 						*out++ = *in++;
 				}
-			//initialize the cursor at the first block of the line
-			boost::array<const float*, 8> ngb_ptr = {{
-					&cache(4*(4*1+1)+1, si+1),
-					&cache(4*(4*1+1)+2, si+1),
-					&cache(4*(4*1+2)+1, si+1),
-					&cache(4*(4*1+2)+2, si+1),
-					&cache(4*(4*2+1)+1, si+1),
-					&cache(4*(4*2+1)+2, si+1),
-					&cache(4*(4*2+2)+1, si+1),
-					&cache(4*(4*2+2)+2, si+1)
-			}};
 			for(int i = si+1;i < this->get_height() -si - 1;i += 2){
 				//copy the whole block together for locality
-				boost::array<float, 16> ngb = {{
-						*ngb_ptr[0]++, *ngb_ptr[0]++,
-						*ngb_ptr[1]++, *ngb_ptr[1]++,
-						*ngb_ptr[2]++, *ngb_ptr[2]++,
-						*ngb_ptr[3]++, *ngb_ptr[3]++,
-						*ngb_ptr[4]++, *ngb_ptr[4]++,
-						*ngb_ptr[5]++, *ngb_ptr[5]++,
-						*ngb_ptr[6]++, *ngb_ptr[6]++,
-						*ngb_ptr[7]++, *ngb_ptr[7]++
-				}};
-				const boost::array<float, 8>::const_iterator mpos = std::min_element(ngb.begin(), ngb.end());
+				boost::array<PixelType, 16> ngb;
+				for(int u=0;u<8;++u)
+				{
+					ngb[2*u] = cache(u,i);
+					ngb[2*u+1] = cache(u,i+1);
+				}
+				const boost::array<PixelType, 16>::const_iterator mpos = std::min_element(ngb.begin(), ngb.end());
 				if(*mpos>=0.0)
 					continue;
 				const int mm = mpos-ngb.begin();
@@ -433,8 +417,8 @@ void Colloids::OctaveFinder3D::initialize_binary(const double & max_ratio)
 						for(int j2 = mj - 1;j2 < mj + 2 && *b;++j2)
 							for(int i2 = mi - 1;i2 < mi + 2 && *b;++i2)
 								if(l2 < l || k2 < k || j2 < j || i2 < i || l2 > l + 1 || k2 > k +1 || j2 > j + 1 || i2 > i + 1)
-									*b = *mpos <= cache(4*(4*(l2-l+1)+k2-k+1)+j2-j+1, i2);
-									//this->layers[l2](k2, j2, i2);
+									*b = *mpos <= //cache(4*(4*(l2-l+1)+k2-k+1)+j2-j+1, i2);
+									this->layers[l2](k2, j2, i2);
 
 
 
@@ -442,14 +426,14 @@ void Colloids::OctaveFinder3D::initialize_binary(const double & max_ratio)
 				//remove the local minima that are edges (elongated objects) in XY
 				if(*b){
 					//hessian matrix
-					const int cj = 4*(4*(ml-l+1)+mk-k+1)+mj-j+1;
+					//const int cj = 4*(4*(ml-l+1)+mk-k+1)+mj-j+1;
 					const double hess[3] = {
-							cache(cj-1, mi) - 2 * cache(cj, mi) + cache(cj+1, mi),
-							cache(cj, mi-1) - 2 * cache(cj, mi) + cache(cj, mi+1),
-							cache(cj-1, mi-1) + cache(cj+1, mi+1) - cache(cj+1, mi-1) - cache(cj-1, mi+1)
-							//this->layers[ml](mk, mj - 1, mi) - 2 * this->layers[ml](mk, mj, mi) + this->layers[ml](mk, mj + 1, mi),
-							//this->layers[ml](mk, mj, mi - 1) - 2 * this->layers[ml](mk, mj, mi) + this->layers[ml](mk, mj, mi + 1),
-							//this->layers[ml](mk, mj - 1, mi - 1) + this->layers[ml](mk, mj + 1, mi + 1) - this->layers[ml](mk, mj + 1, mi - 1) - this->layers[ml](mk, mj - 1, mi + 1)
+							//cache(cj-1, mi) - 2 * cache(cj, mi) + cache(cj+1, mi),
+							//cache(cj, mi-1) - 2 * cache(cj, mi) + cache(cj, mi+1),
+							//cache(cj-1, mi-1) + cache(cj+1, mi+1) - cache(cj+1, mi-1) - cache(cj-1, mi+1)
+							this->layers[ml](mk, mj - 1, mi) - 2 * this->layers[ml](mk, mj, mi) + this->layers[ml](mk, mj + 1, mi),
+							this->layers[ml](mk, mj, mi - 1) - 2 * this->layers[ml](mk, mj, mi) + this->layers[ml](mk, mj, mi + 1),
+							this->layers[ml](mk, mj - 1, mi - 1) + this->layers[ml](mk, mj + 1, mi + 1) - this->layers[ml](mk, mj + 1, mi - 1) - this->layers[ml](mk, mj - 1, mi + 1)
 					};
 					//determinant of the Hessian, for the coefficient see
 					//H Bay, a Ess, T Tuytelaars, and L Vangool,
