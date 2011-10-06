@@ -1,6 +1,7 @@
 #include "octavefinder.hpp"
 #include <boost/array.hpp>
 #include <algorithm>
+#include <numeric>
 #include <stdexcept>
 
 
@@ -417,8 +418,7 @@ void Colloids::OctaveFinder3D::initialize_binary(const double & max_ratio)
 						for(int j2 = mj - 1;j2 < mj + 2 && *b;++j2)
 							for(int i2 = mi - 1;i2 < mi + 2 && *b;++i2)
 								if(l2 < l || k2 < k || j2 < j || i2 < i || l2 > l + 1 || k2 > k +1 || j2 > j + 1 || i2 > i + 1)
-									*b = *mpos <= //cache(4*(4*(l2-l+1)+k2-k+1)+j2-j+1, i2);
-									this->layers[l2](k2, j2, i2);
+									*b = *mpos <= this->layers[l2](k2, j2, i2);
 
 
 
@@ -426,11 +426,7 @@ void Colloids::OctaveFinder3D::initialize_binary(const double & max_ratio)
 				//remove the local minima that are edges (elongated objects) in XY
 				if(*b){
 					//hessian matrix
-					//const int cj = 4*(4*(ml-l+1)+mk-k+1)+mj-j+1;
 					const double hess[3] = {
-							//cache(cj-1, mi) - 2 * cache(cj, mi) + cache(cj+1, mi),
-							//cache(cj, mi-1) - 2 * cache(cj, mi) + cache(cj, mi+1),
-							//cache(cj-1, mi-1) + cache(cj+1, mi+1) - cache(cj+1, mi-1) - cache(cj-1, mi+1)
 							this->layers[ml](mk, mj - 1, mi) - 2 * this->layers[ml](mk, mj, mi) + this->layers[ml](mk, mj + 1, mi),
 							this->layers[ml](mk, mj, mi - 1) - 2 * this->layers[ml](mk, mj, mi) + this->layers[ml](mk, mj, mi + 1),
 							this->layers[ml](mk, mj - 1, mi - 1) + this->layers[ml](mk, mj + 1, mi + 1) - this->layers[ml](mk, mj + 1, mi - 1) - this->layers[ml](mk, mj - 1, mi + 1)
@@ -633,6 +629,52 @@ double Colloids::OctaveFinder3D::gaussianResponse(const std::vector<int> &ci, co
 			resp += gx[x] * *ker++;
 
         return resp;
+}
+/**
+ * \brief mutualize calls to gaussianResponse at the same point but different scales
+ */
+std::vector<double> Colloids::OctaveFinder::gaussianResponse(const std::vector<int> &ci, const std::vector<double> & scales) const
+{
+	if(ci.size()<2)
+		throw std::invalid_argument("Colloids::OctaveFinder::gaussianResponse: coordinates must be at least 2D.");
+	std::vector<cv::Mat_<double> > kernels(scales.size());
+	std::vector<int> ms(scales.size());
+	for(size_t s=0; s<scales.size(); ++s)
+	{
+		size_t l = (size_t)(scales[s]);
+		if (l>=this->layersG.size())
+			l = this->layersG.size()-1;
+		kernels[s] = get_kernel(this->get_iterative_radius(scales[s], (double)l));
+		ms[s] = kernels[s].rows;
+	}
+	const int m_max = *std::max_element(ms.begin(), ms.end());
+	//get once all the needed pixels
+	int dims[3] = {this->layersG.size(), m_max, m_max};
+	Image im(3, dims, (PixelType)0);
+	for(size_t l=0; l<this->layersG.size(); ++l)
+		for(int j=max(0, ci[1]-m_max/2); j<min(this->layersG[0].size[0], ci[1]+m_max/2+1); ++j)
+			for(int i=max(0, ci[0]-m_max/2); i<min(this->layersG[0].size[0], ci[0]+m_max/2+1); ++i)
+				im(l, j-ci[1]+m_max/2, i-ci[0]+m_max/2) = this->layersG[l](j, i);
+	//compute each Gaussian response
+	std::vector<double> responses(scales.size());
+	for(size_t s=0; s<scales.size(); ++s)
+	{
+		size_t l = (size_t)(scales[s]);
+		if (l>=this->layersG.size())
+			l = this->layersG.size()-1;
+		//no need to compute the response if we are at an existing layer
+		if(pow(scales[s] - l, 2) + 1 == 1)
+		{
+			responses[s] = this->layersG[l](ci[1], ci[0]);
+			continue;
+		}
+		const int shift = (m_max - ms[s])/2;
+		std::vector<double> gx(ms[s]);
+		for(int y=0; y<ms[s]; ++y)
+			gx[y] = std::inner_product(&kernels[s](0,0), &kernels[s](0,0)+ms[s], &im(l, y+shift, shift), 0.0);
+		responses[s] = std::inner_product(gx.begin(), gx.end(), &kernels[s](0,0), 0.0);
+	}
+    return responses;
 }
 
 double Colloids::OctaveFinder::scale_subpix(const std::vector<int> &ci) const

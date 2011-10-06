@@ -53,6 +53,7 @@ namespace Colloids
             template<int D>
             std::vector<Center<D> > get_centers(const cv::Mat &input, const bool preblur=false);
             virtual double gaussianResponse(const std::vector<int> &ci, const double & scale) const;
+            virtual std::vector<double> gaussianResponse(const std::vector<int> &ci, const std::vector<double> & scales) const;
             virtual void seam_binary(OctaveFinder & other);
 
 
