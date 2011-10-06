@@ -83,6 +83,7 @@ namespace Colloids
 			virtual void spatial_subpix(const std::vector<int> &ci, Center_base& c) const;
 			virtual double scale_subpix(const std::vector<int> &ci) const;
 			virtual double gaussianResponse(const std::vector<int> &ci, const double & scale) const;
+			virtual std::vector<double> gaussianResponse(const std::vector<int> &ci, const std::vector<double> & scales) const;
 			virtual void seam_binary(OctaveFinder & other);
     };
 
@@ -98,6 +99,7 @@ namespace Colloids
 			virtual void spatial_subpix(const std::vector<int> &ci, Center_base& c) const;
 			//virtual double scale_subpix(const std::vector<int> &ci) const;
 			virtual double gaussianResponse(const std::vector<int> &ci, const double & scale) const;
+			virtual std::vector<double> gaussianResponse(const std::vector<int> &ci, const std::vector<double> & scales) const;
 			virtual void seam_binary(OctaveFinder & other);
 
 		protected:
