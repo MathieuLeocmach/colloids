@@ -139,11 +139,13 @@ void Colloids::OctaveFinder::_fill_internal()
 
 void Colloids::OctaveFinder3D::_fill_internal()
 {
+	Image temp(this->layersG2D.front().size());
+	this->layersG2D.front().copyTo(temp);
 	//iterative Gaussian blur
 	for(size_t i=0; i<this->layersG.size()-1; ++i)
 	{
 		//Z out of place
-		this->iterative_Zgaussian_filters[i].apply(this->layersG2D[i], this->layersG2D[i+1]);
+		this->iterative_Zgaussian_filters[i].apply(temp, temp);
 		//X and Y inplace
 		for(int k=0; k<this->layersG[i+1].size[0]; ++k)
 		{
@@ -151,15 +153,18 @@ void Colloids::OctaveFinder3D::_fill_internal()
 					this->layersG[i+1].size[1],
 					this->layersG[i+1].size[2],
 					this->layersG[i+1].type(),
-					(void*)&this->layersG[i+1](k)
+					(void*)&temp(k)
 					);
 			this->iterative_gaussian_filters[i].apply(slice, slice);
 		}
+		Image l2D = cv::Mat(temp.size[0], temp.size[1], temp.type(), this->layers[i].data);
+		cv::subtract(temp, this->layersG2D[i], l2D);
+		temp.copyTo(this->layersG2D[i+1]);
 	}
 
 	//difference of Gaussians
-	for(size_t i=0; i<this->layers.size(); ++i)
-		cv::subtract(this->layersG[i+1], this->layersG[i], this->layers[i]);
+	//for(size_t i=0; i<this->layers.size(); ++i)
+		//cv::subtract(this->layersG[i+1], this->layersG[i], this->layers[i]);
 }
 
 void Colloids::OctaveFinder::preblur(const cv::Mat &input)
