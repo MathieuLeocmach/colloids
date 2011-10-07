@@ -8,6 +8,7 @@
 #include <boost/ptr_container/ptr_vector.hpp>
 #include <boost/iostreams/device/mapped_file.hpp>
 #include <list>
+#include <numeric>
 
 namespace Colloids
 {
@@ -140,5 +141,99 @@ namespace Colloids
     		this->scale(centers[c]);
     	return centers;
     }
+    template<>
+	inline void OctaveFinder::subpix(std::vector<Center3D > &centers) const
+	{
+    	typedef std::list<std::vector<int> >::const_iterator list_it;
+		centers.clear();
+		centers.resize(this->centers_no_subpix.size());
+		//spatial subpix
+		list_it ci = this->centers_no_subpix.begin();
+		for(size_t c=0; c<centers.size(); ++c)
+			this->spatial_subpix(*ci++, centers[c]);
+
+		//subscale responses for each particle
+		Image sublayerG(this->centers_no_subpix.size(), this->layersG.size()*2-1, (PixelType)0);
+		//easy coefficients : the ones from existing Gaussian layers
+		ci = this->centers_no_subpix.begin();
+		for(size_t c=0; c<this->centers_no_subpix.size(); ++c)
+		{
+			for(size_t l=0; l<this->layersG.size(); ++l)
+				sublayerG(c, 2*l) = this->layersG[l]((*ci)[2], (*ci)[1], (*ci)[0]);
+			ci++;
+		}
+		//additional coefficients : intermediate Gaussian layers must be partially computed
+		int dims[3] = {this->layersG.front().size[0], this->layersG.front().size[1], this->layersG.front().size[2]};
+		Image layG2D = Image::zeros(dims[0], dims[1]*dims[2]);
+		cv::Mat_<double> kx(1,1, 1.0);
+		for(size_t l=0; l+1<this->layersG.size(); ++l)
+		{
+			const cv::Mat_<double> &kernel = get_kernel(this->get_iterative_radius(l+0.5, (double)l));
+			//fully compute the Z filter
+			cv::Ptr<cv::FilterEngine> filter = createSeparableLinearFilter
+			(
+				this->layersG[0].type(), this->layersG[0].type(),
+				kx, kernel,
+				cv::Point(-1,-1), 0, cv::BORDER_DEFAULT
+			);
+			Image lG2D(dims[0], dims[1]*dims[2], (PixelType*)this->layersG[l].data);
+			filter->apply(lG2D, layG2D);
+			//now compute the XY only where needed (at the center's position)
+			Image layG = cv::Mat(3, dims, lG2D.type(), layG2D.data);
+			std::vector<double> gx(kernel.rows);
+			ci = this->centers_no_subpix.begin();
+			for(size_t c=0; c<this->centers_no_subpix.size(); ++c)
+			{
+				std::fill(gx.begin(), gx.end(), 0);
+				const int xmin = std::max(0, (*ci)[0]-kernel.rows/2),
+						xmax = std::min(layG.size[2], (*ci)[0]+kernel.rows/2+1);
+				for(int y=std::max(0, (*ci)[1]-kernel.rows/2); y<std::min(layG.size[1], (*ci)[1]+kernel.rows/2+1); ++y)
+					gx[y-(*ci)[1]+kernel.rows/2] = std::inner_product(
+							&layG((*ci)[2], y, xmin),
+							&layG((*ci)[2], y, xmin) + xmax - xmin,
+							&kernel(0, xmin - (*ci)[0]+kernel.rows/2),
+							0.0);
+				sublayerG(c, 2*l+1) = std::inner_product(gx.begin(), gx.end(), &kernel(0,0), 0.0);
+				ci++;
+			}
+		}
+		//Estimate scale by Newton's method
+		std::vector<double> dog(this->layers.size()*2-1);
+		ci = this->centers_no_subpix.begin();
+		for(size_t c=0; c<this->centers_no_subpix.size(); ++c)
+		{
+			//DoG layers values
+			for(size_t u =0; u<dog.size();++u)
+				dog[u] = sublayerG(c, u+2) - sublayerG(c, u);
+			const int l = ci->back();
+			//Apply newton's method using quadratic estimate of the derivative
+			double s = l - (-dog[2*l+2] + 8*dog[2*l+1] - 8*dog[2*l-1] + dog[2*l-2])/6.0 /(dog[2*l+2]-2*dog[2*l]+dog[2*l-2]);
+			//saturate the results
+			if(s>l+0.5)
+				s= l + 0.5;
+			if(s<l-0.5)
+				s= l- 0.5;
+			//second round of newton's method
+			if(s>=1)
+			{
+				if(s+0.1<l)
+					//estimate near l-0.5
+					s = l - 0.5 - (-dog[2*l+1] + 8*dog[2*l] - 8*dog[2*l-2] + dog[2*l-3])/6.0 /(dog[2*l+1]-2*dog[2*l-1]+dog[2*l-3]);
+			}
+			else
+			{
+				//for sizes significantly below the sampled scale
+				//the linear estimate of the derivative is (marginally) better
+				if(s+0.25<l)
+					s = l - (dog[2*l+1] - dog[2*l-1])/(dog[2*l+2]-2*dog[2*l]+dog[2*l-2]);
+			}
+			if(s<l-0.5)
+				s= l- 0.5;
+			if(s>l+0.5)
+				s= l + 0.5;
+			centers[c].r = s;
+			ci++;
+		}
+	}
 };
 #endif // OCTAVEFINDER_H

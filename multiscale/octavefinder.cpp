@@ -734,13 +734,23 @@ std::vector<double> Colloids::OctaveFinder3D::gaussianResponse(const std::vector
 	int dims[3] = {m_max, m_max, m_max};
 	std::vector<Image> ims;
 	ims.reserve(this->layersG.size());
+	const int imin = max(0, ci[0]-m_max/2),
+			jmin = max(0, ci[1]-m_max/2),
+			kmin = max(0, ci[2]-m_max/2),
+			imax = min(this->layersG[0].size[2], ci[0]+m_max/2+1),
+			jmax = min(this->layersG[0].size[1], ci[1]+m_max/2+1),
+			kmax = min(this->layersG[0].size[0], ci[2]+m_max/2+1);
 	for(size_t l=0; l<this->layersG.size(); ++l)
 	{
 		ims.push_back(Image(3, dims, (PixelType)0));
-		for(int k=max(0, ci[2]-m_max/2); k<min(this->layersG[0].size[0], ci[2]+m_max/2+1); ++k)
-			for(int j=max(0, ci[1]-m_max/2); j<min(this->layersG[0].size[1], ci[1]+m_max/2+1); ++j)
-				for(int i=max(0, ci[0]-m_max/2); i<min(this->layersG[0].size[2], ci[0]+m_max/2+1); ++i)
-					ims.back()(k-ci[2]+m_max/2, j-ci[1]+m_max/2, i-ci[0]+m_max/2) = this->layersG[l](k, j, i);
+		for(int k=kmin; k<kmax; ++k)
+			for(int j=jmin; j<jmax; ++j)
+			{
+				const PixelType *in = &this->layersG[l](k, j, imin);
+				PixelType *out = &ims.back()(k-kmin, j-jmin, imin-ci[0]+m_max/2);
+				for(int i=imin; i<imax; ++i)
+					*out++ = *in++;
+			}
 	}
 	//compute each Gaussian response
 	std::vector<double> responses(scales.size());
@@ -776,10 +786,13 @@ double Colloids::OctaveFinder::scale_subpix(const std::vector<int> &ci) const
     	const int &l = ci.back();
 		//scale is better defined if we consider only the central pixel at different scales
 		//Compute intermediate variables to do a quadratic estimate of the derivative
-		boost::array<double,8> sublayerG;
+    	boost::array<double,8> sublayerG;
 		for(size_t u = 0;u < sublayerG.size(); ++u)
 			sublayerG[u] = this->gaussianResponse(ci, l - 1 + 0.5*u);
-
+    	/*std::vector<double> scales(8);
+    	for(size_t u = 0;u < scales.size(); ++u)
+    		scales[u] = l - 1 + 0.5*u;
+    	std::vector<double> sublayerG = this->gaussianResponse(ci, scales);*/
 		boost::array<double,5> a;
 		for(size_t u =0; u<a.size();++u)
 			a[u] = sublayerG[u+2] - sublayerG[u];
@@ -796,11 +809,14 @@ double Colloids::OctaveFinder::scale_subpix(const std::vector<int> &ci) const
 			if(s+0.1<l)
 			{
 				s= l- 0.5;
-			for(size_t u = 0;u < sublayerG.size(); ++u)
-				sublayerG[u] = this->gaussianResponse(ci, s - 1 + 0.5*u);
-			for(size_t u =0; u<a.size();++u)
-				a[u] = sublayerG[u+2] - sublayerG[u];
-			s -= (-a[4] + 8*a[3] - 8*a[1] + a[0])/6.0 /(a[4]-2*a[2]+a[0]);
+				for(size_t u = 0;u < sublayerG.size(); ++u)
+					sublayerG[u] = this->gaussianResponse(ci, s - 1 + 0.5*u);
+				//for(size_t u = 0;u < sublayerG.size(); ++u)
+				//	scales[u] = s - 1 + 0.5*u;
+				//sublayerG = this->gaussianResponse(ci, scales);
+				for(size_t u =0; u<a.size();++u)
+					a[u] = sublayerG[u+2] - sublayerG[u];
+				s -= (-a[4] + 8*a[3] - 8*a[1] + a[0])/6.0 /(a[4]-2*a[2]+a[0]);
 			}
 		}
 		else
