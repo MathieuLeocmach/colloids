@@ -70,7 +70,7 @@ namespace Colloids
             cv::Ptr<cv::FilterEngine> preblur_filter;
 
             virtual void _fill_internal();
-            virtual void preblur(const cv::Mat &input);
+            virtual void preblur(Image &input);
             virtual void fill_iterative_radii();
     };
 
@@ -111,7 +111,7 @@ namespace Colloids
 			cv::Ptr<cv::FilterEngine> preblur_Zfilter;
 
 			virtual void fill_iterative_radii();
-			virtual void preblur(const cv::Mat &input);
+			virtual void preblur(Image &input);
 			virtual void _fill_internal();
     };
 

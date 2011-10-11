@@ -117,8 +117,9 @@ void Colloids::OctaveFinder::fill(const cv::Mat &input)
 			os << "OctaveFinder::fill : the input's "<<d<< "th dimension ("<<input.size[d]<<") must match the one of the finder ("<<this->layersG.front().size[d]<<")";
 			throw std::invalid_argument(os.str().c_str());
 		}
-
-	input.convertTo(this->layersG[0], this->layersG[0].type());
+	Image temp;
+	input.convertTo(temp, temp.type());
+	temp.copyTo(this->layersG.front());
 	this->_fill_internal();
 }
 /**
@@ -167,19 +168,19 @@ void Colloids::OctaveFinder3D::_fill_internal()
 		//cv::subtract(this->layersG[i+1], this->layersG[i], this->layers[i]);
 }
 
-void Colloids::OctaveFinder::preblur(const cv::Mat &input)
+void Colloids::OctaveFinder::preblur(Image &input)
 {
 	this->preblur_filter->apply(input, this->layersG.front());
 }
 
-void Colloids::OctaveFinder3D::preblur(const cv::Mat &input)
+void Colloids::OctaveFinder3D::preblur(Image &input)
 {
-	//Z out of place
-	cv::Mat input2D(
+	//Z inplace
+	Image input2D(
 			input.size[0], input.size[1]*input.size[2],
-			input.type(),(void*)input.data
+			(PixelType*)input.data
 			);
-	this->preblur_Zfilter->apply(input2D, this->layersG2D.front());
+	this->preblur_Zfilter->apply(input2D, input2D);
 	//X and Y inplace
 	for(int k=0; k<this->layersG.front().size[0]; ++k)
 	{
@@ -187,10 +188,12 @@ void Colloids::OctaveFinder3D::preblur(const cv::Mat &input)
 				this->layersG.front().size[1],
 				this->layersG.front().size[2],
 				this->layersG.front().type(),
-				(void*)&this->layersG.front()(k)
+				(void*)&input2D(k)
 				);
 		this->preblur_filter->apply(slice, slice);
 	}
+	//write to disk
+	input.copyTo(this->layersG.front());
 
 }
 
@@ -209,8 +212,9 @@ void Colloids::OctaveFinder::preblur_and_fill(const cv::Mat &input)
 			os << "OctaveFinder::preblur_and_fill : the input's "<<d<< "th dimension ("<<input.size[d]<<") must match the one of the finder ("<<this->layersG.front().size[d]<<")";
 			throw std::invalid_argument(os.str().c_str());
 		}
-	input.convertTo(this->layersG[1], this->layersG[1].type());
-	this->preblur(this->layersG[1]);
+	Image temp;
+	input.convertTo(temp, temp.type());
+	this->preblur(temp);
 	//cv::GaussianBlur(this->layersG[1], this->layersG.front(), cv::Size(0,0), this->preblur_radius);
 	this->_fill_internal();
 }
