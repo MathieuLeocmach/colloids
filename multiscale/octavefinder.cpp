@@ -102,7 +102,19 @@ void Colloids::OctaveFinder::set_radius_preblur(const double &k)
 	);
 }
 
+/**
+ * Convert an image of any kind to PixelType, but already pre-blurred, and process it to fill internal buffers
+ */
 void Colloids::OctaveFinder::fill(const cv::Mat &input)
+{
+	Image temp;
+	input.convertTo(temp, temp.type());
+	this->fill(temp);
+}
+/**
+ * Process the allready pre-blurred input in place to fill internal buffers
+ */
+void Colloids::OctaveFinder::fill(Image &input)
 {
 	if(input.dims != this->layersG.front().dims)
 	{
@@ -117,10 +129,8 @@ void Colloids::OctaveFinder::fill(const cv::Mat &input)
 			os << "OctaveFinder::fill : the input's "<<d<< "th dimension ("<<input.size[d]<<") must match the one of the finder ("<<this->layersG.front().size[d]<<")";
 			throw std::invalid_argument(os.str().c_str());
 		}
-	Image temp;
-	input.convertTo(temp, temp.type());
-	temp.copyTo(this->layersG.front());
-	this->_fill_internal(temp);
+	input.copyTo(this->layersG.front());
+	this->_fill_internal(input);
 }
 /**
  * \brief Fill the layers (G and DoG) from the data in the first Gaussian layer
@@ -195,8 +205,19 @@ void Colloids::OctaveFinder3D::preblur(Image &input)
 	input.copyTo(this->layersG.front());
 
 }
-
+/**
+ * Convert an image of any kind to PixelType and process it to fill internal buffers
+ */
 void Colloids::OctaveFinder::preblur_and_fill(const cv::Mat &input)
+{
+	Image temp;
+	input.convertTo(temp, temp.type());
+	this->preblur_and_fill(temp);
+}
+/**
+ * Process the input to fill internal buffers
+ */
+void Colloids::OctaveFinder::preblur_and_fill(Image &input)
 {
 	if(input.dims != this->layersG.front().dims)
 	{
@@ -211,11 +232,8 @@ void Colloids::OctaveFinder::preblur_and_fill(const cv::Mat &input)
 			os << "OctaveFinder::preblur_and_fill : the input's "<<d<< "th dimension ("<<input.size[d]<<") must match the one of the finder ("<<this->layersG.front().size[d]<<")";
 			throw std::invalid_argument(os.str().c_str());
 		}
-	Image temp;
-	input.convertTo(temp, temp.type());
-	this->preblur(temp);
-	//cv::GaussianBlur(this->layersG[1], this->layersG.front(), cv::Size(0,0), this->preblur_radius);
-	this->_fill_internal(temp);
+	this->preblur(input);
+	this->_fill_internal(input);
 }
 
 /**
