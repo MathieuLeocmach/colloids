@@ -69,7 +69,7 @@ namespace Colloids
             static std::map<size_t, cv::Mat_<double> > kernels;
             cv::Ptr<cv::FilterEngine> preblur_filter;
 
-            virtual void _fill_internal();
+            virtual void _fill_internal(Image &temp);
             virtual void preblur(Image &input);
             virtual void fill_iterative_radii();
     };
@@ -112,7 +112,7 @@ namespace Colloids
 
 			virtual void fill_iterative_radii();
 			virtual void preblur(Image &input);
-			virtual void _fill_internal();
+			virtual void _fill_internal(Image &temp);
     };
 
     template<int D>

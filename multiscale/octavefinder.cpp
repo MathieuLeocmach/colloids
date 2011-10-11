@@ -120,12 +120,12 @@ void Colloids::OctaveFinder::fill(const cv::Mat &input)
 	Image temp;
 	input.convertTo(temp, temp.type());
 	temp.copyTo(this->layersG.front());
-	this->_fill_internal();
+	this->_fill_internal(temp);
 }
 /**
  * \brief Fill the layers (G and DoG) from the data in the first Gaussian layer
  */
-void Colloids::OctaveFinder::_fill_internal()
+void Colloids::OctaveFinder::_fill_internal(Image &temp)
 {
 	//iterative Gaussian blur
 	for(size_t i=0; i<this->layersG.size()-1; ++i)
@@ -138,15 +138,17 @@ void Colloids::OctaveFinder::_fill_internal()
 		cv::subtract(this->layersG[i+1], this->layersG[i], this->layers[i]);
 }
 
-void Colloids::OctaveFinder3D::_fill_internal()
+void Colloids::OctaveFinder3D::_fill_internal(Image &temp)
 {
-	Image temp(this->layersG2D.front().size());
-	this->layersG2D.front().copyTo(temp);
+	Image temp2D(
+		temp.size[0], temp.size[1]*temp.size[2],
+		(PixelType*)temp.data
+	);
 	//iterative Gaussian blur
 	for(size_t i=0; i<this->layersG.size()-1; ++i)
 	{
 		//Z out of place
-		this->iterative_Zgaussian_filters[i].apply(temp, temp);
+		this->iterative_Zgaussian_filters[i].apply(temp2D, temp2D);
 		//X and Y inplace
 		for(int k=0; k<this->layersG[i+1].size[0]; ++k)
 		{
@@ -154,18 +156,15 @@ void Colloids::OctaveFinder3D::_fill_internal()
 					this->layersG[i+1].size[1],
 					this->layersG[i+1].size[2],
 					this->layersG[i+1].type(),
-					(void*)&temp(k)
+					(void*)&temp2D(k)
 					);
 			this->iterative_gaussian_filters[i].apply(slice, slice);
 		}
-		Image l2D = cv::Mat(temp.size[0], temp.size[1], temp.type(), this->layers[i].data);
-		cv::subtract(temp, this->layersG2D[i], l2D);
-		temp.copyTo(this->layersG2D[i+1]);
+		//difference of Gaussians (write directly to disk)
+		cv::subtract(temp, this->layersG[i], this->layers[i]);
+		//write gaussian layer to disk
+		temp2D.copyTo(this->layersG2D[i+1]);
 	}
-
-	//difference of Gaussians
-	//for(size_t i=0; i<this->layers.size(); ++i)
-		//cv::subtract(this->layersG[i+1], this->layersG[i], this->layers[i]);
 }
 
 void Colloids::OctaveFinder::preblur(Image &input)
@@ -216,7 +215,7 @@ void Colloids::OctaveFinder::preblur_and_fill(const cv::Mat &input)
 	input.convertTo(temp, temp.type());
 	this->preblur(temp);
 	//cv::GaussianBlur(this->layersG[1], this->layersG.front(), cv::Size(0,0), this->preblur_radius);
-	this->_fill_internal();
+	this->_fill_internal(temp);
 }
 
 /**
