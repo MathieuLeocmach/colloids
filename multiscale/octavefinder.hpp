@@ -170,6 +170,9 @@ namespace Colloids
 		cv::Mat_<double> kx(1,1, 1.0);
 		for(size_t l=0; l+1<this->layersG.size(); ++l)
 		{
+			//read from disk
+			Image lG2D(dims[0], dims[1]*dims[2], (PixelType*)this->layersG[l].data);
+			lG2D.copyTo(layG2D);
 			const cv::Mat_<double> &kernel = get_kernel(this->get_iterative_radius(l+0.5, (double)l));
 			//fully compute the Z filter
 			cv::Ptr<cv::FilterEngine> filter = createSeparableLinearFilter
@@ -178,10 +181,9 @@ namespace Colloids
 				kx, kernel,
 				cv::Point(-1,-1), 0, cv::BORDER_DEFAULT
 			);
-			Image lG2D(dims[0], dims[1]*dims[2], (PixelType*)this->layersG[l].data);
-			filter->apply(lG2D, layG2D);
+			filter->apply(layG2D, layG2D);
 			//now compute the XY only where needed (at the center's position)
-			Image layG = cv::Mat(3, dims, lG2D.type(), layG2D.data);
+			Image layG = cv::Mat(3, dims, layG2D.type(), layG2D.data);
 			std::vector<double> gx(kernel.rows);
 			ci = this->centers_no_subpix.begin();
 			for(size_t c=0; c<this->centers_no_subpix.size(); ++c)
