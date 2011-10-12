@@ -368,10 +368,10 @@ LifReader::LifReader(const string &filename) : file(filename.c_str(), ios::in | 
 	char *xmlHeader = new char[xmlChars];
     file.read(xmlHeader,xmlChars);
     for(unsigned int p=0;p<xmlChars/2;++p)
-        xmlString[p] = xmlHeader[2*p];
+        xmlString.push_back(xmlHeader[2*p]);
     delete[] xmlHeader;
 
-    header = new LifHeader(xmlString);
+    header.reset(new LifHeader(xmlString));
 
     size_t s = 0;
     while (file.tellg() < fileSize)
