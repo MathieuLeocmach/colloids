@@ -244,17 +244,17 @@ void Colloids::OctaveFinder::preblur_and_fill(Image &input)
  */
 void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
 {
-	const size_t nblayers = this->binary.size();
+	const int nblayers = this->binary.size();
     //initialize
 	this->centers_no_subpix.clear();
-    for(size_t i = 0;i < nblayers;++i)
+    for(int i = 0;i < nblayers;++i)
         this->binary[i].setTo(0);
 
-	for(size_t k = 1;k < nblayers+1;k += 2)
+	for(int k = 1;k < nblayers+1;k += 2)
 	{
 		const Image & layer0 = this->layers[k], layer1 = this->layers[k+1];
-		const size_t si = this->sizes[k];
-		for(size_t j = this->sizes[k]+1;j < (size_t)(((this->get_width() - si- 1)));j += 2)
+		const int si = this->sizes[k];
+		for(int j = this->sizes[k]+1;j < this->get_width() - si- 1;j += 2)
 		{
 			boost::array<const float*, 4> ngb_ptr = {{
 					&layer0(j, si+1),
@@ -262,7 +262,7 @@ void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
 					&layer1(j, si+1),
 					&layer1(j+1, si+1)
 			}};
-			for(size_t i = si+1;i < (size_t)(((this->get_height() -si - 1)));i += 2){
+			for(int i = si+1;i < this->get_height() -si - 1;i += 2){
 				//copy the whole neighbourhood together for locality
 				boost::array<float, 8> ngb = {{
 						*ngb_ptr[0]++, *ngb_ptr[0]++,
@@ -273,14 +273,14 @@ void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
 				const boost::array<float, 8>::const_iterator mpos = std::min_element(ngb.begin(), ngb.end());
 				if(*mpos>=0.0)
 					continue;
-				const int ml = mpos-ngb.begin();
-				size_t mi = i + !!(ml&1);
-				size_t mj = j + !!(ml&2);
-				size_t mk = k + !!(ml&4);
+				const int ml = mpos-ngb.begin(),
+					mi = i + !!(ml&1),
+					mj = j + !!(ml&2),
+					mk = k + !!(ml&4);
 
 
 				//maxima cannot be on the last layer or on image edges
-				if(mk > nblayers || !((this->sizes[mk] <= mj) && (mj < (size_t)(((this->get_width() - this->sizes[mk])))) && (this->sizes[mk] <= mi) && (mi < (size_t)(((this->get_height() - this->sizes[mk]))))))
+				if(mk > nblayers || !((this->sizes[mk] <= mj) && (mj < this->get_width() - this->sizes[mk]) && (this->sizes[mk] <= mi) && (mi < this->get_height() - this->sizes[mk])))
 					continue;
 
 				bool *b = &this->binary[mk - 1](mj, mi);
@@ -288,9 +288,9 @@ void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
 				//with a value that is actually different from zero
 				*b = (*mpos < 0) && (1 + pow(*mpos, 2) > 1);
 				//remove the minima if one of its neighbours outside the block has lower value
-				for(size_t k2 = mk - 1;k2 < mk + 2 && *b;++k2)
-					for(size_t j2 = mj - 1;j2 < mj + 2 && *b;++j2)
-						for(size_t i2 = mi - 1;i2 < mi + 2 && *b;++i2)
+				for(int k2 = mk - 1;k2 < mk + 2 && *b;++k2)
+					for(int j2 = mj - 1;j2 < mj + 2 && *b;++j2)
+						for(int i2 = mi - 1;i2 < mi + 2 && *b;++i2)
 							if(k2 < k || j2 < j || i2 < i || k2 > k + 1 || j2 > j + 1 || i2 > i + 1)
 								*b = *mpos <= this->layers[k2](j2, i2);
 
@@ -335,13 +335,13 @@ void Colloids::OctaveFinder1D::initialize_binary(const double & max_ratio)
     for(size_t i = 0;i < this->binary.size();++i)
         this->binary[i].setTo(0);
 
-	for(size_t k = 1;k < (size_t)(((this->layers.size() - 1)));k += 2)
+	for(int k = 1;k < (int)this->layers.size() - 1;k += 2)
 	{
 		boost::array<const float*, 2> ngb_ptr = {{
 							&this->layers[k](0, this->sizes[k]+1),
 							&this->layers[k+1](0, this->sizes[k]+1)
 		}};
-		for(size_t i = this->sizes[k]+1;i < (size_t)(((this->get_height() -this->sizes[k]- 1)));i += 2)
+		for(int i = this->sizes[k]+1;i < this->get_height() -this->sizes[k]- 1;i += 2)
 		{
 			//copy the whole neighbourhood together for locality
 			boost::array<float, 4> ngb = {{
@@ -351,18 +351,18 @@ void Colloids::OctaveFinder1D::initialize_binary(const double & max_ratio)
 			const boost::array<float, 4>::const_iterator mpos = std::min_element(ngb.begin(), ngb.end());
 			if(*mpos>=0.0)
 					continue;
-			const int ml = mpos-ngb.begin();
-			size_t mi = i + !!(ml&1);
-			size_t mk = k + !!(ml&2);
+			const int ml = mpos-ngb.begin(),
+				mi = i + !!(ml&1),
+				mk = k + !!(ml&2);
 			//maxima cannot be on the last layer or on image edges
-			if(mk > this->binary.size() || !((this->sizes[mk] <= mi) && (mi < (size_t)(((this->get_height() - this->sizes[mk]))))))
+			if(mk > (int)this->binary.size() || !((this->sizes[mk] <= mi) && (mi < (int)this->get_height() - this->sizes[mk])))
 				continue;
 			bool *b = &this->binary[mk - 1](0, mi);
 			*b = (*mpos < 0) && (1 + pow(*mpos, 2) > 1);
 
 			//remove the minima if one of its neighbours outside the block has lower value
-			for(size_t k2 = mk - 1;k2 < mk + 2 && *b;++k2)
-				for(size_t i2 = mi - 1;i2 < mi + 2 && *b;++i2)
+			for(int k2 = mk - 1;k2 < mk + 2 && *b;++k2)
+				for(int i2 = mi - 1;i2 < mi + 2 && *b;++i2)
 					if(k2 < k || i2 < i || k2 > k + 1 || i2 > i + 1)
 						*b = this->layers[mk](0, mi) <= this->layers[k2](0, i2);
 			//Eliminating edge response in 1D is more tricky
@@ -395,9 +395,9 @@ void Colloids::OctaveFinder3D::initialize_binary(const double & max_ratio)
 	for(int l = 1;l < nblayers+1;l += 2)
 	{
 		const Image & layer0 = this->layers[l], layer1 = this->layers[l+1];
-		const size_t si = this->sizes[l];
-		for(int k = (int)this->sizes[l]+1;k < layer0.size[0] - si- 1;k += 2)
-		for(int j = (int)this->sizes[l]+1;j < layer0.size[1] - si- 1;j += 2)
+		const int si = this->sizes[l];
+		for(int k = si+1;k < layer0.size[0] - si- 1;k += 2)
+		for(int j = si+1;j < layer0.size[1] - si- 1;j += 2)
 		{
 			//fill the cache for the whole line of blocks
 			for(int cl=0; cl<2; ++cl)
@@ -428,9 +428,9 @@ void Colloids::OctaveFinder3D::initialize_binary(const double & max_ratio)
 
 				//maxima cannot be on the last layer or on image edges
 				if(ml > nblayers || !(
-						((int)this->sizes[ml] <= mk) && (mk < layer0.size[0] - this->sizes[ml]) &&
-						((int)this->sizes[ml] <= mj) && (mj < layer0.size[1] - this->sizes[ml]) &&
-						((int)this->sizes[ml] <= mi) && (mi < layer0.size[2] - this->sizes[ml])
+						(this->sizes[ml] <= mk) && (mk < layer0.size[0] - this->sizes[ml]) &&
+						(this->sizes[ml] <= mj) && (mj < layer0.size[1] - this->sizes[ml]) &&
+						(this->sizes[ml] <= mi) && (mi < layer0.size[2] - this->sizes[ml])
 						))
 					continue;
 
@@ -911,9 +911,9 @@ void Colloids::OctaveFinder::fill_iterative_radii()
         	this->prefactor = sqrt(2.0 * log(2.0) / n / (pow(2.0, 2.0 / n) - 1));
         else
         	this->prefactor = 2.0 * sqrt(log(2.0) / n / (pow(2.0, 2.0 / n) - 1));
-        vector<size_t>::iterator si = this->sizes.begin();
+        vector<int>::iterator si = this->sizes.begin();
         for(vector<double>::const_iterator sig=sigmas.begin(); sig!=sigmas.end(); sig++)
-        	*si++ = static_cast<size_t>((*sig * prefactor) + 0.5);
+        	*si++ = static_cast<int>((*sig * prefactor) + 0.5);
         //iterative blurring radii
         transform(sigmas.begin(), sigmas.end(), sigmas.begin(), sigmas.begin(), multiplies<double>());
         for(size_t i=0; i<this->iterative_radii.size(); ++i)
@@ -937,9 +937,9 @@ void Colloids::OctaveFinder3D::fill_iterative_radii()
 		sigmas[i] = this->preblur_radius * pow(2, i/n);
 	//corresponding blob sizes
 	this->prefactor = sqrt(6.0 * log(2.0) / n / (pow(2.0, 2.0 / n) - 1));
-	vector<size_t>::iterator si = this->sizes.begin();
+	vector<int>::iterator si = this->sizes.begin();
 	for(vector<double>::const_iterator sig=sigmas.begin(); sig!=sigmas.end(); sig++)
-		*si++ = static_cast<size_t>((*sig * prefactor) + 0.5);
+		*si++ = static_cast<int>((*sig * prefactor) + 0.5);
 	//iterative blurring radii
 	transform(sigmas.begin(), sigmas.end(), sigmas.begin(), sigmas.begin(), multiplies<double>());
 	for(size_t i=0; i<this->iterative_radii.size(); ++i)
