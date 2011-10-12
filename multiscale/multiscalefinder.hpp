@@ -39,7 +39,7 @@ public:
 	template<int D> const std::vector<int> previous_octave_coords(const Center<D> &v) const;
 	virtual Image downscale(const size_t &o) const = 0;
 	virtual Image upscale(const cv::Mat &input) const;
-	template<int D> inline void seam(Center<D> &v, const size_t &o) const;
+	template<int D> inline void seam(Center<D> &v, const size_t &o) const{};
 
 
 protected:
@@ -130,8 +130,8 @@ const std::vector<int> MultiscaleFinder::previous_octave_coords(const Center<D> 
 	vi[D] = int(v.r + n + 0.5);
 	return vi;
 }
-template<int D>
-inline void MultiscaleFinder::seam(Center<D> &v, const size_t &o) const
+template<>
+inline void MultiscaleFinder::seam(Center2D &v, const size_t &o) const
 {
 	if(v.r<1)
 	{
@@ -139,8 +139,6 @@ inline void MultiscaleFinder::seam(Center<D> &v, const size_t &o) const
 		v.r = this->octaves[o]->scale_subpix(ci) - this->get_n_layers();
 	}
 }
-template<> inline void MultiscaleFinder::seam(Center1D &v, const size_t &o) const{};
-
 }
 
 #endif /* MULTISCALEFINDER_HPP_ */
