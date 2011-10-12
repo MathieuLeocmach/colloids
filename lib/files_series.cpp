@@ -25,7 +25,7 @@ using namespace Colloids;
 
 /** @brief Constructor  */
 FileSerie::FileSerie(const std::string &namePattern, const std::string &token, size_t size, size_t offset) :
-    length(size), offset(offset), token(token)
+		token(token), length(size), offset(offset)
 {
     string head = namePattern, tail;
 	size_t digits=0, pos = namePattern.rfind(token);
