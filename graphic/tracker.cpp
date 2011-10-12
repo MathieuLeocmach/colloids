@@ -777,7 +777,12 @@ Particles Tracker::getSubPixel(bool autoThreshold)
         const long double scale = 100.0/(maxhist-minhist);
 	    vector<size_t> hist(100, 0);
 	    for(list<size_t>::const_iterator c = flat_positions.begin(); c!= flat_positions.end(); ++c)
-            hist[floor((*(data + (*c)) - minhist) * scale)]++;
+	    {
+	    	size_t l = (*(data + (*c)) - minhist) * scale;
+	    	if(l<hist.size())
+	    		hist[l]++;
+	    }
+
 
         //find the population global maximum
         vector<size_t>::iterator peak = max_element(hist.begin(), hist.end());
