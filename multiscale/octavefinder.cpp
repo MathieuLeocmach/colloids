@@ -434,23 +434,23 @@ void Colloids::OctaveFinder3D::initialize_binary(const double & max_ratio)
 						))
 					continue;
 
-				bool *b = &this->binary[ml - 1](mk, mj, mi);
+				//bool *b = &this->binary[ml - 1](mk, mj, mi);
 				//consider only negative minima
 				//with a value that is actually different from zero
-				*b = (*mpos < 0) && (1 + pow(*mpos, 2) > 1);
+				bool b = (*mpos < 0) && (1 + pow(*mpos, 2) > 1);
 				//remove the minima if one of its neighbours outside the block has lower value
-				for(int l2 = ml - 1;l2 < ml + 2 && *b;++l2)
-					for(int k2 = mk - 1;k2 < mk + 2 && *b;++k2)
-						for(int j2 = mj - 1;j2 < mj + 2 && *b;++j2)
-							for(int i2 = mi - 1;i2 < mi + 2 && *b;++i2)
+				for(int l2 = ml - 1;l2 < ml + 2 && b;++l2)
+					for(int k2 = mk - 1;k2 < mk + 2 && b;++k2)
+						for(int j2 = mj - 1;j2 < mj + 2 && b;++j2)
+							for(int i2 = mi - 1;i2 < mi + 2 && b;++i2)
 								if(l2 < l || k2 < k || j2 < j || i2 < i || l2 > l + 1 || k2 > k +1 || j2 > j + 1 || i2 > i + 1)
-									*b = *mpos <= this->layers[l2](k2, j2, i2);
+									b = *mpos <= this->layers[l2](k2, j2, i2);
 
 
 
 
 				//remove the local minima that are edges (elongated objects) in XY
-				if(*b){
+				if(b){
 					//hessian matrix
 					const double hess[3] = {
 							this->layers[ml](mk, mj - 1, mi) - 2 * this->layers[ml](mk, mj, mi) + this->layers[ml](mk, mj + 1, mi),
@@ -462,12 +462,12 @@ void Colloids::OctaveFinder3D::initialize_binary(const double & max_ratio)
 					//Computer Vision and Image Understanding 110, 346-359 (2008)
 					const double detH = hess[0] * hess[1] - pow(hess[2], 2),
 							ratio = pow(hess[0] + hess[1], 2) / (4.0 * hess[0] * hess[1]);
-					*b = !((detH < 0 && 1+detH*detH > 1) || ratio > max_ratio);
+					b = !((detH < 0 && 1+detH*detH > 1) || ratio > max_ratio);
 					//*b &= abs(
 					//		(this->layers[ml](mk+1, mj, mi) - this->layers[ml](mk-1, mj, mi)) /
 					//		(this->layers[ml](mk+1, mj, mi)-2*this->layers[ml](mk, mj, mi)+this->layers[ml](mk-1, mj, mi))
 					//		) < 1.0;
-					if(*b){
+					if(b){
 						std::vector<int> c(4);
 						c[0] = mi;
 						c[1] = mj;
@@ -479,6 +479,9 @@ void Colloids::OctaveFinder3D::initialize_binary(const double & max_ratio)
 			}
 		}
 	}
+	//make binary image coherent
+	for(std::list<std::vector<int> >::const_iterator ci = this->centers_no_subpix.begin(); ci!= this->centers_no_subpix.end(); ++ci)
+		this->binary[(*ci)[3]-1]((*ci)[2], (*ci)[1], (*ci)[0]) = true;
 }
 
 void Colloids::OctaveFinder::spatial_subpix(const std::vector<int> &ci, Center_base& c) const
