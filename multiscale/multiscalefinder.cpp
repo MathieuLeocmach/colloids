@@ -151,7 +151,7 @@ namespace Colloids {
 							);
 		return roi2;
 	}
-    MultiscaleFinder::Image MultiscaleFinder::upscale(const cv::Mat &input) const
+    MultiscaleFinder::Image MultiscaleFinder2D::upscale(const cv::Mat &input) const
     {
     	Image upscaled(
     			input.size[0]*2,
@@ -191,6 +191,30 @@ namespace Colloids {
 		}
     	return upscaled;
     }
+    MultiscaleFinder::Image MultiscaleFinder1D::upscale(const cv::Mat &input) const
+	{
+		Image upscaled(1, input.size[1]*2, (OctaveFinder::PixelType)0);
+		//convert the unknown input type to PixelType
+		Image input_row;
+		input.convertTo(input_row, input_row.type());
+		//copy to the even pixels
+		PixelType * u = &upscaled(0, 0);
+		const PixelType * s = &input_row(0,0);
+		for(int i=0; i<input_row.size[1]; ++i)
+		{
+			*u++ = *s++;
+			u++;
+		}
+		//interpolate the odd pixels
+		u = &upscaled(0, 1);
+		for(int i=0; i+1<input_row.size[1]; ++i)
+		{
+			*u = 0.5 * (*(u-1) + *(u+1));
+			u++;
+			u++;
+		}
+		return upscaled;
+	}
     MultiscaleFinder::Image MultiscaleFinder3D::upscale(const cv::Mat &input) const
 	{
     	int dims[3] = {

@@ -38,7 +38,7 @@ public:
 	inline void get_centers(const cv::Mat &input, std::vector<Center<D> >& centers);
 	template<int D> const std::vector<int> previous_octave_coords(const Center<D> &v) const;
 	virtual Image downscale(const size_t &o) const = 0;
-	virtual Image upscale(const cv::Mat &input) const;
+	virtual Image upscale(const cv::Mat &input) const = 0;
 	template<int D> inline void seam(Center<D> &v, const size_t &o) const{};
 
 
@@ -54,6 +54,7 @@ public:
 	MultiscaleFinder2D(const int nrows=256, const int ncols=256, const int nbLayers=3, const double &preblur_radius=1.6);
 	virtual const size_t get_width() const {return this->octaves[0]->get_width()/2; };
 	virtual Image downscale(const size_t &o) const;
+	virtual Image upscale(const cv::Mat &input) const;
 };
 
 class MultiscaleFinder1D : public MultiscaleFinder
@@ -62,6 +63,7 @@ public:
 	MultiscaleFinder1D(const int ncols=256, const int nbLayers=3, const double &preblur_radius=1.6);
 	virtual const size_t get_width() const {return 1; };
 	virtual Image downscale(const size_t &o) const;
+	virtual Image upscale(const cv::Mat &input) const;
 };
 
 class MultiscaleFinder3D : public MultiscaleFinder
