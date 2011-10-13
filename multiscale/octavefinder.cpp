@@ -29,13 +29,13 @@ OctaveFinder::OctaveFinder(const int nrows, const int ncols, const int nbLayers,
 {
     this->layersG.reserve(nbLayers+3);
     for (int i = 0; i<nbLayers+3; ++i)
-    	this->layersG.push_back(Image(nrows, ncols));
+    	this->layersG.push_back(Image(nrows, ncols, (PixelType)0));
     this->layers.reserve(nbLayers+2);
 	for (int i = 0; i<nbLayers+2; ++i)
-		this->layers.push_back(Image(nrows, ncols));
+		this->layers.push_back(Image(nrows, ncols, (PixelType)0));
 	this->binary.reserve(nbLayers);
 	for (int i = 0; i<nbLayers; ++i)
-		this->binary.push_back(cv::Mat_<bool>::zeros(nrows, ncols));
+		this->binary.push_back(cv::Mat_<bool>(nrows, ncols, (PixelType)0));
 	this->set_radius_preblur(preblur_radius);
 }
 
