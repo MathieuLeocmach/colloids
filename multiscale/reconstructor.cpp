@@ -87,7 +87,7 @@ void Reconstructor::split_clusters()
 			grad[i] = pow((*p)[0]-(*q)[0], 2) + pow((*p)[1]-(*q)[1], 2);
 		//look for local maxima of gradient
 		std::list<size_t> blobs;
-		for(size_t i=0; i<grad.size()-2; ++i)
+		for(size_t i=0; i+2<grad.size(); ++i)
 			if(grad[i]<=grad[i+1] && grad[i+2]<=grad[i+1] && grad[i+1]>1)
 				blobs.push_back(i+2);
 		//split, from end to begin
@@ -170,11 +170,11 @@ void Reconstructor::get_blobs(std::deque<Center3D>& centers)
 			*s++ = c->r;
 			c++;
 		}
-		std::vector<Center2D> blobs, blo;
+		std::vector<Center1D> blobs;
 		finder.get_centers(signal, blobs);
 		removeOverlapping_brute_force(blobs);
 
-		for(std::vector<Center2D>::const_iterator b=blobs.begin(); b!=blobs.end(); ++b)
+		for(std::vector<Center1D>::const_iterator b=blobs.begin(); b!=blobs.end(); ++b)
 		{
 			//get in the cluster just before the blob
 			const size_t pos = (*b)[0];
@@ -188,11 +188,14 @@ void Reconstructor::get_blobs(std::deque<Center3D>& centers)
 			//centers.back()[2] = (*b)[0] - margin;
 			//modulate by the next position (that may be closer to the blob position)
 			it++;
-			centers.back()[0] += frac * ((*it)[0] - centers.back()[0]);
-			centers.back()[1] += frac * ((*it)[1] - centers.back()[1]);
-			centers.back()[2] += frac * ((*it)[2] - centers.back()[2]) - 0.5;
-			centers.back().r += frac * (it->r - centers.back().r);
-			centers.back().intensity += frac * (it->intensity - centers.back().intensity);
+			if(it!=cl->end())
+			{
+				centers.back()[0] += frac * ((*it)[0] - centers.back()[0]);
+				centers.back()[1] += frac * ((*it)[1] - centers.back()[1]);
+				centers.back()[2] += frac * ((*it)[2] - centers.back()[2]) - 0.5;
+				centers.back().r += frac * (it->r - centers.back().r);
+				centers.back().intensity += frac * (it->intensity - centers.back().intensity);
+			}
 		}
 		/*if(blobs.empty())
 		{
