@@ -104,7 +104,7 @@ namespace Colloids {
 	};
 
 	template<int D>
-	std::auto_ptr< RStarTree<size_t, D, 4, 32, double> > removeOverlapping(std::vector<Center<D> > &centers, const double &tolerance=0.9)
+	std::auto_ptr< RStarTree<size_t, D, 4, 32, double> > removeOverlapping(std::vector<Center<D> > &centers)
 	{
 		typedef RStarTree<size_t, D, 4, 32, double> RTree;
 		typedef std::vector<Center<D> > Centers;
@@ -114,16 +114,16 @@ namespace Colloids {
 		//sort the centers by decreasing response (increasing negative intensity)
 		std::sort(centers.begin(), centers.end(), compare_intensities<D>());
 		//insert the centers one by one, if no overlap
-		for(size_t c=0; c<centers.size(); ++c)
+		for(size_t p=0; p<centers.size(); ++p)
 		{
 			//norm 1 overlapping
-			typename RTree::BoundingBox bb = get_bb(centers[c], tolerance);
+			typename RTree::BoundingBox bb = get_bb(centers[p]);
 			std::list<size_t> overlapping;
 			tree->Query(typename RTree::AcceptOverlapping(bb), Gatherer<D>(overlapping));
-			bool is_overlapping = !overlapping.empty();
+			bool is_overlapping = false;
 			//norm 2 overlapping
-			for(std::list<size_t>::const_iterator it= overlapping.begin(); it!=overlapping.end(); ++it)
-				if(centers[c]-filtered[*it] < pow(centers[c].r + filtered[*it].r ,2))
+			for(std::list<size_t>::const_iterator q= overlapping.begin(); q!=overlapping.end(); ++q)
+				if(centers[p]-filtered[*q] < pow(centers[p].r + filtered[*q].r ,2))
 				{
 					is_overlapping = true;
 					break;
@@ -131,7 +131,7 @@ namespace Colloids {
 			if(!is_overlapping)
 			{
 				tree->Insert(filtered.size(), bb);
-				filtered.push_back(centers[c]);
+				filtered.push_back(centers[p]);
 			}
 		}
 		centers.swap(filtered);
