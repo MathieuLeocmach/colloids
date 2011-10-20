@@ -516,7 +516,6 @@ void Colloids::OctaveFinder1D::spatial_subpix(const std::vector<int> &ci, Center
 void Colloids::OctaveFinder3D::spatial_subpix(const std::vector<int> &ci, Center_base& c) const
 {
         const int i = ci[0], j = ci[1], k = ci[2], l = ci[3];
-        const double ds = abs(c.r - l);
         //When particles environment is strongly asymmetric (very close particles),
         //it is better to find the maximum of Gausian rather than the minimum of DoG.
         //If possible, we use the Gaussian layer below the detected scale
@@ -526,19 +525,10 @@ void Colloids::OctaveFinder3D::spatial_subpix(const std::vector<int> &ci, Center
         for(size_t d=0; d<3; ++d)
         {
         	const size_t step = this->layers[l].step[2-d]/sizeof(PixelType);
-        	const double a[3] = {*(vg-step), *vg, *(vg+step)};
-        	double shift = (a[2] - a[0]) /2.0	/ (a[0] - 2 * a[1] + a[2]);
-        	//in some rare cases (z edges), the shift may be very large if computed from gaussian layers
-        	if(abs(shift)>0.5)
-        	{
-        		PixelType const * v = &this->layers[l](k, j, i);
-        		double b[3] = {*(v-step), *v, *(v+step)};
-        		shift = (b[2] - b[0]) /2.0	/ (b[0] - 2 * b[1] + b[2]);
-        	}
-			if(ds>0.25)
-				shift *= (c.r<1.6)?0.985:0.99;
-			else if(ds<0.1)
-				shift *= 1.005;
+        	//const double a[3] = {*(vg-step), *vg, *(vg+step)};
+        	//double shift = (a[2] - a[0]) /2.0	/ (a[0] - 2 * a[1] + a[2]);
+        	const double a[5] = {*(vg-2*step), *(vg-step), *vg, *(vg+step), *(vg+2*step)};
+        	double shift = (-a[4] + 8*a[3] - 8*a[1] +a[0]) /12.0 / (a[3] - 2 * a[2] + a[1]);
         	c[d] = ci[d] + 0.4375 - shift;
         }
 		c.intensity = this->layers[l](k, j, i);
