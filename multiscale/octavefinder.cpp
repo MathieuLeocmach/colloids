@@ -522,24 +522,18 @@ void Colloids::OctaveFinder3D::spatial_subpix(const std::vector<int> &ci, Center
         //If possible, we use the Gaussian layer below the detected scale
         //to have better spatial resolution
         const Image & lay = (l>0 ? this->layersG[l-1] : this->layersG[l]);
-        const double a[6] = {
-        		(lay(k, j, i+1) - lay(k, j, i-1))/2.0,
-        		lay(k, j, i+1) -2*lay(k, j, i) + lay(k, j, i-1),
-        		(lay(k, j+1, i) - lay(k, j-1, i))/2.0,
-        		lay(k, j+1, i) -2*lay(k, j, i) + lay(k, j-1, i),
-        		(lay(k+1, j, i) - lay(k-1, j, i))/2.0,
-        		lay(k+1, j, i) -2*lay(k, j, i) + lay(k-1, j, i)
-        };
+        PixelType const * vg = &lay(k, j, i);
         for(size_t d=0; d<3; ++d)
         {
-        	double shift = a[2*d]/a[2*d+1];
+        	const size_t step = this->layers[l].step[2-d]/sizeof(PixelType);
+        	const double a[3] = {*(vg-step), *vg, *(vg+step)};
+        	double shift = (a[2] - a[0]) /2.0	/ (a[0] - 2 * a[1] + a[2]);
         	//in some rare cases (z edges), the shift may be very large if computed from gaussian layers
         	if(abs(shift)>0.5)
         	{
         		PixelType const * v = &this->layers[l](k, j, i);
-        		const size_t step = this->layers[l].step[d]/sizeof(PixelType);
         		double b[3] = {*(v-step), *v, *(v+step)};
-        		shift = (b[0] - b[2]) /2.0	/ (b[0] - 2 * b[1] + b[2]);
+        		shift = (b[2] - b[0]) /2.0	/ (b[0] - 2 * b[1] + b[2]);
         	}
 			if(ds>0.25)
 				shift *= (c.r<1.6)?0.985:0.99;
