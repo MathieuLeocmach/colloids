@@ -486,8 +486,7 @@ void Colloids::OctaveFinder3D::initialize_binary(const double & max_ratio)
 
 void Colloids::OctaveFinder::spatial_subpix(const std::vector<int> &ci, Center_base& c) const
 {
-        const size_t i = ci[0], j = ci[1], k = ci[2];
-        cv::Mat_<double> hess(2,2), hess_inv(2,2), grad(2,1), d(2,1), u(1,1);
+        const int i = ci[0], j = ci[1], k = ci[2];
         //When particles environment is strongly asymmetric (very close particles),
         //it is better to find the maximum of Gausian rather than the minimum of DoG.
         //If possible, we use the Gaussian layer below the detected scale
@@ -505,7 +504,7 @@ void Colloids::OctaveFinder::spatial_subpix(const std::vector<int> &ci, Center_b
 }
 void Colloids::OctaveFinder1D::spatial_subpix(const std::vector<int> &ci, Center_base& c) const
 {
-        const size_t i = ci[0], k = ci.back();
+        const int i = ci[0], k = ci.back();
         //When particles environment is strongly asymmetric (very close particles),
 		//it is better to find the maximum of Gausian rather than the minimum of DoG.
 		//If possible, we use the Gaussian layer below the detected scale
@@ -516,8 +515,7 @@ void Colloids::OctaveFinder1D::spatial_subpix(const std::vector<int> &ci, Center
 }
 void Colloids::OctaveFinder3D::spatial_subpix(const std::vector<int> &ci, Center_base& c) const
 {
-        const size_t i = ci[0], j = ci[1], k = ci[2], l = ci[3];
-        cv::Mat_<double> hess(2,2), hess_inv(2,2), grad(2,1), d(2,1), u(1,1);
+        const int i = ci[0], j = ci[1], k = ci[2], l = ci[3];
         //When particles environment is strongly asymmetric (very close particles),
         //it is better to find the maximum of Gausian rather than the minimum of DoG.
         //If possible, we use the Gaussian layer below the detected scale
@@ -542,7 +540,14 @@ void Colloids::OctaveFinder3D::spatial_subpix(const std::vector<int> &ci, Center
         		double b[3] = {*(v-step), *v, *(v+step)};
         		shift = (b[0] - b[2]) /2.0	/ (b[0] - 2 * b[1] + b[2]);
         	}
-        	c[d] = ci[d] + 0.5 - shift;
+
+        	const double s = abs(c.r - floor(c.r+0.5));
+			if(s>0.25)
+				shift *= (c.r<1.6)?0.985:0.99;
+			else if(s<0.1)
+				shift *= 1.005;
+
+        	c[d] = ci[d] + 0.4375 - shift;
         }
 		c.intensity = this->layers[l](k, j, i);
 }
@@ -754,8 +759,8 @@ double Colloids::OctaveFinder3D::scale_subpix(const std::vector<int> &ci) const
 
 void Colloids::OctaveFinder::single_subpix(const std::vector<int> &ci, Center_base &c) const
 {
-	this->spatial_subpix(ci, c);
 	c.r = this->scale_subpix(ci);
+	this->spatial_subpix(ci, c);
 }
 
 const double OctaveFinder::get_iterative_radius(const double & larger, const double & smaller) const
