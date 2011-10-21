@@ -722,17 +722,20 @@ double Colloids::OctaveFinder3D::scale_subpix(const std::vector<int> &ci) const
 		for(int u = l-1;u < l+2; ++u)
 			a[u-l+1] = this->layers[u](ci[2], ci[1], ci[0]);
 		shift = - (a[2] - a[0]) /2.0 /(a[2] -2*a[1] +a[0]);
+		//empirical correction
+		shift -= 0.045*l/(double)this->get_n_layers();
+		shift = 1.07*shift + 0.235*shift*shift -0.29*pow(shift,3) -0.30*pow(shift,4);
 		/*if(shift>-0.4 && shift<0.3)
 		{
 			shift -= 0.01*l;
 		}*/
-		if(shift>-0.4)
+		/*if(shift>-0.4)
 		{
 			if(shift>-0.3 && shift<0.2)
 				shift -= 0.015*l;
 			else if(shift<0.3)
 				shift -= 0.005*l;
-		}
+		}*/
 		//avoid overflow
 		if(shift < -0.5)
 			shift = - 0.5;
