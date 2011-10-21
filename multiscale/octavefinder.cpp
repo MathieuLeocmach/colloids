@@ -520,15 +520,17 @@ void Colloids::OctaveFinder3D::spatial_subpix(const std::vector<int> &ci, Center
         //it is better to find the maximum of Gausian rather than the minimum of DoG.
         //If possible, we use the Gaussian layer below the detected scale
         //to have better spatial resolution
-        const Image & lay = (l>0 ? this->layersG[l-1] : this->layersG[l]);
+        const Image & lay = this->layersG[l-1];
         PixelType const * vg = &lay(k, j, i);
         for(size_t d=0; d<3; ++d)
         {
         	const size_t step = this->layers[l].step[2-d]/sizeof(PixelType);
         	//const double a[3] = {*(vg-step), *vg, *(vg+step)};
         	//double shift = (a[2] - a[0]) /2.0	/ (a[0] - 2 * a[1] + a[2]);
-        	const double a[5] = {*(vg-2*step), *(vg-step), *vg, *(vg+step), *(vg+2*step)};
-        	double shift = (-a[4] + 8*a[3] - 8*a[1] +a[0]) /12.0 / (a[3] - 2 * a[2] + a[1]);
+        	//const double a[5] = {*(vg-2*step), *(vg-step), *vg, *(vg+step), *(vg+2*step)};
+        	//double shift = (-a[4] + 8*a[3] - 8*a[1] +a[0]) /12.0 / (a[3] - 2 * a[2] + a[1]);
+        	const double a[7] = {*(vg-3*step), *(vg-2*step), *(vg-step), *vg, *(vg+step), *(vg+2*step), *(vg+3*step)};
+        	double shift = (a[6] - 9*a[5] + 45*a[4] - 45*a[2] + 9*a[1] -a[0]) /60.0 / (a[6]/90 -3*a[5]/20 + 1.5*a[4] - 49*a[3]/18 + 1.5*a[2] -3*a[1]/20 + a[0]/90);
         	c[d] = ci[d] + 0.4375 - shift;
         }
 		c.intensity = this->layers[l](k, j, i);
