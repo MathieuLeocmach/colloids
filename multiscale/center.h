@@ -104,7 +104,7 @@ namespace Colloids {
 	};
 
 	template<int D>
-	std::auto_ptr< RStarTree<size_t, D, 4, 32, double> > removeOverlapping(std::vector<Center<D> > &centers, const double& tolerance=0.9)
+	std::auto_ptr< RStarTree<size_t, D, 4, 32, double> > removeOverlapping(std::vector<Center<D> > &centers, const double& tolerance=0.5)
 	{
 		typedef RStarTree<size_t, D, 4, 32, double> RTree;
 		typedef std::vector<Center<D> > Centers;
