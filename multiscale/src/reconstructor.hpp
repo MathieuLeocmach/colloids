@@ -8,7 +8,7 @@
 #ifndef RECONSTRUCTOR_H_
 #define RECONSTRUCTOR_H_
 
-#include "center.h"
+#include "center.hpp"
 #include "traj.hpp"
 #include <list>
 #include <memory>

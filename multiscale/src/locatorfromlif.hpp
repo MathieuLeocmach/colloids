@@ -9,7 +9,7 @@
 #define LIFFINDER_H_
 
 #include "lifFile.hpp"
-#include "reconstructor.h"
+#include "reconstructor.hpp"
 #include "multiscalefinder.hpp"
 
 namespace Colloids {

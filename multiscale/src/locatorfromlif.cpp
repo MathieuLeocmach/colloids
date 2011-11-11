@@ -5,7 +5,7 @@
  *      Author: mathieu
  */
 
-#include "locatorfromlif.h"
+#include "locatorfromlif.hpp"
 
 namespace Colloids {
 

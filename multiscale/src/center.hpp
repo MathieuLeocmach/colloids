@@ -8,7 +8,7 @@
 #ifndef CENTER_H_
 #define CENTER_H_
 
-#include "RStarTree/RStarTree.h"
+#include "../RStarTree/RStarTree.h"
 #include <boost/array.hpp>
 
 namespace Colloids {

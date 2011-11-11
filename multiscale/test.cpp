@@ -1,10 +1,10 @@
 #define BOOST_TEST_MODULE multiscale test
 #define BOOST_TEST_DYN_LINK
 
-#include "multiscalefinder.hpp"
-#include "traj.hpp"
-#include "reconstructor.h"
-#include "locatorfromlif.h"
+#include "src/multiscalefinder.hpp"
+#include "src/traj.hpp"
+#include "src/reconstructor.hpp"
+#include "src/locatorfromlif.hpp"
 #include <boost/test/unit_test.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/progress.hpp>

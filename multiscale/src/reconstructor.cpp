@@ -5,7 +5,7 @@
  *      Author: mathieu
  */
 
-#include "reconstructor.h"
+#include "reconstructor.hpp"
 //#include <kdtree++/kdtree.hpp>
 #include "multiscalefinder.hpp"
 #include <boost/ptr_container/ptr_map.hpp>
