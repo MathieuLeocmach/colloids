@@ -140,7 +140,7 @@ class LifReader : boost::noncopyable
         std::string getName() const {return getLifHeader().getName();};
         const int& getVersion() const {return getLifHeader().getVersion();};
         size_t getNbSeries() const {return this->series.size();}
-        bool contains(size_t s) const {getLifHeader().contains(s);}
+        bool contains(size_t s) const {return getLifHeader().contains(s);}
         size_t chooseSerieNumber() const {return getLifHeader().chooseSerieNumber();};
 
         LifSerie& getSerie(size_t s){return series[s];};
