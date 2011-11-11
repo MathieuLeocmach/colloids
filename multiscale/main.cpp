@@ -3,6 +3,7 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/progress.hpp>
 #include <boost/program_options.hpp>
+//#include "H5Cpp.h"
 
 namespace po = boost::program_options;
 using namespace Colloids;
@@ -17,7 +18,7 @@ int main(int ac, char* av[]){
 		po::options_description cmdline_options("Generic options");
 		cmdline_options.add_options()
 			("input,i", po::value<std::string>(&input), "Leica file to read as input")
-			("output,o", po::value<std::string>(&output)->default_value("./"), "folder to output to")
+			("output,o", po::value<std::string>(&output)->default_value("./output"), "file to output to")
 			("series,s", po::value<int>(&ser), "Dataset number")
 			("verbose,v", "Output debugging information")
 			("help", "Show this help and exit")
@@ -42,6 +43,7 @@ int main(int ac, char* av[]){
 			std::cerr<<"input file needed" << std::endl;
 			return EXIT_FAILURE;
 		}
+		//choose series
 		LifReader reader(vm["input"].as<std::string>());
 		if(!vm.count("series") || !(!!vm.count("series") && reader.contains(vm["series"].as<int>())))
 		{
@@ -49,6 +51,54 @@ int main(int ac, char* av[]){
 		}
 		LifSerie &serie = reader.getSerie(ser);
 		std::cout<<"Tracking "<<serie.getName()<<std::endl;
+		//create hdf5 file erase the content
+		/*H5::H5File h5file(output, H5F_ACC_TRUNC);
+		//Create a group that contains the sample
+		H5::Group sample( h5file->createGroup( "/"+serie.getName() ));*/
+
+		//get the spatial dimensions and switch on their number (dimensionality of the dataset)
+		const std::vector<size_t> dims = serie.getSpatialDimensions();
+		switch (dims.size())
+		{
+		case 3:
+		{
+			//initialize the finder
+			int dimsint[3] = {dims[2], dims[1], dims[0]};
+			MultiscaleFinder3D finder(dimsint[0], dimsint[1], dimsint[2]);
+			//re-open the LIF as a memory mapped file
+			boost::iostreams::mapped_file_source file(vm["input"].as<std::string>());
+			//container for tracked particles
+			std::vector<Center3D> centers;
+
+			//enumerate time steps
+			boost::progress_display progress(serie.getNbTimeSteps());
+			for(size_t t=0; t<serie.getNbTimeSteps(); ++t)
+			{
+				//create the input image header pointing to the right portion of the memory mapped file
+				cv::Mat_<uchar> image = cv::Mat(3, dimsint, CV_8UC1, (unsigned char*)(file.data() + serie.getOffset(t)));
+				//multiscale tracking
+				finder.get_centers(image, centers);
+				//remove overlap
+				removeOverlapping(centers);
+				//output
+				std::ostringstream os;
+				os << output <<"_t"<< std::setfill('0') << std::setw(3) << t;
+				std::ofstream out(os.str().c_str());
+				for(size_t c=0; c<centers.size(); ++c)
+				{
+					for(int d=0; d<3; ++d)
+						out << centers[c][d] << "\t";
+					out << centers[c].r << "\t" << centers[c].intensity <<"\n";
+				}
+				out.close();
+				++progress;
+			}
+		}
+			break;
+		default:
+			throw std::invalid_argument("The dimensionality of the dataset is not yet supported");
+		}
+
 	}
 	catch(std::exception& e)
 	{
