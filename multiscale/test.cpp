@@ -649,7 +649,7 @@ BOOST_AUTO_TEST_SUITE( octave_limit_cases )
 		OctaveFinder finder(32,32);
 		//cv cannot draw circle sizes better than a pixel, so the input image is drawn in high resolution
 		cv::Mat_<uchar>input(32*32, 32*32), small_input(32,32);
-		std::ofstream f("pos_size_at_border.out");
+		std::ofstream f("test_output/pos_size_at_border.out");
 		for(int i = 32*16; i>32*4; --i)
 		{
 			const double position = i/32.0;
@@ -684,7 +684,7 @@ BOOST_AUTO_TEST_SUITE( octave_limit_cases )
 		OctaveFinder finder(64,32);
 		//cv cannot draw circle sizes better than a pixel, so the input image is drawn in high resolution
 		cv::Mat_<uchar>input(32*64, 32*32), small_input(64,32);
-		std::ofstream f("close_neighbours.out");
+		std::ofstream f("test_output/close_neighbours.out");
 		for(int i = 32*32; i>7*32; --i)
 		{
 			const double distance = i/32.0;
@@ -849,7 +849,7 @@ BOOST_AUTO_TEST_SUITE( multiscale_call )
 		//cv cannot draw circle sizes better than a pixel, so the input image is drawn in high resolution
 		cv::Mat_<uchar>input(32*pow(2, s+1), 32*pow(2, s+1)), small_input(pow(2, s+1), pow(2, s+1));
 		std::vector<Center2D> v, v_s;
-		std::ofstream f("multiscale_relative_sizes.out");
+		std::ofstream f("test_output/multiscale_relative_sizes.out");
 		std::set<int> large_radii;
 		for(int k=1; k<s-1; ++k)
 			for(int i=0; i<32; ++i)
@@ -1107,7 +1107,7 @@ BOOST_AUTO_TEST_SUITE( octave )
 		//cv cannot draw circle sizes better than a pixel, so the input image is drawn in high resolution
 		cv::Mat_<uchar>input(1, 16*64), small_input(1,64);
 		std::vector<Center1D> v;
-		std::ofstream f("1d_relative_sizes.out");
+		std::ofstream f("test_output/1d_relative_sizes.out");
 		for(int i=0; i<32; ++i)
 		{
 			input.setTo(0);
@@ -1242,7 +1242,7 @@ BOOST_AUTO_TEST_SUITE( multiscale )
 		//cv cannot draw circle sizes better than a pixel, so the input image is drawn in high resolution
 		cv::Mat_<uchar>input(1, 32*pow(2, s+1)), small_input(1, pow(2, s+1));
 		std::vector<Center2D> v, v_s;
-		std::ofstream f("multiscale1D_relative_sizes.out");
+		std::ofstream f("test_output/multiscale1D_relative_sizes.out");
 		std::set<int> large_radii;
 		for(int k=1; k<s-1; ++k)
 			for(int i=0; i<32; ++i)
@@ -1289,7 +1289,7 @@ BOOST_AUTO_TEST_SUITE( multiscale )
 		//cv cannot draw circle sizes better than a pixel, so the input image is drawn in high resolution
 		cv::Mat_<uchar>input(1, 32*64), small_input(1, 64);
 		std::vector<Center2D> v_s(2);
-		std::ofstream f("close_neighbours1D.out");
+		std::ofstream f("test_output/close_neighbours1D.out");
 		for(int i = 32*32; i>8*32 && v_s.size()==2; --i)
 		{
 			const double distance = i/32.0;
@@ -1302,7 +1302,7 @@ BOOST_AUTO_TEST_SUITE( multiscale )
 			if(v_s.size()!=2)
 			{
 				BOOST_WARN_MESSAGE(false, "Cannot differentiate step-like 1D blobs with edges closer than "<<distance/3-2<<" radius");
-				std::ofstream out("close_neighbours1D.layersG");
+				std::ofstream out("test_output/close_neighbours1D.layersG");
 				for(size_t j=0; j<64; ++j)
 				{
 					for(size_t l=0; l<finder.get_n_layers()+3; ++l)
@@ -1326,7 +1326,7 @@ BOOST_AUTO_TEST_SUITE( multiscale )
 		MultiscaleFinder1D finder_margin(input_margin.cols);
 		std::vector<Center2D> blobs_margin;
 		finder_margin.get_centers(input_margin, blobs_margin);
-		std::ofstream f_margin("multiscale1D_real_data_margin.layersG");
+		std::ofstream f_margin("test_output/multiscale1D_real_data_margin.layersG");
 		BOOST_REQUIRE_GE(finder_margin.get_n_octaves(), 2);
 		for(size_t l=0; l<finder_margin.get_n_layers()+2; ++l)
 		{
@@ -1534,7 +1534,7 @@ BOOST_AUTO_TEST_SUITE( subpix )
 
 		for(size_t c=0; c<v.size(); ++c)
 			finder.scale(v[c]);
-		std::ofstream out("subpix_relative_sizes3D");
+		std::ofstream out("test_output/subpix_relative_sizes3D");
 		for(size_t c=0; c<v.size(); ++c)
 		{
 			BOOST_CHECK_CLOSE(v[c].r, 4+0.125*c, 2);
@@ -1566,7 +1566,7 @@ BOOST_AUTO_TEST_SUITE( subpix )
 
 		for(size_t c=0; c<v.size(); ++c)
 			finder.scale(v[c]);
-		std::ofstream out("subpix_positions3D");
+		std::ofstream out("test_output/subpix_positions3D");
 		for(size_t c=0; c<24; ++c)
 		{
 			const double r = 4.0+0.125*c,
@@ -1625,7 +1625,7 @@ BOOST_AUTO_TEST_SUITE( octave_limit_cases )
 		//cv cannot draw circle sizes better than a pixel, so the input image is drawn in high resolution
 		int dims[3] = {24,24,24}, ldims[3] = {16*24, 16*24, 16*24};
 		cv::Mat_<uchar>input(3, ldims, (unsigned char)0), small_input(3, dims, (unsigned char)0);
-		std::ofstream f("pos_size_at_border3D.out");
+		std::ofstream f("test_output/pos_size_at_border3D.out");
 		for(int i = 16*12; i>16*5; --i)
 		{
 			const double position = i/16.0;
@@ -1653,7 +1653,7 @@ BOOST_AUTO_TEST_SUITE( octave_limit_cases )
 		//cv cannot draw circle sizes better than a pixel, so the input image is drawn in high resolution
 		int dims[3] = {40,24,24}, ldims[3] = {8*40, 8*24, 8*24};
 		cv::Mat_<unsigned char>input(3, ldims, (unsigned char)0), small_input(3, dims, (unsigned char)0);
-		std::ofstream f("close_neighbours3D.out");
+		std::ofstream f("test_output/close_neighbours3D.out");
 		for(int i = 8*20; i>8*6; --i)
 		{
 			const double distance = i/8.0;
@@ -1744,13 +1744,13 @@ BOOST_AUTO_TEST_SUITE( multiscale3D_call )
 		cv::Mat_<uchar>input(3, dims, (unsigned char)0);
 		input.setTo(0);
 		drawsphere(input, 16, 16, 16, 5, (unsigned char)255);
-		std::ofstream out("multiscale_single_sphere.raw", std::ios_base::binary);
+		std::ofstream out("test_output/multiscale_single_sphere.raw", std::ios_base::binary);
 		out.write((char*)input.data, 32*32*32);
 		std::vector<Center3D> v;
 		finder.get_centers(input, v);
-		std::ofstream out0("multiscale_single_sphere_o0lg0.raw", std::ios_base::binary);
+		std::ofstream out0("test_output/multiscale_single_sphere_o0lg0.raw", std::ios_base::binary);
 		out0.write((char*)finder.get_octave(0).get_layersG(0).data, 64*64*64*sizeof(OctaveFinder::PixelType));
-		std::ofstream out1("multiscale_single_sphere_o1lg0.raw", std::ios_base::binary);
+		std::ofstream out1("test_output/multiscale_single_sphere_o1lg0.raw", std::ios_base::binary);
 		out1.write((char*)finder.get_octave(1).get_layersG(0).data, 32*32*32*sizeof(OctaveFinder::PixelType));
 		//with a radius of 5, the maximum should be in layer 2 of octave 1 and nowhere else
 		for(size_t o=0; o<finder.get_n_octaves(); ++o)
@@ -1762,7 +1762,7 @@ BOOST_AUTO_TEST_SUITE( multiscale3D_call )
 						"Octave "<<o<<" layer "<<l<<" has "<< u <<" center"<<((u>1)?"s":"")
 				);
 			}
-		std::ofstream f("multiscale_single_sphere.out");
+		std::ofstream f("test_output/multiscale_single_sphere.out");
 		for(size_t c=0; c<v.size(); ++c)
 			f<<v[c][0]<<"\t"<<v[c][1]<<"\t"<<v[c][2]<<"\t"<<v[c].r<<"\t"<<v[c].intensity<<"\n";
 		BOOST_REQUIRE_EQUAL(v.size(), 1);
@@ -1785,7 +1785,7 @@ BOOST_AUTO_TEST_SUITE( multiscale3D_call )
 			input.setTo(0);
 			drawsphere(input, i/2, i/2, i/2, 3, (unsigned char)255);
 			finder.get_centers(input, v);
-			std::ofstream f("multiscale3D_minimum_detector_size.raw", std::ios_base::binary);
+			std::ofstream f("test_output/multiscale3D_minimum_detector_size.raw", std::ios_base::binary);
 			f.write((const char*)finder.get_octave(0).get_layersG(0).data, i*i*i*8*sizeof(OctaveFinder::PixelType));
 		}
 		BOOST_WARN_MESSAGE(false, "An multiscale detector smaller than "<< (i+1)<<" pixels cannot detect anything in 3D");
@@ -1799,7 +1799,7 @@ BOOST_AUTO_TEST_SUITE( john )
 		//read simulation output and select 1/8th of the volume
 		std::vector<Center3D> simulation;
 		Center3D c(0.0, 5.0);
-		std::ifstream sim("poly00_phi05.dat");
+		std::ifstream sim("test_input/poly00_phi05.dat");
 		size_t nb;
 		sim >> nb;
 		sim >> nb;
@@ -1845,7 +1845,7 @@ BOOST_AUTO_TEST_SUITE( john )
 			}
 			volume_shrink(linput, input, 4);
 		}
-		std::ofstream f("john_exact_mono.raw", std::ios_base::binary);
+		std::ofstream f("test_output/john_exact_mono.raw", std::ios_base::binary);
 		f.write((const char*)input.data, dims[0]*dims[1]*dims[2]);
 		//track in 3D
 		MultiscaleFinder3D finder(128,128,128);
@@ -1856,7 +1856,7 @@ BOOST_AUTO_TEST_SUITE( john )
 		BOOST_CHECK_GT(centers.size(), simulation.size());
 		removeOverlapping(centers);
 		BOOST_CHECK_EQUAL(centers.size(), simulation.size());
-		std::ofstream out("john_exact_mono.csv");
+		std::ofstream out("test_output/john_exact_mono.csv");
 		out<<"x y z r\n";
 		double meanr = 0.0, minr = centers.front().r , maxr = minr;
 		for(size_t p=0; p<centers.size(); ++p)
@@ -2349,7 +2349,7 @@ BOOST_AUTO_TEST_SUITE( Reconstruction )
 			*s++ = it->intensity;
 		std::fill(signal.begin()+32, signal.end(), 0.0);
 		MultiscaleFinder1D finder(16*3);
-		std::ofstream f0("split_real.layersG0");
+		std::ofstream f0("test_output/split_real.layersG0");
 		for(size_t l=0; l<finder.get_n_layers()+3; ++l)
 		{
 			std::copy(
@@ -2358,7 +2358,7 @@ BOOST_AUTO_TEST_SUITE( Reconstruction )
 					std::ostream_iterator<float>(f0, "\t"));
 			f0<<"\n";
 		}
-		std::ofstream f("split_real.layersG");
+		std::ofstream f("test_output/split_real.layersG");
 		for(size_t l=0; l<finder.get_n_layers()+3; ++l)
 		{
 			std::copy(
@@ -2374,7 +2374,7 @@ BOOST_AUTO_TEST_SUITE( Reconstruction )
 	{
 		Reconstructor rec;
 		Reconstructor::Frame frame(1);
-		std::ifstream input("real.blob");
+		std::ifstream input("test_input/real.blob");
 		while(input.good())
 		{
 			input >> frame.back()[0] >> frame.back()[1];
@@ -2396,7 +2396,7 @@ BOOST_AUTO_TEST_SUITE( Reconstruction )
 	{
 		Reconstructor rec;
 		Reconstructor::Frame frame(1);
-		std::ifstream input("real2.blob");
+		std::ifstream input("test_input/real2.blob");
 		while(input.good())
 		{
 			input >> frame.back()[0] >> frame.back()[1];
@@ -2417,7 +2417,7 @@ BOOST_AUTO_TEST_SUITE( Reconstruction )
 	BOOST_AUTO_TEST_CASE( one_sphere )
 	{
 		Reconstructor rec;
-		std::ofstream f("one_sphere.out");
+		std::ofstream f("test_output/one_sphere.out");
 		for(int z0=0; z0<10; ++z0)
 		{
 			//slice a sphere of radius 4 centeres on 4+z0/10
@@ -2494,7 +2494,7 @@ BOOST_AUTO_TEST_SUITE( Lif )
 		BOOST_CHECK_GT(dims.size(), 2);
 		const size_t total_z = dims.size()>2 ? dims[2] : 1;
 		BOOST_CHECK_EQUAL(total_z, 256);
-		cv::VideoWriter w("z_scan.avi", CV_FOURCC('D', 'I', 'V', 'X'), 16, slice.size(), true);
+		cv::VideoWriter w("test_output/z_scan.avi", CV_FOURCC('D', 'I', 'V', 'X'), 16, slice.size(), true);
 		for(size_t z=0; z<total_z; ++z)
 		{
 			serie.fill2DBuffer(static_cast<void*>(slice.data), 0, z);
@@ -2528,7 +2528,7 @@ BOOST_AUTO_TEST_SUITE( Lif )
 				for(int i=0; i<sdims[2]; ++i)
 					*b++ = *a++;
 			}*/
-		std::ofstream f("locate_one_stack_small_input.raw", std::ios_base::binary);
+		std::ofstream f("test_output/locate_one_stack_small_input.raw", std::ios_base::binary);
 		f.write((const char*)small_input.data, sdims[0]*sdims[1]*sdims[2]);
 		MultiscaleFinder3D finder(sdims[0], sdims[1], sdims[2]);
 		std::vector<Center3D> centers;
@@ -2585,7 +2585,7 @@ BOOST_AUTO_TEST_SUITE( Lif )
 		BOOST_CHECK_EQUAL(centers.size(), 13677);
 
 		//export to VTK format for human-eye comparison
-		std::ofstream f_rec("locate_one_stack_nooverlap.vtk");
+		std::ofstream f_rec("test_output/locate_one_stack_nooverlap.vtk");
 		f_rec<<"# vtk DataFile Version 3.0\n"
 				"fill_one_stack\n"
 				"ASCII\n"
@@ -2673,7 +2673,7 @@ BOOST_AUTO_TEST_SUITE( LifTrack )
 			}
 			std::cout<<"file "<<count_file<<" has "<<nb_cl<<" clusters and "<<nb<<" particles"<<std::endl;
 			std::ostringstream os;
-			os<<"fill_one_stack_clusters"<< count_file++ <<".vtk";
+			os<<"test_output/fill_one_stack_clusters"<< count_file++ <<".vtk";
 			std::ofstream f_cl(os.str().c_str());
 			f_cl<<"# vtk DataFile Version 3.0\n"
 							"fill_one_stack\n"
@@ -2722,7 +2722,7 @@ BOOST_AUTO_TEST_SUITE( LifTrack )
 		BOOST_REQUIRE(!centers.empty());
 		BOOST_CHECK_EQUAL(centers.size(), 7951);
 		//export to VTK format for human-eye comparison
-		std::ofstream f_rec("fill_one_stack_reconstructed.vtk");
+		std::ofstream f_rec("test_output/fill_one_stack_reconstructed.vtk");
 		f_rec<<"# vtk DataFile Version 3.0\n"
 				"fill_one_stack\n"
 				"ASCII\n"
