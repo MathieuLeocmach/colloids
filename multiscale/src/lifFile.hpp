@@ -114,6 +114,7 @@ class LifHeader : boost::noncopyable
         std::string getName() const {return this->name;};
         const int& getVersion() const {return this->lifVersion;};
         size_t getNbSeries() const {return this->series.size();}
+        bool contains(size_t s) const {return s<this->series.size();}
         size_t chooseSerieNumber() const;
         LifSerieHeader& getSerieHeader(size_t s){return this->series[s];};
         const LifSerieHeader& getSerieHeader(size_t s) const {return this->series[s];};
@@ -139,6 +140,7 @@ class LifReader : boost::noncopyable
         std::string getName() const {return getLifHeader().getName();};
         const int& getVersion() const {return getLifHeader().getVersion();};
         size_t getNbSeries() const {return this->series.size();}
+        bool contains(size_t s) const {getLifHeader().contains(s);}
         size_t chooseSerieNumber() const {return getLifHeader().chooseSerieNumber();};
 
         LifSerie& getSerie(size_t s){return series[s];};
