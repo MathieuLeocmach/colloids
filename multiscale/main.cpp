@@ -1,4 +1,5 @@
 #include "src/multiscalefinder.hpp"
+#include "src/lifFile.hpp"
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/progress.hpp>
 #include <boost/program_options.hpp>
@@ -10,14 +11,14 @@ using namespace boost::posix_time;
 int main(int ac, char* av[]){
 	try {
 		std::string input,output;
-		int serie = -1;
+		int ser = -1;
 		// Declare a group of options that will be
 		// allowed only on command line
 		po::options_description cmdline_options("Generic options");
 		cmdline_options.add_options()
 			("input,i", po::value<std::string>(&input), "Leica file to read as input")
 			("output,o", po::value<std::string>(&output)->default_value("./"), "folder to output to")
-			("series", po::value<int>(&serie)->default_value(-1), "Dataset number")
+			("series,s", po::value<int>(&ser), "Dataset number")
 			("verbose,v", "Output debugging information")
 			("help", "Show this help and exit")
 			;
@@ -41,8 +42,13 @@ int main(int ac, char* av[]){
 			std::cerr<<"input file needed" << std::endl;
 			return EXIT_FAILURE;
 		}
-
-
+		LifReader reader(vm["input"].as<std::string>());
+		if(!vm.count("series") || !(!!vm.count("series") && reader.contains(vm["series"].as<int>())))
+		{
+			ser = reader.chooseSerieNumber();
+		}
+		LifSerie &serie = reader.getSerie(ser);
+		std::cout<<"Tracking "<<serie.getName()<<std::endl;
 	}
 	catch(std::exception& e)
 	{
