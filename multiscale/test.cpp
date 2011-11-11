@@ -5,8 +5,8 @@
 #include "traj.hpp"
 #include "reconstructor.h"
 #include "locatorfromlif.h"
-#include "OnDiskArray.h"
 #include <boost/test/unit_test.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/progress.hpp>
 #include <boost/array.hpp>
 #include <fstream>
@@ -15,6 +15,7 @@
 #include <numeric>
 
 using namespace Colloids;
+using namespace boost::posix_time;
 
 void images_are_close(const cv::Mat &a, const cv::Mat &b, float precision=1e-5)
 {
@@ -47,6 +48,7 @@ struct by_coordinate : std::binary_function<const T&, const T&, bool>
 template<class T>
 void drawsphere(cv::Mat_<T> & input, const double &z, const double &y, const double &x, const double &r, const T & value=255)
 {
+	const double rsq = r*r, bigrsq = (r+1) * (r+1);
 	for(int k=std::max(0.0, z-r); k<std::min((double)input.size[0], z+r+1); ++k)
 	{
 		const double dz = pow(k-z, 2);
@@ -54,8 +56,17 @@ void drawsphere(cv::Mat_<T> & input, const double &z, const double &y, const dou
 		{
 			const double dy = pow(j-y, 2);
 			for(int i=std::max(0.0, x-r); i<std::min((double)input.size[2], x+r+1); i++)
-				if(pow(i-x, 2) + dy + dz <= r*r)
+			{
+				const double distsq = pow(i-x, 2) + dy + dz;
+				if(distsq < rsq)
 					input(k,j,i) = value;
+				/*else
+					if(distsq<=bigrsq)
+					{
+						input(k,j,i) = value / (sqrt(distsq)-r);
+					}*/
+			}
+
 		}
 		/*const double Rsq = r*r - (k-z)*(k-z);
 		if(Rsq>=0)
@@ -82,45 +93,6 @@ void volume_shrink(const cv::Mat_<T> & large, cv::Mat_<T> & small, size_t factor
 				small(k, j, i) = (v/(factor*factor*factor) + 0.5);
 			}
 }
-
-BOOST_AUTO_TEST_SUITE( onDisk )
-
-	BOOST_AUTO_TEST_CASE( onDisk_constructor )
-	{
-		std::vector<size_t> dims(3, 256);
-		{
-			OnDiskArray a("test.array", dims, sizeof(float));
-			{
-				std::ifstream f("test.array");
-				BOOST_REQUIRE(f.good());
-				f.seekg(0, std::ios::end);
-				BOOST_REQUIRE_EQUAL(f.tellg(), 256*256*256*sizeof(float));
-			}
-			BOOST_REQUIRE_EQUAL(a.get_dims().size(), 3);
-			BOOST_CHECK_EQUAL(a.get_dims()[0], 256);
-			BOOST_CHECK_EQUAL(a.get_dims()[1], 256);
-			BOOST_CHECK_EQUAL(a.get_dims()[2], 256);
-			std::vector<size_t>pos (3,0);
-			BOOST_CHECK_EQUAL(a.get_offset(pos), 0);
-			BOOST_CHECK_EQUAL(a.get_offset(std::vector<size_t>(3,1)), (256*256*1+256*1+1)*sizeof(float));
-			a.write(pos, (unsigned char)255);
-			BOOST_CHECK_EQUAL(a.read<unsigned char>(pos), 255);
-			a.write(pos, 17.0f);
-			BOOST_CHECK_CLOSE(a.read<float>(pos), 17.0f, 1e-5);
-			std::vector<float> line(256, 19.0f);
-			a.writeline(std::vector<size_t>(2,0), (char*)&line[0]);
-			BOOST_CHECK_EQUAL(a.get_line_offset(std::vector<size_t>(2,0)), 0);
-			BOOST_CHECK_EQUAL(a.get_line_offset(std::vector<size_t>(2,1)), (256*1+1)*256*sizeof(float));
-			BOOST_CHECK_CLOSE(a.read<float>(pos), 19.0f, 1e-5);
-			pos.back() = 255;
-			BOOST_CHECK_EQUAL(a.get_offset(pos), 255*sizeof(float));
-			BOOST_CHECK_CLOSE(a.read<float>(pos), 19.0f, 1e-5);
-		}
-		std::ifstream f("test.array");
-		BOOST_REQUIRE(!f.good());
-	}
-
-BOOST_AUTO_TEST_SUITE_END() //onDisk
 
 BOOST_AUTO_TEST_SUITE( twoD )
 
@@ -853,6 +825,7 @@ BOOST_AUTO_TEST_SUITE( multiscale_call )
 		BOOST_CHECK_LT(finder.get_octave(0).get_layers(2)(56, 56), finder.get_octave(0).get_layers(2)(57, 56));
 		BOOST_CHECK_LT(finder.get_octave(0).get_layers(2)(56, 56), finder.get_octave(0).get_layers(2)(56, 55));
 		BOOST_CHECK_LT(finder.get_octave(0).get_layers(2)(56, 56), finder.get_octave(0).get_layers(2)(56, 57));
+		//cv::imshow("upscaled", 255*finder.upscale(input));
 		//cv::imshow("o0 binary2", 255*finder.get_octave(0).get_binary(2));
 		//cv::waitKey();
 		for(size_t o=0; o<finder.get_n_octaves(); ++o)
@@ -1568,6 +1541,45 @@ BOOST_AUTO_TEST_SUITE( subpix )
 			out<<4+0.125*c<<"\t"<<v[c].r<<"\n";
 		}
 	}
+	BOOST_AUTO_TEST_CASE( subpix_positions )
+	{
+		OctaveFinder3D finder(32, 32, 32);
+		//cv cannot draw circle sizes better than a pixel, so the input image is drawn in high resolution
+		int dims[3] = {32,32,32}, ldims[3] = {8*32, 8*32, 8*32};
+		cv::Mat_<uchar>input(3, ldims, (unsigned char)0), small_input(3, dims, (unsigned char)0);
+		std::vector<Center3D> v;
+		for(int x=-4; x<4; ++x)
+		{
+			for(int i=0; i<24; ++i)
+			{
+				input.setTo(0);
+				drawsphere(input, 8*16, 8*16, 8*16+x, 8*4+i);
+				volume_shrink(input, small_input, 8);
+				finder.preblur_and_fill(small_input);
+				finder.initialize_binary();
+				std::vector<Center3D> v_s;
+				finder.subpix(v_s);
+				std::copy(v_s.begin(), v_s.end(), std::back_inserter(v));
+			}
+		}
+		BOOST_REQUIRE_EQUAL(v.size(), 8*24);
+
+		for(size_t c=0; c<v.size(); ++c)
+			finder.scale(v[c]);
+		std::ofstream out("subpix_positions3D");
+		for(size_t c=0; c<24; ++c)
+		{
+			const double r = 4.0+0.125*c,
+					s = log(r/finder.get_prefactor()/finder.get_radius_preblur())/log(2.0)*finder.get_n_layers()-1;
+			out<<r<<"\t"<<s<<"\t";
+			for(int x=0; x<8; ++x)
+			{
+				BOOST_CHECK_CLOSE(v[c+24*x].r, 4+0.125*c, 2);
+				out<<v[c+24*x][0]<<"\t"<<v[c+24*x].r<<"\t";
+			}
+			out<<"\n";
+		}
+	}
 BOOST_AUTO_TEST_SUITE_END() //subpix 3D
 
 BOOST_AUTO_TEST_SUITE( octave_limit_cases )
@@ -1633,33 +1645,33 @@ BOOST_AUTO_TEST_SUITE( octave_limit_cases )
 				f << position << "\t" << v_s[j][0] << "\t"  << v_s[j].r << "\n";
 		}
 		f<<std::endl;
-	}
+	}*/
 
 	BOOST_AUTO_TEST_CASE( close_neighbours3D )
 	{
-		OctaveFinder3D finder(36,24,24);
+		OctaveFinder3D finder(40,24,24);
 		//cv cannot draw circle sizes better than a pixel, so the input image is drawn in high resolution
-		int dims[3] = {36,24,24}, ldims[3] = {16*36, 16*24, 16*24};
+		int dims[3] = {40,24,24}, ldims[3] = {8*40, 8*24, 8*24};
 		cv::Mat_<unsigned char>input(3, ldims, (unsigned char)0), small_input(3, dims, (unsigned char)0);
 		std::ofstream f("close_neighbours3D.out");
-		for(int i = 16*20; i>16*6; --i)
+		for(int i = 8*20; i>8*6; --i)
 		{
-			const double distance = i/16.0;
+			const double distance = i/8.0;
 			BOOST_TEST_CHECKPOINT("distance = "<<distance);
 			input.setTo(0);
-			drawsphere(input, 16*12, 16*12, 16*12, 16*4, 255);
-			drawsphere(input, 16*12+i, 16*12, 16*12, 16*4, 255);
-			volume_shrink(input, small_input, 16);
+			drawsphere(input, 8*14, 8*12, 8*12, 8*4, (unsigned char)255);
+			drawsphere(input, 8*14+i, 8*12, 8*12, 8*4, (unsigned char)255);
+			volume_shrink(input, small_input, 8);
 			std::vector<Center3D> v_s = finder.get_centers<3>(small_input, true);
 			BOOST_REQUIRE_EQUAL(v_s.size(), 2);
-			BOOST_CHECK_CLOSE(v_s[0][2], 12, distance<16?6:2);
-			BOOST_REQUIRE_CLOSE(v_s[1][2], 12+distance, distance<16?6:2);
+			BOOST_CHECK_CLOSE(v_s[0][2], 14, distance<16?6:2);
+			//BOOST_CHECK_CLOSE(v_s[1][2], 12+distance, distance<16?6:2);
 			BOOST_CHECK_CLOSE(v_s[0].r, 4, distance<16?6:2);
 			BOOST_CHECK_CLOSE(v_s[1][2] - v_s[0][2], distance, distance<9.06375?22:2);
-			f << distance << "\t" << v_s[0][2] << "\t" << v_s[1][2] << "\t" << v_s[0].r << "\n";
+			f << distance << "\t" << v_s[0][2] << "\t" << v_s[1][2] << "\t" << v_s[0].r << "\t" << v_s[1].r << "\n";
 		}
 		f<<std::endl;
-	}*/
+	}
 
 BOOST_AUTO_TEST_SUITE_END() //octave limit cases 3D
 
@@ -1779,6 +1791,92 @@ BOOST_AUTO_TEST_SUITE( multiscale3D_call )
 		BOOST_WARN_MESSAGE(false, "An multiscale detector smaller than "<< (i+1)<<" pixels cannot detect anything in 3D");
 	}
 BOOST_AUTO_TEST_SUITE_END() //multiscale 3D call
+
+BOOST_AUTO_TEST_SUITE( john )
+
+	BOOST_AUTO_TEST_CASE( exact_mono )
+	{
+		//read simulation output and select 1/8th of the volume
+		std::vector<Center3D> simulation;
+		Center3D c(0.0, 5.0);
+		std::ifstream sim("poly00_phi05.dat");
+		size_t nb;
+		sim >> nb;
+		sim >> nb;
+		double boxsize;
+		sim >> boxsize;
+		sim >> boxsize;
+		sim >> boxsize;
+		for(size_t p=0; p<nb; ++p)
+		{
+			for(size_t d=0; d<3; ++d)
+			{
+				sim >> c[d];
+				//periodic boundary conditions
+				if(c[d]<0)
+					c[d] += boxsize;
+				if(c[d] >= boxsize)
+					c[d] -= boxsize;
+			}
+			//select 1/8th of the volume
+			//if(std::max(c[0], std::max(c[1], c[2])) > boxsize*0.5)
+					//continue;
+			//rescale
+			for(size_t d=0; d<3; ++d)
+				c[d] = (c[d]+0.5) * 128.0 / (2.0 + boxsize);
+			simulation.push_back(c);
+		}
+		sim.close();
+		//create an empty, black input picture as big as the simulation box + margins
+		const double radius = 0.5 * 128.0 / (2.0 + boxsize);
+		int dims[3] = {128, 128, 128}, ldims[3] = {512, 512, 512};
+		cv::Mat_<uchar> input(3, dims);
+		{
+			cv::Mat_<uchar> linput(3, ldims);
+			linput.setTo(0);
+			//paint spheres at the positions and sizes given by the simulation output
+			for(size_t p=0; p<simulation.size(); ++p)
+			{
+				drawsphere(linput,
+						4*simulation[p][2],
+						4*simulation[p][1],
+						4*simulation[p][0],
+						4*radius, (unsigned char)255);
+			}
+			volume_shrink(linput, input, 4);
+		}
+		std::ofstream f("john_exact_mono.raw", std::ios_base::binary);
+		f.write((const char*)input.data, dims[0]*dims[1]*dims[2]);
+		//track in 3D
+		MultiscaleFinder3D finder(128,128,128);
+		std::vector<Center3D> centers;
+		finder.get_centers(input, centers);
+		//compare track output and simulation output
+		BOOST_REQUIRE(!centers.empty());
+		BOOST_CHECK_GT(centers.size(), simulation.size());
+		removeOverlapping(centers);
+		BOOST_CHECK_EQUAL(centers.size(), simulation.size());
+		std::ofstream out("john_exact_mono.csv");
+		out<<"x y z r\n";
+		double meanr = 0.0, minr = centers.front().r , maxr = minr;
+		for(size_t p=0; p<centers.size(); ++p)
+		{
+			for(size_t d=0; d<3; ++d)
+				out<< centers[p][d] - radius << " ";
+			out<<centers[p].r<<"\n";
+			meanr += centers[p].r;
+			if(centers[p].r < minr)
+				minr = centers[p].r;
+			if(maxr < centers[p].r)
+				maxr = centers[p].r;
+		}
+		meanr /= centers.size();
+		BOOST_CHECK_CLOSE(meanr, radius, 0.3);
+		BOOST_CHECK_GT(minr, radius*0.9);
+		BOOST_CHECK_LT(maxr, radius*0.11);
+	}
+
+BOOST_AUTO_TEST_SUITE_END() //kawasaki
 
 BOOST_AUTO_TEST_SUITE_END() //multiscale 3D
 
@@ -2102,7 +2200,7 @@ BOOST_AUTO_TEST_SUITE( Reconstruction )
 		BOOST_REQUIRE_EQUAL(rec.size(), 4);
 		BOOST_REQUIRE_EQUAL(rec.nb_cluster(), 1);
 	}
-	/*BOOST_AUTO_TEST_CASE( cluster_split )
+	BOOST_AUTO_TEST_CASE( cluster_split )
 	{
 		//no need to split
 		Reconstructor rec;
@@ -2251,7 +2349,6 @@ BOOST_AUTO_TEST_SUITE( Reconstruction )
 			*s++ = it->intensity;
 		std::fill(signal.begin()+32, signal.end(), 0.0);
 		MultiscaleFinder1D finder(16*3);
-		BOOST_CHECK(!finder(signal).empty());
 		std::ofstream f0("split_real.layersG0");
 		for(size_t l=0; l<finder.get_n_layers()+3; ++l)
 		{
@@ -2272,7 +2369,7 @@ BOOST_AUTO_TEST_SUITE( Reconstruction )
 		}
 		rec.split_clusters();
 		BOOST_REQUIRE_EQUAL(rec.nb_cluster(), 2);
-	}*/
+	}
 	BOOST_AUTO_TEST_CASE( real_long )
 	{
 		Reconstructor rec;
@@ -2385,7 +2482,7 @@ BOOST_AUTO_TEST_SUITE( Reconstruction )
 		}
 	}*/
 BOOST_AUTO_TEST_SUITE_END()
-/*BOOST_AUTO_TEST_SUITE( Lif )
+BOOST_AUTO_TEST_SUITE( Lif )
 	BOOST_AUTO_TEST_CASE( export_z_scan )
 	{
 		LifReader reader("/home/mathieu/Code_data/liftest/Tsuru11dm_phi=52.53_J36.lif");
@@ -2412,9 +2509,110 @@ BOOST_AUTO_TEST_SUITE_END()
 			w << color_slice;
 		}
 	}
+	BOOST_AUTO_TEST_CASE( locate_one_stack )
+	{
+		LifReader reader("/home/mathieu/Code_data/liftest/Tsuru11dm_phi=52.53_J36.lif");
+		LifSerie &serie = reader.getSerie(0);
+		boost::iostreams::mapped_file_source file("/home/mathieu/Code_data/liftest/Tsuru11dm_phi=52.53_J36.lif");
+		const std::vector<size_t> dims = serie.getSpatialDimensions();
+		int dimsint[3] = {dims[2], dims[1], dims[0]};
+		cv::Mat_<uchar> input = cv::Mat(3, dimsint, CV_8UC1, (unsigned char*)(file.data() + serie.getOffset(0)));
+		int sdims[3] = {dims[2], dims[1], dims[0]};
+		int smin[3] = {0, 0, 0};
+		cv::Mat_<uchar> small_input = input;/*(3, sdims);
+		for(int k=0; k<sdims[0]; ++k)
+			for(int j=0; j<sdims[1]; ++j)
+			{
+				const unsigned char * a = &input(k+smin[0], j+smin[1], smin[2]);
+				unsigned char * b = &small_input(k, j, 0);
+				for(int i=0; i<sdims[2]; ++i)
+					*b++ = *a++;
+			}*/
+		std::ofstream f("locate_one_stack_small_input.raw", std::ios_base::binary);
+		f.write((const char*)small_input.data, sdims[0]*sdims[1]*sdims[2]);
+		MultiscaleFinder3D finder(sdims[0], sdims[1], sdims[2]);
+		std::vector<Center3D> centers;
+		{
+			std::cout<<"fill ";
+			ptime past = microsec_clock::local_time();
+			boost::progress_timer ti;
+			finder.fill(small_input);
+			std::cout<< microsec_clock::local_time()-past <<" including CPU ";
+		}
+		{
+			std::cout<<"initialize ";
+			ptime past = microsec_clock::local_time();
+			boost::progress_timer ti;
+			finder.initialize_binary();
+			std::cout<< microsec_clock::local_time()-past <<" including CPU ";
+		}
+		{
+			std::cout<<"subpix ";
+			ptime past = microsec_clock::local_time();
+			boost::progress_timer ti;
+			finder.subpix(centers);
+			std::cout<< microsec_clock::local_time()-past <<" including CPU ";
+		}
+		BOOST_REQUIRE(!centers.empty());
+		BOOST_CHECK_EQUAL(centers.size(), 13760);
+		BOOST_CHECK_LT((*std::max_element(centers.begin(), centers.end(), compare_coord<0>()))[0], sdims[2]);
+		BOOST_CHECK_GT((*std::min_element(centers.begin(), centers.end(), compare_coord<0>()))[0], 0);
+		BOOST_CHECK_LT((*std::max_element(centers.begin(), centers.end(), compare_coord<1>()))[1], sdims[1]);
+		BOOST_CHECK_GT((*std::min_element(centers.begin(), centers.end(), compare_coord<1>()))[1], 0);
+		std::vector<Center3D>::const_iterator max_z = std::max_element(centers.begin(), centers.end(), compare_coord<2>()),
+				min_z = std::min_element(centers.begin(), centers.end(), compare_coord<2>());
+		BOOST_CHECK_LT((*max_z)[2], sdims[0]);
+		/*std::vector<int> max_zi = finder.get_octave(0).get_center_pixel(max_z-centers.begin());
+		std::copy(max_zi.begin(), max_zi.end(), std::ostream_iterator<int>(std::cout, "\t"));
+		for(int u=-1;u<2;++u)
+			std::cout<<finder.get_octave(0).get_layersG(max_zi.back())(max_zi[2]+u, max_zi[1], max_zi[0])<<"\t";
+		std::cout<<std::endl;*/
+
+		BOOST_CHECK_GT((*min_z)[2], 0);
+		/*std::vector<int> min_zi = finder.get_octave(0).get_center_pixel(min_z-centers.begin());
+		std::copy(min_zi.begin(), min_zi.end(), std::ostream_iterator<int>(std::cout, "\t"));
+		for(int u=-1;u<2;++u)
+			std::cout<<finder.get_octave(0).get_layersG(min_zi.back())(min_zi[2]+u, min_zi[1], min_zi[0])<<"\t";
+		std::cout<<std::endl;*/
+		{
+			std::cout<<"remove overlap ";
+			ptime past = microsec_clock::local_time();
+			boost::progress_timer ti;
+			removeOverlapping(centers);
+			std::cout<< microsec_clock::local_time()-past <<" including CPU ";
+		}
+		BOOST_REQUIRE(!centers.empty());
+		BOOST_CHECK_EQUAL(centers.size(), 13677);
+
+		//export to VTK format for human-eye comparison
+		std::ofstream f_rec("locate_one_stack_nooverlap.vtk");
+		f_rec<<"# vtk DataFile Version 3.0\n"
+				"fill_one_stack\n"
+				"ASCII\n"
+				"DATASET POLYDATA\n"
+				"POINTS "<<centers.size()<<" double\n";
+		for(std::vector<Center3D>::const_iterator p=centers.begin();p!=centers.end();++p)
+		{
+			for(size_t d=0;d<3;++d)
+				f_rec<<(*p)[d]<<" ";
+			f_rec<<"\n";
+		}
+		f_rec<<"POINT_DATA "<<centers.size()<<"\n"
+				"SCALARS r double\n"
+				"LOOKUP_TABLE default\n";
+		for(std::vector<Center3D>::const_iterator p=centers.begin();p!=centers.end();++p)
+			f_rec<< p->r <<"\n";
+		f_rec<<"SCALARS intensity double\n"
+				"LOOKUP_TABLE default\n";
+		for(std::vector<Center3D>::const_iterator p=centers.begin();p!=centers.end();++p)
+			f_rec<< p->intensity <<"\n";
+		f_rec.close();
+	}
+
 BOOST_AUTO_TEST_SUITE_END()
+
 BOOST_AUTO_TEST_SUITE( LifTrack )
-	BOOST_AUTO_TEST_CASE( fill_one_slice )
+	/*BOOST_AUTO_TEST_CASE( fill_one_slice )
 	{
 		LifReader reader("/home/mathieu/Code_data/liftest/Tsuru11dm_phi=52.53_J36.lif");
 		LocatorFromLif locator(&reader.getSerie(0));
@@ -2444,7 +2642,7 @@ BOOST_AUTO_TEST_SUITE( LifTrack )
 			out.write((char*)finder.get_octave(1).get_layersG(l).data, 256*256*finder.get_octave(1).get_layersG(l).elemSize());
 		}
 		BOOST_CHECK_EQUAL(finder.get_octave(1).get_binary(1)(110, 111), true);
-	}
+	}*/
 	BOOST_AUTO_TEST_CASE( fill_one_stack )
 	{
 		LifReader reader("/home/mathieu/Code_data/liftest/Tsuru11dm_phi=52.53_J36.lif");
@@ -2543,4 +2741,4 @@ BOOST_AUTO_TEST_SUITE( LifTrack )
 			f_rec<< p->r <<"\n";
 		f_rec.close();
 	}
-BOOST_AUTO_TEST_SUITE_END()*/
+BOOST_AUTO_TEST_SUITE_END()
