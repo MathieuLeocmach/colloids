@@ -101,6 +101,7 @@ namespace Colloids
 			virtual double scale_subpix(const std::vector<int> &ci) const;
 			virtual double gaussianResponse(const std::vector<int> &ci, const double & scale) const;
 			virtual void seam_binary(OctaveFinder & other);
+			inline void inner_center(std::vector<Center3D> &cs) const {cs = this->centers;};
 
 		protected:
 			boost::iostreams::mapped_file file;
@@ -108,6 +109,7 @@ namespace Colloids
 			std::vector<Image > layersG2D;
 			std::vector<cv::FilterEngine> iterative_Zgaussian_filters;
 			cv::Ptr<cv::FilterEngine> preblur_Zfilter;
+			std::vector<Center3D> centers;
 
 			virtual void fill_iterative_radii();
 			virtual void preblur(Image &input);
@@ -123,6 +125,11 @@ namespace Colloids
 		std::list<std::vector<int> >::const_iterator ci = this->centers_no_subpix.begin();
 		for(size_t c=0; c<centers.size(); ++c)
 			this->single_subpix(*ci++, centers[c]);
+	}
+    template<>
+	inline void OctaveFinder::subpix(std::vector<Center3D> &centers) const
+	{
+    	dynamic_cast<const OctaveFinder3D*>(this)->inner_center(centers);
 	}
     template<int D>
     std::vector<Center<D> > OctaveFinder::get_centers(const cv::Mat & input, const bool preblur)

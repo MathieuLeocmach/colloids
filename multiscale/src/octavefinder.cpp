@@ -384,37 +384,38 @@ void Colloids::OctaveFinder1D::initialize_binary(const double & max_ratio)
 
 void Colloids::OctaveFinder3D::initialize_binary(const double & max_ratio)
 {
-	const int nblayers = this->binary.size();
+	const int nblayers = this->layersG.size()-3;
     //initialize
 	this->centers_no_subpix.clear();
+	this->centers.clear();
     for(int i = 0;i < nblayers;++i)
         this->binary[i].setTo(0);
     //prepare the cache
-    Image cache(2*2*2, this->get_height(), (PixelType)0);
+    Image cacheG(3*2*2, this->get_height(), (PixelType)0);
 
 	for(int l = 1;l < nblayers+1;l += 2)
 	{
-		const Image & layer0 = this->layers[l], layer1 = this->layers[l+1];
 		const int si = this->sizes[l];
-		for(int k = si+1;k < layer0.size[0] - si- 1;k += 2)
-		for(int j = si+1;j < layer0.size[1] - si- 1;j += 2)
+		for(int k = si+1;k < this->layersG.front().size[0] - si- 1;k += 2)
+		for(int j = si+1;j < this->layersG.front().size[1] - si- 1;j += 2)
 		{
-			//fill the cache for the whole line of blocks
-			for(int cl=0; cl<2; ++cl)
+			//fill the gaussian cache for the whole line of blocks
+			for(int cl=0; cl<3; ++cl)
 				for(int ck=0; ck<2; ++ck)
 				{
-					const PixelType * in = &this->layers[cl+l](ck+k, j, 0);
-					PixelType * out = &cache(2*(2*cl+ck), 0);
-					for(int ci=0; ci<2*cache.cols; ++ci)
+					const PixelType * in = &this->layersG[cl+l](ck+k, j, 0);
+					PixelType * out = &cacheG(2*(2*cl+ck), 0);
+					for(int ci=0; ci<2*cacheG.cols; ++ci)
 						*out++ = *in++;
 				}
 			for(int i = si+1;i < this->get_height() -si - 1;i += 2){
+				//Difference of Gaussian is done here to keep coherent cache and minimize disk IO
 				//copy the whole block together for locality
 				boost::array<PixelType, 16> ngb;
 				for(int u=0;u<8;++u)
 				{
-					ngb[2*u] = cache(u,i);
-					ngb[2*u+1] = cache(u,i+1);
+					ngb[2*u] = cacheG(u+4,i) - cacheG(u,i);
+					ngb[2*u+1] = cacheG(u+4, i+1) - cacheG(u,i+1);
 				}
 				const boost::array<PixelType, 16>::const_iterator mpos = std::min_element(ngb.begin(), ngb.end());
 				if(*mpos>=0.0)
@@ -428,9 +429,9 @@ void Colloids::OctaveFinder3D::initialize_binary(const double & max_ratio)
 
 				//maxima cannot be on the last layer or on image edges
 				if(ml > nblayers || !(
-						(this->sizes[ml] <= mk) && (mk < layer0.size[0] - this->sizes[ml]) &&
-						(this->sizes[ml] <= mj) && (mj < layer0.size[1] - this->sizes[ml]) &&
-						(this->sizes[ml] <= mi) && (mi < layer0.size[2] - this->sizes[ml])
+						(this->sizes[ml] <= mk) && (mk < this->layersG.front().size[0] - this->sizes[ml]) &&
+						(this->sizes[ml] <= mj) && (mj < this->layersG.front().size[1] - this->sizes[ml]) &&
+						(this->sizes[ml] <= mi) && (mi < this->layersG.front().size[2] - this->sizes[ml])
 						))
 					continue;
 
@@ -444,7 +445,7 @@ void Colloids::OctaveFinder3D::initialize_binary(const double & max_ratio)
 						for(int j2 = mj - 1;j2 < mj + 2 && b;++j2)
 							for(int i2 = mi - 1;i2 < mi + 2 && b;++i2)
 								if(l2 < l || k2 < k || j2 < j || i2 < i || l2 > l + 1 || k2 > k +1 || j2 > j + 1 || i2 > i + 1)
-									b = *mpos <= this->layers[l2](k2, j2, i2);
+									b = *mpos <= this->layersG[l2+1](k2, j2, i2)-this->layersG[l2](k2, j2, i2);
 
 
 
@@ -453,9 +454,16 @@ void Colloids::OctaveFinder3D::initialize_binary(const double & max_ratio)
 				if(b){
 					//hessian matrix
 					const double hess[3] = {
-							this->layers[ml](mk, mj - 1, mi) - 2 * this->layers[ml](mk, mj, mi) + this->layers[ml](mk, mj + 1, mi),
-							this->layers[ml](mk, mj, mi - 1) - 2 * this->layers[ml](mk, mj, mi) + this->layers[ml](mk, mj, mi + 1),
-							this->layers[ml](mk, mj - 1, mi - 1) + this->layers[ml](mk, mj + 1, mi + 1) - this->layers[ml](mk, mj + 1, mi - 1) - this->layers[ml](mk, mj - 1, mi + 1)
+							this->layersG[ml+1](mk, mj - 1, mi)-this->layersG[ml](mk, mj - 1, mi)
+							- 2 * *mpos + this->layersG[ml+1](mk, mj + 1, mi)-this->layersG[ml](mk, mj + 1, mi),
+
+							this->layersG[ml+1](mk, mj, mi - 1)-this->layersG[ml](mk, mj, mi - 1)
+							- 2 * *mpos + this->layersG[ml+1](mk, mj, mi + 1)-this->layersG[ml](mk, mj, mi + 1),
+
+							this->layersG[ml+1](mk, mj - 1, mi - 1)-this->layersG[ml](mk, mj - 1, mi - 1)
+							+ this->layersG[ml+1](mk, mj + 1, mi + 1)-this->layersG[ml](mk, mj + 1, mi + 1)
+							- this->layersG[ml+1](mk, mj + 1, mi - 1)+this->layersG[ml](mk, mj + 1, mi - 1)
+							- this->layersG[ml+1](mk, mj - 1, mi + 1)+this->layersG[ml](mk, mj - 1, mi + 1)
 					};
 					//determinant of the Hessian, for the coefficient see
 					//H Bay, a Ess, T Tuytelaars, and L Vangool,
@@ -468,12 +476,15 @@ void Colloids::OctaveFinder3D::initialize_binary(const double & max_ratio)
 					//		(this->layers[ml](mk+1, mj, mi)-2*this->layers[ml](mk, mj, mi)+this->layers[ml](mk-1, mj, mi))
 					//		) < 1.0;
 					if(b){
-						std::vector<int> c(4);
-						c[0] = mi;
-						c[1] = mj;
-						c[2] = mk;
-						c[3] = ml;
-						this->centers_no_subpix.push_back(c);
+						std::vector<int> ci(4);
+						ci[0] = mi;
+						ci[1] = mj;
+						ci[2] = mk;
+						ci[3] = ml;
+						this->centers_no_subpix.push_back(ci);
+						Center3D c;
+						this->single_subpix(ci, c);
+						this->centers.push_back(c);
 					}
 				}
 			}
@@ -725,7 +736,7 @@ double Colloids::OctaveFinder3D::scale_subpix(const std::vector<int> &ci) const
 		//use only a linear estimate of the derivative
 		boost::array<double,3> a;
 		for(int u = l-1;u < l+2; ++u)
-			a[u-l+1] = this->layers[u](ci[2], ci[1], ci[0]);
+			a[u-l+1] = this->layersG[u+1](ci[2], ci[1], ci[0])-this->layersG[u](ci[2], ci[1], ci[0]);
 		shift = - (a[2] - a[0]) /2.0 /(a[2] -2*a[1] +a[0]);
 		//empirical correction
 		shift -= 0.045*l/(double)this->get_n_layers();
