@@ -69,20 +69,52 @@ int main(int ac, char* av[]){
 			boost::iostreams::mapped_file_source file(vm["input"].as<std::string>());
 			//container for tracked particles
 			std::vector<Center3D> centers;
+			ptime past_total = microsec_clock::local_time();
+			boost::progress_timer ti;
 
 			//enumerate time steps
-			boost::progress_display progress(serie.getNbTimeSteps());
+			std::auto_ptr<boost::progress_display> progress;
+			if(!vm.count("verbose"))
+				progress.reset(new boost::progress_display(serie.getNbTimeSteps()));
 			for(size_t t=0; t<serie.getNbTimeSteps(); ++t)
 			{
 				//create the input image header pointing to the right portion of the memory mapped file
 				cv::Mat_<uchar> image = cv::Mat(3, dimsint, CV_8UC1, (unsigned char*)(file.data() + serie.getOffset(t)));
 				//multiscale tracking
-				finder.get_centers(image, centers);
+				if(!vm.count("verbose"))
+					finder.get_centers(image, centers);
+				else
+				{
+					std::cout<<"t = "<<t<<std::endl;
+					{
+						std::cout<<"fill ";
+						ptime past = microsec_clock::local_time();
+						boost::progress_timer ti;
+						finder.fill(image);
+						std::cout<< microsec_clock::local_time()-past <<" including CPU ";
+					}
+					{
+						std::cout<<"initialize ";
+						ptime past = microsec_clock::local_time();
+						boost::progress_timer ti;
+						finder.initialize_binary();
+						std::cout<< microsec_clock::local_time()-past <<" including CPU ";
+					}
+					{
+						std::cout<<"subpix ";
+						ptime past = microsec_clock::local_time();
+						boost::progress_timer ti;
+						finder.subpix(centers);
+						std::cout<< microsec_clock::local_time()-past <<" including CPU ";
+					}
+				}
 				//remove overlap
 				removeOverlapping(centers);
 				//output
 				std::ostringstream os;
 				os << output <<"_t"<< std::setfill('0') << std::setw(3) << t;
+				if(!!vm.count("verbose"))
+					std::cout << "output to "<< os.str() <<std::endl;
 				std::ofstream out(os.str().c_str());
 				for(size_t c=0; c<centers.size(); ++c)
 				{
@@ -91,8 +123,10 @@ int main(int ac, char* av[]){
 					out << centers[c].r << "\t" << centers[c].intensity <<"\n";
 				}
 				out.close();
-				++progress;
+				if(progress.get())
+					++(*progress.get());
 			}
+			std::cout<< "total time" << microsec_clock::local_time()-past_total <<" including CPU ";
 		}
 			break;
 		default:
