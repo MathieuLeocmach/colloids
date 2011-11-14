@@ -51,7 +51,7 @@ OctaveFinder3D::OctaveFinder3D(const int nplanes, const int nrows, const int nco
 	//create a memory mapped file to contain the images data
 	boost::iostreams::mapped_file_params params(this->path);
 	const size_t nbpixels =  nplanes * nrows * ncols;
-	params.new_file_size = nbpixels * sizeof(PixelType) * (2 * nbLayers + 5) + nbpixels * nbLayers;
+	params.new_file_size = nbpixels * sizeof(PixelType) * (nbLayers + 3);
 	params.flags = boost::iostreams::mapped_file::readwrite;
 	this->file.open(params);
 	//create the images inside the memory mapped file
@@ -65,11 +65,6 @@ OctaveFinder3D::OctaveFinder3D(const int nplanes, const int nrows, const int nco
 		this->layers[i] = cv::Mat(
 				3, dims, layers[i].type(),
 				(void*)(this->file.data() + (i + layersG.size()) * nbpixels * sizeof(PixelType))
-				);
-	for (int i = 0; i<nbLayers; ++i)
-		this->binary[i] = cv::Mat(
-				3, dims, binary[i].type(),
-				(void*)(this->file.data() + (2 * nbLayers + 5) * nbpixels * sizeof(PixelType) + i * nbpixels)
 				);
 	//create supplementary image headers for layersG data of shape (nplanes, nrows*ncols)
 	this->layersG2D.reserve(nbLayers+3);
@@ -157,7 +152,7 @@ void Colloids::OctaveFinder3D::_fill_internal(Image &temp)
 	//iterative Gaussian blur
 	for(size_t i=0; i<this->layersG.size()-1; ++i)
 	{
-		//Z out of place
+		//Z out inplace
 		this->iterative_Zgaussian_filters[i].apply(temp2D, temp2D);
 		//X and Y inplace
 		for(int k=0; k<this->layersG[i+1].size[0]; ++k)
@@ -171,7 +166,7 @@ void Colloids::OctaveFinder3D::_fill_internal(Image &temp)
 			this->iterative_gaussian_filters[i].apply(slice, slice);
 		}
 		//difference of Gaussians (write directly to disk)
-		cv::subtract(temp, this->layersG[i], this->layers[i]);
+		//cv::subtract(temp, this->layersG[i], this->layers[i]);
 		//write gaussian layer to disk
 		temp2D.copyTo(this->layersG2D[i+1]);
 	}
@@ -388,8 +383,8 @@ void Colloids::OctaveFinder3D::initialize_binary(const double & max_ratio)
     //initialize
 	this->centers_no_subpix.clear();
 	this->centers.clear();
-    for(int i = 0;i < nblayers;++i)
-        this->binary[i].setTo(0);
+    //for(int i = 0;i < nblayers;++i)
+        //this->binary[i].setTo(0);
     //prepare the cache
     Image cacheG(3*2*2, this->get_height(), (PixelType)0);
 
@@ -484,6 +479,7 @@ void Colloids::OctaveFinder3D::initialize_binary(const double & max_ratio)
 						this->centers_no_subpix.push_back(ci);
 						Center3D c;
 						this->single_subpix(ci, c);
+						c.intensity = *mpos;
 						this->centers.push_back(c);
 					}
 				}
@@ -491,8 +487,8 @@ void Colloids::OctaveFinder3D::initialize_binary(const double & max_ratio)
 		}
 	}
 	//make binary image coherent
-	for(std::list<std::vector<int> >::const_iterator ci = this->centers_no_subpix.begin(); ci!= this->centers_no_subpix.end(); ++ci)
-		this->binary[(*ci)[3]-1]((*ci)[2], (*ci)[1], (*ci)[0]) = true;
+	//for(std::list<std::vector<int> >::const_iterator ci = this->centers_no_subpix.begin(); ci!= this->centers_no_subpix.end(); ++ci)
+		//this->binary[(*ci)[3]-1]((*ci)[2], (*ci)[1], (*ci)[0]) = true;
 }
 
 void Colloids::OctaveFinder::spatial_subpix(const std::vector<int> &ci, Center_base& c) const
@@ -535,7 +531,7 @@ void Colloids::OctaveFinder3D::spatial_subpix(const std::vector<int> &ci, Center
         PixelType const * vg = &lay(k, j, i);
         for(size_t d=0; d<3; ++d)
         {
-        	const size_t step = this->layers[l].step[2-d]/sizeof(PixelType);
+        	const size_t step = this->layersG[l].step[2-d]/sizeof(PixelType);
         	//const double a[3] = {*(vg-step), *vg, *(vg+step)};
         	//double shift = (a[2] - a[0]) /2.0	/ (a[0] - 2 * a[1] + a[2]);
         	//const double a[5] = {*(vg-2*step), *(vg-step), *vg, *(vg+step), *(vg+2*step)};
@@ -549,7 +545,6 @@ void Colloids::OctaveFinder3D::spatial_subpix(const std::vector<int> &ci, Center
         		shift=-1;
         	c[d] = ci[d] + 0.4375 - shift;
         }
-		c.intensity = this->layers[l](k, j, i);
 }
 double Colloids::OctaveFinder::gaussianResponse(const std::vector<int> &ci, const double & scale) const
 {

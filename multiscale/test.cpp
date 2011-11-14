@@ -1449,62 +1449,19 @@ BOOST_AUTO_TEST_SUITE( local_max )
 		int dims[3] = {64,64,64};
 		OctaveFinder::Image input(3, dims);
 		input.setTo(0);
-		//draw a sphere plane by plane
-		for(int k=0; k<input.size[0]; ++k)
-		{
-			const double Rsq = 4*4 - (k-32)*(k-32);
-			if(Rsq>=0)
-			{
-				OctaveFinder::Image slice(input.size[1], input.size[2], &input.at<float>(k));
-				cv::circle(slice, cv::Point(32, 32), (int)(sqrt(Rsq)), 1.0, -1);
-			}
-		}
-		for(int i=0; i<64; ++i)
-			BOOST_CHECK_MESSAGE(
-					input(32, 32, i)==input(i, 32, 32),
-					"input(32, 32, "<<i<<"){"<<input(32, 32, i)<<"} != input("<<i<<", 32, 32){"<<input(i, 32, 32)<<"}"
-					);
+		//draw a sphere
+		drawsphere(input, 32, 32, 32, 4.0, (OctaveFinder::PixelType)1.0);
 		finder.preblur_and_fill(input);
-		//with a radius of 4, the maximum should be in layer 1
-		BOOST_CHECK_GE(finder.get_layers(0)(32, 32, 32), finder.get_layers(1)(32, 32, 32));
-		BOOST_CHECK_LE(finder.get_layers(1)(32, 32, 32), finder.get_layers(2)(32, 32, 32));
-		BOOST_CHECK_LE(finder.get_layers(2)(32, 32, 32), finder.get_layers(3)(32, 32, 32));
-		BOOST_CHECK_LE(finder.get_layers(3)(32, 32, 32), finder.get_layers(4)(32, 32, 32));
 		finder.initialize_binary();
-
+		//there should be only one center
+		BOOST_REQUIRE_EQUAL(finder.get_nb_centers(), 1);
+		std::vector<int> ci = finder.get_center_pixel(0);
+		//with a radius of 4, the maximum should be in layer 1
+		BOOST_CHECK_EQUAL(ci.back(), 1);
 		//The minimum should be at the center of the circle
-		double min_layers[5];
-		for (int l=0; l<5; ++l)
-			min_layers[l] =  *std::min_element(finder.get_layers(l).begin(), finder.get_layers(l).end());
-		double global_min = *std::min_element(min_layers, min_layers+5);
-		BOOST_CHECK_CLOSE(finder.get_layers(1)(32, 32, 32), global_min, 1e-9);
-
-		BOOST_CHECK_EQUAL(finder.get_binary(1)(32, 32, 32), true);
-		BOOST_CHECK_EQUAL(finder.get_binary(1)(32, 33, 32), false);
-		BOOST_CHECK_EQUAL(finder.get_binary(1)(32, 32, 33), false);
-		BOOST_CHECK_EQUAL(finder.get_binary(1)(32, 31, 32), false);
-		BOOST_CHECK_EQUAL(finder.get_binary(1)(32, 32, 31), false);
-		BOOST_CHECK_EQUAL(finder.get_binary(1)(33, 32, 32), false);
-		BOOST_CHECK_EQUAL(finder.get_binary(1)(31, 32, 32), false);
-		BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(2))[0], 0);
-		BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(1))[0], 1);
-		BOOST_CHECK_EQUAL(cv::sum(finder.get_binary(3))[0], 0);
-		/*cv::namedWindow("truc");
-		cv::imshow("truc", 255*finder.get_binary(2));
-		cv::waitKey();*/
-		//gaussian response
-		std::vector<int> ci(3, 32);
-		BOOST_CHECK_LT(finder.gaussianResponse(ci, 2.5), finder.gaussianResponse(ci, 2.0));
-		BOOST_CHECK_LT(finder.gaussianResponse(ci, 3.5), finder.gaussianResponse(ci, 2.5));
-		BOOST_CHECK_LT(finder.gaussianResponse(ci, 3.5), finder.gaussianResponse(ci, 3.0));
-		//BOOST_CHECK_GT(finder.gaussianResponse(ci, 1.2)-finder.gaussianResponse(ci, 0.2), finder.get_layers(1)(32, 32, 32));
-		BOOST_CHECK_GT(finder.gaussianResponse(ci, 2.5)-finder.gaussianResponse(ci, 1.5), finder.get_layers(1)(32, 32, 32));
-		//lower bound
-		BOOST_CHECK_LT(finder.gaussianResponse(ci, 1.5), finder.gaussianResponse(ci, 1.0));
-		BOOST_CHECK_LT(finder.gaussianResponse(ci, 0.5), finder.gaussianResponse(ci, 0));
-		//further than the top layer
-		BOOST_CHECK_LT(finder.gaussianResponse(ci, 10.5), finder.gaussianResponse(ci, 0));
-		BOOST_CHECK_LT(finder.gaussianResponse(ci, 15.5), finder.gaussianResponse(ci, 5));
+		BOOST_CHECK_EQUAL(ci[0], 32);
+		BOOST_CHECK_EQUAL(ci[1], 32);
+		BOOST_CHECK_EQUAL(ci[2], 32);
 	}
 BOOST_AUTO_TEST_SUITE_END() //local_max3D
 
@@ -1754,14 +1711,13 @@ BOOST_AUTO_TEST_SUITE( multiscale3D_call )
 		out1.write((char*)finder.get_octave(1).get_layersG(0).data, 32*32*32*sizeof(OctaveFinder::PixelType));
 		//with a radius of 5, the maximum should be in layer 2 of octave 1 and nowhere else
 		for(size_t o=0; o<finder.get_n_octaves(); ++o)
-			for(size_t l=1; l<finder.get_n_layers()+1; ++l)
-			{
-				const int u = cv::sum(finder.get_octave(o).get_binary(l))[0];
-				BOOST_CHECK_MESSAGE(
-						u == ((o==1 && l==2)?1:0),
-						"Octave "<<o<<" layer "<<l<<" has "<< u <<" center"<<((u>1)?"s":"")
-				);
-			}
+		{
+			const size_t u = finder.get_octave(o).get_nb_centers();
+			BOOST_CHECK_MESSAGE(u==(o==1), "Octave "<<o<<" has "<< u <<" center"<<((u>1)?"s":"")<<" in layers ");
+			if(u!=(o==1))
+				for(size_t i=0; i<u; ++i)
+					BOOST_CHECK_MESSAGE(false, finder.get_octave(o).get_center_pixel(i).back());
+		}
 		std::ofstream f("test_output/multiscale_single_sphere.out");
 		for(size_t c=0; c<v.size(); ++c)
 			f<<v[c][0]<<"\t"<<v[c][1]<<"\t"<<v[c][2]<<"\t"<<v[c].r<<"\t"<<v[c].intensity<<"\n";

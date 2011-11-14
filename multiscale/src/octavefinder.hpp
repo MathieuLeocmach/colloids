@@ -23,9 +23,9 @@ namespace Colloids
             virtual ~OctaveFinder();
 
             //accessors
-            inline const int & get_width() const {return this->layers[0].size[this->layers[0].dims-2];};
-            inline const int & get_height() const {return this->layers[0].size[this->layers[0].dims-1]; };
-            inline const size_t get_n_layers() const {return this->layers.size()-2;};
+            inline const int & get_width() const {return this->layersG[0].size[this->layersG[0].dims-2];};
+            inline const int & get_height() const {return this->layersG[0].size[this->layersG[0].dims-1]; };
+            inline const size_t get_n_layers() const {return this->layersG.size()-3;};
             const double & get_radius_preblur() const {return this->preblur_radius;}
             virtual void set_radius_preblur(const double &k=1.6);
             const double & get_prefactor() const {return this->prefactor;}
@@ -94,7 +94,7 @@ namespace Colloids
 			OctaveFinder3D(const int nplanes=256, const int nrows=256, const int ncols=256, const int nbLayers=3, const double &preblur_radius=1.6);
 			virtual ~OctaveFinder3D();
 
-			inline const int & get_depth() const {return this->layers[0].size[this->layers[0].dims-3];};
+			inline const int & get_depth() const {return this->layersG[0].size[this->layersG[0].dims-3];};
 
 			virtual void initialize_binary(const double &max_ratio = 1.1);
 			virtual void spatial_subpix(const std::vector<int> &ci, Center_base& c) const;
