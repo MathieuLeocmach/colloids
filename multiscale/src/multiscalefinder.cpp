@@ -108,8 +108,8 @@ namespace Colloids {
     	for(size_t o=0; o<this->octaves.size(); ++o)
 			this->octaves[o]->initialize_binary();
     	//Remove pixel centers that exist in consecutive octaves
-    	for(size_t o=0; o<this->octaves.size()-1; ++o)
-    		this->octaves[o]->seam_binary(*this->octaves[o+1]);
+    	/*for(size_t o=0; o<this->octaves.size()-1; ++o)
+    		this->octaves[o]->seam_binary(*this->octaves[o+1]);*/
 	}
 
     MultiscaleFinder::Image MultiscaleFinder2D::downscale(const size_t &o) const

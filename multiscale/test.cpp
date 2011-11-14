@@ -1256,7 +1256,7 @@ BOOST_AUTO_TEST_SUITE( multiscale )
 			cv::circle(input, cv::Point(32*pow(2, s), 0), *lr, 255, -1);
 			cv::resize(input, small_input, small_input.size(), 0, 0, cv::INTER_AREA);
 			finder.get_centers(small_input, v_s);
-			//removeOverlapping_brute_force(v_s);
+			removeOverlapping(v_s);
 			BOOST_TEST_CHECKPOINT("radius = "<<radius<<" size");
 			BOOST_CHECK_MESSAGE(
 					v_s.size()==1,
@@ -1388,7 +1388,7 @@ BOOST_AUTO_TEST_SUITE( octave3D_fill )
 		input.setTo(1);
 		finder.fill(input);
 		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(0))[0], 64*64*64, 1e-5);
-		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(0))[0], cv::sum(input)[0], 1e-5);
+		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(0))[0], cv::sum(input)[0], 1e-4);
 		images_are_close(finder.get_layersG(0), input, 1e-4);
 		//the internal layersG[0] should not be the same object as the input, but a deep copy
 		input.setTo(0);
@@ -1418,7 +1418,7 @@ BOOST_AUTO_TEST_SUITE( octave3D_fill )
 		input.setTo(1);
 		finder.fill(input);
 		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(0))[0], 60*63*65, 1e-5);
-		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(0))[0], cv::sum(input)[0], 1e-5);
+		BOOST_CHECK_CLOSE(cv::sum(finder.get_layersG(0))[0], cv::sum(input)[0], 1e-4);
 		images_are_close(finder.get_layersG(0), input, 1e-4);
 		//the internal layersG[0] should not be the same object as the input, but a deep copy
 		input.setTo(0);
@@ -2554,7 +2554,7 @@ BOOST_AUTO_TEST_SUITE( Lif )
 			std::cout<< microsec_clock::local_time()-past <<" including CPU ";
 		}
 		BOOST_REQUIRE(!centers.empty());
-		BOOST_CHECK_EQUAL(centers.size(), 13760);
+		BOOST_CHECK_EQUAL(centers.size(), 13768);
 		BOOST_CHECK_LT((*std::max_element(centers.begin(), centers.end(), compare_coord<0>()))[0], sdims[2]);
 		BOOST_CHECK_GT((*std::min_element(centers.begin(), centers.end(), compare_coord<0>()))[0], 0);
 		BOOST_CHECK_LT((*std::max_element(centers.begin(), centers.end(), compare_coord<1>()))[1], sdims[1]);
@@ -2582,7 +2582,7 @@ BOOST_AUTO_TEST_SUITE( Lif )
 			std::cout<< microsec_clock::local_time()-past <<" including CPU ";
 		}
 		BOOST_REQUIRE(!centers.empty());
-		BOOST_CHECK_EQUAL(centers.size(), 13677);
+		BOOST_CHECK_EQUAL(centers.size(), 13721);
 
 		//export to VTK format for human-eye comparison
 		std::ofstream f_rec("test_output/locate_one_stack_nooverlap.vtk");
