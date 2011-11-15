@@ -20,6 +20,7 @@ int main(int ac, char* av[]){
 			("input,i", po::value<std::string>(&input), "Leica file to read as input")
 			("output,o", po::value<std::string>(&output)->default_value("./output"), "file to output to")
 			("series,s", po::value<int>(&ser), "Dataset number")
+			("start", po::value<int>()->default_value(0), "Starting time step. The output file numbering will also start at that time.")
 			("verbose,v", "Output debugging information")
 			("help", "Show this help and exit")
 			;
@@ -76,7 +77,7 @@ int main(int ac, char* av[]){
 			std::auto_ptr<boost::progress_display> progress;
 			if(!vm.count("verbose"))
 				progress.reset(new boost::progress_display(serie.getNbTimeSteps()));
-			for(size_t t=0; t<serie.getNbTimeSteps(); ++t)
+			for(size_t t=vm["start"].as<int>(); t<serie.getNbTimeSteps(); ++t)
 			{
 				//create the input image header pointing to the right portion of the memory mapped file
 				cv::Mat_<uchar> image = cv::Mat(3, dimsint, CV_8UC1, (unsigned char*)(file.data() + serie.getOffset(t)));
