@@ -158,7 +158,16 @@ namespace Colloids
 		CircularZ4D(int nLayers, int nrows, int ncols);
 
 		//accessors
-		const PixelType& getG(const int &l, const int &k, const int &j, const int &i) const;
+		const PixelType& getG(const int &l, const int &k, const int &j, const int &i) const{
+			return *(PixelType*)
+				(
+						this->gaussians.data
+						+ l*this->gaussians.step[0]
+						+ ((k+z0+8)%8) * this->gaussians.step[1]
+						+ j * this->gaussians.step[2]
+						+ i * this->gaussians.step[3]
+				);
+		}
 		PixelType getDoG(const int &l, const int &k, const int &j, const int &i) const
 		{return getG(l+1, k, j, i) - getG(l, k, j, i);}
 

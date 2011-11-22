@@ -981,22 +981,6 @@ CircularZ4D::CircularZ4D(int nLayers, int nrows, int ncols)
 	this->gaussians = Image(4, dims, PixelType(0));
 }
 
-const CircularZ4D::PixelType& CircularZ4D::getG(const int &l, const int &k, const int &j, const int &i) const
-{
-	assert(l<this->gaussians.size[0]);
-	assert(j<this->gaussians.size[2]);
-	assert(i<this->gaussians.size[3]);
-	return *(PixelType*)
-	(
-			this->gaussians.data
-			+ l*this->gaussians.step[0]
-			+ ((k+z0+8)%8) * this->gaussians.step[1]
-			+ j * this->gaussians.step[2]
-			+ i * this->gaussians.step[3]
-	);
-}
-
-
 void CircularZ4D::loadplanes(const CircularZ4D::PixelType* input, const int &l, const int & k, const int & nplanes)
 {
 	if((k+z0+8)%8 +nplanes > 8)
