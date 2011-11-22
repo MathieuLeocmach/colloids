@@ -22,7 +22,7 @@ void images_are_close(const cv::Mat &a, const cv::Mat &b, float precision=1e-5)
 	OctaveFinder::Image  M = cv::abs(a)+cv::abs(b);
 	double peak = *std::max_element(M.begin(), M.end());
 	BOOST_REQUIRE_CLOSE(cv::sum(a)[0], cv::sum(b)[0], precision/peak);
-	OctaveFinder::Image  diff = cv::abs(a-b) / peak;
+	cv::Mat_<float>  diff = cv::abs(a-b) / peak;
 	cv::MatConstIterator_<float> u = diff.begin();
 	for(int i=0; i<a.rows; i++)
 		for(int j=0; j<a.cols; j++)
@@ -1345,6 +1345,109 @@ BOOST_AUTO_TEST_SUITE_END() //1D
 
 BOOST_AUTO_TEST_SUITE( threeD )
 
+BOOST_AUTO_TEST_SUITE( circular )
+
+	BOOST_AUTO_TEST_CASE( one_pixel )
+	{
+		int dims[3] = {32, 32, 32};
+		OctaveFinder::Image input(3, dims, (OctaveFinder::PixelType)0);
+		input(4, 16, 16) = 255;
+		CircularZ4D circ(6, 32, 32);
+		circ.loadplanes(&input(0,0,0), 1, -3, 6);
+		BOOST_CHECK_CLOSE(circ.getG(1, 1, 16, 16), 255, 1e-4);
+		BOOST_CHECK_CLOSE(circ.getDoG(0, 1, 16, 16), 255, 1e-4);
+		BOOST_CHECK_CLOSE(circ.getDoG(1, 1, 16, 16), -255, 1e-4);
+		//is the minimum where we put it ?
+		int ml, mk, mj, mi;
+		OctaveFinder::PixelType value;
+		circ.blockmin(1, 16, 16, ml, mk, mj, mi, value);
+		BOOST_CHECK_EQUAL(ml, 1);
+		BOOST_CHECK_EQUAL(mk, 1);
+		BOOST_CHECK_EQUAL(mj, 16);
+		BOOST_CHECK_EQUAL(mi, 16);
+		BOOST_CHECK_CLOSE(value, -255, 1e-4);
+		BOOST_CHECK(circ.is_localmin(1, 16, 16, ml, mk, mj, mi, value));
+		//focus goes on the next plane of blocks, the first minimum should be out of focus
+		++circ;
+		BOOST_CHECK_CLOSE(circ.getG(1, -1, 16, 16), 255, 1e-4);
+		BOOST_CHECK_CLOSE(circ.getG(1, 1, 16, 16), 0, 1e-4);
+		circ.blockmin(1, 16, 16, ml, mk, mj, mi, value);
+		BOOST_CHECK_GT(value, -128);
+		BOOST_CHECK(!circ.is_localmin(1, 16, 16, ml, mk, mj, mi, value));
+		//load two more planes that have a bright pixel, they should be out of focus
+		input(4, 16, 16) = 0;
+		input(0, 16, 16) = 128;
+		circ.loadplanes(&input(0,0,0), 1);
+		BOOST_CHECK_CLOSE(circ.getG(1, -1, 16, 16), 255, 1e-4);
+		BOOST_CHECK_CLOSE(circ.getG(1, 1, 16, 16), 0, 1e-4);
+		BOOST_CHECK_CLOSE(circ.getG(1, 3, 16, 16), 128, 1e-4);
+		//focus goes on the next plane of blocks, the second minimum should be in focus
+		++circ;
+		BOOST_CHECK_CLOSE(circ.getG(1, -3, 16, 16), 255, 1e-4);
+		BOOST_CHECK_CLOSE(circ.getG(1, -1, 16, 16), 0, 1e-4);
+		BOOST_CHECK_CLOSE(circ.getG(1, 1, 16, 16), 128, 1e-4);
+		circ.blockmin(1, 16, 16, ml, mk, mj, mi, value);
+		BOOST_CHECK_EQUAL(ml, 1);
+		BOOST_CHECK_EQUAL(mk, 1);
+		BOOST_CHECK_EQUAL(mi, 16);
+		BOOST_CHECK_CLOSE(value, -128, 1e-4);
+		BOOST_CHECK(circ.is_localmin(1, 16, 16, ml, mk, mj, mi, value));
+		//load two more planes that have a out-of-block brighter pixel neighbour
+		input(0, 15, 16) = 256;
+		circ.loadplanes(&input(0,0,0), 1);
+		BOOST_CHECK_CLOSE(circ.getG(1, -3, 16, 16), 255, 1e-4);
+		BOOST_CHECK_CLOSE(circ.getG(1, -1, 16, 16), 0, 1e-4);
+		BOOST_CHECK_CLOSE(circ.getG(1, 1, 16, 16), 128, 1e-4);
+		BOOST_CHECK_CLOSE(circ.getG(1, 3, 16, 16), 128, 1e-4);
+		BOOST_CHECK_CLOSE(circ.getG(1, 3, 15, 16), 256, 1e-4);
+		//focus goes on the third block minimum, which is not a local minimum
+		++circ;
+		BOOST_CHECK_CLOSE(circ.getG(1, -3, 16, 16), 0, 1e-4);
+		BOOST_CHECK_CLOSE(circ.getG(1, -1, 16, 16), 128, 1e-4);
+		BOOST_CHECK_CLOSE(circ.getG(1, 1, 16, 16), 128, 1e-4);
+		BOOST_CHECK_CLOSE(circ.getG(1, 1, 15, 16), 256, 1e-4);
+		circ.blockmin(1, 16, 16, ml, mk, mj, mi, value);
+		BOOST_CHECK_EQUAL(ml, 1);
+		BOOST_CHECK_EQUAL(mk, 1);
+		BOOST_CHECK_EQUAL(mi, 16);
+		BOOST_CHECK_CLOSE(value, -128, 1e-4);
+		BOOST_CHECK(!circ.is_localmin(1, 16, 16, ml, mk, mj, mi, value));
+		circ.blockmin(1, 14, 16, ml, mk, mj, mi, value);
+		BOOST_CHECK_EQUAL(ml, 1);
+		BOOST_CHECK_EQUAL(mk, 1);
+		BOOST_CHECK_EQUAL(mj, 15);
+		BOOST_CHECK_EQUAL(mi, 16);
+		BOOST_CHECK(circ.is_localmin(1, 14, 16, ml, mk, mj, mi, value));
+		circ.blockmin(1, 15, 16, ml, mk, mj, mi, value);
+		BOOST_CHECK_EQUAL(ml, 1);
+		BOOST_CHECK_EQUAL(mk, 1);
+		BOOST_CHECK_EQUAL(mj, 15);
+		BOOST_CHECK_EQUAL(mi, 16);
+		BOOST_CHECK(circ.is_localmin(1, 15, 16, ml, mk, mj, mi, value));
+		//insert 2 new planes where the pixel is at odd position in z
+		input(0, 16, 16) = 0;
+		input(0, 15, 16) = 0;
+		input(1, 16, 16) = 300;
+		circ.loadplanes(&input(0,0,0), 1);
+		++circ;
+		BOOST_CHECK_CLOSE(circ.getG(1, -3, 16, 16), 128, 1e-4);
+		BOOST_CHECK_CLOSE(circ.getG(1, -1, 16, 16), 128, 1e-4);
+		BOOST_CHECK_CLOSE(circ.getG(1, -1, 15, 16), 256, 1e-4);
+		BOOST_CHECK_CLOSE(circ.getG(1, 2, 16, 16), 300, 1e-4);
+		++circ;
+		BOOST_CHECK_CLOSE(circ.getG(1, -3, 16, 16), 128, 1e-4);
+		BOOST_CHECK_CLOSE(circ.getG(1, -3, 15, 16), 256, 1e-4);
+		BOOST_CHECK_CLOSE(circ.getG(1, 0, 16, 16), 300, 1e-4);
+		circ.blockmin(1, 16, 16, ml, mk, mj, mi, value);
+		BOOST_CHECK_EQUAL(ml, 1);
+		BOOST_CHECK_EQUAL(mk, 0);
+		BOOST_CHECK_EQUAL(mi, 16);
+		BOOST_CHECK_CLOSE(value, -300, 1e-4);
+		BOOST_CHECK(circ.is_localmin(1, 16, 16, ml, mk, mj, mi, value));
+	}
+
+BOOST_AUTO_TEST_SUITE_END() //circular
+
 BOOST_AUTO_TEST_SUITE( octave3D )
 
 BOOST_AUTO_TEST_SUITE( octave3D_constructors )
@@ -1516,6 +1619,7 @@ BOOST_AUTO_TEST_SUITE( subpix )
 				finder.initialize_binary();
 				std::vector<Center3D> v_s;
 				finder.subpix(v_s);
+				BOOST_CHECK_MESSAGE(v_s.size()==1, "x="<<x/8.<<" r="<< 4+0.125*i<<"\t"<<v_s.size()<<" centers");
 				std::copy(v_s.begin(), v_s.end(), std::back_inserter(v));
 			}
 		}

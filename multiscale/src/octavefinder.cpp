@@ -38,7 +38,7 @@ OctaveFinder::OctaveFinder(const int nrows, const int ncols, const int nbLayers,
 		this->layers.push_back(Image(nrows, ncols, (PixelType)0));
 	this->binary.reserve(nbLayers);
 	for (int i = 0; i<nbLayers; ++i)
-		this->binary.push_back(cv::Mat_<bool>(nrows, ncols, (PixelType)0));
+		this->binary.push_back(cv::Mat_<bool>(nrows, ncols, (bool)0));
 	this->set_radius_preblur(preblur_radius);
 }
 
@@ -107,6 +107,8 @@ void Colloids::OctaveFinder::fill(const cv::Mat &input)
 {
 	Image temp;
 	input.convertTo(temp, temp.type());
+	if(input.type()==cv::DataType<uchar>::type)
+		temp*=256;
 	this->fill(temp);
 }
 /**
@@ -277,6 +279,8 @@ void Colloids::OctaveFinder::preblur_and_fill(const cv::Mat &input)
 {
 	Image temp;
 	input.convertTo(temp, temp.type());
+	if(input.type()==cv::DataType<uchar>::type)
+		temp*=256;
 	this->preblur_and_fill(temp);
 }
 /**
@@ -321,7 +325,7 @@ void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
 		const int si = this->sizes[k];
 		for(int j = this->sizes[k]+1;j < this->get_width() - si- 1;j += 2)
 		{
-			boost::array<const float*, 4> ngb_ptr = {{
+			boost::array<const PixelType*, 4> ngb_ptr = {{
 					&layer0(j, si+1),
 					&layer0(j+1, si+1),
 					&layer1(j, si+1),
@@ -402,7 +406,7 @@ void Colloids::OctaveFinder1D::initialize_binary(const double & max_ratio)
 
 	for(int k = 1;k < (int)this->layers.size() - 1;k += 2)
 	{
-		boost::array<const float*, 2> ngb_ptr = {{
+		boost::array<const PixelType*, 2> ngb_ptr = {{
 							&this->layers[k](0, this->sizes[k]+1),
 							&this->layers[k+1](0, this->sizes[k]+1)
 		}};
@@ -434,7 +438,7 @@ void Colloids::OctaveFinder1D::initialize_binary(const double & max_ratio)
 			//We look for pixels where the ratio between the Laplacian and gradient values is large
 			if(*b)
 			{
-				const float * v = &this->layersG[mk](0, mi);
+				const PixelType * v = &this->layersG[mk](0, mi);
 				*b = std::abs((*(v+1) + *(v-1) - 2 * *v) / (*(v+1) - *(v-1))) > 0.5;
 			}
 			if(*b){
@@ -453,112 +457,71 @@ void Colloids::OctaveFinder3D::initialize_binary(const double & max_ratio)
     //initialize
 	this->centers_no_subpix.clear();
 	this->centers.clear();
-    //for(int i = 0;i < nblayers;++i)
-        //this->binary[i].setTo(0);
-    //prepare the cache
-    Image cacheG(3*2*2, this->get_height(), (PixelType)0);
 
-	for(int l = 1;l < nblayers+1;l += 2)
+	//In 3D, the Gaussian layers are stored in (memory mapped) files,
+	//so we have to access the data in large chunks to avoid disk latency.
+	//We cannot load all layers in memory, but loading all the scales is better to compute DoG.
+	//We load 8 consecutive planes at all scales:
+	//	3 planes to compute the third order estimate of z derivative of Gaussian (subpixel resolution in z)
+	//	2 planes to have dynamic blocks of depth 2 in DoG
+	//	3 planes to compute the third order estimate of z derivative of Gaussian
+	CircularZ4D circ(this->layersG.size(), this->layersG.front().size[1], this->layersG.front().size[2]);
+	//initial fill of the 6 first planes at every scale
+	for(int l=0; l<(int)this->layersG.size(); ++l)
+		circ.loadplanes(&this->layersG[l](this->sizes[1]-3, 0, 0), l, -3, 6);
+
+	//dynamic block algorithm in 4D
+	for(int k=this->sizes[1]; k<this->layersG.front().size[0] - this->sizes[1]-1; k += 2)
 	{
-		const int si = this->sizes[l];
-		for(int k = si+1;k < this->layersG.front().size[0] - si- 1;k += 2)
-		for(int j = si+1;j < this->layersG.front().size[1] - si- 1;j += 2)
-		{
-			//fill the gaussian cache for the whole line of blocks
-			for(int cl=0; cl<3; ++cl)
-				for(int ck=0; ck<2; ++ck)
+		//load the 2 next planes at every scale
+		for(int l=0; l<(int)this->layersG.size(); ++l)
+			circ.loadplanes(&this->layersG[l](k+3, 0, 0), l);
+
+		//look for local minima in DoG
+		for(int l=1; l<(int)this->layersG.size()-2; l+=2)
+			for(int j = this->sizes[l]; j < this->layersG.front().size[1] - this->sizes[l]- 1; j += 2)
+				for(int i = this->sizes[l]; i < this->layersG.front().size[2] - this->sizes[l]- 1; i += 2)
 				{
-					const PixelType * in = &this->layersG[cl+l](ck+k, j, 0);
-					PixelType * out = &cacheG(2*(2*cl+ck), 0);
-					for(int ci=0; ci<2*cacheG.cols; ++ci)
-						*out++ = *in++;
-				}
-			for(int i = si+1;i < this->get_height() -si - 1;i += 2){
-				//Difference of Gaussian is done here to keep coherent cache and minimize disk IO
-				//copy the whole block together for locality
-				boost::array<PixelType, 16> ngb;
-				for(int u=0;u<8;++u)
-				{
-					ngb[2*u] = cacheG(u+4,i) - cacheG(u,i);
-					ngb[2*u+1] = cacheG(u+4, i+1) - cacheG(u,i+1);
-				}
-				const boost::array<PixelType, 16>::const_iterator mpos = std::min_element(ngb.begin(), ngb.end());
-				if(*mpos>=0.0)
-					continue;
-				const int mm = mpos-ngb.begin(),
-					mi = i + !!(mm&1),
-					mj = j + !!(mm&2),
-					mk = k + !!(mm&4),
-					ml = l + !!(mm&8);
+					//DoG block
+					int ml, mk, mj, mi;
+					OctaveFinder::PixelType value;
+					circ.blockmin(l, j, i, ml, mk, mj, mi, value);
+					//consider only negative minima with a value that is actually different from zero
+					if(value>0 || (1+value*value==1) ||
+							//minima cannot be on the last layer or on image edges
+							(ml > nblayers) || !(
+							(this->sizes[ml] <= mk+k) && (mk+k < this->layersG.front().size[0] - this->sizes[ml]) &&
+							(this->sizes[ml] <= mj) && (mj < this->layersG.front().size[1] - this->sizes[ml]) &&
+							(this->sizes[ml] <= mi) && (mi < this->layersG.front().size[2] - this->sizes[ml])
+							))
+						continue;
+					//compare with the DoG pixels outside the block
+					if(!circ.is_localmin(l, j, i, ml, mk, mj, mi, value))
+						continue;
+					//remove the local minima that are edges (elongated objects) in XY
+					if(circ.is_edge(ml, mk, mj, mi, max_ratio))
+						continue;
 
+					//we finally have a valid local minimum that we register as a center
+					std::vector<int> ci(4);
+					ci[0] = mi;
+					ci[1] = mj;
+					ci[2] = mk+k;
+					ci[3] = ml;
+					this->centers_no_subpix.push_back(ci);
+					//subpixel resolution
+					Center3D c;
+					c.intensity = value;
+					c[0] = ci[0] + circ.shift(ml, mk, mj, mi, 0);
+					c[1] = ci[1] + circ.shift(ml, mk, mj, mi, 1);
+					c[2] = ci[2] + circ.shift(ml, mk, mj, mi, 2);
+					c.r = ml + circ.shift(ml, mk, mj, mi, 3);
+					this->centers.push_back(c);
+				} //end of finding local minima
 
-				//maxima cannot be on the last layer or on image edges
-				if(ml > nblayers || !(
-						(this->sizes[ml] <= mk) && (mk < this->layersG.front().size[0] - this->sizes[ml]) &&
-						(this->sizes[ml] <= mj) && (mj < this->layersG.front().size[1] - this->sizes[ml]) &&
-						(this->sizes[ml] <= mi) && (mi < this->layersG.front().size[2] - this->sizes[ml])
-						))
-					continue;
-
-				//bool *b = &this->binary[ml - 1](mk, mj, mi);
-				//consider only negative minima
-				//with a value that is actually different from zero
-				bool b = (*mpos < 0) && (1 + pow(*mpos, 2) > 1);
-				//remove the minima if one of its neighbours outside the block has lower value
-				for(int l2 = ml - 1;l2 < ml + 2 && b;++l2)
-					for(int k2 = mk - 1;k2 < mk + 2 && b;++k2)
-						for(int j2 = mj - 1;j2 < mj + 2 && b;++j2)
-							for(int i2 = mi - 1;i2 < mi + 2 && b;++i2)
-								if(l2 < l || k2 < k || j2 < j || i2 < i || l2 > l + 1 || k2 > k +1 || j2 > j + 1 || i2 > i + 1)
-									b = *mpos <= this->layersG[l2+1](k2, j2, i2)-this->layersG[l2](k2, j2, i2);
-
-
-
-
-				//remove the local minima that are edges (elongated objects) in XY
-				if(b){
-					//hessian matrix
-					const double hess[3] = {
-							this->layersG[ml+1](mk, mj - 1, mi)-this->layersG[ml](mk, mj - 1, mi)
-							- 2 * *mpos + this->layersG[ml+1](mk, mj + 1, mi)-this->layersG[ml](mk, mj + 1, mi),
-
-							this->layersG[ml+1](mk, mj, mi - 1)-this->layersG[ml](mk, mj, mi - 1)
-							- 2 * *mpos + this->layersG[ml+1](mk, mj, mi + 1)-this->layersG[ml](mk, mj, mi + 1),
-
-							this->layersG[ml+1](mk, mj - 1, mi - 1)-this->layersG[ml](mk, mj - 1, mi - 1)
-							+ this->layersG[ml+1](mk, mj + 1, mi + 1)-this->layersG[ml](mk, mj + 1, mi + 1)
-							- this->layersG[ml+1](mk, mj + 1, mi - 1)+this->layersG[ml](mk, mj + 1, mi - 1)
-							- this->layersG[ml+1](mk, mj - 1, mi + 1)+this->layersG[ml](mk, mj - 1, mi + 1)
-					};
-					//determinant of the Hessian, for the coefficient see
-					//H Bay, a Ess, T Tuytelaars, and L Vangool,
-					//Computer Vision and Image Understanding 110, 346-359 (2008)
-					const double detH = hess[0] * hess[1] - pow(hess[2], 2),
-							ratio = pow(hess[0] + hess[1], 2) / (4.0 * hess[0] * hess[1]);
-					b = !((detH < 0 && 1+detH*detH > 1) || ratio > max_ratio);
-					//*b &= abs(
-					//		(this->layers[ml](mk+1, mj, mi) - this->layers[ml](mk-1, mj, mi)) /
-					//		(this->layers[ml](mk+1, mj, mi)-2*this->layers[ml](mk, mj, mi)+this->layers[ml](mk-1, mj, mi))
-					//		) < 1.0;
-					if(b){
-						std::vector<int> ci(4);
-						ci[0] = mi;
-						ci[1] = mj;
-						ci[2] = mk;
-						ci[3] = ml;
-						this->centers_no_subpix.push_back(ci);
-						Center3D c;
-						this->single_subpix(ci, c);
-						c.intensity = *mpos;
-						this->centers.push_back(c);
-					}
-				}
-			}
-		}
+		//prepare next step
+		++circ;
 	}
-	//make binary image coherent
-	//for(std::list<std::vector<int> >::const_iterator ci = this->centers_no_subpix.begin(); ci!= this->centers_no_subpix.end(); ++ci)
-		//this->binary[(*ci)[3]-1]((*ci)[2], (*ci)[1], (*ci)[0]) = true;
 }
 
 void Colloids::OctaveFinder::spatial_subpix(const std::vector<int> &ci, Center_base& c) const
@@ -799,10 +762,10 @@ double Colloids::OctaveFinder3D::scale_subpix(const std::vector<int> &ci) const
 		//scale is better defined if we consider only the central pixel at different scales
     	double shift = 0.0;
 		//use only a linear estimate of the derivative
-		boost::array<double,3> a;
+		boost::array<double,3> b;
 		for(int u = l-1;u < l+2; ++u)
-			a[u-l+1] = this->layersG[u+1](ci[2], ci[1], ci[0])-this->layersG[u](ci[2], ci[1], ci[0]);
-		shift = - (a[2] - a[0]) /2.0 /(a[2] -2*a[1] +a[0]);
+			b[u-l+1] = this->layersG[u+1](ci[2], ci[1], ci[0])-this->layersG[u](ci[2], ci[1], ci[0]);
+		shift = - (b[2] - b[0]) /2.0 /(b[2] -2*b[1] +b[0]);
 		//empirical correction
 		shift -= 0.045*l/(double)this->get_n_layers();
 		shift = 1.07*shift + 0.235*shift*shift -0.29*pow(shift,3) -0.30*pow(shift,4);
@@ -1044,7 +1007,150 @@ void Colloids::OctaveFinder3D::fill_iterative_radii()
 	);
 }
 
+CircularZ4D::CircularZ4D(int nLayers, int nrows, int ncols)
+{
+	z0=3;
+	int dims[4] = {nLayers, 8, nrows, ncols};
+	this->gaussians = Image(4, dims, PixelType(0));
+}
 
+const CircularZ4D::PixelType& CircularZ4D::getG(const int &l, const int &k, const int &j, const int &i) const
+{
+	assert(l<this->gaussians.size[0]);
+	assert(j<this->gaussians.size[2]);
+	assert(i<this->gaussians.size[3]);
+	return *(PixelType*)
+	(
+			this->gaussians.data
+			+ l*this->gaussians.step[0]
+			+ ((k+z0+8)%8) * this->gaussians.step[1]
+			+ j * this->gaussians.step[2]
+			+ i * this->gaussians.step[3]
+	);
+}
+
+
+void CircularZ4D::loadplanes(const CircularZ4D::PixelType* input, const int &l, const int & k, const int & nplanes)
+{
+	if((k+z0+8)%8 +nplanes > 8)
+		throw std::invalid_argument("That much planes crosses the periodic boundary conditions");
+	std::copy(
+			input,
+			input+nplanes*this->gaussians.size[3]*this->gaussians.size[2],
+			(PixelType*)(
+						this->gaussians.data
+						+ l*this->gaussians.step[0]
+						+ ((k+z0+8)%8) * this->gaussians.step[1])
+			);
+}
+void CircularZ4D::blockmin(const int &l, const int &j, const int &i, int &ml, int &mk, int &mj, int &mi, CircularZ4D::PixelType& value) const
+{
+	//DoG block starting in (l,0, j, i)
+	boost::array<PixelType, 16> block;
+	boost::array<PixelType, 16>::iterator bl_it = block.begin();
+	for(int l2=0; l2<2; ++l2)
+		for(int k2=0; k2<2; ++k2)
+			for(int j2=0; j2<2; ++j2)
+				for(int i2=0; i2<2; ++i2)
+					*bl_it++ = this->getDoG(l+l2, k2, j+j2, i+i2);
+	//position of the minimum inside the block
+	const boost::array<PixelType, 16>::const_iterator mpos = std::min_element(block.begin(), block.end());
+	const int mm = mpos-block.begin();
+	mi = i + !!(mm&1),
+	mj = j + !!(mm&2),
+	mk = !!(mm&4),
+	ml = l + !!(mm&8);
+	value = *mpos;
+}
+bool CircularZ4D::is_localmin(
+		const int &l, const int &j, const int &i,
+		const int &ml, const int &mk, const int &mj, const int &mi,
+		const CircularZ4D::PixelType &value) const
+{
+	//remove the minima if one of its neighbours outside the block has lower value
+	for(int l2 = ml - 1;l2 < ml + 2; ++l2)
+		for(int k2 = mk - 1;k2 < mk + 2; ++k2)
+			for(int j2 = mj - 1;j2 < mj + 2; ++j2)
+				for(int i2 = mi - 1;i2 < mi + 2; ++i2)
+					if(l2 < l || k2 < 0 || j2 < j || i2 < i || l2 > l + 1 || k2 > 1 || j2 > j + 1 || i2 > i + 1)
+						if(value > this->getDoG(l2, k2, j2, i2))
+							return false;
+	return true;
+}
+/**
+ * Test if a given the local minimum is an edge (elongated objects) in XY
+ */
+bool CircularZ4D::is_edge(const int &ml, const int &mk, const int &mj, const int &mi, const double & max_ratio) const
+{
+	//hessian matrix in XY
+	const double hess[3] = {
+			this->getDoG(ml, mk, mj-1, mi) - 2* this->getDoG(ml, mk, mj, mi) + this->getDoG(ml, mk, mj+1, mi),
+			this->getDoG(ml, mk, mj, mi-1) - 2* this->getDoG(ml, mk, mj, mi) + this->getDoG(ml, mk, mj, mi+1),
+			this->getDoG(ml, mk, mj-1, mi-1) + this->getDoG(ml, mk, mj+1, mi+1)
+			- this->getDoG(ml, mk, mj+1, mi-1) - this->getDoG(ml, mk, mj-1, mi+1)
+	};
+	//determinant of the Hessian, for the coefficient see
+	//H Bay, a Ess, T Tuytelaars, and L Vangool,
+	//Computer Vision and Image Understanding 110, 346-359 (2008)
+	const double detH = hess[0] * hess[1] - pow(hess[2], 2);
+	if(detH<0 && 1+detH*detH>1)
+		return true;
+	const double ratio = pow(hess[0] + hess[1], 2) / (4.0 * hess[0] * hess[1]);
+	if(ratio > max_ratio)
+		return true;
+	return false;
+}
+double CircularZ4D::shift(const int &ml, const int &mk, const int &mj, const int &mi, const int&d) const
+{
+	double shift = 0.0;
+	if(d>2)
+	{
+		//subscale resolution uses DoG
+		boost::array<double,3> a;
+		for(int u = 0;u < 3; ++u)
+			a[u] = this->getDoG(ml-1+u, mk, mj, mi);
+		//use only a linear estimate of the derivative
+		shift = - (a[2] - a[0]) /2.0 /(a[2] -2*a[1] +a[0]);
+		//empirical correction
+		shift -= 0.045*ml/(double)(this->gaussians.size[0]-2);
+		shift = 1.07*shift + 0.235*shift*shift -0.29*pow(shift,3) -0.30*pow(shift,4);
+		//avoid overflow
+		if(shift < -0.5)
+			shift = - 0.5;
+		if(shift > 0.5)
+			shift = 0.5;
+	}
+	else
+	{
+		//use the Gaussian layer below the detected scale
+        //to have better spatial resolution when particles are close
+		boost::array<double, 7> a;
+		switch(d)
+		{
+		case 0:
+			for(size_t u=0; u<a.size(); ++u)
+				a[u] = this->getG(ml-1, mk, mj, mi-3+u);
+			break;
+		case 1:
+			for(size_t u=0; u<a.size(); ++u)
+				a[u] = this->getG(ml-1, mk, mj-3+u, mi);
+			break;
+		case 2:
+			for(size_t u=0; u<a.size(); ++u)
+				a[u] = this->getG(ml-1, mk-3+u, mj, mi);
+			break;
+		}
+		//third order estimate of the first and second derivatives
+		shift = (a[6] - 9*a[5] + 45*a[4] - 45*a[2] + 9*a[1] -a[0]) /60.0 / (a[6]/90 -3*a[5]/20 + 1.5*a[4] - 49*a[3]/18 + 1.5*a[2] -3*a[1]/20 + a[0]/90);
+		//prevent overflow
+		if(shift>1)
+			shift=1;
+		if(shift<-1)
+			shift=-1;
+		shift = 0.4375 - shift;
+	}
+	return shift;
+}
 
 }; //namespace
 

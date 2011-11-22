@@ -147,5 +147,31 @@ namespace Colloids
     		this->scale(centers[c]);
     	return centers;
     }
+
+
+	class CircularZ4D
+	{
+	public:
+		typedef OctaveFinder::PixelType PixelType;
+		typedef OctaveFinder::Image Image;
+
+		CircularZ4D(int nLayers, int nrows, int ncols);
+
+		//accessors
+		const PixelType& getG(const int &l, const int &k, const int &j, const int &i) const;
+		PixelType getDoG(const int &l, const int &k, const int &j, const int &i) const
+		{return getG(l+1, k, j, i) - getG(l, k, j, i);}
+
+		void loadplanes(const PixelType* input, const int &l, const int & k=3, const int & nplanes=2);
+		void operator++(){z0 = (z0+2)%8;};
+		void blockmin(const int &l, const int &j, const int &i, int &ml, int &mk, int &mj, int &mi, PixelType& value) const;
+		bool is_localmin(const int &l, const int &j, const int &i, const int &ml, const int &mk, const int &mj, const int &mi, const PixelType& value) const;
+		bool is_edge(const int &ml, const int &mk, const int &mj, const int &mi, const double & max_ratio=1.1) const;
+		double shift(const int &ml, const int &mk, const int &mj, const int &mi, const int&d) const;
+
+	protected:
+		Image gaussians;
+		int z0;
+	};
 };
 #endif // OCTAVEFINDER_H
