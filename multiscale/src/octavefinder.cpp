@@ -148,77 +148,82 @@ void Colloids::OctaveFinder::_fill_internal(Image &temp)
 		cv::subtract(this->layersG[i+1], this->layersG[i], this->layers[i]);
 }
 
+void inplace_blur3D(OctaveFinder::Image &im, double radius)
+{
+	typedef OctaveFinder::PixelType PixelType;
+	typedef OctaveFinder::Image Image;
+	Image temp2D(
+		im.size[0], im.size[1]*im.size[2],
+		(PixelType*)im.data
+	);
+	# ifdef _OPENMP
+	#pragma omp parallel
+	{
+		//Z
+		cv::Mat_<double> kx(1,1, 1.0);
+		cv::Ptr<cv::FilterEngine> filter = createSeparableLinearFilter
+		(
+			im.type(), im.type(),
+			kx, OctaveFinder::get_kernel(radius),
+			cv::Point(-1,-1), 0, cv::BORDER_DEFAULT
+		);
+		int sectionsize = temp2D.cols/omp_get_num_threads();
+		cv::Rect roi = cv::Rect(
+				omp_get_thread_num()*sectionsize, 0,
+				sectionsize, temp2D.rows
+				)&cv::Rect(0,0,temp2D.cols, temp2D.rows);
+		Image dst(temp2D, roi);
+		filter->apply(dst, dst);
+	}
+	//X and Y plane by plane
+	#pragma omp parallel
+	{
+		cv::Ptr<cv::FilterEngine> filter = createSeparableLinearFilter
+		(
+			im.type(), im.type(),
+			OctaveFinder::get_kernel(radius), OctaveFinder::get_kernel(radius),
+			cv::Point(-1,-1), 0, cv::BORDER_DEFAULT
+		);
+		#pragma omp for
+		for(int k=0; k<im.size[0]; ++k)
+		{
+			cv::Mat slice(im.size[1], im.size[2], im.type(), (void*)&temp2D(k));
+			filter->apply(slice, slice);
+		}
+	}
+	#else
+	//Z
+	cv::Mat_<double> kx(1,1, 1.0);
+	cv::Ptr<cv::FilterEngine> filterZ = createSeparableLinearFilter
+	(
+		im.type(), im.type(),
+		kx, OctaveFinder::get_kernel(radius),
+		cv::Point(-1,-1), 0, cv::BORDER_DEFAULT
+	);
+	filterZ->apply(temp2D, temp2D);
+	//X and Y plane by plane
+	cv::Ptr<cv::FilterEngine> filterXY = createSeparableLinearFilter
+	(
+		im.type(), im.type(),
+		OctaveFinder::get_kernel(radius), OctaveFinder::get_kernel(radius),
+		cv::Point(-1,-1), 0, cv::BORDER_DEFAULT
+	);
+	for(int k=0; k<im.size[0]; ++k)
+	{
+		cv::Mat slice(im.size[1], im.size[2], im.type(), (void*)&temp2D(k));
+		filterXY->apply(slice, slice);
+	}
+	#endif
+}
+
 void Colloids::OctaveFinder3D::_fill_internal(Image &temp)
 {
-	Image temp2D(
-		temp.size[0], temp.size[1]*temp.size[2],
-		(PixelType*)temp.data
-	);
 	//iterative Gaussian blur
 	for(size_t i=0; i<this->layersG.size()-1; ++i)
 	{
-		//Z out in place
-		# ifdef _OPENMP
-		#pragma omp parallel
-		{
-			/*#pragma omp single
-				std::cout<<"OpenMP uses "<<omp_get_num_threads()<<" threads"<<std::endl;*/
-			cv::Mat_<double> kx(1,1, 1.0);
-			cv::Ptr<cv::FilterEngine> filter = createSeparableLinearFilter
-			(
-					this->layersG[0].type(), this->layersG[0].type(),
-					kx, get_kernel(this->iterative_radii[i]),
-					cv::Point(-1,-1), 0, cv::BORDER_DEFAULT
-			);
-			int sectionsize = temp2D.cols/omp_get_num_threads();
-			cv::Rect roi = cv::Rect(
-					omp_get_thread_num()*sectionsize, 0,
-					sectionsize, temp2D.rows
-					)&cv::Rect(0,0,temp2D.cols, temp2D.rows);
-			Image dst(temp2D, roi);
-			filter->apply(dst, dst);
-		}
-		//this->iterative_Zgaussian_filters[i].apply(temp2D, temp2D);
-		//X and Y inplace
-		#pragma omp parallel
-		{
-			cv::Ptr<cv::FilterEngine> filter = cv::createGaussianFilter
-			(
-					this->layersG[0].type(),
-					cv::Size(0,0),
-					this->iterative_radii[i]
-			);
-			#pragma omp for
-			for(int k=0; k<this->layersG[i+1].size[0]; ++k)
-			{
-				cv::Mat slice(
-						this->layersG[i+1].size[1],
-						this->layersG[i+1].size[2],
-						this->layersG[i+1].type(),
-						(void*)&temp2D(k)
-						);
-				filter->apply(slice, slice);
-			}
-		}
-		#else
-		//Z in place
-		this->iterative_Zgaussian_filters[i].apply(temp2D, temp2D);
-		//X and Y inplace
-		for(int k=0; k<this->layersG[i+1].size[0]; ++k)
-		{
-			cv::Mat slice(
-					this->layersG[i+1].size[1],
-					this->layersG[i+1].size[2],
-					this->layersG[i+1].type(),
-					(void*)&temp2D(k)
-					);
-			this->iterative_gaussian_filters[i].apply(slice, slice);
-		}
-		#endif
-		//difference of Gaussians (write directly to disk)
-		//cv::subtract(temp, this->layersG[i], this->layers[i]);
+		inplace_blur3D(temp, this->iterative_radii[i]);
 		//write gaussian layer to disk
-		temp2D.copyTo(this->layersG2D[i+1]);
+		temp.copyTo(this->layersG[i+1]);
 	}
 }
 
@@ -229,45 +234,7 @@ void Colloids::OctaveFinder::preblur(Image &input)
 
 void Colloids::OctaveFinder3D::preblur(Image &input)
 {
-	//Z inplace
-	Image input2D(
-			input.size[0], input.size[1]*input.size[2],
-			(PixelType*)input.data
-			);
-	this->preblur_Zfilter->apply(input2D, input2D);
-	//X and Y inplace
-	# ifdef _OPENMP
-	#pragma omp parallel
-	{
-		cv::Ptr<cv::FilterEngine> filter = cv::createGaussianFilter(
-			this->layersG.front().type(),
-			cv::Size(0,0),
-			this->preblur_radius
-		);
-		#pragma omp for
-		for(int k=0; k<this->layersG.front().size[0]; ++k)
-		{
-			cv::Mat slice(
-					this->layersG.front().size[1],
-					this->layersG.front().size[2],
-					this->layersG.front().type(),
-					(void*)&input2D(k)
-					);
-			filter->apply(slice, slice);
-		}
-	}
-	#else
-	for(int k=0; k<this->layersG.front().size[0]; ++k)
-	{
-		cv::Mat slice(
-				this->layersG.front().size[1],
-				this->layersG.front().size[2],
-				this->layersG.front().type(),
-				(void*)&input2D(k)
-				);
-		this->preblur_filter->apply(slice, slice);
-	}
-	#endif
+	inplace_blur3D(input, this->preblur_radius);
 	//write to disk
 	input.copyTo(this->layersG.front());
 
