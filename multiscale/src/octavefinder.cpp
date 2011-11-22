@@ -107,8 +107,6 @@ void Colloids::OctaveFinder::fill(const cv::Mat &input)
 {
 	Image temp;
 	input.convertTo(temp, temp.type());
-	if(input.type()==cv::DataType<uchar>::type)
-		temp*=256;
 	this->fill(temp);
 }
 /**
@@ -246,8 +244,6 @@ void Colloids::OctaveFinder::preblur_and_fill(const cv::Mat &input)
 {
 	Image temp;
 	input.convertTo(temp, temp.type());
-	if(input.type()==cv::DataType<uchar>::type)
-		temp*=256;
 	this->preblur_and_fill(temp);
 }
 /**

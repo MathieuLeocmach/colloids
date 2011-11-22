@@ -1917,13 +1917,13 @@ BOOST_AUTO_TEST_SUITE( john )
 		removeOverlapping(centers);
 		BOOST_CHECK_EQUAL(centers.size(), simulation.size());
 		std::ofstream out("test_output/john_exact_mono.csv");
-		out<<"x y z r\n";
+		out<<"x y z r i\n";
 		double meanr = 0.0, minr = centers.front().r , maxr = minr;
 		for(size_t p=0; p<centers.size(); ++p)
 		{
 			for(size_t d=0; d<3; ++d)
 				out<< centers[p][d] - radius << " ";
-			out<<centers[p].r<<"\n";
+			out<<centers[p].r<<" "<<centers[p].intensity<<"\n";
 			meanr += centers[p].r;
 			if(centers[p].r < minr)
 				minr = centers[p].r;
