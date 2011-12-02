@@ -53,7 +53,7 @@ class Particles:
             interleaved=True)
 
     def get_index(self):
-        if not hasattr(self, index):
+        if not hasattr(self, "__index"):
             self.indexing()
         return self.__index
 
@@ -109,7 +109,10 @@ class Particles:
             [i, n] for i in inside
             for n in self.get_ngbs(i, maxlength)
             if n!=i])
-        bondlengths = np.sqrt(np.sum(np.diff(self.pos[bonds], axis=1)[:,0]**2,-1))
+        bondlengths = np.sqrt(numexpr.evaluate(
+                                               '(a-b)**2', 
+                                               {'a': self.pos[bonds[:,0]], 'b': self.pos[bonds[:,1]]}
+                                               ).sum(-1))
         bondlengths /= self.radii[bonds].sum(-1)
         nbdens = (self.radii[inside]**3).sum() * 8.0 / self.pos[inside].ptp(0).prod()
         g = np.histogram(bondlengths, bins=bins)[0] / (
