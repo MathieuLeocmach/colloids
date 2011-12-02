@@ -22,6 +22,8 @@ from colloids import lif, vtk
 from scipy.ndimage.filters import gaussian_filter, gaussian_filter1d, sobel
 from scipy.ndimage.morphology import grey_erosion, grey_dilation, binary_dilation
 from scipy.ndimage import measurements
+from scipy.sparse.linalg import splu
+from scipy import sparse
 import numexpr
 
 
@@ -437,6 +439,56 @@ def scale2radius(x, k=1.6, n=3.0, dim=2):
     return k * 2**((x+1)/float(n))*np.sqrt(
         2 * dim * np.log(2) / float(n) / (2**(2.0/n)-1)
         )
+
+halfG_dsigma = lambda d, R, sigma : (R**2+d*R+sigma**2)*np.exp(-(R+d)**2/(2*sigma**2))/np.sqrt(2*np.pi)/d/sigma**2
+
+def G_dsigma(d, R, sigma):
+    if d==0:
+        return -(R**3)/sigma**4*np.sqrt(2/np.pi)*np.exp(-R**2/2/sigma**2)
+    else:
+        return halfG_dsigma(d,R,sigma) + halfG_dsigma(-d, R, sigma)
+
+DoG_dsigma = lambda d, R, sigma, alpha : alpha*G_dsigma(d,R,alpha*sigma) - G_dsigma(d, R, sigma)
+
+halfG_dsigma_dR = lambda d, R, sigma : -R*((R+d)**2-sigma**2)*np.exp(-(R+d)**2/(2*sigma**2))/np.sqrt(2*np.pi)/d/sigma**4
+    
+def G_dsigma_dR(d, R, sigma):
+    if d==0:
+        return R**2*(R**2-3*sigma**2)/sigma**6*np.sqrt(2/np.pi)*np.exp(-R**2/2/sigma**2)
+    else:                                                                
+        return halfG_dsigma_dR(d,R,sigma) + halfG_dsigma_dR(-d, R, sigma)
+
+DoG_dsigma_dR = lambda d, R, sigma, alpha : alpha*G_dsigma_dR(d,R,alpha*sigma) - G_dsigma_dR(d, R, sigma)
+
+def global_rescale(coords, sigma0, R0=None, bonds=None, n=3):
+    alpha = 2**(1.0/n)
+    if R0==None:
+        R0 = sigma0 * np.sqrt(6.0/n*np.log(2)/(1-alpha**(-2)))
+        v0 = np.zeros([len(coords)])
+    else:
+        v0 = DoG_dsigma(0, R0, sigma0, alpha)
+    jacob0 = sparse.lil_matrix(tuple([len(coords)]*2))
+    for i,(r,s) in enumerate(zip(R0, sigma0)):
+        jacob0[i,i] = DoG_dsigma_dR(0, r, s, alpha)
+    if bonds==None:
+        bonds=[]
+        for i,p in enumerate(coords):
+            for j,dsq in enumerate(np.sum(numexpr.evaluate(
+                    '(q-p)**2',
+                    {'p':p, 'q':coords[i+1:]}
+                    ), axis=-1)):
+                if dsq<4*(R0[i]+R0[i+1+j])**2:
+                    bonds.append([i, i+1+j, np.sqrt(dsq)])
+    if len(bonds[0])==2:
+        bonds = [[i, j, np.sqrt(np.sum((coords[i]-coords[j])**2))] for i,j in bonds]
+    for i, j, d in bonds:
+        jacob0[i, j] = DoG_dsigma_dR(d, R0[j], sigma0[i], alpha)
+        jacob0[j, i] = DoG_dsigma_dR(d, R0[i], sigma0[j], alpha)
+        v0[i] += DoG_dsigma(d, R0[j], sigma0[i], alpha)
+        v0[j] += DoG_dsigma(d, R0[i], sigma0[j], alpha)
+    return R0 - splu(jacob0.tocsc()).solve(v0)
+    
+
 
 class OctaveBlobFinder:
     """Locator of bright blobs in an image of fixed shape. Works on a single octave."""
