@@ -38,7 +38,7 @@ endif
 # Add inputs and outputs from these tool invocations to the build variables 
 
 # All Target
-all: multiscale test
+all: multiscale test bonds
 
 # Tool invocations
 multiscale: $(OBJS) $(USER_OBJS)
@@ -52,6 +52,13 @@ test: $(OBJS) $(USER_OBJS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: GCC C++ Linker'
 	g++ -L/usr/local/lib -o"test" test.o src/*.o $(USER_OBJS) $(LIBS)
+	@echo 'Finished building target: $@'
+	@echo ' '
+
+bonds: $(OBJS) $(USER_OBJS)
+	@echo 'Building target: $@'
+	@echo 'Invoking: GCC C++ Linker'
+	g++ -L/usr/local/lib -o"bonds" bonds.o $(USER_OBJS) $(LIBS)
 	@echo 'Finished building target: $@'
 	@echo ' '
 
