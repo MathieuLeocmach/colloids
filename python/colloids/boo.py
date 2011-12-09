@@ -21,7 +21,7 @@ from scipy.special import sph_harm
 import numexpr
 import subprocess, shlex, StringIO
 
-def get_qlm(pos, i, ngb_indices, ls=[6]):
+def pos2qlm(pos, i, ngb_indices, ls=[6]):
 	#vectors to neighbours
 	cartesian = pos[ngb_indices]-pos[i]
 	spherical = cart2sph(cartesian)
