@@ -36,9 +36,13 @@ def weave_qlm(pos, ngbs, inside, l=6):
             continue;
         double cart[3] = {0, 0, 0};
         double sph[3] = {0, 0, 0};
+        int nb = 0;
         for(int j=0; j<Nngbs[1]; ++j)
         {
             int q = ngbs(i,j);
+            if(q<0 || q>=Npos[1])
+                continue;
+            nb++;
             for(int d=0; d<3; ++d)
                 cart[d] = pos(i,d) - pos(q, d);
             sph[0] = sqrt(cart[0]*cart[0] + cart[1]*cart[1] + cart[2]*cart[2]);
@@ -57,8 +61,8 @@ def weave_qlm(pos, ngbs, inside, l=6):
 		    for(int m=0; m<Nqlm[1]; ++m)
 		        qlm(i,m) += boost::math::spherical_harmonic(Nqlm[1]-1, m, sph[1], sph[2]);
         }
-        for(int m=0; m<=Nqlm[1]; ++m)
-            qlm(i,m) /= Nngbs[1];
+        for(int m=0; m<Nqlm[1]; ++m)
+            qlm(i,m) /= nb;
     }
     """
     weave.inline(
