@@ -17,20 +17,60 @@
 #    along with Colloids.  If not, see <http://www.gnu.org/licenses/>.
 #
 import numpy as np
+import rtree.index
 from scipy.special import sph_harm
-import numexpr
-import subprocess, shlex, StringIO
+from scipy import weave
+from scipy.weave import converters
+        
+        
+def weave_qlm(pos, ngbs, inside, l=6):
+    qlm = np.zeros([len(pos), l+1], np.complex128)
+    support = """
+    #include <boost/math/special_functions/spherical_harmonic.hpp>
+    """
+    code = """
+    #pragma omp parallel for
+    for(int i=0; i<Nngbs[0]; ++i)
+    {
+        if(!inside(i))
+            continue;
+        double cart[3] = {0, 0, 0};
+        double sph[3] = {0, 0, 0};
+        for(int j=0; j<Nngbs[1]; ++j)
+        {
+            int q = ngbs(i,j);
+            for(int d=0; d<3; ++d)
+                cart[d] = pos(i,d) - pos(q, d);
+            sph[0] = sqrt(cart[0]*cart[0] + cart[1]*cart[1] + cart[2]*cart[2]);
+            if(abs(cart[2])==sph[0] || sph[0]*sph[0]+1.0 == 1.0)
+            {
+                sph[1] = 0;
+                sph[2] = 0;
+            }
+            else
+            {
+                sph[1] = acos(cart[2]/sph[0]);
+                sph[2] = atan2(cart[1], cart[0]);
+                if(sph[2]<0)
+		            sph[2] += 2.0*M_PI;
+            }
+		    for(int m=0; m<Nqlm[1]; ++m)
+		        qlm(i,m) += boost::math::spherical_harmonic(Nqlm[1]-1, m, sph[1], sph[2]);
+        }
+        for(int m=0; m<=Nqlm[1]; ++m)
+            qlm(i,m) /= Nngbs[1];
+    }
+    """
+    weave.inline(
+        code,['pos', 'ngbs', 'inside', 'qlm'],
+        type_converters =converters.blitz,
+        support_code = support,
+        extra_compile_args =['-O3 -fopenmp'],
+        extra_link_args=['-lgomp'],
+        verbose=2, compiler='gcc')
+    return qlm
+    
 
-def pos2qlm(pos, i, ngb_indices, ls=[6]):
-	#vectors to neighbours
-	cartesian = pos[ngb_indices]-pos[i]
-	spherical = cart2sph(cartesian)
-	return [
-	    np.asarray([
-		sph_harm(m, l, spherical[:,2], spherical[:,1]).mean()
-		for m in range(l+1)])
-	    for l in ls
-	    ]
 
 def cart2sph(cartesian):
     """Convert Cartesian coordinates [[x,y,z],] to spherical coordinates [[r,phi,theta],]
@@ -53,69 +93,17 @@ phi is cologitudinal and theta azimutal"""
 
 def ql(qlm):
     l = qlm.shape[1]-1
-    n = numexpr.evaluate("""abs(qlm).real**2""")
-    return numexpr.evaluate(
-        """sqrt(4*pi/(2*l+1)*(2*a+b))""",
-        {'a':np.sum(n[:,1:], -1), 'b':n[:,0], 'l':qlm.shape[1]-1, 'pi':np.pi}
-        )
-##factor 10 speed using numpexr
-##    s = 2*np.sum(np.abs(qlm[:,1:])**2, -1) + np.abs(qlm[:,0])**2
-##    return np.sqrt(4*np.pi/(2*l+1)*s)
+    s = 2*np.sum(np.abs(qlm[:,1:])**2, -1) + np.abs(qlm[:,0])**2
+    return np.sqrt(4*np.pi/(2*l+1)*s)
 def wl(qlm):
     l = qlm.shape[1]-1
-    w = np.zeros(qlm.shape[0])
+    w = np.zeros(qlm.shape[0], qlm.dtype)
     for m1 in range(-l, l+1):
-        qlm1 = get_qlm(qlm, m1)
         for m2 in range(-l, l+1):
             m3 = -m1-m2
             if -l<=m3 and m3<=l:
-                w += numexpr.evaluate(
-                    """real(w3j * qlm1 * qlm2 * qlm3)""",
-                    {
-                        'w3j': get_w3j(l, [m1, m2, m3]),
-                        'qlm1': qlm1,
-                        'qlm2': get_qlm(qlm, m2),
-                        'qlm3': get_qlm(qlm, m3)
-                        })
-                #factor 2 speed using numexpr
-##                w += get_w3j(l, [m1, m2, m3]) * get_qlm(qlm, m1) * get_qlm(qlm, m2) * get_qlm(qlm, m3)
+                w+= get_w3j(l, [m1, m2, m3]) * get_qlm(qlm, m1) * get_qlm(qlm, m2) * get_qlm(qlm, m3)
     return w
-
-def boo_product(qlm1, qlm2):
-    n = np.atleast_2d(numexpr.evaluate(
-        """real(complex(real(a), -imag(a)) * b)""",
-        {'a':qlm1, 'b':qlm2}
-        ))
-    p = numexpr.evaluate(
-        """4*pi/(2*l+1)*(2*na + nb)""",
-        {
-            'na': n[:,1:].sum(-1),
-            'nb': n[:,0],
-            'l': n.shape[1]-1,
-            'pi': np.pi
-            })
-    return p
-
-def boo_normed_product(qlm1, qlm2):
-    n = numexpr.evaluate(
-        """real(complex(real(a), -imag(a)) * b)""",
-        {'a':qlm1, 'b':qlm2}
-        )
-    n1 = numexpr.evaluate("""abs(qlm).real**2""", {'qlm':qlm1})
-    n2 = numexpr.evaluate("""abs(qlm).real**2""", {'qlm':qlm2})
-    p = numexpr.evaluate(
-        """(2*na + nb) / (sqrt(2*na1+nb1) * sqrt(2*na2+nb2))""",
-        {
-            'na': np.atleast_2d(n)[:,1:].sum(-1),
-            'nb': np.atleast_2d(n)[:,0],
-            'na1': np.atleast_2d(n1)[:,1:].sum(-1),
-            'nb1': np.atleast_2d(n1)[:,0],
-            'na2': np.atleast_2d(n2)[:,1:].sum(-1),
-            'nb2': np.atleast_2d(n2)[:,0]
-            })
-    return p
-    
-    
     
 def get_qlm(qlms, m):
     if m>=0:
