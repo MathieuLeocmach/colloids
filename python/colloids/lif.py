@@ -509,9 +509,12 @@ class Serie(SerieHeader):
         for t in range(1,self.getNbFrames()):
             b = rfft2(self.get2DSlice(T=t, Z=Z)*ham)
             #calculate the normalized cross-power spectrum
-            R = numexpr.evaluate(
-                'a*complex(real(b), -imag(b)/abs(a*complex(real(b), -imag(b))'
-                )
+            #R = numexpr.evaluate(
+            #    'a*complex(real(b), -imag(b)/abs(a*complex(real(b), -imag(b))))'
+            #    )
+            R = a*b.conj()
+            Ra = np.abs(a*b.conj())
+            R[Ra>0] /= Ra[Ra>0]
             r = irfft2(R)
             #Get the periodic position of the peak
             l = r.argmax()
