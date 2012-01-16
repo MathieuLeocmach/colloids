@@ -236,14 +236,10 @@ def gG_l(pos, qlms, Qlms, is_center, Nbins, maxdist):
             if(disq>=(double)maxsq)
                 continue;
             const int r = sqrt(disq/(double)maxsq)*Nbins;
-            //#pragma omp atomic
-            //++g(r);
             double pq = real(qlms(i,0)*conj(qlms(j,0)));
             for(int m=1; m<Nqlms[1]; ++m)
                 pq += 2.0*real(qlms(i,m)*conj(qlms(j,m)));
             pq *= 4.0*M_PI/(2.0*(Nqlms[1]-1)+1);
-            //#pragma omp atomic
-            //hq(r) += pq;
             double pQ = real(Qlms(i,0)*conj(Qlms(j,0)));
             for(int m=1; m<NQlms[1]; ++m)
                 pQ += 2.0*real(Qlms(i,m)*conj(Qlms(j,m)));
