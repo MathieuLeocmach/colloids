@@ -209,7 +209,62 @@ def get_qlm(qlms, m):
     if (-m)%2 == 0:
         return np.conj(qlms[:,-m])
     return -np.conj(qlms[:,-m])
-		
+
+def gG_l(pos, qlms, Qlms, is_center, Nbins, maxdist):
+    """
+    Spatial correlation of the qlms and the Qlms
+    """
+    assert len(pos) == len(qlms)
+    assert len(qlms) == len(Qlms)
+    assert len(is_center) == len(pos)
+    maxsq = float(maxdist**2)
+    hQ = np.zeros(Nbins)
+    hq = np.zeros(Nbins)
+    g = np.zeros(Nbins, int)
+    code = """
+    #pragma omp parallel for
+    for(int i=0; i<Npos[0]; ++i)
+    {
+        if(!is_center(i)) 
+            continue;
+        for(int j=0; j<Npos[0]; ++j)
+        {
+            if(i==j) continue;
+            double disq = 0.0;
+            for(int dim=0; dim<3;++dim)
+                disq += pow(pos(i,dim)-pos(j,dim), 2);
+            if(disq>=(double)maxsq)
+                continue;
+            const int r = sqrt(disq/(double)maxsq)*Nbins;
+            //#pragma omp atomic
+            //++g(r);
+            double pq = real(qlms(i,0)*conj(qlms(j,0)));
+            for(int m=1; m<Nqlms[1]; ++m)
+                pq += 2.0*real(qlms(i,m)*conj(qlms(j,m)));
+            pq *= 4.0*M_PI/(2.0*(Nqlms[1]-1)+1);
+            //#pragma omp atomic
+            //hq(r) += pq;
+            double pQ = real(Qlms(i,0)*conj(Qlms(j,0)));
+            for(int m=1; m<NQlms[1]; ++m)
+                pQ += 2.0*real(Qlms(i,m)*conj(Qlms(j,m)));
+            pQ *= 4.0*M_PI/(2.0*(NQlms[1]-1)+1);
+            #pragma omp critical
+            {
+                ++g(r);
+                hq(r) += pq;
+                hQ(r) += pQ;
+            }
+        }
+    }
+    """
+    weave.inline(
+        code,['qlms', 'Qlms', 'pos', 'maxsq', 'Nbins', 'hQ', 'hq', 'g','is_center'],
+        type_converters =converters.blitz,
+        extra_compile_args =['-O3 -fopenmp'],
+        extra_link_args=['-lgomp'],
+        verbose=2, compiler='gcc')
+    return hq, hQ, g
+            
 _w3j = [
     [1],
     np.sqrt([2/35., 1/70., 2/35., 3/35.])*[-1,1,1,-1],
