@@ -252,3 +252,76 @@ def weave_non_overlapping(positions, radii):
         verbose=2, compiler='gcc')
     return good
 
+def get_bonds(positions, radii, maxdist=3.0):
+    support = """
+    typedef RStarTree<int, 3, 4, 32, double> RTree;
+	struct Gatherer {
+		std::list<int> *gathered;
+		bool ContinueVisiting;
+
+		Gatherer(std::list<int> &result) : gathered(&result), ContinueVisiting(true) {};
+
+		void operator()(const typename RTree::Leaf * const leaf)
+		{
+			gathered->push_back(leaf->leaf);
+		}
+	};
+    """
+    pairs = []
+    dists = []
+    code = """
+    //spatial indexing
+    RTree tree;
+    for(int p=0; p<Npositions[0]; ++p)
+    {
+        typename RTree::BoundingBox bb;
+		for(int d=0; d<3; ++d)
+		{
+			bb.edges[d].first = positions(p,d) - maxdist*radii(p);
+			bb.edges[d].second = positions(p,d) + maxdist*radii(p);
+		}
+        tree.Insert(p, bb);
+    }
+    //look for nearby particles
+    #pragma omp parallel for
+    for(int p=0; p<Npositions[0]; ++p)
+    {
+        double rsq = 9.0*radii(p)*radii(p);
+        std::list<int> overlapping;
+        typename RTree::BoundingBox bb;
+        for(int d=0; d<3; ++d)
+		{
+			bb.edges[d].first = positions(p,d) - maxdist*radii(p);
+			bb.edges[d].second = positions(p,d) + maxdist*radii(p);
+		}
+		tree.Query(typename RTree::AcceptOverlapping(bb), Gatherer(overlapping));
+        overlapping.sort();
+        overlapping.unique();
+        for(std::list<int>::const_iterator it=std::lower_bound(
+            overlapping.begin(), overlapping.end(), p+1
+            ); it!=overlapping.end(); ++it)
+        {
+            const int q = *it;
+            double dsq = 0;
+            for(int d=0; d<3; ++d)
+                dsq += pow(positions(p,d)-positions(q,d), 2);
+            if(dsq < pow(maxdist*(radii(p)+radii(q)) ,2))
+            #pragma omp critical
+            {
+                 pairs.append(p);
+                 pairs.append(q);
+                 dists.append(sqrt(dsq));
+            }
+        }
+    }
+    """
+    weave.inline(
+        code,['positions', 'radii', 'maxdist', 'pairs', 'dists'],
+        type_converters =converters.blitz,
+        support_code = support,
+        include_dirs = ['/home/mathieu/src/colloids/multiscale/RStarTree'],
+        headers = ['"RStarTree.h"','<deque>', '<list>'],
+        extra_compile_args =['-O3 -fopenmp'],
+        extra_link_args=['-lgomp'],
+        verbose=2, compiler='gcc')
+    return np.resize(pairs, [len(pairs)/2,2]), np.asarray(dists)
