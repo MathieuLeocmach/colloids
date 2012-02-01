@@ -109,6 +109,10 @@ int main(int ac, char* av[]){
 						std::cout<< microsec_clock::local_time()-past <<" including CPU ";
 					}
 				}
+				//scale z according to the Z/X ratio of the image voxel
+				const double ZXratio = serie.getZXratio();
+				for(int c=0; c<centers.size(); ++c)
+					centers[c][2] *=  ZXratio;
 				//remove overlap
 				removeOverlapping(centers);
 				//output
