@@ -69,6 +69,11 @@ namespace Colloids {
     	for(size_t o=0; o<this->octaves.size(); ++o)
     		this->octaves[o]->set_radius_preblur(k);
     }
+    void MultiscaleFinder3D::set_ZXratio(const double &ratio)
+    {
+    	for(size_t o=0; o<this->octaves.size(); ++o)
+    		dynamic_cast<OctaveFinder3D*>(this->octaves[o])->set_ZXratio(ratio);
+    }
 
     /**
      * \brief fill all the octaves
@@ -266,4 +271,18 @@ namespace Colloids {
     	}
     	return upscaled;
 	}
+    /**
+     * \brief Correct radii by solving inter-particle coupling
+     */
+    void MultiscaleFinder3D::global_scale2radius(std::vector<Center3D > &centers) const
+    {
+    	//bonds and distances
+
+    	//solve system 1
+
+    	//solve system 2
+
+    	//results
+
+    }
 }

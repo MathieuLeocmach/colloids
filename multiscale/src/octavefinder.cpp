@@ -43,7 +43,7 @@ OctaveFinder::OctaveFinder(const int nrows, const int ncols, const int nbLayers,
 }
 
 OctaveFinder3D::OctaveFinder3D(const int nplanes, const int nrows, const int ncols, const int nbLayers, const double &preblur_radius) :
-	OctaveFinder(0, 0, nbLayers, preblur_radius), iterative_Zgaussian_filters(nbLayers+2)
+	OctaveFinder(0, 0, nbLayers, preblur_radius), iterative_Zgaussian_filters(nbLayers+2), ZXratio(1.0)
 {
 	//random file name in the working directory
 	this->path.reserve(30);
@@ -146,7 +146,7 @@ void Colloids::OctaveFinder::_fill_internal(Image &temp)
 		cv::subtract(this->layersG[i+1], this->layersG[i], this->layers[i]);
 }
 
-void inplace_blur3D(OctaveFinder::Image &im, double radius)
+void inplace_blur3D(OctaveFinder::Image &im, const double &radius, const double &ZXratio=1.0)
 {
 	typedef OctaveFinder::PixelType PixelType;
 	typedef OctaveFinder::Image Image;
@@ -162,7 +162,7 @@ void inplace_blur3D(OctaveFinder::Image &im, double radius)
 		cv::Ptr<cv::FilterEngine> filter = createSeparableLinearFilter
 		(
 			im.type(), im.type(),
-			kx, OctaveFinder::get_kernel(radius),
+			kx, OctaveFinder::get_kernel(radius/ZXratio),
 			cv::Point(-1,-1), 0, cv::BORDER_DEFAULT
 		);
 		int sectionsize = temp2D.cols/omp_get_num_threads();
@@ -195,7 +195,7 @@ void inplace_blur3D(OctaveFinder::Image &im, double radius)
 	cv::Ptr<cv::FilterEngine> filterZ = createSeparableLinearFilter
 	(
 		im.type(), im.type(),
-		kx, OctaveFinder::get_kernel(radius),
+		kx, OctaveFinder::get_kernel(radius/ZXratio),
 		cv::Point(-1,-1), 0, cv::BORDER_DEFAULT
 	);
 	filterZ->apply(temp2D, temp2D);
@@ -219,7 +219,7 @@ void Colloids::OctaveFinder3D::_fill_internal(Image &temp)
 	//iterative Gaussian blur
 	for(size_t i=0; i<this->layersG.size()-1; ++i)
 	{
-		inplace_blur3D(temp, this->iterative_radii[i]);
+		inplace_blur3D(temp, this->iterative_radii[i], this->ZXratio);
 		//write gaussian layer to disk
 		temp.copyTo(this->layersG[i+1]);
 	}
@@ -232,7 +232,7 @@ void Colloids::OctaveFinder::preblur(Image &input)
 
 void Colloids::OctaveFinder3D::preblur(Image &input)
 {
-	inplace_blur3D(input, this->preblur_radius);
+	inplace_blur3D(input, this->preblur_radius, this->ZXratio);
 	//write to disk
 	input.copyTo(this->layersG.front());
 
@@ -959,13 +959,13 @@ void Colloids::OctaveFinder3D::fill_iterative_radii()
 		this->iterative_Zgaussian_filters[i] = *createSeparableLinearFilter
 		(
 				this->layersG[0].type(), this->layersG[0].type(),
-				kx, get_kernel(this->iterative_radii[i]),
+				kx, get_kernel(this->iterative_radii[i]/this->ZXratio),
 				cv::Point(-1,-1), 0, cv::BORDER_DEFAULT
 		);
 	this->preblur_Zfilter = createSeparableLinearFilter
 	(
 			this->layersG[0].type(), this->layersG[0].type(),
-			kx, get_kernel(this->preblur_radius),
+			kx, get_kernel(this->preblur_radius/this->ZXratio),
 			cv::Point(-1,-1), 0, cv::BORDER_DEFAULT
 	);
 }

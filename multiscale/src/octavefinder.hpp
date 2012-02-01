@@ -95,6 +95,7 @@ namespace Colloids
 			virtual ~OctaveFinder3D();
 
 			inline const int & get_depth() const {return this->layersG[0].size[this->layersG[0].dims-3];};
+			inline void set_ZXratio(const double& ratio){this->ZXratio = ratio;}
 
 			virtual void initialize_binary(const double &max_ratio = 1.1);
 			virtual void spatial_subpix(const std::vector<int> &ci, Center_base& c) const;
@@ -110,6 +111,7 @@ namespace Colloids
 			std::vector<cv::FilterEngine> iterative_Zgaussian_filters;
 			cv::Ptr<cv::FilterEngine> preblur_Zfilter;
 			std::vector<Center3D> centers;
+			double ZXratio;
 
 			virtual void fill_iterative_radii();
 			virtual void preblur(Image &input);

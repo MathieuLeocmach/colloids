@@ -72,8 +72,10 @@ public:
 	MultiscaleFinder3D(const int nplanes=256, const int nrows=256, const int ncols=256, const int nbLayers=3, const double &preblur_radius=1.6);
 	virtual const size_t get_width() const {return this->octaves[0]->get_width()/2; };
 	const size_t get_depth() const {return dynamic_cast<OctaveFinder3D*>(this->octaves[0])->get_depth()/2; };
+	void set_ZXratio(const double &ratio);
 	virtual Image downscale(const size_t &o) const;
 	virtual Image upscale(const cv::Mat &input) const;
+	void global_scale2radius(std::vector<Center3D > &centers) const;
 };
 
 /**

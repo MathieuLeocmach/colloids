@@ -66,6 +66,8 @@ int main(int ac, char* av[]){
 			//initialize the finder
 			int dimsint[3] = {dims[2], dims[1], dims[0]};
 			MultiscaleFinder3D finder(dimsint[0], dimsint[1], dimsint[2]);
+			//set the voxel size ratio (sampling in Z is often poorer than in X and Y)
+			finder.set_ZXratio(serie.getZXratio());
 			//re-open the LIF as a memory mapped file
 			boost::iostreams::mapped_file_source file(vm["input"].as<std::string>());
 			//container for tracked particles
@@ -111,7 +113,7 @@ int main(int ac, char* av[]){
 				}
 				//scale z according to the Z/X ratio of the image voxel
 				const double ZXratio = serie.getZXratio();
-				for(int c=0; c<centers.size(); ++c)
+				for(size_t c=0; c<centers.size(); ++c)
 					centers[c][2] *=  ZXratio;
 				//remove overlap
 				removeOverlapping(centers);
