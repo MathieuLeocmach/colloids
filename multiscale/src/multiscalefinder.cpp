@@ -45,7 +45,7 @@ namespace Colloids {
 		//must not fail if the image is too small, construct the 0th octave anyway
 		const int s = (nplanes<10 || nrows<10 || ncols<10)?1:(log(min(nplanes, min(nrows, ncols))/5)/log(2));
 		this->octaves.reserve((size_t)s);
-		this->octaves.push_back(new OctaveFinder3D(2*nplanes, 2*nrows, 2*ncols, nbLayers, preblur_radius));
+		this->octaves.push_back(new OctaveFinder3D(2*nplanes, 2*nrows, 2*ncols, nbLayers, preblur_radius, false));
 		int opl = nplanes, ocr = nrows, occ = ncols;
 		while(opl >=10 && ocr >= 10 && occ >= 10)
 		{
@@ -92,9 +92,9 @@ namespace Colloids {
     	}
     	if(this->use_Octave0())
     	{
-			//upscale the input to fill the first octave
+			//half preblur and upscale the input to fill the first octave
 			Image upscaled = this->upscale(input);
-			this->octaves[0]->preblur_and_fill(upscaled);
+			this->octaves[0]->fill(upscaled);
     	}
     	if(this->octaves.size()>1)
 			//Octave 1 corresponds to the size of the input image.
@@ -162,6 +162,8 @@ namespace Colloids {
 	}
     MultiscaleFinder::Image MultiscaleFinder2D::upscale(const cv::Mat &input) const
     {
+    	Image halfblured(input);
+    	cv::GaussianBlur(halfblured, halfblured, cv::Size(0,0), this->get_radius_preblur()/2.0);
     	Image upscaled(
     			input.size[0]*2,
     			input.size[1]*2,
@@ -171,7 +173,7 @@ namespace Colloids {
 		{
     		//convert the unknown input type to PixelType
     		Image input_row;
-    		input.row(j).convertTo(input_row, input_row.type());
+    		halfblured.row(j).convertTo(input_row, input_row.type());
     		//copy to the even pixels
     		PixelType * u = &upscaled(2*j, 0);
 			const PixelType * s = &input_row(0,0);
@@ -206,6 +208,7 @@ namespace Colloids {
 		//convert the unknown input type to PixelType
 		Image input_row;
 		input.convertTo(input_row, input_row.type());
+		cv::GaussianBlur(input_row, input_row, cv::Size(0,0), this->get_radius_preblur()/2.0);
 		//copy to the even pixels
 		PixelType * u = &upscaled(0, 0);
 		const PixelType * s = &input_row(0,0);
@@ -230,8 +233,11 @@ namespace Colloids {
 			dynamic_cast<OctaveFinder3D*>(this->octaves[0])->get_depth(),
 			this->octaves[0]->get_width(),
 			this->octaves[0]->get_height()};
+    	Image halfblurred;
+    	input.convertTo(halfblurred, halfblurred.type());
+    	inplace_blur3D(halfblurred, this->get_radius_preblur()/2.0, this->get_ZXratio());
     	Image upscaled(3, dims, (OctaveFinder::PixelType)0);
-    	cv::Mat input2D(input.size[0]*input.size[1], input.size[2], input.type(), input.data);
+    	cv::Mat input2D(input.size[0]*input.size[1], input.size[2], halfblurred.type(), halfblurred.data);
     	//fill the even lines of the even planes
     	for(int k=0; k<input.size[0]; ++k)
     		for(int j=0; j<input.size[1]; ++j)
