@@ -46,11 +46,14 @@ OctaveFinder3D::OctaveFinder3D(const int nplanes, const int nrows, const int nco
 	OctaveFinder(0, 0, nbLayers, preblur_radius), iterative_Zgaussian_filters(nbLayers+2), ZXratio(1.0)
 {
 	//random file name in the working directory
-	this->path.reserve(30);
-	this->path.push_back('_');
-	this->path.push_back('_');
-	for(int i=0; i<28;++i)
-		this->path.push_back('a'+rand()%('Z'-'a'));
+	do
+	{
+		this->path.reserve(30);
+		this->path.push_back('_');
+		this->path.push_back('_');
+		for(int i=0; i<28;++i)
+			this->path.push_back('a'+rand()%('Z'-'a'));
+	} while(std::ifstream(path.c_str()).good());
 	//create a memory mapped file to contain the images data
 	boost::iostreams::mapped_file_params params(this->path);
 	const size_t nbpixels =  nplanes * nrows * ncols;
