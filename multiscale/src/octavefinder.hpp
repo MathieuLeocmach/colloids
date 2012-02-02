@@ -91,7 +91,7 @@ namespace Colloids
     class OctaveFinder3D : public OctaveFinder
     {
 		public:
-			OctaveFinder3D(const int nplanes=256, const int nrows=256, const int ncols=256, const int nbLayers=3, const double &preblur_radius=1.6);
+			OctaveFinder3D(const int nplanes=256, const int nrows=256, const int ncols=256, const int nbLayers=3, const double &preblur_radius=1.6, bool incore=false);
 			virtual ~OctaveFinder3D();
 
 			inline const int & get_depth() const {return this->layersG[0].size[this->layersG[0].dims-3];};
@@ -105,6 +105,7 @@ namespace Colloids
 			inline void inner_center(std::vector<Center3D> &cs) const {cs = this->centers;};
 
 		protected:
+			char * data;
 			boost::iostreams::mapped_file file;
 			std::string path;
 			std::vector<Image > layersG2D;

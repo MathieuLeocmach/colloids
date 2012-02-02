@@ -25,6 +25,9 @@ int main(int ac, char* av[]){
 					"Enables upsampling of the image to get two times smaller particles (between 4 and 8 pixels in diameter)\n"
 					"NOT resilient to noise"
 					)
+			("incore",
+					"Do not use memory mapped file to store the data. If you have enough RAM this will speed up the calculation. If you don't it will trigger swapping and global slow down or even crash.\n"
+					"If the Octave0 option in ON, the 0th octave still uses memory mapped file.")
 			("verbose,v", "Output debugging information")
 			("help", "Show this help and exit")
 			;
@@ -69,7 +72,7 @@ int main(int ac, char* av[]){
 		{
 			//initialize the finder
 			int dimsint[3] = {dims[2], dims[1], dims[0]};
-			MultiscaleFinder3D finder(dimsint[0], dimsint[1], dimsint[2]);
+			MultiscaleFinder3D finder(dimsint[0], dimsint[1], dimsint[2], 3, 1.6, vm.count("incore"));
 			//set the voxel size ratio (sampling in Z is often poorer than in X and Y)
 			finder.set_ZXratio(serie.getZXratio());
 			if(!vm.count("Octave0"))

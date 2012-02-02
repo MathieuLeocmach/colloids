@@ -40,7 +40,7 @@ namespace Colloids {
 			occ /= 2;
 		}
 	}
-	MultiscaleFinder3D::MultiscaleFinder3D(const int nplanes, const int nrows, const int ncols, const int nbLayers, const double &preblur_radius)
+	MultiscaleFinder3D::MultiscaleFinder3D(const int nplanes, const int nrows, const int ncols, const int nbLayers, const double &preblur_radius, bool incore)
 	{
 		//must not fail if the image is too small, construct the 0th octave anyway
 		const int s = (nplanes<10 || nrows<10 || ncols<10)?1:(log(min(nplanes, min(nrows, ncols))/5)/log(2));
@@ -49,7 +49,7 @@ namespace Colloids {
 		int opl = nplanes, ocr = nrows, occ = ncols;
 		while(opl >=10 && ocr >= 10 && occ >= 10)
 		{
-			this->octaves.push_back(new OctaveFinder3D(opl, ocr, occ, nbLayers, preblur_radius));
+			this->octaves.push_back(new OctaveFinder3D(opl, ocr, occ, nbLayers, preblur_radius, incore));
 			opl /= 2;
 			ocr /= 2;
 			occ /= 2;

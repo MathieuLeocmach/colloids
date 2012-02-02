@@ -1477,6 +1477,15 @@ BOOST_AUTO_TEST_SUITE( octave3D_constructors )
 		BOOST_CHECK_EQUAL(finder.get_height(), 512);
 		BOOST_CHECK_EQUAL(finder.get_n_layers(), 10);
 	}
+	BOOST_AUTO_TEST_CASE( octave3D_constructor_incore )
+	{
+		OctaveFinder3D finder(256, 256, 256, 3, 1.6, true);
+		BOOST_CHECK_EQUAL(finder.get_depth(), 256);
+		BOOST_CHECK_EQUAL(finder.get_width(), 256);
+		BOOST_CHECK_EQUAL(finder.get_height(), 256);
+		BOOST_CHECK_EQUAL(finder.get_n_layers(), 3);
+
+	}
 
 BOOST_AUTO_TEST_SUITE_END() //constructors
 
@@ -1794,6 +1803,35 @@ BOOST_AUTO_TEST_SUITE( multiscale3D_constructors )
         finder.set_radius_preblur(1.6);
         BOOST_CHECK_CLOSE(finder.get_radius_preblur(), 1.6, 1e-9);
     }
+	BOOST_AUTO_TEST_CASE( multiscale3D_constructor_incore )
+		{
+			MultiscaleFinder3D finder(256,256,256,3,1.6,true);
+			BOOST_REQUIRE_EQUAL(finder.get_n_octaves(), 6);
+			BOOST_CHECK_EQUAL(dynamic_cast<const OctaveFinder3D&>(finder.get_octave(1)).get_depth(), 256);
+			BOOST_CHECK_EQUAL(finder.get_octave(1).get_width(), 256);
+			BOOST_CHECK_EQUAL(finder.get_octave(1).get_height(), 256);
+			BOOST_CHECK_EQUAL(finder.get_octave(1).get_n_layers(), 3);
+			BOOST_CHECK_EQUAL(dynamic_cast<const OctaveFinder3D&>(finder.get_octave(0)).get_depth(), 512);
+			BOOST_CHECK_EQUAL(finder.get_octave(0).get_width(), 512);
+			BOOST_CHECK_EQUAL(finder.get_octave(0).get_height(), 512);
+			BOOST_CHECK_EQUAL(finder.get_octave(0).get_n_layers(), 3);
+			BOOST_CHECK_EQUAL(dynamic_cast<const OctaveFinder3D&>(finder.get_octave(2)).get_depth(), 128);
+			BOOST_CHECK_EQUAL(finder.get_octave(2).get_width(), 128);
+			BOOST_CHECK_EQUAL(finder.get_octave(2).get_height(), 128);
+			BOOST_CHECK_EQUAL(finder.get_octave(2).get_n_layers(), 3);
+			BOOST_CHECK_EQUAL(dynamic_cast<const OctaveFinder3D&>(finder.get_octave(3)).get_depth(), 64);
+			BOOST_CHECK_EQUAL(finder.get_octave(3).get_width(), 64);
+			BOOST_CHECK_EQUAL(finder.get_octave(3).get_height(), 64);
+			BOOST_CHECK_EQUAL(finder.get_octave(3).get_n_layers(), 3);
+			BOOST_CHECK_EQUAL(dynamic_cast<const OctaveFinder3D&>(finder.get_octave(4)).get_depth(), 32);
+			BOOST_CHECK_EQUAL(finder.get_octave(4).get_width(), 32);
+			BOOST_CHECK_EQUAL(finder.get_octave(4).get_height(), 32);
+			BOOST_CHECK_EQUAL(finder.get_octave(4).get_n_layers(), 3);
+			BOOST_CHECK_EQUAL(dynamic_cast<const OctaveFinder3D&>(finder.get_octave(5)).get_depth(), 16);
+			BOOST_CHECK_EQUAL(finder.get_octave(5).get_width(), 16);
+			BOOST_CHECK_EQUAL(finder.get_octave(5).get_height(), 16);
+			BOOST_CHECK_EQUAL(finder.get_octave(5).get_n_layers(), 3);
+		}
 BOOST_AUTO_TEST_SUITE_END()
 
 BOOST_AUTO_TEST_SUITE( multiscale3D_call )
@@ -1917,6 +1955,183 @@ BOOST_AUTO_TEST_SUITE( john )
 		removeOverlapping(centers);
 		BOOST_CHECK_EQUAL(centers.size(), simulation.size());
 		std::ofstream out("test_output/john_exact_mono.csv");
+		out<<"x y z r i\n";
+		double meanr = 0.0, minr = centers.front().r , maxr = minr;
+		for(size_t p=0; p<centers.size(); ++p)
+		{
+			for(size_t d=0; d<3; ++d)
+				out<< centers[p][d] - radius << " ";
+			out<<centers[p].r<<" "<<centers[p].intensity<<"\n";
+			meanr += centers[p].r;
+			if(centers[p].r < minr)
+				minr = centers[p].r;
+			if(maxr < centers[p].r)
+				maxr = centers[p].r;
+		}
+		meanr /= centers.size();
+		BOOST_CHECK_CLOSE(meanr, radius, 0.3);
+		BOOST_CHECK_GT(minr, radius*0.9);
+		BOOST_CHECK_LT(maxr, radius*0.11);
+	}
+	BOOST_AUTO_TEST_CASE( exact_mono_dilute )
+	{
+		//read simulation output
+		std::vector<Center3D> simulation;
+		std::vector<Center3D> simulationL;
+		Center3D c(0.0, 5.0), cL=c;
+		std::ifstream sim("test_input/poly00_phi05.dat");
+		size_t nb;
+		sim >> nb;
+		sim >> nb;
+		double boxsize;
+		sim >> boxsize;
+		sim >> boxsize;
+		sim >> boxsize;
+		for(size_t p=0; p<nb; ++p)
+		{
+			for(size_t d=0; d<3; ++d)
+			{
+				sim >> c[d];
+				//periodic boundary conditions
+				if(c[d]<0)
+					c[d] += boxsize;
+				if(c[d] >= boxsize)
+					c[d] -= boxsize;
+			}
+			//rescale
+			for(size_t d=0; d<3; ++d)
+			{
+				cL[d] = (c[d]+0.5) * 256.0 / (2.0 + boxsize);
+				c[d] = (c[d]+0.5) * 128.0 / (2.0 + boxsize);
+			}
+			simulation.push_back(c);
+			simulationL.push_back(cL);
+		}
+		sim.close();
+		const double radius = 0.5 * 128.0 / (2.0 + boxsize),
+				radiusL = 0.5 * 256.0 / (2.0 + boxsize);
+		//track each particle independently
+		std::ofstream out("test_output/john_exact_mono_dilute.csv");
+		std::ofstream outL("test_output/john_exact_mono_large_dilute.csv");
+		out<<"x y z r i\n";
+		outL<<"x y z r i\n";
+		MultiscaleFinder3D finder(24,24,24);
+		std::vector<Center3D> centers;
+		double meanr = 0.0, minr = 2*radius , maxr = 0.5*radius;
+		double meanrL = 0.0, minrL = 2*radiusL , maxrL = 0.5*radiusL;
+		int dims[3] = {24, 24, 24}, ldims[3] = {24*4, 24*4, 24*4};
+		cv::Mat_<uchar> input(3, dims), linput(3, ldims);
+		for(size_t p=0; p<simulation.size(); ++p)
+		{
+			linput.setTo(0);
+			//draw a sphere about at the center, but keeping subpixel dilute position
+			drawsphere(linput,
+				4*(simulation[p][2]-floor(simulation[p][2])+12),
+				4*(simulation[p][1]-floor(simulation[p][1])+12),
+				4*(simulation[p][0]-floor(simulation[p][0])+12),
+				4*radius, (unsigned char)255);
+			volume_shrink(linput, input, 4);
+			finder.get_centers(input, centers);
+			removeOverlapping(centers);
+			BOOST_REQUIRE_EQUAL(centers.size(), 1);
+			for(size_t d=0; d<3; ++d)
+				out<< centers[0][d] - radius << " ";
+			out<<centers.front().r<<" "<<centers[0].intensity<<"\n";
+			meanr += centers[0].r;
+			if(centers[0].r < minr)
+				minr = centers[0].r;
+			if(maxr < centers[0].r)
+				maxr = centers[0].r;
+			linput.setTo(0);
+			//draw a sphere about at the center, but keeping subpixel dilute position
+			drawsphere(linput,
+				4*(simulationL[p][2]-floor(simulationL[p][2])+12),
+				4*(simulationL[p][1]-floor(simulationL[p][1])+12),
+				4*(simulationL[p][0]-floor(simulationL[p][0])+12),
+				4*radiusL, (unsigned char)255);
+			volume_shrink(linput, input, 4);
+			finder.get_centers(input, centers);
+			removeOverlapping(centers);
+			BOOST_REQUIRE_EQUAL(centers.size(), 1);
+			for(size_t d=0; d<3; ++d)
+				outL<< centers[0][d] - radius << " ";
+			outL<<centers.front().r<<" "<<centers[0].intensity<<"\n";
+			meanrL += centers[0].r;
+			if(centers[0].r < minrL)
+				minrL = centers[0].r;
+			if(maxrL < centers[0].r)
+				maxrL = centers[0].r;
+		}
+		meanr /= simulation.size();
+		BOOST_CHECK_CLOSE(meanr, radius, 0.3);
+		BOOST_CHECK_GT(minr, radius*0.9);
+		BOOST_CHECK_LT(maxr, radius*0.11);
+		meanrL /= simulationL.size();
+		BOOST_CHECK_CLOSE(meanrL, radiusL, 0.3);
+		BOOST_CHECK_GT(minrL, radiusL*0.9);
+		BOOST_CHECK_LT(maxrL, radiusL*0.11);
+	}
+	BOOST_AUTO_TEST_CASE( exact_mono_large )
+	{
+		//read simulation output
+		std::vector<Center3D> simulation;
+		Center3D c(0.0, 5.0);
+		std::ifstream sim("test_input/poly00_phi05.dat");
+		size_t nb;
+		sim >> nb;
+		sim >> nb;
+		double boxsize;
+		sim >> boxsize;
+		sim >> boxsize;
+		sim >> boxsize;
+		for(size_t p=0; p<nb; ++p)
+		{
+			for(size_t d=0; d<3; ++d)
+			{
+				sim >> c[d];
+				//periodic boundary conditions
+				if(c[d]<0)
+					c[d] += boxsize;
+				if(c[d] >= boxsize)
+					c[d] -= boxsize;
+			}
+			//select 1/8th of the volume
+			//if(std::max(c[0], std::max(c[1], c[2])) > boxsize*0.5)
+					//continue;
+			//rescale
+			for(size_t d=0; d<3; ++d)
+				c[d] = (c[d]+0.5) * 256.0 / (2.0 + boxsize);
+			simulation.push_back(c);
+		}
+		sim.close();
+		//create an empty, black input picture as big as the simulation box + margins
+		const double radius = 0.5 * 256.0 / (2.0 + boxsize);
+		int dims[3] = {256, 256, 256}, ldims[3] = {1024, 1024, 1024};
+		cv::Mat_<uchar> input(3, dims);
+		{
+			cv::Mat_<uchar> linput(3, ldims);
+			linput.setTo(0);
+			//paint spheres at the positions and sizes given by the simulation output
+			for(size_t p=0; p<simulation.size(); ++p)
+			{
+				drawsphere(linput,
+						4*simulation[p][2],
+						4*simulation[p][1],
+						4*simulation[p][0],
+						4*radius, (unsigned char)255);
+			}
+			volume_shrink(linput, input, 4);
+		}
+		//track in 3D
+		MultiscaleFinder3D finder(256,256,256);
+		std::vector<Center3D> centers;
+		finder.get_centers(input, centers);
+		//compare track output and simulation output
+		BOOST_REQUIRE(!centers.empty());
+		BOOST_CHECK_GT(centers.size(), simulation.size());
+		removeOverlapping(centers);
+		BOOST_CHECK_EQUAL(centers.size(), simulation.size());
+		std::ofstream out("test_output/john_exact_mono_large.csv");
 		out<<"x y z r i\n";
 		double meanr = 0.0, minr = centers.front().r , maxr = minr;
 		for(size_t p=0; p<centers.size(); ++p)
