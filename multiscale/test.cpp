@@ -851,7 +851,9 @@ BOOST_AUTO_TEST_SUITE( multiscale_call )
 		std::vector<Center2D> v, v_s;
 		std::ofstream f("test_output/multiscale_relative_sizes.out");
 		std::set<int> large_radii;
-		for(int k=1; k<s-1; ++k)
+		for(int i=0; i<32; ++i)
+			large_radii.insert(56+i);
+		for(int k=2; k<s-1; ++k)
 			for(int i=0; i<32; ++i)
 				large_radii.insert(48*pow(2, k-1)+i*pow(2, k));
 		for(std::set<int>::const_iterator lr = large_radii.begin(); lr != large_radii.end(); ++lr)
@@ -1898,7 +1900,8 @@ BOOST_AUTO_TEST_SUITE( john )
 		std::vector<Center3D> simulation;
 		Center3D c(0.0, 5.0);
 		std::ifstream sim("test_input/poly00_phi05.dat");
-		size_t nb;
+		BOOST_REQUIRE_MESSAGE(sim.good(), "could not find test_input/poly00_phi05.dat");
+		size_t nb=0;
 		sim >> nb;
 		sim >> nb;
 		double boxsize;
@@ -1980,7 +1983,8 @@ BOOST_AUTO_TEST_SUITE( john )
 		std::vector<Center3D> simulationL;
 		Center3D c(0.0, 5.0), cL=c;
 		std::ifstream sim("test_input/poly00_phi05.dat");
-		size_t nb;
+		BOOST_REQUIRE_MESSAGE(sim.good(), "could not find test_input/poly00_phi05.dat");
+		size_t nb=0;
 		sim >> nb;
 		sim >> nb;
 		double boxsize;
@@ -2077,7 +2081,8 @@ BOOST_AUTO_TEST_SUITE( john )
 		std::vector<Center3D> simulation;
 		Center3D c(0.0, 5.0);
 		std::ifstream sim("test_input/poly00_phi05.dat");
-		size_t nb;
+		BOOST_REQUIRE_MESSAGE(sim.good(), "could not find test_input/poly00_phi05.dat");
+		size_t nb=0;
 		sim >> nb;
 		sim >> nb;
 		double boxsize;
