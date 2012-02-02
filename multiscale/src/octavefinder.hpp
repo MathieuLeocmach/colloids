@@ -96,6 +96,7 @@ namespace Colloids
 
 			inline const int & get_depth() const {return this->layersG[0].size[this->layersG[0].dims-3];};
 			inline void set_ZXratio(const double& ratio){this->ZXratio = ratio;}
+			inline const double& get_ZXratio() const {return this->ZXratio;}
 
 			virtual void initialize_binary(const double &max_ratio = 1.1);
 			virtual void spatial_subpix(const std::vector<int> &ci, Center_base& c) const;
@@ -186,6 +187,6 @@ namespace Colloids
 		int z0;
 	};
 
-	void inplace_blur3D(OctaveFinder::Image &im, const double &radius, const double &ZXratio=1.0);
+	void inplace_blur3D(cv::Mat &im, const double &radius, const double &ZXratio=1.0);
 };
 #endif // OCTAVEFINDER_H

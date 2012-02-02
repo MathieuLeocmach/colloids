@@ -161,13 +161,11 @@ void Colloids::OctaveFinder::_fill_internal(Image &temp)
 		cv::subtract(this->layersG[i+1], this->layersG[i], this->layers[i]);
 }
 
-void inplace_blur3D(OctaveFinder::Image &im, const double &radius, const double &ZXratio)
+void inplace_blur3D(cv::Mat &im, const double &radius, const double &ZXratio)
 {
-	typedef OctaveFinder::PixelType PixelType;
-	typedef OctaveFinder::Image Image;
-	Image temp2D(
+	cv::Mat temp2D(
 		im.size[0], im.size[1]*im.size[2],
-		(PixelType*)im.data
+		im.type(), (void*)im.data
 	);
 	# ifdef _OPENMP
 	#pragma omp parallel
@@ -185,7 +183,7 @@ void inplace_blur3D(OctaveFinder::Image &im, const double &radius, const double 
 				omp_get_thread_num()*sectionsize, 0,
 				sectionsize, temp2D.rows
 				)&cv::Rect(0,0,temp2D.cols, temp2D.rows);
-		Image dst(temp2D, roi);
+		cv::Mat dst(temp2D, roi);
 		filter->apply(dst, dst);
 	}
 	//X and Y plane by plane
@@ -200,7 +198,7 @@ void inplace_blur3D(OctaveFinder::Image &im, const double &radius, const double 
 		#pragma omp for
 		for(int k=0; k<im.size[0]; ++k)
 		{
-			cv::Mat slice(im.size[1], im.size[2], im.type(), (void*)&temp2D(k));
+			cv::Mat slice(im.size[1], im.size[2], im.type(), (void*)temp2D.ptr(k));
 			filter->apply(slice, slice);
 		}
 	}
