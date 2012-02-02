@@ -21,6 +21,10 @@ int main(int ac, char* av[]){
 			("output,o", po::value<std::string>(&output)->default_value("./output"), "file to output to")
 			("series,s", po::value<int>(&ser), "Dataset number")
 			("start", po::value<int>()->default_value(0), "Starting time step. The output file numbering will also start at that time.")
+			("Octave0",
+					"Enables upsampling of the image to get two times smaller particles (between 4 and 8 pixels in diameter)\n"
+					"NOT resilient to noise"
+					)
 			("verbose,v", "Output debugging information")
 			("help", "Show this help and exit")
 			;
@@ -68,6 +72,8 @@ int main(int ac, char* av[]){
 			MultiscaleFinder3D finder(dimsint[0], dimsint[1], dimsint[2]);
 			//set the voxel size ratio (sampling in Z is often poorer than in X and Y)
 			finder.set_ZXratio(serie.getZXratio());
+			if(!vm.count("Octave0"))
+				finder.disable_Octave0();
 			//re-open the LIF as a memory mapped file
 			boost::iostreams::mapped_file_source file(vm["input"].as<std::string>());
 			//container for tracked particles

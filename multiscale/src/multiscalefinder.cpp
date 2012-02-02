@@ -90,9 +90,12 @@ namespace Colloids {
     		std::cerr<< "input.cols="<<input.cols<<"\theight="<<this->get_height()<<std::endl;
     	    throw std::invalid_argument("MultiscaleFinder::fill : the input's cols must match the height of the finder");
     	}
-    	//upscale the input to fill the first octave
-    	Image upscaled = this->upscale(input);
-    	this->octaves[0]->preblur_and_fill(upscaled);
+    	if(this->use_Octave0())
+    	{
+			//upscale the input to fill the first octave
+			Image upscaled = this->upscale(input);
+			this->octaves[0]->preblur_and_fill(upscaled);
+    	}
     	if(this->octaves.size()>1)
 			//Octave 1 corresponds to the size of the input image.
 			//To avoid errors in the upsampling+downsampling process, we use the input directly
@@ -109,8 +112,9 @@ namespace Colloids {
      */
 	void MultiscaleFinder::initialize_binary()
 	{
+		const size_t o0 = this->use_Octave0()?0:1;
 		//initialize binary for each octave
-    	for(size_t o=0; o<this->octaves.size(); ++o)
+    	for(size_t o=o0; o<this->octaves.size(); ++o)
 			this->octaves[o]->initialize_binary();
     	//Remove pixel centers that exist in consecutive octaves
     	/*for(size_t o=0; o<this->octaves.size()-1; ++o)

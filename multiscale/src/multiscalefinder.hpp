@@ -30,6 +30,9 @@ public:
 	const double & get_radius_preblur() const {return this->octaves[0]->get_radius_preblur();}
 	const double & get_prefactor() const {return this->octaves[0]->get_prefactor();}
 	void set_radius_preblur(const double &k=1.6);
+	void allow_Octave0(){this->Octave0=true;}
+	void disable_Octave0(){this->Octave0=false;}
+	const bool& use_Octave0()const {return this->Octave0;}
 	//processing
 	void fill(const cv::Mat &input);
 	void initialize_binary();
@@ -44,8 +47,9 @@ public:
 
 protected:
 	std::vector<OctaveFinder*> octaves;
+	bool Octave0;
 	//Image small, upscaled;
-	MultiscaleFinder(){};
+	MultiscaleFinder():Octave0(true){};
 };
 
 class MultiscaleFinder2D : public MultiscaleFinder
@@ -85,18 +89,19 @@ template<int D>
 void MultiscaleFinder::subpix(std::vector<Center<D> > &centers) const
 {
 	centers.clear();
+	const size_t o0 = this->use_Octave0()?0:1;
 	//reserve memory for the center container
 	size_t n_centers = 0;
-	for(size_t o=0; o<this->octaves.size(); ++o)
+	for(size_t o=o0; o<this->octaves.size(); ++o)
 		n_centers += this->octaves[o]->get_nb_centers();
 	centers.reserve(n_centers);
 	//subpixel resolution
-	for(size_t o=0; o<this->octaves.size(); ++o)
+	for(size_t o=o0; o<this->octaves.size(); ++o)
 	{
 		std::vector<Center<D> > v;
 		this->octaves[o]->subpix(v);
 		//correct the seam between octaves in sizing precision
-		if(o>0)
+		if(o>o0)
 			for(size_t p=0; p<v.size(); ++p)
 				this->seam(v[p], o-1);
 		//transform scale coordinate in size coordinate
