@@ -184,5 +184,7 @@ namespace Colloids
 		Image gaussians;
 		int z0;
 	};
+
+	void inplace_blur3D(OctaveFinder::Image &im, const double &radius, const double &ZXratio=1.0);
 };
 #endif // OCTAVEFINDER_H

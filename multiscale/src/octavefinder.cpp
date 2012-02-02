@@ -146,7 +146,7 @@ void Colloids::OctaveFinder::_fill_internal(Image &temp)
 		cv::subtract(this->layersG[i+1], this->layersG[i], this->layers[i]);
 }
 
-void inplace_blur3D(OctaveFinder::Image &im, const double &radius, const double &ZXratio=1.0)
+void inplace_blur3D(OctaveFinder::Image &im, const double &radius, const double &ZXratio)
 {
 	typedef OctaveFinder::PixelType PixelType;
 	typedef OctaveFinder::Image Image;
