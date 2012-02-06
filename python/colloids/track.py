@@ -22,8 +22,10 @@ from colloids import lif, vtk
 from scipy.ndimage.filters import gaussian_filter, gaussian_filter1d, sobel
 from scipy.ndimage.morphology import grey_erosion, grey_dilation, binary_dilation
 from scipy.ndimage import measurements
-from scipy.sparse.linalg import splu
+from scipy.sparse.linalg import splu, spsolve
 from scipy import sparse
+from scipy import weave
+from scipy.weave import converters
 import numexpr
 
 
@@ -430,16 +432,185 @@ def split_clusters(clusters, centers):
         clusters[i] = [p for p,c in zip(k, core) if c]
     return clusters
 
-def radius2scale(R, k=1.6, n=3.0):
+def radius2scale(R, k=1.6, n=3.0, dim=3):
     return n / np.log(2) * np.log(
         R/k * np.sqrt(n*(2**(2.0/n) - 1)/(2 * dim* np.log(2)))
         ) -1
 
-def scale2radius(x, k=1.6, n=3.0, dim=2):
+def scale2radius(x, k=1.6, n=3.0, dim=3):
     return k * 2**((x+1)/float(n))*np.sqrt(
         2 * dim * np.log(2) / float(n) / (2**(2.0/n)-1)
         )
+        
+support_functions = """
+#include <boost/math/special_functions/erf.hpp>
+    inline double halfG(const double &d, const double &R, const double &sigma)
+    {
+        return exp(-pow(R+d, 2)/(2*pow(sigma,2)))*sqrt(2/M_PI)*sigma/d + boost::math::erf((R+d)/sigma/sqrt(2));
+    }
+    inline double G(const double &d, const double &R, const double &sigma)
+    {
+        return halfG(d,R,sigma) + halfG(-d, R, sigma);
+    }
+    inline double G(const double &R, const double &sigma)
+    {
+        const double x = R/sigma/sqrt(2);
+        return boost::math::erf(x) - x*exp(-pow(x, 2))*2/sqrt(M_PI);
+    }
+    inline double DoG(const double &d, const double &R, const double &sigma, const double &alpha)
+    {
+        return G(d,R, alpha*sigma) - G(d, R, sigma);
+    }
+    inline double halfG_dsigma(const double &d, const double &R, const double &s2)
+    {
+        return (R*R+d*R+s2)*exp(-pow(R+d, 2)/(2*s2))/sqrt(2*M_PI)/d/s2;
+    }
+    inline double G_dsigma(const double &d, const double &R, const double &s2)
+    {
+        return halfG_dsigma(d,R,s2) + halfG_dsigma(-d, R, s2);
+    }
+    inline double DoG_dsigma(const double &d, const double &R, const double &sigma, const double &alpha)
+    {
+        return alpha*G_dsigma(d,R, pow(alpha*sigma, 2)) - G_dsigma(d, R, sigma*sigma);
+    }
+    inline double G_dsigma(const double &R, const double &sigma)
+    {
+        return -pow(R,3)/pow(sigma,4)*sqrt(2/M_PI)*exp(-pow(R,2)/2/pow(sigma,2));
+    }
+    inline double halfG_dsigma_dR(const double &d, const double &R, const double &s2)
+    {
+        return -R*(pow(R+d, 2)-s2)*exp(-pow(R+d, 2)/(2*s2))/sqrt(2*M_PI)/d/(s2*s2);
+    }
+    inline double G_dsigma_dR(const double &d, const double &R, const double &s2)
+    {
+        return halfG_dsigma_dR(d,R,s2) + halfG_dsigma_dR(-d, R, s2);
+    }
+    inline double DoG_dsigma_dR(const double &d, const double &R, const double &sigma, const double &alpha)
+    {
+        return alpha*G_dsigma_dR(d,R, pow(alpha*sigma, 2)) - G_dsigma_dR(d, R, sigma*sigma);
+    }
+    inline double G_dsigma_dR(const double &R, const double &sigma)
+    {
+        return pow(R,2)*(pow(R,2)-3*pow(sigma,2))/pow(sigma,6)*sqrt(2/M_PI)*exp(-pow(R,2)/2/pow(sigma,2));
+    }
+    """
 
+def global_rescale_weave(sigma0, bonds, dists, R0=None, n=3):
+    assert len(bonds)==len(dists) 
+    alpha = 2**(1.0/n)
+    if R0==None:
+        R0 = sigma0 * np.sqrt(6.0/n*np.log(2)/(1-alpha**(-2)))
+    v0 = np.zeros([len(sigma0)])
+    tr = np.zeros([len(sigma0)])
+    jacob = np.zeros([len(bonds),2])
+    code = """
+    //using blitz++ expression
+    v0 = -alpha*pow(R0,3)/pow(alpha*sigma0,4)*sqrt(2/M_PI)*exp(-pow(R0, 2)/2/pow(alpha*sigma0,2)) + pow(R0,3)/pow(sigma0,4)*sqrt(2/M_PI)*exp(-pow(R0, 2)/2/pow(sigma0,2));
+    tr = alpha*pow(R0,2)*(pow(R0,2)-3*pow(alpha*sigma0,2))/pow(alpha*sigma0,6)*sqrt(2/M_PI)*exp(-pow(R0,2)/2/pow(alpha*sigma0,2)) - pow(R0,2)*(pow(R0,2)-3*pow(sigma0,2))/pow(sigma0,6)*sqrt(2/M_PI)*exp(-pow(R0,2)/2/pow(sigma0,2));
+    #pragma omp parallel for
+    for(int b=0; b<Nbonds[0]; ++b)
+    {
+        int i = bonds(b,0), j = bonds(b,1);
+        jacob(b,0) = DoG_dsigma_dR(dists(b), R0(j), sigma0(i), alpha);
+        jacob(b,1) = DoG_dsigma_dR(dists(b), R0(i), sigma0(j), alpha);
+        v0(i) += DoG_dsigma(dists(b), R0(j), sigma0(i), alpha);
+        v0(j) += DoG_dsigma(dists(b), R0(i), sigma0(j), alpha);
+    }
+    """
+    weave.inline(
+        code,['bonds', 'dists', 'sigma0', 'R0', 'alpha', 'v0', 'jacob', 'tr'],
+        type_converters =converters.blitz,
+        support_code = support_functions,
+        extra_compile_args =['-O3 -fopenmp'],
+        extra_link_args=['-lgomp'],
+        verbose=2, compiler='gcc')
+    jacob0 = sparse.lil_matrix(tuple([len(sigma0)]*2))
+    for (i,j), (a,b) in zip(bonds, jacob):
+        jacob0[i,j] = a
+        jacob0[j,i] = b
+    for i,a in enumerate(tr):
+        jacob0[i,i] = a
+    return R0 + spsolve(jacob0.tocsc(), -v0)
+    
+def global_rescale_intensity(sigma0, bonds, dists, intensities, R0=None, n=3):
+    assert len(bonds)==len(dists) 
+    alpha = 2**(1.0/n)
+    if R0==None:
+        R0 = sigma0 * np.sqrt(6.0/n*np.log(2)/(1-alpha**(-2)))
+    v0 = np.zeros([len(sigma0)])
+    tr = np.zeros([len(sigma0)])
+    jacob = np.zeros([len(bonds),2])
+    code = """
+    //using blitz++ expression
+    //tr = intensities * (alpha*pow(R0,2)*(pow(R0,2)-3*pow(alpha*sigma0,2))/pow(alpha*sigma0,6)*sqrt(2/M_PI)*exp(-pow(R0,2)/2/pow(alpha*sigma0,2)) - pow(R0,2)*(pow(R0,2)-3*pow(sigma0,2))/pow(sigma0,6)*sqrt(2/M_PI)*exp(-pow(R0,2)/2/pow(sigma0,2)));
+    #pragma omp parallel for
+    for(int i=0; i<Nv0[0]; ++i)
+    {
+        v0(i) = intensities(i) * (alpha*G_dsigma(R0(i), alpha*sigma0(i)) - G_dsigma(R0(i), sigma0(i)));
+        tr(i) = intensities(i) * (alpha*G_dsigma_dR(R0(i), alpha*sigma0(i)) - G_dsigma_dR(R0(i), sigma0(i)));
+    }
+    #pragma omp parallel for
+    for(int b=0; b<Nbonds[0]; ++b)
+    {
+        int i = bonds(b,0), j = bonds(b,1);
+        const double d = std::max(dists(b), R0(i)+R0(j));
+        jacob(b,0) = intensities(j) * DoG_dsigma_dR(d, R0(j), sigma0(i), alpha);
+        jacob(b,1) = intensities(i) * DoG_dsigma_dR(d, R0(i), sigma0(j), alpha);
+        v0(i) += intensities(j) * DoG_dsigma(d, R0(j), sigma0(i), alpha);
+        v0(j) += intensities(i) * DoG_dsigma(d, R0(i), sigma0(j), alpha);
+    }
+    """
+    weave.inline(
+        code,['bonds', 'dists', 'sigma0', 'intensities', 'R0', 'alpha', 'v0', 'jacob', 'tr'],
+        type_converters =converters.blitz,
+        support_code = support_functions,
+        extra_compile_args =['-O3 -fopenmp'],
+        extra_link_args=['-lgomp'],
+        verbose=2, compiler='gcc')
+    jacob0 = sparse.lil_matrix(tuple([len(sigma0)]*2))
+    for (i,j), (a,b) in zip(bonds, jacob):
+        jacob0[i,j] = a
+        jacob0[j,i] = b
+    for i,a in enumerate(tr):
+        jacob0[i,i] = a
+    return R0 + spsolve(jacob0.tocsc(), -v0)
+    
+def solve_intensities(sigma0, bonds, dists, intensities, R0=None, n=3):
+    assert len(bonds)==len(dists) 
+    alpha = 2**(1.0/n)
+    if R0==None:
+        R0 = sigma0 * np.sqrt(6.0/n*np.log(2)/(1-alpha**(-2)))
+    tr = np.zeros([len(sigma0)])
+    ofd = np.zeros([len(bonds),2])
+    code = """
+    #pragma omp parallel for
+    for(int i=0; i<Ntr[0]; ++i)
+        tr(i) = G(R0(i), alpha*sigma0(i)) - G(R0(i), sigma0(i));
+    #pragma omp parallel for
+    for(int b=0; b<Nbonds[0]; ++b)
+    {
+        int i = bonds(b,0), j = bonds(b,1);
+        const double d = dists(b);
+        ofd(b,0) = DoG(d, R0(j), sigma0(i), alpha);
+        ofd(b,1) = DoG(d, R0(i), sigma0(j), alpha);
+    }
+    """
+    weave.inline(
+        code,['bonds', 'dists', 'sigma0', 'R0', 'alpha', 'ofd', 'tr'],
+        type_converters =converters.blitz,
+        support_code = support_functions,
+        extra_compile_args =['-O3 -fopenmp'],
+        extra_link_args=['-lgomp'],
+        verbose=2, compiler='gcc')
+    mat = sparse.lil_matrix(tuple([len(sigma0)]*2))
+    for (i,j), (a,b) in zip(bonds, ofd):
+        mat[i,j] = a
+        mat[j,i] = b
+    for i,a in enumerate(tr):
+        mat[i,i] = a
+    return spsolve(mat.tocsc(), intensities)
+    
+    
 halfG_dsigma = lambda d, R, sigma : (R**2+d*R+sigma**2)*np.exp(-(R+d)**2/(2*sigma**2))/np.sqrt(2*np.pi)/d/sigma**2
 
 def G_dsigma(d, R, sigma):
@@ -486,7 +657,7 @@ def global_rescale(coords, sigma0, R0=None, bonds=None, n=3):
         jacob0[j, i] = DoG_dsigma_dR(d, R0[i], sigma0[j], alpha)
         v0[i] += DoG_dsigma(d, R0[j], sigma0[i], alpha)
         v0[j] += DoG_dsigma(d, R0[i], sigma0[j], alpha)
-    return R0 - splu(jacob0.tocsc()).solve(v0)
+    return R0 + spsolve(jacob0.tocsc(), -v0)
     
 
 
