@@ -1,6 +1,8 @@
 import numpy as np
 from colloids import vtk, statistics
 import os, subprocess, shlex
+from scipy import weave
+from scipy.weave import converters
 
 def get_displ(start, stop, L=203):
     """Compute displacement with periodic bounday conditions, assuming no particle moved further than L/2"""
@@ -114,4 +116,207 @@ def loadXbonds(fname, Q6, thr=0.25):
     #load all bonds
     bonds = np.loadtxt(fname, dtype=int)
     return bonds[np.where(Q6[bonds].min(axis=1)>thr)]
+    
+def get_rdf(p, pos, Nbins, L=203.0, maxdist=None):
+    if maxdist is None:
+        maxdist = L/2.0
+    imaxsq = 1.0/maxdist**2
+    g = np.zeros(Nbins, int)
+    code = """
+    #pragma omp parallel for
+    for(int j=0; j<Npos[0]; ++j)
+    {
+        const double disq = blitz::sum(blitz::pow(blitz::fmod(pos(j,blitz::Range::all())-p+1.5*L, L)-0.5*L, 2));
+        if(disq*imaxsq>=1.0)
+            continue;
+        const int r = sqrt(disq*imaxsq)*Ng[0];
+        #pragma omp atomic
+        ++g(r);
+    }
+    """
+    weave.inline(
+        code,['p', 'pos', 'imaxsq', 'L', 'g'],
+        type_converters =converters.blitz,
+        extra_compile_args =['-O3 -fopenmp'],
+        extra_link_args=['-lgomp'],
+        verbose=2, compiler='gcc')
+    return g
+    
+def get_mono_rdf(pos, Nbins, L, maxdist=None):
+    if maxdist is None:
+        maxdist = L/2.0
+    imaxsq = 1.0/(maxdist**2)
+    g = np.zeros([len(pos), Nbins], int)
+    code = """
+    #pragma omp parallel for
+    for(int i=0; i<Npos[0]; ++i)
+    {
+        for(int j=i+1; j<Npos[0]; ++j)
+        {
+            double disq = 0.0;
+            for(int dim=0; dim<3;++dim)
+                disq += pow(fmod(pos(i,dim)-pos(j,dim)+1.5*L, L)-0.5*L, 2);
+            if(disq*imaxsq>=1)
+                continue;
+            const int r = sqrt(disq*imaxsq)*Ng[1];
+            #pragma omp atomic
+            ++g(i, r);
+            #pragma omp atomic
+            ++g(j, r);
+        }
+    }
+    """
+    weave.inline(
+        code,['pos', 'imaxsq', 'L', 'g'],
+        type_converters =converters.blitz,
+        extra_compile_args =['-O3 -fopenmp'],
+        extra_link_args=['-lgomp'],
+        verbose=2, compiler='gcc')
+    return g
+    
+def get_binary_rdf(pos, Nbins, L, sep=800, maxdist=None):
+    if maxdist is None:
+        maxdist = L/2.0
+    imaxsq = 1.0/(maxdist**2)
+    g = np.zeros([len(pos), 2, Nbins], int)
+    code = """
+    #pragma omp parallel for
+    for(int i=0; i<Npos[0]; ++i)
+    {
+        for(int j=0; j<sep; ++j)
+        {
+            if(i==j)
+                continue;
+            double disq = 0.0;
+            for(int dim=0; dim<3;++dim)
+                disq += pow(fmod(pos(i,dim)-pos(j,dim)+1.5*L, L)-0.5*L, 2);
+            if(disq*imaxsq>=1)
+                continue;
+            const int r = sqrt(disq*imaxsq)*Nbins;
+            #pragma omp atomic
+            ++g(i, 0, r);
+        }
+        for(int j=sep; j<Npos[0]; ++j)
+        {
+            if(i==j)
+                continue;
+            double disq = 0.0;
+            for(int dim=0; dim<3;++dim)
+                disq += pow(fmod(pos(i,dim)-pos(j,dim)+1.5*L, L)-0.5*L, 2);
+            if(disq*imaxsq>=1)
+                continue;
+            const int r = sqrt(disq*imaxsq)*Nbins;
+            #pragma omp atomic
+            ++g(i, 1, r);
+        }
+    }
+    """
+    weave.inline(
+        code,['pos', 'imaxsq', 'L', 'sep', 'g', 'Nbins'],
+        type_converters =converters.blitz,
+        extra_compile_args =['-O3 -fopenmp'],
+        extra_link_args=['-lgomp'],
+        verbose=2, compiler='gcc')
+    return g
+    
+def get_space_correls(pos, fields, Nbins, L):
+    maxdist = L/2.0
+    imaxsq = 1.0/(maxdist**2)
+    g = np.zeros(Nbins, int)
+    h = np.zeros([Nbins, fields.shape[1]])
+    code = """
+    #pragma omp parallel for
+    for(int i=0; i<Npos[0]; ++i)
+    {
+        for(int j=0; j<Npos[0]; ++j)
+        {
+            if(i==j)
+                continue;
+            double disq = 0.0;
+            for(int dim=0; dim<3;++dim)
+                disq += pow(fmod(pos(i,dim)-pos(j,dim)+1.5*L, L)-0.5*L, 2);
+            if(disq*imaxsq>=1)
+                continue;
+            const int r = sqrt(disq*imaxsq)*Ng[0];
+            const blitz::Array<double,1> v = fields(i, blitz::Range::all())*fields(j, blitz::Range::all());
+            #pragma omp critical
+            {
+                ++g(r);
+                h(r, blitz::Range::all()) += v;
+            }
+        }
+    }
+    """
+    weave.inline(
+        code,['pos', 'imaxsq', 'L', 'fields', 'g', 'h'],
+        type_converters =converters.blitz,
+        extra_compile_args =['-O3 -fopenmp'],
+        extra_link_args=['-lgomp'],
+        verbose=2, compiler='gcc')
+    return h, g
+    
+def get_space_correl(pos, field, Nbins, L):
+    h, g = get_space_correls(pos, field[:,None], L)
+    return h[:,0], g
+    
+def get_space_correl_binary(pos, field, Nbins, L, sep=800):
+    maxdist = L/2.0
+    imaxsq = 1.0/(maxdist**2)
+    g = np.zeros([4,Nbins], int)
+    h = np.zeros([4,Nbins])
+    code = """
+    #pragma omp parallel for
+    for(int i=0; i<Npos[0]; ++i)
+    {
+        for(int j=0; j<Npos[0]; ++j)
+        {
+            if(i==j)
+                continue;
+            double disq = 0.0;
+            for(int dim=0; dim<3;++dim)
+                disq += pow(fmod(pos(i,dim)-pos(j,dim)+1.5*L, L)-0.5*L, 2);
+            if(disq*imaxsq>=1)
+                continue;
+            const int r = sqrt(disq*imaxsq)*Ng[1];
+            const double v = field(i)*field(j);
+            if(i<sep)
+            {
+                if(j<sep)
+                #pragma omp critical
+                {
+                    ++g(0,r);
+                    h(0,r) += v;
+                }
+                else
+                #pragma omp critical
+                {
+                    ++g(1,r);
+                    h(1,r) += v;
+                }
+            }
+            else
+            {
+                if(j<sep)
+                #pragma omp critical
+                {
+                    ++g(2,r);
+                    h(2,r) += v;
+                }
+                else
+                #pragma omp critical
+                {
+                    ++g(3,r);
+                    h(3,r) += v;
+                }
+            }
+        }
+    }
+    """
+    weave.inline(
+        code,['pos', 'imaxsq', 'L', 'field', 'sep', 'g', 'h'],
+        type_converters =converters.blitz,
+        extra_compile_args =['-O3 -fopenmp'],
+        extra_link_args=['-lgomp'],
+        verbose=2, compiler='gcc')
+    return h, g
 
