@@ -100,7 +100,7 @@ def plotMeanMap(x, y, values, bins=50, cbmax=None, cbmin=None):
 
 def timecorrel(data):
     """time correlation of an array of size [time, particles"""
-    k = data
+    k = np.copy(data)
     if k.dtype.kind != 'c':
         k -= data.mean()
     p = numexpr.evaluate(
