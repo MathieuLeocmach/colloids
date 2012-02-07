@@ -221,7 +221,7 @@ void inplace_blur3D(cv::Mat &im, const double &radius, const double &ZXratio)
 	);
 	for(int k=0; k<im.size[0]; ++k)
 	{
-		cv::Mat slice(im.size[1], im.size[2], im.type(), (void*)&temp2D(k));
+		cv::Mat slice(im.size[1], im.size[2], im.type(), (void*)temp2D.ptr(k));
 		filterXY->apply(slice, slice);
 	}
 	#endif
