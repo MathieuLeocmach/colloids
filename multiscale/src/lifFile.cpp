@@ -149,7 +149,8 @@ void LifSerieHeader::parseImage(TiXmlNode *elementImage)
         if(Name=="HardwareSettingList" && !child->NoChildren())
             elementHardwareSettingList = child;
     }
-    parseHardwareSettingList(elementHardwareSettingList);
+    if(elementHardwareSettingList)
+    	parseHardwareSettingList(elementHardwareSettingList);
 }
 
 /** @brief parse the "ImageDescription" node of the XML header  */
