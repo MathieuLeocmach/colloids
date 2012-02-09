@@ -431,6 +431,39 @@ def split_clusters(clusters, centers):
         clusters.append(out)
         clusters[i] = [p for p,c in zip(k, core) if c]
     return clusters
+    
+def draw_spheres(shape, pos, radii):
+    im = np.zeros(shape, np.uint8)
+    assert len(pos)==len(radii)
+    assert np.min(pos.max(0)<shape[::-1]) and np.min([0,0,0]<=pos.min(0)), "points out of bounds"
+    code = """
+    #pragma omp parallel for
+    for(int p=0; p<Npos[0]; ++p)
+    {
+        const double rsq = pow(radii(p), 2);
+        for(int i = std::max(0, (int)(pos(p,2)-radii(p))); i<std::min(Nim[0], (int)(pos(p,2)+radii(p))+1); ++i)
+        {
+            const double di = pow(pos(p,2)-i, 2);
+            for(int j = std::max(0, (int)(pos(p,1)-radii(p))); j<std::min(Nim[1], int(pos(p,1)+radii(p))+1); ++j)
+            {
+                const double dj = pow(pos(p,1)-j, 2);
+                for(int k = std::max(0, (int)(pos(p,0)-radii(p))); k<std::min(Nim[2], (int)(pos(p,0)+radii(p))+1); ++k)
+                {
+                    const double dsq = pow(pos(p,0)-k, 2) + dj + di;
+                    if(dsq<=rsq)
+                        im(i,j,k) = 255;
+                }
+            }
+        }
+    }
+    """
+    weave.inline(
+        code,['pos', 'radii', 'im'],
+        type_converters = converters.blitz,
+        extra_compile_args =['-O3 -fopenmp'],
+        extra_link_args=['-lgomp'],
+        verbose=2, compiler='gcc')
+    return im;
 
 def radius2scale(R, k=1.6, n=3.0, dim=3):
     return n / np.log(2) * np.log(
@@ -663,10 +696,10 @@ def global_rescale(coords, sigma0, R0=None, bonds=None, n=3):
 
 class OctaveBlobFinder:
     """Locator of bright blobs in an image of fixed shape. Works on a single octave."""
-    def __init__(self, shape=(256,256), nbLayers=3):
+    def __init__(self, shape=(256,256), nbLayers=3, dtype=np.float32):
         """Allocate memory once"""
-        self.layersG = np.empty([nbLayers+3]+list(shape), float)
-        self.layers = np.empty([nbLayers+2]+list(shape), float)
+        self.layersG = np.empty([nbLayers+3]+list(shape), dtype)
+        self.layers = np.empty([nbLayers+2]+list(shape), dtype)
         self.eroded = np.empty_like(self.layers)
         self.binary = np.empty(self.layers.shape, bool)
         self.time_fill = 0.0
@@ -833,12 +866,12 @@ Returns an array of (x, y, r, -intensity in scale space)"""
         
 class MultiscaleBlobFinder:
     """Locator of bright blobs in an image of fixed shape. Works on more than one octave, starting at octave -1."""
-    def __init__(self, shape=(256,256), nbLayers=3, nbOctaves=3):
+    def __init__(self, shape=(256,256), nbLayers=3, nbOctaves=3, dtype=np.float32):
         """Allocate memory for each octave"""
         shapes = np.vstack([np.ceil([s*2.0**(1-o) for s in shape]) for o in range(nbOctaves)])
         self.preblurred = np.empty(shapes[0])
         self.octaves = [
-            OctaveBlobFinder(s, nbLayers)
+            OctaveBlobFinder(s, nbLayers, dtype)
             for s in shapes if s.min()>8
             ] #shortens the list of octaves if no blob can be detected in that small window
         self.time = 0.0
