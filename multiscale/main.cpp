@@ -21,6 +21,7 @@ int main(int ac, char* av[]){
 			("output,o", po::value<std::string>(&output)->default_value("./output"), "file to output to")
 			("series,s", po::value<int>(&ser), "Dataset number")
 			("start", po::value<int>()->default_value(0), "Starting time step. The output file numbering will also start at that time.")
+			("removeOverlap", po::value<double>()->default_value(0.5), "When two centers are closer than the sum of their radius x parameter, remove the weaker")
 			("Octave0",
 					"Enables upsampling of the image to get two times smaller particles (between 4 and 8 pixels in diameter)\n"
 					"NOT resilient to noise"
@@ -74,7 +75,7 @@ int main(int ac, char* av[]){
 			int dimsint[3] = {dims[2], dims[1], dims[0]};
 			MultiscaleFinder3D finder(dimsint[0], dimsint[1], dimsint[2], 3, 1.6, vm.count("incore"));
 			//set the voxel size ratio (sampling in Z is often poorer than in X and Y)
-			finder.set_ZXratio(serie.getZXratio());
+			//finder.set_ZXratio(serie.getZXratio()); //DISABLED Particles get lost
 			if(!vm.count("Octave0"))
 				finder.disable_Octave0();
 			//re-open the LIF as a memory mapped file
@@ -125,7 +126,7 @@ int main(int ac, char* av[]){
 				for(size_t c=0; c<centers.size(); ++c)
 					centers[c][2] *=  ZXratio;
 				//remove overlap
-				removeOverlapping(centers);
+				removeOverlapping(centers, vm["removeOverlap"].as<double>());
 				//output
 				std::ostringstream os;
 				os << output <<"_t"<< std::setfill('0') << std::setw(3) << t;

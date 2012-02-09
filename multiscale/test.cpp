@@ -2156,7 +2156,68 @@ BOOST_AUTO_TEST_SUITE( john )
 		BOOST_CHECK_LT(maxr, radius*0.11);
 	}
 
-BOOST_AUTO_TEST_SUITE_END() //kawasaki
+BOOST_AUTO_TEST_SUITE_END() //John
+
+BOOST_AUTO_TEST_SUITE( real )
+
+	BOOST_AUTO_TEST_CASE( gel )
+	{
+		int dims[3] = {31, 64, 64};
+		cv::Mat_<uchar> image(3, dims);
+		image.setTo(0);
+		//read test data from disk
+		std::ifstream imf("test_input/gel.raw");
+		BOOST_REQUIRE_MESSAGE(imf.good(), "could not find test_input/gel.raw");
+		imf.read((char*)image.data, 31*64*64);
+		imf.close();
+		//track in 3D
+		MultiscaleFinder3D finder(31, 64, 64);
+		std::vector<Center3D> centers;
+		finder.get_centers(image, centers);
+		//check track output
+		BOOST_REQUIRE(!centers.empty());
+		int contains = 0;
+		for(size_t p=0; p<centers.size(); ++p)
+		{
+			if(centers[p][0]>30 && centers[p][0]<39 &&
+					centers[p][1]>15 && centers[p][1]<25 &&
+					centers[p][2]>11 && centers[p][2]<25)
+				++contains;
+		}
+		BOOST_REQUIRE_MESSAGE(contains>0, "Bridge particle not detected");
+		BOOST_CHECK_MESSAGE(contains<2, ""<<contains<<" bridge particles detected");
+		removeOverlapping(centers);
+		std::ofstream out("test_output/gel.csv");
+		contains = 0;
+		for(size_t p=0; p<centers.size(); ++p)
+		{
+			if(centers[p][0]>30 && centers[p][0]<39 &&
+					centers[p][1]>15 && centers[p][1]<25 &&
+					centers[p][2]>11 && centers[p][2]<25)
+				++contains;
+			for(int d=0;d<3;++d)
+				out<<centers[p][d]<<";";
+			out<<centers[p].r<<";"<<centers[p].intensity<<"\n";
+		}
+		BOOST_CHECK_MESSAGE(contains==1, ""<<contains<<" bridge particles detected after overlap removal");
+		//now add the ZX ratio
+		finder.set_ZXratio(1.0437917621692017);
+		finder.get_centers(image, centers);
+		//check track output
+		BOOST_REQUIRE(!centers.empty());
+		contains = 0;
+		for(size_t p=0; p<centers.size(); ++p)
+		{
+			if(centers[p][0]>30 && centers[p][0]<39 &&
+					centers[p][1]>15 && centers[p][1]<25 &&
+					centers[p][2]>11 && centers[p][2]<25)
+				++contains;
+		}
+		BOOST_REQUIRE_MESSAGE(contains>0, "Bridge particle not detected with ZX ratio");
+		BOOST_CHECK_MESSAGE(contains<2, ""<<contains<<" bridge particles detected with ZX ratio");
+	}
+
+BOOST_AUTO_TEST_SUITE_END() //real
 
 BOOST_AUTO_TEST_SUITE_END() //multiscale 3D
 
