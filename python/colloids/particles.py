@@ -22,7 +22,7 @@ import numexpr
 import subprocess, shlex, StringIO
 from scipy import weave
 from scipy.weave import converters
-
+import itertools
 
 class Particles:
     """Positions of the particles at a givent time"""
@@ -173,6 +173,65 @@ class Particles:
         return vol, ngbs
         
         
+class Grid:
+    """Spatial indexing structure that stores the indices of objects"""
+    def __init__(self, dimension=3, sizes=[256,256,256], divisions=[16,16,16]):
+        try:
+            assert len(sizes) == dimension
+        except TypeError:
+            sizes = [float(sizes)]*dimension
+        try:
+            assert len(divisions) == dimension
+        except TypeError:
+            divisions = [float(divisions)]*dimension
+        self.__sizes = np.array(sizes)
+        self.__divisions = np.array(divisions, int)
+        self.__steps = np.cumprod(self.__divisions)
+        self.__steps[1:] = self.__steps[:-1]
+        self.__steps[0] = 1
+        self.__data = [[] for i in range(np.prod(divisions))]
+        self.__index2cell = []
+        
+    def __len__(self):
+        return len(self.__index2cell)
+        
+    def __get_cell_id(self, cell_coords):
+        return np.sum(self.__steps * cell_coords)
+        
+    def __get_cell(self, cell_coords):
+        return self.__data[self.__get_cell_id(cell_coords)]
+        
+    def add_point(self, point):
+        coords = np.array(point*self.__divisions/self.__sizes, int)
+        cell = self.__get_cell_id(coords)
+        self.__data[cell].append(len(self))
+        self.__index2cell.append(cell)
+    
+    def get_near(self, point, d=1):
+        coords = np.array(point*self.__divisions/self.__sizes, int)
+        return np.unique1d([
+            i for co in itertools.product(*[
+                range(max(0, c-d), min(div, c+d+1))
+                for c, div in zip(coords, self.__divisions)
+                ]) for i in self.__get_cell(co)
+            ])
+            
+    def get_inside(self, d=1):
+        return [
+            i for co in itertools.product(*[
+                range(d, div-d)
+                for div in self.__divisions
+                ]) for i in self.__get_cell(co)
+            ]
+    def iter_pairs(self, d=1):
+        for cp in itertools.product(*[range(d, div-d) for div in self.__divisions]):
+            for cq in itertools.product(*[
+                range(c-d, c+d+1) 
+                for c, div in zip(cp, self.__divisions)
+                ]):
+                for p,q in itertools.product(self.__get_cell(cp), self.__get_cell(cq)):
+                    if(p!=q):
+                        yield p,q
         
         
 def non_overlapping(positions, radii):
@@ -325,3 +384,73 @@ def get_bonds(positions, radii, maxdist=3.0):
         extra_link_args=['-lgomp'],
         verbose=2, compiler='gcc')
     return np.resize(pairs, [len(pairs)/2,2]), np.asarray(dists)
+    
+def get_rdf(pos, inside, Nbins=250, maxdist=30.0):
+    g = np.zeros(Nbins, int)
+    support = """
+    typedef RStarTree<int, 3, 4, 32, double> RTree;
+	struct Gatherer {
+		std::list<int> *gathered;
+		bool ContinueVisiting;
+
+		Gatherer(std::list<int> &result) : gathered(&result), ContinueVisiting(true) {};
+
+		void operator()(const typename RTree::Leaf * const leaf)
+		{
+			gathered->push_back(leaf->leaf);
+		}
+	};
+    """
+    code = """
+    //spatial indexing
+    RTree tree;
+    for(int p=0; p<Npos[0]; ++p)
+    {
+        typename RTree::BoundingBox bb;
+		for(int d=0; d<3; ++d)
+		{
+			bb.edges[d].first = pos(p,d) - maxdist;
+			bb.edges[d].second = pos(p,d) + maxdist;
+		}
+        tree.Insert(p, bb);
+    }
+    const double imaxsq = 1.0 / pow(maxdist, 2);
+    #pragma omp parallel for
+    for(int i=0; i<Npos[0]; ++i)
+    {
+        if(!inside(i))
+            continue;
+        std::list<int> overlapping;
+        typename RTree::BoundingBox bb;
+        for(int d=0; d<3; ++d)
+		{
+			bb.edges[d].first = pos(i,d) - maxdist;
+			bb.edges[d].second = pos(i,d) + maxdist;
+		}
+		tree.Query(typename RTree::AcceptOverlapping(bb), Gatherer(overlapping));
+        overlapping.sort();
+        overlapping.unique();
+        for(std::list<int>::const_iterator it=overlapping.begin(); it!=overlapping.end(); ++it)
+        {
+            const int j = *it;
+            if(i==j)
+                continue;
+            const double disq = blitz::sum(blitz::pow(pos(j,blitz::Range::all())-pos(i,blitz::Range::all()), 2));
+            if(disq*imaxsq>=1.0)
+                continue;
+            const int r = sqrt(disq*imaxsq)*Ng[0];
+            #pragma omp atomic
+            ++g(r);
+        }
+    }
+    """
+    weave.inline(
+        code,['pos', 'inside', 'maxdist', 'g'],
+        type_converters =converters.blitz,
+        support_code = support,
+        include_dirs = ['/home/mathieu/src/colloids/multiscale/RStarTree'],
+        headers = ['"RStarTree.h"','<deque>', '<list>'],
+        extra_compile_args =['-O3 -fopenmp'],
+        extra_link_args=['-lgomp'],
+        verbose=2, compiler='gcc')
+    return g
