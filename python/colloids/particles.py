@@ -17,7 +17,7 @@
 #    along with Colloids.  If not, see <http://www.gnu.org/licenses/>.
 #
 import numpy as np
-import rtree.index
+#import rtree.index
 import numexpr
 import subprocess, shlex, StringIO
 from scipy import weave
@@ -453,8 +453,8 @@ def get_srdf(pos, radii, inside, Nbins=250, maxdist=3.0):
         typename RTree::BoundingBox bb;
         for(int d=0; d<3; ++d)
 		{
-			bb.edges[d].first = pos(i,d) - maxdist*radii(p);
-			bb.edges[d].second = pos(i,d) + maxdist*radii(p);
+			bb.edges[d].first = pos(i,d) - maxdist*radii(i);
+			bb.edges[d].second = pos(i,d) + maxdist*radii(i);
 		}
 		tree.Query(typename RTree::AcceptOverlapping(bb), Gatherer(overlapping));
         overlapping.sort();
