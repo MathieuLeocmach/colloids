@@ -161,32 +161,16 @@ void Colloids::OctaveFinder::_fill_internal(Image &temp)
 		cv::subtract(this->layersG[i+1], this->layersG[i], this->layers[i]);
 }
 
-void inplace_blur3D(cv::Mat &im, const double &radius, const double &ZXratio)
+/**
+ * \brief Gaussian blur of each XY plane of a 3D image
+ */
+void inplace_blurXY(cv::Mat &im, const double &radius)
 {
 	cv::Mat temp2D(
 		im.size[0], im.size[1]*im.size[2],
 		im.type(), (void*)im.data
 	);
 	# ifdef _OPENMP
-	#pragma omp parallel
-	{
-		//Z
-		cv::Mat_<double> kx(1,1, 1.0);
-		cv::Ptr<cv::FilterEngine> filter = createSeparableLinearFilter
-		(
-			im.type(), im.type(),
-			kx, OctaveFinder::get_kernel(radius/ZXratio),
-			cv::Point(-1,-1), 0, cv::BORDER_DEFAULT
-		);
-		int sectionsize = temp2D.cols/omp_get_num_threads();
-		cv::Rect roi = cv::Rect(
-				omp_get_thread_num()*sectionsize, 0,
-				sectionsize, temp2D.rows
-				)&cv::Rect(0,0,temp2D.cols, temp2D.rows);
-		cv::Mat dst(temp2D, roi);
-		filter->apply(dst, dst);
-	}
-	//X and Y plane by plane
 	#pragma omp parallel
 	{
 		cv::Ptr<cv::FilterEngine> filter = createSeparableLinearFilter
@@ -203,16 +187,6 @@ void inplace_blur3D(cv::Mat &im, const double &radius, const double &ZXratio)
 		}
 	}
 	#else
-	//Z
-	cv::Mat_<double> kx(1,1, 1.0);
-	cv::Ptr<cv::FilterEngine> filterZ = createSeparableLinearFilter
-	(
-		im.type(), im.type(),
-		kx, OctaveFinder::get_kernel(radius/ZXratio),
-		cv::Point(-1,-1), 0, cv::BORDER_DEFAULT
-	);
-	filterZ->apply(temp2D, temp2D);
-	//X and Y plane by plane
 	cv::Ptr<cv::FilterEngine> filterXY = createSeparableLinearFilter
 	(
 		im.type(), im.type(),
@@ -225,6 +199,46 @@ void inplace_blur3D(cv::Mat &im, const double &radius, const double &ZXratio)
 		filterXY->apply(slice, slice);
 	}
 	#endif
+}
+
+void inplace_blur3D(cv::Mat &im, const double &radius, const double &ZXratio)
+{
+	cv::Mat temp2D(
+		im.size[0], im.size[1]*im.size[2],
+		im.type(), (void*)im.data
+	);
+	//Z
+	# ifdef _OPENMP
+	#pragma omp parallel
+	{
+		cv::Mat_<double> kx(1,1, 1.0);
+		cv::Ptr<cv::FilterEngine> filter = createSeparableLinearFilter
+		(
+			im.type(), im.type(),
+			kx, OctaveFinder::get_kernel(radius/ZXratio),
+			cv::Point(-1,-1), 0, cv::BORDER_DEFAULT
+		);
+		int sectionsize = temp2D.cols/omp_get_num_threads();
+		cv::Rect roi = cv::Rect(
+				omp_get_thread_num()*sectionsize, 0,
+				sectionsize, temp2D.rows
+				)&cv::Rect(0,0,temp2D.cols, temp2D.rows);
+		cv::Mat dst(temp2D, roi);
+		filter->apply(dst, dst);
+	}
+	#else
+	//Z
+	cv::Mat_<double> kx(1,1, 1.0);
+	cv::Ptr<cv::FilterEngine> filterZ = createSeparableLinearFilter
+	(
+		im.type(), im.type(),
+		kx, OctaveFinder::get_kernel(radius/ZXratio),
+		cv::Point(-1,-1), 0, cv::BORDER_DEFAULT
+	);
+	filterZ->apply(temp2D, temp2D);
+	#endif
+	//XY
+	inplace_blurXY(im, radius);
 }
 
 void Colloids::OctaveFinder3D::_fill_internal(Image &temp)

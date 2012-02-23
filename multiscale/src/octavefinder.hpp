@@ -187,6 +187,7 @@ namespace Colloids
 		int z0;
 	};
 
+	void inplace_blurXY(cv::Mat &im, const double &radius);
 	void inplace_blur3D(cv::Mat &im, const double &radius, const double &ZXratio=1.0);
 };
 #endif // OCTAVEFINDER_H
