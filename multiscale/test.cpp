@@ -2213,8 +2213,66 @@ BOOST_AUTO_TEST_SUITE( real )
 					centers[p][2]>11 && centers[p][2]<25)
 				++contains;
 		}
-		BOOST_REQUIRE_MESSAGE(contains>0, "Bridge particle not detected with ZX ratio");
+		BOOST_WARN_MESSAGE(contains>0, "Bridge particle not detected with ZX ratio");
 		BOOST_CHECK_MESSAGE(contains<2, ""<<contains<<" bridge particles detected with ZX ratio");
+	}
+
+	BOOST_AUTO_TEST_CASE( Z_elong )
+	{
+		int dims[3] = {55, 50, 50};
+		cv::Mat_<uchar> image(3, dims);
+		image.setTo(0);
+		//read test data from disk
+		std::ifstream imf("test_input/Z_elong.raw");
+		BOOST_REQUIRE_MESSAGE(imf.good(), "could not find test_input/Z_elong.raw");
+		imf.read((char*)image.data, 55*50*50);
+		imf.close();
+		//track in 3D
+		MultiscaleFinder3D finder(55, 50, 50);
+		std::vector<Center3D> centers;
+		finder.get_centers(image, centers);
+		//check track output
+		BOOST_REQUIRE(!centers.empty());
+		BOOST_CHECK_EQUAL(centers.size(), 4);
+		//two centers should be closer than the sum of their radii
+		int tooclose=0;
+		for(size_t p=0; p<centers.size()-1; ++p)
+			for(size_t q=p+1; q<centers.size(); ++q)
+			{
+				const double disq = centers[q] - centers[p];
+				if(disq < pow(centers[p].r + centers[q].r, 2))
+				{
+					++tooclose;
+					BOOST_WARN_MESSAGE(false, "dist = "<<sqrt(disq)<<"\tR_"<<p<<" = "<<centers[p].r<<"\tR_"<<q<<" = "<<centers[q].r);
+				}
+			}
+		BOOST_CHECK_EQUAL(tooclose, 1);
+		//preblur only in XY, not in Z
+		OctaveFinder3D fiXY(55, 50, 50);
+		OctaveFinder::Image input;
+		image.convertTo(input, input.type());
+		inplace_blurXY(input, 1.6);
+		fiXY.fill(input);
+		fiXY.initialize_binary();
+		centers.clear();
+		fiXY.subpix(centers);
+		BOOST_REQUIRE(!centers.empty());
+		BOOST_CHECK_EQUAL(centers.size(), 4);
+		for(size_t c=0; c< centers.size(); ++c)
+			fiXY.scale(centers[c]);
+		//two centers should be closer than the sum of their radii
+		tooclose=0;
+		for(size_t p=0; p<centers.size()-1; ++p)
+			for(size_t q=p+1; q<centers.size(); ++q)
+			{
+				const double disq = centers[q] - centers[p];
+				if(disq < pow(centers[p].r + centers[q].r, 2))
+				{
+					++tooclose;
+					BOOST_WARN_MESSAGE(false, "dist = "<<sqrt(disq)<<"\tR_"<<p<<" = "<<centers[p].r<<"\tR_"<<q<<" = "<<centers[q].r);
+				}
+			}
+		BOOST_CHECK_EQUAL(tooclose, 0);
 	}
 
 BOOST_AUTO_TEST_SUITE_END() //real
