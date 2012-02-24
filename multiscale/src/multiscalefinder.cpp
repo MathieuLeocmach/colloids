@@ -74,10 +74,10 @@ namespace Colloids {
     	for(size_t o=0; o<this->octaves.size(); ++o)
     		dynamic_cast<OctaveFinder3D*>(this->octaves[o])->set_ZXratio(ratio);
     }
-    void MultiscaleFinder3D::set_Zpreblur(bool value)
+    void MultiscaleFinder3D::set_halfZpreblur(bool value)
     {
     	if(this->octaves.size()>1)
-    		dynamic_cast<OctaveFinder3D*>(this->octaves[1])->set_Zpreblur(value);
+    		dynamic_cast<OctaveFinder3D*>(this->octaves[1])->set_halfZpreblur(value);
     }
 
     /**

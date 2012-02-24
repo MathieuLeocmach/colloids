@@ -2217,6 +2217,30 @@ BOOST_AUTO_TEST_SUITE( real )
 		BOOST_CHECK_MESSAGE(contains<2, ""<<contains<<" bridge particles detected with ZX ratio");
 	}
 
+	BOOST_AUTO_TEST_CASE( Z_preblur )
+	{
+		int dims[3] = {30, 25, 25};
+		cv::Mat_<uchar> image(3, dims);
+		image.setTo(0);
+		//read test data from disk
+		std::ifstream imf("test_input/Z_preblur.raw");
+		BOOST_REQUIRE_MESSAGE(imf.good(), "could not find test_input/Z_preblur.raw");
+		imf.read((char*)image.data, 30*25*25);
+		imf.close();
+		//track in 3D
+		MultiscaleFinder3D finder(30, 25, 25);
+		std::vector<Center3D> centers;
+		finder.get_centers(image, centers);
+		//check track output
+		BOOST_REQUIRE(!centers.empty());
+		BOOST_CHECK_EQUAL(centers.size(), 3);
+		finder.set_halfZpreblur(true);
+		finder.get_centers(image, centers);
+		//check track output
+		BOOST_REQUIRE(!centers.empty());
+		BOOST_CHECK_EQUAL(centers.size(), 3);
+	}
+
 	BOOST_AUTO_TEST_CASE( Z_elong )
 	{
 		int dims[3] = {55, 50, 50};

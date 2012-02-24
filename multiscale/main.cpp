@@ -79,7 +79,7 @@ int main(int ac, char* av[]){
 			if(!vm.count("Octave0"))
 				finder.disable_Octave0();
 			//do not preblur in Z to compensate for the point spread function
-			finder.set_Zpreblur(false);
+			finder.set_halfZpreblur(true);
 			//re-open the LIF as a memory mapped file
 			boost::iostreams::mapped_file_source file(vm["input"].as<std::string>());
 			//container for tracked particles

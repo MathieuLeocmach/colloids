@@ -77,7 +77,7 @@ public:
 	virtual const size_t get_width() const {return this->octaves[0]->get_width()/2; };
 	const size_t get_depth() const {return dynamic_cast<OctaveFinder3D*>(this->octaves[0])->get_depth()/2; };
 	void set_ZXratio(const double &ratio);
-	void set_Zpreblur(bool value);
+	void set_halfZpreblur(bool value);
 	inline const double& get_ZXratio() const {return dynamic_cast<OctaveFinder3D*>(this->octaves[0])->get_ZXratio();}
 	virtual Image downscale(const size_t &o) const;
 	virtual Image upscale(const cv::Mat &input) const;

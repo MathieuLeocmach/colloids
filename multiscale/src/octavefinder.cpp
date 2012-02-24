@@ -43,7 +43,7 @@ OctaveFinder::OctaveFinder(const int nrows, const int ncols, const int nbLayers,
 }
 
 OctaveFinder3D::OctaveFinder3D(const int nplanes, const int nrows, const int ncols, const int nbLayers, const double &preblur_radius, bool incore) :
-	OctaveFinder(0, 0, nbLayers, preblur_radius), iterative_Zgaussian_filters(nbLayers+2), ZXratio(1.0), noZpreblur(false)
+	OctaveFinder(0, 0, nbLayers, preblur_radius), iterative_Zgaussian_filters(nbLayers+2), ZXratio(1.0), halfZpreblur(false)
 {
 	const size_t nbpixels =  nplanes * nrows * ncols;
 	if(incore)
@@ -259,8 +259,8 @@ void Colloids::OctaveFinder::preblur(Image &input)
 
 void Colloids::OctaveFinder3D::preblur(Image &input)
 {
-	if(this->noZpreblur)
-		inplace_blurXY(input, this->preblur_radius);
+	if(this->halfZpreblur)
+		inplace_blur3D(input, this->preblur_radius, 0.5);
 	else
 		inplace_blur3D(input, this->preblur_radius, this->ZXratio);
 	//write to disk

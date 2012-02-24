@@ -97,7 +97,7 @@ namespace Colloids
 			inline const int & get_depth() const {return this->layersG[0].size[this->layersG[0].dims-3];};
 			inline void set_ZXratio(const double& ratio){this->ZXratio = ratio;}
 			inline const double& get_ZXratio() const {return this->ZXratio;}
-			inline void set_Zpreblur(bool value){this->noZpreblur = !value;}
+			inline void set_halfZpreblur(bool value){this->halfZpreblur = value;}
 
 			virtual void initialize_binary(const double &max_ratio = 1.1);
 			virtual void spatial_subpix(const std::vector<int> &ci, Center_base& c) const;
@@ -115,7 +115,7 @@ namespace Colloids
 			cv::Ptr<cv::FilterEngine> preblur_Zfilter;
 			std::vector<Center3D> centers;
 			double ZXratio;
-			bool noZpreblur;
+			bool halfZpreblur;
 
 			virtual void fill_iterative_radii();
 			virtual void preblur(Image &input);
