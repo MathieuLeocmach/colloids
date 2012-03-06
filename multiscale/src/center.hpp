@@ -161,6 +161,43 @@ namespace Colloids {
 		}
 		centers.swap(filtered);
 	}
+	template<int D>
+	std::auto_ptr< RStarTree<size_t, D, 4, 32, double> > removeHalfOverlapping(std::vector<Center<D> > &centers)
+	{
+		typedef RStarTree<size_t, D, 4, 32, double> RTree;
+		typedef std::vector<Center<D> > Centers;
+		std::auto_ptr<RTree> tree(new RTree());
+		Centers filtered;
+		filtered.reserve(centers.size());
+		//sort the centers by decreasing response (increasing negative intensity)
+		std::sort(centers.begin(), centers.end(), compare_intensities<D>());
+		//insert the centers one by one, if no overlap
+		for(size_t p=0; p<centers.size(); ++p)
+		{
+			//norm 1 overlapping
+			typename RTree::BoundingBox bb = get_bb(centers[p], 1.0);
+			std::list<size_t> overlapping;
+			tree->Query(typename RTree::AcceptOverlapping(bb), Gatherer<D>(overlapping));
+			bool is_overlapping = false;
+			//norm 2 overlapping
+			for(std::list<size_t>::const_iterator q= overlapping.begin(); q!=overlapping.end(); ++q)
+			{
+				double distsq = centers[p]-filtered[*q];
+				if(distsq < pow(std::max(centers[p].r, filtered[*q].r), 2))
+				{
+					is_overlapping = true;
+					break;
+				}
+			}
+			if(!is_overlapping)
+			{
+				tree->Insert(filtered.size(), bb);
+				filtered.push_back(centers[p]);
+			}
+		}
+		centers.swap(filtered);
+		return tree;
+	}
 
 }
 

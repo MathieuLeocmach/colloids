@@ -21,7 +21,7 @@ int main(int ac, char* av[]){
 			("output,o", po::value<std::string>(&output)->default_value("./output"), "file to output to")
 			("series,s", po::value<int>(&ser), "Dataset number")
 			("start", po::value<int>()->default_value(0), "Starting time step. The output file numbering will also start at that time.")
-			("removeOverlap", po::value<double>()->default_value(0.5), "When two centers are closer than the sum of their radius x parameter, remove the weaker")
+			//("removeOverlap", po::value<double>()->default_value(0.5), "When two centers are closer than the sum of their radius x parameter, remove the weaker")
 			("Octave0",
 					"Enables upsampling of the image to get two times smaller particles (between 4 and 8 pixels in diameter)\n"
 					"NOT resilient to noise"
@@ -128,7 +128,7 @@ int main(int ac, char* av[]){
 				for(size_t c=0; c<centers.size(); ++c)
 					centers[c][2] *=  ZXratio;
 				//remove overlap
-				removeOverlapping(centers, vm["removeOverlap"].as<double>());
+				removeHalfOverlapping(centers);
 				//output
 				std::ostringstream os;
 				os << output <<"_t"<< std::setfill('0') << std::setw(3) << t;
