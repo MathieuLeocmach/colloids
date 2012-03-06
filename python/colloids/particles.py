@@ -483,3 +483,44 @@ def get_srdf(pos, radii, inside, Nbins=250, maxdist=3.0):
         extra_link_args=['-lgomp'],
         verbose=2, compiler='gcc')
     return g
+    
+def spatial_correlation(pos, is_center, values, Nbins, maxdist):
+    """
+    Spatial correlation of the qlms and the Qlms
+    """
+    assert len(pos) == len(values)
+    assert len(is_center) == len(pos)
+    maxsq = float(maxdist**2)
+    h = np.zeros(Nbins)
+    g = np.zeros(Nbins, int)
+    code = """
+    #pragma omp parallel for
+    for(int i=0; i<Npos[0]; ++i)
+    {
+        if(!is_center(i)) 
+            continue;
+        for(int j=0; j<Npos[0]; ++j)
+        {
+            if(i==j) continue;
+            double disq = 0.0;
+            for(int dim=0; dim<3;++dim)
+                disq += pow(pos(i,dim)-pos(j,dim), 2);
+            if(disq>=(double)maxsq)
+                continue;
+            const int r = sqrt(disq/(double)maxsq)*Nbins;
+            const double prod = values(i)*values(j);
+            #pragma omp critical
+            {
+                ++g(r);
+                h(r) += prod;
+            }
+        }
+    }
+    """
+    weave.inline(
+        code,['values', 'pos', 'maxsq', 'Nbins', 'h', 'g','is_center'],
+        type_converters =converters.blitz,
+        extra_compile_args =['-O3 -fopenmp'],
+        extra_link_args=['-lgomp'],
+        verbose=2, compiler='gcc')
+    return h, g
