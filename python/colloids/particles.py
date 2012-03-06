@@ -524,3 +524,95 @@ def spatial_correlation(pos, is_center, values, Nbins, maxdist):
         extra_link_args=['-lgomp'],
         verbose=2, compiler='gcc')
     return h, g
+
+def get_links(pos0, radii0, pos1, radii1, maxdist=1.0):
+    """Get the pairs of particles closer than maxdist in two configurations and their distances"""
+    pairs = []
+    dists = []
+    code = """
+    //spatial indexing
+    RTree tree;
+    for(int p=0; p<Npos0[0]; ++p)
+    {
+        typename RTree::BoundingBox bb;
+        for(int d=0; d<3; ++d)
+        {
+            bb.edges[d].first = pos0(p,d) - maxdist*radii0(p);
+            bb.edges[d].second = pos0(p,d) + maxdist*radii0(p);
+        }
+        tree.Insert(p, bb);
+    }
+    //look for nearby particles
+    #pragma omp parallel for
+    for(int p=0; p<Npos1[0]; ++p)
+    {
+        std::list<int> overlapping;
+        typename RTree::BoundingBox bb;
+        for(int d=0; d<3; ++d)
+        {
+            bb.edges[d].first = pos1(p,d) - maxdist*radii1(p);
+            bb.edges[d].second = pos1(p,d) + maxdist*radii1(p);
+        }
+        tree.Query(typename RTree::AcceptOverlapping(bb), Gatherer(overlapping));
+        overlapping.sort();
+        overlapping.unique();
+        for(std::list<int>::const_iterator it=overlapping.begin(); it!=overlapping.end(); ++it)
+        {
+            const int q = *it;
+            double dsq = 0;
+            for(int d=0; d<3; ++d)
+                dsq += pow(pos1(p,d)-pos0(q,d), 2);
+            if(dsq < pow(maxdist*(radii1(p)+radii0(q)), 2))
+            #pragma omp critical
+            {
+                 pairs.append(q);
+                 pairs.append(p);
+                 dists.append(sqrt(dsq));
+            }
+        }
+    }
+    """
+    weave.inline(
+        code,['pos0', 'radii0', 'pos1', 'radii1', 'maxdist', 'pairs', 'dists'],
+        type_converters =converters.blitz,
+        support_code = support_Rtree,
+        include_dirs = ['/home/mathieu/src/colloids/multiscale/RStarTree'],
+        headers = ['"RStarTree.h"','<deque>', '<list>'],
+        extra_compile_args =['-O3 -fopenmp'],
+        extra_link_args=['-lgomp'],
+        verbose=2, compiler='gcc')
+    return np.resize(pairs, [len(pairs)/2,2]), np.asarray(dists)
+
+class Linker:
+    def __init__(self, nb_initial_pos):
+        self.tr2pos = [[p] for p in range(nb_initial_pos)]
+        self.pos2tr = [np.arange(nb_initial_pos)]
+        self.trajstart = [0 for p in range(nb_initial_pos)]
+        
+    def addFrame(self, frame_size, pairs, distances):
+        assert len(pairs) == len(distances)
+        assert pairs[:,1].max() < frame_size, "The largest particle index in the new frame is larger than the new frame size"
+        #sort the possible links by increasing distances
+        pairs = pairs[np.argsort(distances)]
+        #any position can be linked only once. At init none are linked
+        from_used = np.zeros(len(self.pos2tr[-1]), bool)
+        to_used = np.zeros(frame_size, bool)
+        #create the new frame
+        newframe = np.zeros(frame_size, int)
+        #link the bounded positions into trajectories
+        for p,q in pairs:
+            if(from_used[p] or to_used[q]):continue
+            from_used[p] = True
+            to_used[q] = True
+            tr = self.pos2tr[-1][p]
+            newframe[q] = tr
+            self.tr2pos[tr].append(q);
+        #the trajectories of the previous frame that are not linked in the new frame are terminated by construction
+        #but the trajectories starting in the new frame have to be created
+        notused = np.where(np.bitwise_not(to_used))[0]
+        newframe[notused] = np.arange(len(notused)) + len(self.tr2pos)
+        self.tr2pos += [[p] for p in notused]
+        self.trajstart += [len(self.pos2tr) for p in notused]
+        #add the new frame
+        self.pos2tr.append(newframe)
+        
