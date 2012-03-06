@@ -105,7 +105,7 @@ namespace Colloids
 			old_end = std::upper_bound(input.begin(), input.end(), nbtrajs-1);
     	//check that old trajectories can be continued
     	for(std::list<size_t>::const_iterator it = input.begin(); it!=old_end; ++it)
-			if(this->tr2pos[*it].get_finish() < this->pos2tr.size())
+			if(this->tr2pos[*it].get_finish() < (int)this->pos2tr.size())
 				throw std::invalid_argument("TrajIndex::add_Frame: cannot continue a trajectory that do not exist in the previous frame");
     	//check that the new trajectories are consecutive
     	if((old_end != input.end()) && (input.back() - *old_end +1 != std::distance(old_end, (std::list<size_t>::const_iterator)input.end())))
