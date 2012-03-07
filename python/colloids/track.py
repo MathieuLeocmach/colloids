@@ -734,7 +734,7 @@ class OctaveBlobFinder:
         #scale space minima, whose neighbourhood are all negative 10 ms
         self.time_fill += time.clock()-t0
 
-    def initialize_binary(self):
+    def initialize_binary(self, maxedge=1.1):
         #centers are local maxima, negative and
         #further from 0 than machine precision
         self.binary = numexpr.evaluate(
@@ -752,7 +752,7 @@ class OctaveBlobFinder:
                 bi[tuple([slice(None)]*(bi.ndim-1-a)+[slice(0,r)])]=False
                 bi[tuple([slice(None)]*(bi.ndim-1-a)+[slice(-r, None)])]=False
         #eliminate blobs that are edges
-        if self.layers.ndim==3:
+        if self.layers.ndim==3 and maxedge>0 :
             for r, bi, layer in zip(self.sizes[1:-1], self.binary[1:-1], self.layers[1:-1]):
                 for p in np.transpose(np.where(bi)):
                     #xy neighbourhood
@@ -768,7 +768,7 @@ class OctaveBlobFinder:
                     #Computer Vision and Image Understanding 110, 346-359 (2008)
                     detH = hess[0]*hess[1] - hess[2]**2
                     ratio = (hess[0]+hess[1])**2/(4.0*hess[0]*hess[1])
-                    if detH<0 or ratio>1.1:
+                    if detH<0 or ratio>maxedge:
                         bi[tuple(p.tolist())] = False
 
     def no_subpix(self):
@@ -848,12 +848,12 @@ class OctaveBlobFinder:
                 centers[i,1] = p[0] - (n[2] - n[0]) / 2.0 / (n[2] - 2 * n[1] + n[0])
         return centers
         
-    def __call__(self, image, k=1.6):
+    def __call__(self, image, k=1.6, maxedge=1.1):
         """Locate bright blobs in an image with subpixel resolution.
 Returns an array of (x, y, r, -intensity in scale space)"""
         self.ncalls += 1
         self.fill(image, k)
-        self.initialize_binary()
+        self.initialize_binary(maxedge)
         t0 = time.clock()
         centers = self.subpix()[:,::-1]
         self.time_subpix += time.clock() - t0
@@ -869,7 +869,7 @@ class MultiscaleBlobFinder:
     def __init__(self, shape=(256,256), nbLayers=3, nbOctaves=3, dtype=np.float32):
         """Allocate memory for each octave"""
         shapes = np.vstack([np.ceil([s*2.0**(1-o) for s in shape]) for o in range(nbOctaves)])
-        self.preblurred = np.empty(shapes[0])
+        self.preblurred = np.empty(shapes[0], dtype)
         self.octaves = [
             OctaveBlobFinder(s, nbLayers, dtype)
             for s in shapes if s.min()>8
@@ -877,35 +877,43 @@ class MultiscaleBlobFinder:
         self.time = 0.0
         self.ncalls = 0
         
-    def __call__(self, image, k=1.6):
+    def __call__(self, image, k=1.6, Octave0=True, removeOverlap=True, maxedge=1.1):
         """Locate blobs in each octave and regroup the results"""
         self.ncalls += 1
         t0 = time.clock()
         if len(self.octaves)==0:
             return np.zeros([0, image.ndim+2])
         #upscale the image for octave -1
-        im2 = np.copy(image)
-        for a in range(image.ndim):
-            im2 = np.repeat(im2, 2, a)
-        #preblur octave -1
-        gaussian_filter(im2, k, output=self.preblurred)
-        #locate blobs in octave -1
-        centers = [self.octaves[0](self.preblurred, k)]
+        #halfbl = gaussian_filter(np.array(im, , k/2.0)
+        if Octave0:
+            im2 = np.copy(image)
+            for a in range(image.ndim):
+                im2 = np.repeat(im2, 2, a)
+            #preblur octave -1
+            gaussian_filter(im2, k, output=self.preblurred)
+            #locate blobs in octave -1
+            centers = [self.octaves[0](self.preblurred, k, maxedge)]
+        else:
+            centers = []
+        if len(self.octaves)>1:
+            centers += [self.octaves[1](gaussian_filter(image, k), maxedge=maxedge)]
         #subsample the -3 layerG of the previous octave
         #which is two times more blurred that layer 0
         #and use it as the base of new octave
-        for o, oc in enumerate(self.octaves[1:]):
+        for o, oc in enumerate(self.octaves[2:]):
             centers += [oc(
-                self.octaves[o].layersG[-3][
+                self.octaves[o+1].layersG[-3][
                     tuple([slice(None, None, 2)]*image.ndim)],
-                k,
+                k, maxedge
                 )]
         #merge the results and scale the coordinates and sizes
         centers = np.vstack([
-            c * ([2**(o-1)]*(1+image.ndim)+[1])
+            c * ([2**(o-Octave0)]*(1+image.ndim)+[1])
             for o, c in enumerate(centers)
             ])
         if len(centers)<2:
+            return centers
+        if not removeOverlap:
             return centers
         #remove overlaping objects (keep the most intense)
         #scales in dim*N^2, thus expensive if many centers and in high dimensions
