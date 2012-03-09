@@ -36,7 +36,7 @@ for t in itertools.count():
     f.flush()
     cent.fill(0)
     for x, y, r, i in centers:
-        cent[y-r:y+r+1,x-r:x+r+1] += 50
+        cent[max(0,y-r):min(y+r+1,im.shape[0]),max(0, x-r):min(x+r+1, im.shape[1])] += 50
     imsave(outpattern%t, np.dstack((im, cent, cent)))
 f.close()
     
