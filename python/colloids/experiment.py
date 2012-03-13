@@ -870,21 +870,11 @@ def fit_cg6(infile, crop=None, remove_peaks=[], rmin=2, rmax=10):
 	    )[0]
 	return params, np.column_stack((data[:,0], cg6)), peaks
 
-def rdf2Sq(rdf, rho, qmin=None, qmax=None):
+def rdf2Sq(rdf, rho):
     """Calculate the radial Fourier transform of rdf(r) and normalize it to get the structure factor S(q)"""
     s = np.zeros_like(rdf)
-    if qmin==None:
-            q=2*np.pi/rdf[-1,0]
-    else:
-            q=qmin
-    if qmax==None:
-            Q=0.25*np.pi/rdf[1,0]
-    else:
-            Q=qmax
-    s[:,0] = np.linspace(q, Q, len(rdf))
-    for j,k in enumerate(s[:,0]):
-            s[j,1] = (rdf[:,0] * np.sin(k*rdf[:,0])/k * (rdf[:,1]-1)).sum()
-    s[:,1] *= 4*np.pi*rho
+    s[:,0] = np.fft.fftfreq(2*len(rdf)+1, rdf[1,0])[1:len(rdf)+1]
+    s[:,1] = (rdf[:,0] * np.sin(np.outer(s[:,0], rdf[:,0])) * (rdf[:,1]-1)).sum(1) * (4*np.pi*rho)/s[:,0]
     s[:,1] += 1
     return s
 
