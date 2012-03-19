@@ -19,7 +19,7 @@
 import numpy as np
 #import rtree.index
 import numexpr
-import subprocess, shlex, StringIO
+import subprocess, shlex, StringIO, os, os.path
 from scipy import weave
 from scipy.weave import converters
 import itertools
@@ -248,7 +248,12 @@ def non_overlapping(positions, radii):
         else:
             tree.insert(i, bb)
     return [i for i in tree.intersection(tree.bounds)]
-    
+
+rstartree_path = os.path.join(
+    os.path.dirname(__file__),
+    '../../multiscale/RStarTree'
+    )
+     
 support_Rtree = """
 typedef RStarTree<int, 3, 4, 32, double> RTree;
 	struct Gatherer {
@@ -305,7 +310,7 @@ def weave_non_overlapping(positions, radii):
         code,['positions', 'radii', 'good'],
         type_converters =converters.blitz,
         support_code = support_Rtree,
-        include_dirs = ['/home/mathieu/src/colloids/multiscale/RStarTree'],
+        include_dirs = [rstartree_path],
         headers = ['"RStarTree.h"'],
         extra_compile_args =['-O3 -fopenmp'],
         extra_link_args=['-lgomp'],
@@ -365,7 +370,7 @@ def get_bonds(positions, radii, maxdist=3.0):
         code,['positions', 'radii', 'maxdist', 'pairs', 'dists'],
         type_converters =converters.blitz,
         support_code = support_Rtree,
-        include_dirs = ['/home/mathieu/src/colloids/multiscale/RStarTree'],
+        include_dirs = [rstartree_path],
         headers = ['"RStarTree.h"','<deque>', '<list>'],
         extra_compile_args =['-O3 -fopenmp'],
         extra_link_args=['-lgomp'],
@@ -421,12 +426,78 @@ def get_rdf(pos, inside, Nbins=250, maxdist=30.0):
         code,['pos', 'inside', 'maxdist', 'g'],
         type_converters =converters.blitz,
         support_code = support_Rtree,
-        include_dirs = ['/home/mathieu/src/colloids/multiscale/RStarTree'],
+        include_dirs = [rstartree_path],
         headers = ['"RStarTree.h"','<deque>', '<list>'],
         extra_compile_args =['-O3 -fopenmp'],
         extra_link_args=['-lgomp'],
         verbose=2, compiler='gcc')
     return g
+
+def get_Sq(pos, inside, qmax=10.0, maxdist=30.0):
+    qns = np.arange(0, qmax, np.pi/maxdist)[1:]
+    qphis = np.linspace(0, np.pi, 4, False)
+    qths = np.linspace(0, 2*np.pi, 8, False)
+    qas = np.column_stack((
+        np.outer(np.cos(qths), np.sin(np.sin(qphis))).ravel(),
+        np.outer(np.sin(qths), np.sin(np.sin(qphis))).ravel(),
+        np.repeat(np.cos(qphis), len(qths))
+        ))
+    S = np.zeros(len(qns), float)
+    code = """
+    //spatial indexing
+    RTree tree;
+    for(int p=0; p<Npos[0]; ++p)
+    {
+        typename RTree::BoundingBox bb;
+		for(int d=0; d<3; ++d)
+		{
+			bb.edges[d].first = pos(p,d) - maxdist;
+			bb.edges[d].second = pos(p,d) + maxdist;
+		}
+        tree.Insert(p, bb);
+    }
+    const double imaxsq = 1.0 / pow(maxdist, 2);
+    #pragma omp parallel for
+    for(int i=0; i<Npos[0]; ++i)
+    {
+        if(!inside(i))
+            continue;
+        std::list<int> overlapping;
+        typename RTree::BoundingBox bb;
+        for(int d=0; d<3; ++d)
+		{
+			bb.edges[d].first = pos(i,d) - maxdist;
+			bb.edges[d].second = pos(i,d) + maxdist;
+		}
+		tree.Query(typename RTree::AcceptOverlapping(bb), Gatherer(overlapping));
+        overlapping.sort();
+        overlapping.unique();
+        for(std::list<int>::const_iterator it=overlapping.begin(); it!=overlapping.end(); ++it)
+        {
+            const int j = *it;
+            if(i==j)
+                continue;
+            blitz::Array<double, 1> diff(pos(j,blitz::Range::all())-pos(i,blitz::Range::all()));
+            for(int l=0; l<Nqas[0]; ++l)
+            {
+                const double th = blitz::sum(qas(l, blitz::Range::all())*diff);
+                //#pragma omp atomic
+                S += blitz::real(blitz::polar(1.0, qns*th));
+            }
+        }
+    }
+    S /= Nqas[0];
+    """
+    weave.inline(
+        code,['pos', 'inside', 'maxdist', 'qns', 'qas', 'S'],
+        type_converters =converters.blitz,
+        support_code = support_Rtree,
+        include_dirs = [rstartree_path],
+        headers = ['"RStarTree.h"','<deque>', '<list>'],
+        extra_compile_args =['-O3 -fopenmp'],
+        extra_link_args=['-lgomp'],
+        verbose=2, compiler='gcc')
+    return 1+S/np.sum(inside)
     
 def get_srdf(pos, radii, inside, Nbins=250, maxdist=3.0):
     g = np.zeros(Nbins, int)
@@ -477,7 +548,7 @@ def get_srdf(pos, radii, inside, Nbins=250, maxdist=3.0):
         code,['pos', 'radii', 'inside', 'maxdist', 'g'],
         type_converters =converters.blitz,
         support_code = support_Rtree,
-        include_dirs = ['/home/mathieu/src/colloids/multiscale/RStarTree'],
+        include_dirs = [rstartree_path],
         headers = ['"RStarTree.h"','<deque>', '<list>'],
         extra_compile_args =['-O3 -fopenmp'],
         extra_link_args=['-lgomp'],
@@ -538,7 +609,7 @@ def get_planar_rdf(pos, inside, Nbins=250, maxdist=30.0, maxangle=np.pi/3):
         code,['pos', 'inside', 'maxdist', 'maxsin','g'],
         type_converters =converters.blitz,
         support_code = support_Rtree,
-        include_dirs = ['/home/mathieu/src/colloids/multiscale/RStarTree'],
+        include_dirs = [rstartree_path],
         headers = ['"RStarTree.h"','<deque>', '<list>'],
         extra_compile_args =['-O3 -fopenmp'],
         extra_link_args=['-lgomp'],
@@ -638,7 +709,7 @@ def get_links(pos0, radii0, pos1, radii1, maxdist=1.0):
         code,['pos0', 'radii0', 'pos1', 'radii1', 'maxdist', 'pairs', 'dists'],
         type_converters =converters.blitz,
         support_code = support_Rtree,
-        include_dirs = ['/home/mathieu/src/colloids/multiscale/RStarTree'],
+        include_dirs = [rstartree_path],
         headers = ['"RStarTree.h"','<deque>', '<list>'],
         extra_compile_args =['-O3 -fopenmp'],
         extra_link_args=['-lgomp'],
