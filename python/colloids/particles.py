@@ -438,8 +438,8 @@ def get_Sq(pos, inside, qmax=10.0, maxdist=30.0):
     qphis = np.linspace(0, np.pi, 4, False)
     qths = np.linspace(0, 2*np.pi, 8, False)
     qas = np.column_stack((
-        np.outer(np.cos(qths), np.sin(np.sin(qphis))).ravel(),
-        np.outer(np.sin(qths), np.sin(np.sin(qphis))).ravel(),
+        np.outer(np.sin(qphis), np.cos(qths)).ravel(),
+        np.outer(np.sin(qphis), np.sin(qths)).ravel(),
         np.repeat(np.cos(qphis), len(qths))
         ))
     S = np.zeros(len(qns), float)
