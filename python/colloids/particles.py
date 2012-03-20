@@ -433,8 +433,9 @@ def get_rdf(pos, inside, Nbins=250, maxdist=30.0):
         verbose=2, compiler='gcc')
     return g
 
-def get_Sq(pos, inside, qmax=10.0, maxdist=30.0):
-    qns = np.arange(0, qmax, np.pi/maxdist)[1:]
+def get_Sq(pos, inside, qmax=10.0, maxdist=30.0, rate=1):
+    assert rate>0
+    qns = np.arange(0, qmax, np.pi/maxdist/rate)[rate:]
     qphis = np.linspace(0, np.pi, 4, False)
     qths = np.linspace(0, 2*np.pi, 8, False)
     qas = np.column_stack((
@@ -497,7 +498,7 @@ def get_Sq(pos, inside, qmax=10.0, maxdist=30.0):
         extra_compile_args =['-O3 -fopenmp'],
         extra_link_args=['-lgomp'],
         verbose=2, compiler='gcc')
-    return 1+S/np.sum(inside)
+    return 1+S/np.sum(inside)**2, qns
     
 def get_srdf(pos, radii, inside, Nbins=250, maxdist=3.0):
     g = np.zeros(Nbins, int)
