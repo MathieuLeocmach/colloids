@@ -874,7 +874,7 @@ def rdf2Sq(rdf, rho):
     """Calculate the radial Fourier transform of rdf(r) and normalize it to get the structure factor S(q)"""
     s = np.zeros_like(rdf)
     s[:,0] = np.fft.fftfreq(2*len(rdf)+1, rdf[1,0])[1:len(rdf)+1]
-    s[:,1] = (rdf[:,0] * np.sin(np.outer(s[:,0], rdf[:,0])) * (rdf[:,1]-1)).sum(1) * (4*np.pi*rho)/s[:,0]
+    s[:,1] = (rdf[:,0] * np.sin(np.outer(s[:,0], rdf[:,0])) * (rdf[:,1]-1)).sum(1) * (4*np.pi*rho)/s[:,0] * rdf[1,0]
     s[:,1] += 1
     return s
 
