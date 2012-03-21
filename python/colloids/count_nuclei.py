@@ -35,8 +35,8 @@ for t in itertools.count():
     f.write('%d\n'%len(centers))
     f.flush()
     cent.fill(0)
-    for x, y, r, i in centers:
-        cent[max(0,y-r):min(y+r+1,im.shape[0]),max(0, x-r):min(x+r+1, im.shape[1])] += 50
+    for (ym,xm), (yM, xM) in zip(np.maximum(0, centers[:,:2]-centers[:,2][:,None]), np.minimum(centers[:,:2]+centers[:,2][:,None]+1, im.shape[::-1])):
+        cent[xm:xM,ym:yM] += 50
     imsave(outpattern%t, np.dstack((im, cent, cent)))
 f.close()
     
