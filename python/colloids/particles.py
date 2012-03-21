@@ -616,6 +616,67 @@ def get_planar_rdf(pos, inside, Nbins=250, maxdist=30.0, maxangle=np.pi/3):
         extra_link_args=['-lgomp'],
         verbose=2, compiler='gcc')
     return g
+    
+def get_slice_rdf(pos, inside, Nbins=250, maxdist=30.0, width=10.0):
+    """Construct radial distribution function in a thin slice around each central particle"""
+    g = np.zeros(Nbins, int)
+    code = """
+    //spatial indexing
+    RTree tree;
+    for(int p=0; p<Npos[0]; ++p)
+    {
+        typename RTree::BoundingBox bb;
+		for(int d=0; d<3; ++d)
+		{
+			bb.edges[d].first = pos(p,d) - maxdist;
+			bb.edges[d].second = pos(p,d) + maxdist;
+		}
+        tree.Insert(p, bb);
+    }
+    const double imaxsq = 1.0 / pow(maxdist, 2);
+    #pragma omp parallel for
+    for(int i=0; i<Npos[0]; ++i)
+    {
+        if(!inside(i))
+            continue;
+        std::list<int> overlapping;
+        typename RTree::BoundingBox bb;
+        for(int d=0; d<2; ++d)
+		{
+			bb.edges[d].first = pos(i,d) - maxdist;
+			bb.edges[d].second = pos(i,d) + maxdist;
+		}
+		bb.edges[2].first = pos(i,2) - 0.5*width;
+		bb.edges[2].second = pos(i,2) + 0.5*width;
+		tree.Query(typename RTree::AcceptOverlapping(bb), Gatherer(overlapping));
+        overlapping.sort();
+        overlapping.unique();
+        for(std::list<int>::const_iterator it=overlapping.begin(); it!=overlapping.end(); ++it)
+        {
+            const int j = *it;
+            if(i==j)
+                continue;
+            if(abs((double)(pos(j,2)-pos(i,2))) > 0.5*width)
+				continue;
+            const double disq = blitz::sum(blitz::pow(pos(j,blitz::Range(0,1))-pos(i,blitz::Range(0,1)), 2));
+            if(disq*imaxsq>=1.0)
+                continue;
+            const int r = sqrt(disq*imaxsq)*Ng[0];
+            #pragma omp atomic
+            ++g(r);
+        }
+    }
+    """
+    weave.inline(
+        code,['pos', 'inside', 'maxdist', 'width','g'],
+        type_converters =converters.blitz,
+        support_code = support_Rtree,
+        include_dirs = ['/home/mathieu/src/colloids/multiscale/RStarTree'],
+        headers = ['"RStarTree.h"','<deque>', '<list>'],
+        extra_compile_args =['-O3 -fopenmp'],
+        extra_link_args=['-lgomp'],
+        verbose=2, compiler='gcc')
+    return g
 
     
 def spatial_correlation(pos, is_center, values, Nbins, maxdist):
