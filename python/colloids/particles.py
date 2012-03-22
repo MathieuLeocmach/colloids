@@ -435,6 +435,8 @@ def get_rdf(pos, inside, Nbins=250, maxdist=30.0):
 
 def get_Sq(pos, inside, qmax=10.0, maxdist=30.0, rate=1):
     assert rate>0
+    assert inside.ndim == 1
+    assert len(inside) == len(pos)
     qns = np.arange(0, qmax, np.pi/maxdist/rate)[rate:]
     qphis = np.linspace(0, np.pi, 4, False)
     qths = np.linspace(0, 2*np.pi, 8, False)
@@ -458,11 +460,13 @@ def get_Sq(pos, inside, qmax=10.0, maxdist=30.0, rate=1):
         tree.Insert(p, bb);
     }
     const double imaxsq = 1.0 / pow(maxdist, 2);
-    #pragma omp parallel for
+    #pragma omp parallel for schedule(dynamic)
     for(int i=0; i<Npos[0]; ++i)
     {
         if(!inside(i))
             continue;
+        blitz::Array<double, 1> s(NS[0]);
+        s=0;
         std::list<int> overlapping;
         typename RTree::BoundingBox bb;
         for(int d=0; d<3; ++d)
@@ -483,8 +487,12 @@ def get_Sq(pos, inside, qmax=10.0, maxdist=30.0, rate=1):
             {
                 const double th = blitz::sum(qas(l, blitz::Range::all())*diff);
                 //#pragma omp atomic
-                S += blitz::real(blitz::polar(1.0, qns*th));
+                s += blitz::cos(qns*th);
             }
+        }
+        #pragma omp critical
+        {
+            S += s;
         }
     }
     S /= Nqas[0];
@@ -671,7 +679,7 @@ def get_slice_rdf(pos, inside, Nbins=250, maxdist=30.0, width=10.0):
         code,['pos', 'inside', 'maxdist', 'width','g'],
         type_converters =converters.blitz,
         support_code = support_Rtree,
-        include_dirs = ['/home/mathieu/src/colloids/multiscale/RStarTree'],
+        include_dirs = [rstartree_path],
         headers = ['"RStarTree.h"','<deque>', '<list>'],
         extra_compile_args =['-O3 -fopenmp'],
         extra_link_args=['-lgomp'],
