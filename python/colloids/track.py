@@ -859,7 +859,7 @@ Returns an array of (x, y, r, -intensity in scale space)"""
         self.time_subpix += time.clock() - t0
         #convert scale to size
         n = (len(self.layers)-2)
-        centers[:,-2] = k*np.sqrt(2 * (self.layers.ndim-1) * np.log(2) / (2**(2.0 / n) - 1.0)) * 2**((centers[:,-2] + 1.0) / n)
+        centers[:,-2] = scale2radius(centers[:,-2], k, n, self.layers.ndim-1)
         self.noutputs += len(centers)
         return centers
         
