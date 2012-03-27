@@ -464,6 +464,32 @@ def draw_spheres(shape, pos, radii):
         extra_link_args=['-lgomp'],
         verbose=2, compiler='gcc')
     return im;
+    
+def draw_rods(pos, radii, shape=None, im=None):
+    if im is None:
+        im = np.zeros(shape, bool)
+    if shape is None:
+        shape = im.shape
+    assert len(pos)==len(radii)
+    assert np.min(pos.max(0)<shape[::-1]) and np.min([0,0,0]<=pos.min(0)), "points out of bounds"
+    code = """
+    #pragma omp parallel for
+    for(int p=0; p<Npos[0]; ++p)
+    {
+        const int i = pos(p,0), j = pos(p,1);
+        im(blitz::Range(
+            std::max(0, (int)(pos(p,2)-radii(p))),
+            std::min(Nim[0], (int)(pos(p,2)+radii(p))+1)-1
+            ), j, i) = 1;
+    }
+    """
+    weave.inline(
+        code,['pos', 'radii', 'im'],
+        type_converters = converters.blitz,
+        extra_compile_args =['-O3 -fopenmp'],
+        extra_link_args=['-lgomp'],
+        verbose=2, compiler='gcc')
+    return im;
 
 def radius2scale(R, k=1.6, n=3.0, dim=3):
     return n / np.log(2) * np.log(
