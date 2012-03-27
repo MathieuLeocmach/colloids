@@ -1111,9 +1111,7 @@ def fill_S_overlap(h5file, sample_group, dt, shape=[256]*3, over_thr=4.0):
     weave.blitz('tr_start_stop[:,1] += tr_start_stop[:,0]-1')
     nbtot = 0
     S4 = np.zeros(min(shape))
-    for t, inside in enumerate(roi.inside.iterrows()):
-        if t<roi._v_attrs.tmin or t+dt>roi._v_attrs.tmax:
-            continue
+    for t in range(roi._v_attrs.tmin, roi._v_attrs.tmax-dt+1):
         pos = np.column_stack([getattr(getattr(sample_group, 't%03d'%t).positions.cols, c)[:] for c in 'xyz'])
         nbtot += len(pos)
         trnumber = getattr(sample_group, 't%03d'%t).positions.cols.trnumber[:] 
@@ -1186,9 +1184,7 @@ def fill_S_overlap_slice(h5file, sample_group, dt, shape=[256]*3, over_thr=4.0):
     weave.blitz('tr_start_stop[:,1] += tr_start_stop[:,0]-1')
     nbtot = np.zeros(shape[0], int)
     S4 = np.zeros([shape[0], min(shape[1:])/2])
-    for t, inside in enumerate(roi.inside.iterrows()):
-        if t<roi._v_attrs.tmin or t+dt>roi._v_attrs.tmax:
-            continue
+    for t in range(roi._v_attrs.tmin, roi._v_attrs.tmax-dt+1):
         time_step = getattr(sample_group, 't%03d'%t)
         pos = np.column_stack([getattr(time_step.positions.cols, c)[:] for c in 'xyz'])
         radii = time_step.positions.cols.r[:]
