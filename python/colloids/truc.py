@@ -1140,7 +1140,7 @@ def fill_S_overlap(h5file, sample_group, dt, shape=[256]*3, over_thr=4.0):
         for x, y, z in pos0:
             im[x,y,z] = 1
         #do the (half)Fourier transform
-        spectrum = numexpr.evaluate('abs(a).real**2', {'a':anfft.rfftn(im, 3, measure=True)})
+        spectrum = anfft.rfftn(im, 3, measure=True)
         #radial average (sum)
         weave.inline(
             histogram_code,['spectrum', 'dists', 'S4'],
