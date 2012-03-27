@@ -445,6 +445,7 @@ def get_Sq(pos, inside, qmax=10.0, maxdist=30.0, rate=1):
         np.outer(np.sin(qphis), np.sin(qths)).ravel(),
         np.repeat(np.cos(qphis), len(qths))
         ))
+    #qas = np.eye(3)
     S = np.zeros(len(qns), float)
     code = """
     //spatial indexing
@@ -460,13 +461,14 @@ def get_Sq(pos, inside, qmax=10.0, maxdist=30.0, rate=1):
         tree.Insert(p, bb);
     }
     const double imaxsq = 1.0 / pow(maxdist, 2);
+    blitz::Array<std::complex<double>, 1> A(NS[0]);
     #pragma omp parallel for schedule(dynamic)
     for(int i=0; i<Npos[0]; ++i)
     {
         if(!inside(i))
             continue;
-        blitz::Array<double, 1> s(NS[0]);
-        s=0;
+        blitz::Array<std::complex<double>, 2> a(NS[0], Nqas[0]);
+        a=0;
         std::list<int> overlapping;
         typename RTree::BoundingBox bb;
         for(int d=0; d<3; ++d)
@@ -486,16 +488,18 @@ def get_Sq(pos, inside, qmax=10.0, maxdist=30.0, rate=1):
             for(int l=0; l<Nqas[0]; ++l)
             {
                 const double th = blitz::sum(qas(l, blitz::Range::all())*diff);
-                //#pragma omp atomic
-                s += blitz::cos(qns*th);
+                a(blitz::Range::all(), l) += blitz::polar(1.0, qns*th);
             }
         }
         #pragma omp critical
         {
-            S += s;
+            blitz::secondIndex l;
+            S += blitz::sum(blitz::norm(a), l)/(overlapping.size()-1);
+            A += blitz::sum(a, l)/(double)(overlapping.size()-1);
         }
     }
-    S /= Nqas[0];
+    S = (S-blitz::norm(A))/Nqas[0];
+    //S /= Nqas[0];
     """
     weave.inline(
         code,['pos', 'inside', 'maxdist', 'qns', 'qas', 'S'],
@@ -506,7 +510,7 @@ def get_Sq(pos, inside, qmax=10.0, maxdist=30.0, rate=1):
         extra_compile_args =['-O3 -fopenmp'],
         extra_link_args=['-lgomp'],
         verbose=2, compiler='gcc')
-    return 1+S/np.sum(inside)**2, qns
+    return 1+S/np.sum(inside), qns
     
 def get_srdf(pos, radii, inside, Nbins=250, maxdist=3.0):
     g = np.zeros(Nbins, int)
@@ -785,6 +789,24 @@ def get_links(pos0, radii0, pos1, radii1, maxdist=1.0):
         extra_link_args=['-lgomp'],
         verbose=2, compiler='gcc')
     return np.resize(pairs, [len(pairs)/2,2]), np.asarray(dists)
+    
+def get_links_size(pos0, radii0, pos1, radii1, maxdist=1.0):
+    pairs, distances = particles.get_links(pos0, radii0, pos1, radii1, maxdist)
+    code = """
+    #pragma omp parallel for
+    for(int i=0; i<Npairs[0]; ++i)
+    {
+        const int p = pairs(i,0), q = pairs(i,1);
+        distances(i) += pow(radii0(i) - radii1(j), 2);
+    }
+    """
+    weave.inline(
+        code, ['pairs', 'radii0', 'radii1', 'distances'],
+        type_converters =converters.blitz,
+        extra_compile_args =['-O3 -fopenmp'],
+        extra_link_args=['-lgomp'],
+        verbose=2, compiler='gcc')
+    return pairs, dists  
 
 class Linker:
     def __init__(self, nb_initial_pos):
