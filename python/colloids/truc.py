@@ -1146,17 +1146,17 @@ def fill_S_overlap(h5file, sample_group, dt, shape=[256]*3, over_thr=4.0):
         #draw a white pixel at the position of each slow particle
         im.fill(0)
         for x, y, z in pos0:
-            im[x,y,z] = 1
+            im[z,y,x] = 1
         #do the (half)Fourier transform
-        spectrum = np.abs(anfft.rfftn(im, 3, measure=True))**2
+        spectrum = anfft.rfftn(im, 3, measure=True)
         #radial average (sum)
-        S4 += np.histogram(dists.ravel(), np.arange(len(S4)+1), weights=spectrum.ravel())[0]
-        #weave.inline(
-         #   histogram_code,['spectrum', 'dists', 'S4'],
-          #  type_converters =converters.blitz,
-           # extra_compile_args =['-O3 -fopenmp'],
-            #extra_link_args=['-lgomp'],
-            #verbose=2, compiler='gcc')
+        #S4 += np.histogram(dists.ravel(), np.arange(len(S4)+1), weights=spectrum.ravel())[0]
+        weave.inline(
+            histogram_code,['spectrum', 'dists', 'S4'],
+            type_converters =converters.blitz,
+            extra_compile_args =['-O3 -fopenmp'],
+            extra_link_args=['-lgomp'],
+            verbose=2, compiler='gcc')
     #normalize by the total number of particles and NOT by the number of slow particles
     S4 /= nbtot
     nb = np.histogram(dists.ravel(), np.arange(len(S4)+1))[0]
