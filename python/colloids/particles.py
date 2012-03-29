@@ -513,7 +513,7 @@ def get_Sq(pos, inside, qmax=10.0, maxdist=30.0, rate=1):
     return 1+S/np.sum(inside), qns
     
 def S2d_3d(S, q, width, dq=None):
-    """Approximate restoration of a 3D structure factor from a structure factor taken in 2D on a slice of finite width. See ﻿Hiroo Totsuji and Chieko Totsuji, Physical Review E 85, 031139 (2012)."""
+    """Approximate restoration of a 3D structure factor from a structure factor taken in 2D on a slice of finite width. See Hiroo Totsuji and Chieko Totsuji, Physical Review E 85, 031139 (2012)."""
     if dq is None:
         if q[0]==0:
             dq = q[1]
@@ -524,7 +524,7 @@ def S2d_3d(S, q, width, dq=None):
             -2*np.gradient(S)[1+i:]/width + 
             dq*q[1+i:]/6*(width - width**3*(q[1+i:]**2-k**2)/60)*(S[1+i:]-1)
             )/np.sqrt(q[i+1:]**2-k**2))
-        for i,k in enumerate(bins)
+        for i,k in enumerate(q)
         ])
     
 def get_srdf(pos, radii, inside, Nbins=250, maxdist=3.0):
