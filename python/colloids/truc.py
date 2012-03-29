@@ -861,7 +861,13 @@ def fill_sd_w6Q6(h5file, sample_group, dt):
         )
     sd_w6Q6_array._v_attrs.dt = dt
     sd_w6Q6_array._v_attrs.bins = bins
-        
+  
+def get_overlap(a, b, thr):
+    assert a.shape == b.shape
+    overlap = np.zeros(len(a), bool)
+    weave.blitz('overlap = sum(pow2(a-b), secondIndex())<thr*thr')
+    return overlap
+     
 def fill_G_overlap_extended(h5file, sample_group, dt, maxdist=75.0, Nbins =200, over_thr=4.0):
     maxsq = float(maxdist**2)
     roi = sample_group.ROI
@@ -1101,7 +1107,7 @@ def fill_S_overlap(h5file, sample_group, dt, shape=[256]*3, over_thr=4.0):
             {
                 const int q = dists(z,y,x);
                 if (q<0 || q>= NS4[1]) continue;
-                const double v = std::norm(spectrum(z,y,x))
+                const double v = std::norm(spectrum(z,y,x));
                 #pragma omp atomic
                 S4(q) += v;
             }
@@ -1125,13 +1131,15 @@ def fill_S_overlap(h5file, sample_group, dt, shape=[256]*3, over_thr=4.0):
     weave.blitz('tr_start_stop[:,1] += tr_start_stop[:,0]-1')
     nbtot = 0
     S4 = np.zeros(min(shape)/2)
-    for t in range(roi._v_attrs.tmin, roi._v_attrs.tmax-dt+1):
-        pos = np.column_stack([getattr(getattr(sample_group, 't%03d'%t).positions.cols, c)[:] for c in 'xyz'])
+    for t, inside in enumerate(roi.inside.iterrows()):
+        if t<roi._v_attrs.tmin or t+dt>roi._v_attrs.tmax:
+            continue
+        pos = np.column_stack([getattr(sample_group, 't%03d'%t).positions.readCoordinates(inside,c)[:] for c in 'xyz'])
         nbtot += len(pos)
-        trnumber = getattr(sample_group, 't%03d'%t).positions.cols.trnumber[:] 
+        trnumber = getattr(sample_group, 't%03d'%t).positions.readCoordinates(inside, 'trnumber')[:] 
         haveafuture = (t + dt < tr_start_stop[trnumber,1])
         future = np.asarray([alltrajs[tr][1+t-tr_start_stop[tr,0]+dt] for tr in trnumber[haveafuture]])
-        pos1 = np.column_stack([getattr(sample_group, 't%03d'%(t+dt)).positions.readCoordinates(future, c) for c in 'xyz'])
+        pos1 = np.column_stack([getattr(sample_group, 't%03d'%(t+dt)).positions.readCoordinates(future, c)[:] for c in 'xyz'])
         pos1 -= np.mean(pos1-pos[haveafuture], 0)
         overlap = numexpr.evaluate('sum((a-b)**2, -1)', {'a': pos[haveafuture], 'b':pos1})<(over_thr)**2
         pos0 = pos[haveafuture][overlap]
@@ -1140,14 +1148,15 @@ def fill_S_overlap(h5file, sample_group, dt, shape=[256]*3, over_thr=4.0):
         for x, y, z in pos0:
             im[x,y,z] = 1
         #do the (half)Fourier transform
-        spectrum = anfft.rfftn(im, 3, measure=True)
+        spectrum = np.abs(anfft.rfftn(im, 3, measure=True))**2
         #radial average (sum)
-        weave.inline(
-            histogram_code,['spectrum', 'dists', 'S4'],
-            type_converters =converters.blitz,
-            extra_compile_args =['-O3 -fopenmp'],
-            extra_link_args=['-lgomp'],
-            verbose=2, compiler='gcc')
+        S4 += np.histogram(dists.ravel(), np.arange(len(S4)+1), weights=spectrum.ravel())[0]
+        #weave.inline(
+         #   histogram_code,['spectrum', 'dists', 'S4'],
+          #  type_converters =converters.blitz,
+           # extra_compile_args =['-O3 -fopenmp'],
+            #extra_link_args=['-lgomp'],
+            #verbose=2, compiler='gcc')
     #normalize by the total number of particles and NOT by the number of slow particles
     S4 /= nbtot
     nb = np.histogram(dists.ravel(), np.arange(len(S4)+1))[0]
@@ -1159,7 +1168,7 @@ def fill_S_overlap(h5file, sample_group, dt, shape=[256]*3, over_thr=4.0):
         )
     Soverlap_array._v_attrs.bins = np.arange(len(S4))
     
-def fill_S_overlap_slice(h5file, sample_group, dt, shape=[256]*3, over_thr=4.0):
+def fill_S_overlap_slice(h5file, sample_group, dt, shape=[256]*3, over_thr=4.0, width=10):
     #declare c++ code for weave
     histogram_code = """
     #pragma omp parallel for
@@ -1206,7 +1215,10 @@ def fill_S_overlap_slice(h5file, sample_group, dt, shape=[256]*3, over_thr=4.0):
     for t in range(roi._v_attrs.tmin, roi._v_attrs.tmax-dt+1):
         time_step = getattr(sample_group, 't%03d'%t)
         pos = np.column_stack([getattr(time_step.positions.cols, c)[:] for c in 'xyz'])
-        radii = time_step.positions.cols.r[:]
+        if width is None:
+            radii = time_step.positions.cols.r[:]
+        else:
+            radii = 0.5*width * np.ones(len(pos))
         weave.inline(
             nbtot_code, ['pos', 'radii', 'nbtot'],
             type_converters =converters.blitz,
