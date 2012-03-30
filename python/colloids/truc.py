@@ -1138,7 +1138,8 @@ def fill_S_overlap(h5file, sample_group, dt, over_thr=4.0):
     dists[0]=0
     dists[:,0]=0
     dists[:,:,0]=0
-    qs = qs[(qs==0) | (qs>=dists[:2,:2,:2][dists[:2,:2,:2]>0].min())]
+    qs = qs[[0]+range(np.where(qs>dists[:2,:2,:2][dists[:2,:2,:2]>0].min())[0][0]+1, len(qs))]
+    #qs = qs[(qs==0) | (qs>dists[:2,:2,:2][dists[:2,:2,:2]>0].min())]
     #bin the wavenumbers
     nbq, qs = np.histogram(dists.ravel(), qs)
     S4 = np.zeros(nbq.shape)
