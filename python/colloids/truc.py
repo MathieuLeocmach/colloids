@@ -1133,12 +1133,14 @@ def fill_S_overlap(h5file, sample_group, dt, over_thr=4.0):
         'qy':np.fft.fftfreq(shape[1], d=1/factors[1])[None,:,None],
         'qz':np.fft.fftfreq(shape[2], d=1/factors[2])[None,None,:shape[2]/2+1]
         })
-    minq = max([dists[1,0,0], dists[0,1,0], dists[0,0,1]])
+    minq = min([dists[1,0,0], dists[0,1,0], dists[0,0,1]])
+    qs = np.arange(max(shape)/2+1)*minq
     dists[0]=0
     dists[:,0]=0
     dists[:,:,0]=0
+    qs = qs[(qs==0) | (qs>=dists[:2,:2,:2][dists[:2,:2,:2]>0].min())]
     #bin the wavenumbers
-    nbq, qs = np.histogram(dists.ravel(), np.arange(min(shape)/2+1)*minq)
+    nbq, qs = np.histogram(dists.ravel(), qs)
     S4 = np.zeros(nbq.shape)
     #load all trajectories in memory
     alltrajs = sample_group.trajectories[:]
@@ -1167,6 +1169,9 @@ def fill_S_overlap(h5file, sample_group, dt, over_thr=4.0):
         #return spectrum, dists
         #radial average (sum)
         S4 += np.histogram(dists.ravel(), qs, weights=spectrum.ravel())[0]
+        S4[nbq>0] /= nbq[nbq>0]
+        S4 /= nbtot
+        return S4, qs
         #weave.inline(
          #   histogram_code,['spectrum', 'dists', 'S4'],
           #  type_converters =converters.blitz,
