@@ -1133,11 +1133,12 @@ def fill_S_overlap(h5file, sample_group, dt, over_thr=4.0):
         'qy':np.fft.fftfreq(shape[1], d=1/factors[1])[None,:,None],
         'qz':np.fft.fftfreq(shape[2], d=1/factors[2])[None,None,:shape[2]/2+1]
         })
+    minq = max([dists[1,0,0], dists[0,1,0], dists[0,0,1]])
     dists[0]=0
     dists[:,0]=0
     dists[:,:,0]=0
     #bin the wavenumbers
-    nbq, qs = np.histogram(dists.ravel(), max(shape)+1)
+    nbq, qs = np.histogram(dists.ravel(), np.arange(min(shape)/2+1)*minq)
     S4 = np.zeros(nbq.shape)
     #load all trajectories in memory
     alltrajs = sample_group.trajectories[:]
