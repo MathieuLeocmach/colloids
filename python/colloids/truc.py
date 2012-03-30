@@ -1169,9 +1169,9 @@ def fill_S_overlap(h5file, sample_group, dt, over_thr=4.0):
         #return spectrum, dists
         #radial average (sum)
         S4 += np.histogram(dists.ravel(), qs, weights=spectrum.ravel())[0]
-        S4[nbq>0] /= nbq[nbq>0]
-        S4 /= nbtot
-        return S4, qs
+        #S4[nbq>0] /= nbq[nbq>0]
+        #S4 /= nbtot
+        #return S4, qs
         #weave.inline(
          #   histogram_code,['spectrum', 'dists', 'S4'],
           #  type_converters =converters.blitz,
