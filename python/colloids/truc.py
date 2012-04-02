@@ -1114,15 +1114,16 @@ def fill_S_overlap(h5file, sample_group, dt, over_thr=4.0):
     """
     roi = sample_group.ROI
     #find the edges
-    edges = np.zeros([len(roi.inside), 2, 2])
+    edges = np.zeros([len(roi.inside), 2, 3])
     for t in range(sample_group._v_attrs.n_time_steps):
-        pos = np.column_stack([getattr(sample_group, 't%03d'%t).positions.col(c) for c in 'xy'])
+        pos = np.column_stack([getattr(sample_group, 't%03d'%t).positions.col(c) for c in 'xyz'])
         edges[t,0] = pos.min(0)
         edges[t,1] = pos.max(0)
-    bounds = np.column_stack((
+    #bounds = np.column_stack((
         np.vstack([edges[:,0].min(0), edges[:,1].max(0)]), 
-        [roi._v_attrs.zmin, roi._v_attrs.zmax]
-        ))
+     #   [roi._v_attrs.zmin, roi._v_attrs.zmax]
+      #  ))
+    bounds = np.vstack([edges[:,0].min(0), edges[:,1].max(0)])
     #select the best shape for FFT
     shape = 2**(np.array(np.log(bounds[1]-bounds[0]+1)/np.log(2), int)+1)
     factors = shape/(bounds[1]-bounds[0]+1)
@@ -1131,26 +1132,26 @@ def fill_S_overlap(h5file, sample_group, dt, over_thr=4.0):
     qx = np.fft.fftfreq(shape[0], d=1/factors[0])
     qy = np.fft.fftfreq(shape[1], d=1/factors[1])
     qz = np.fft.fftfreq(shape[2], d=1/factors[2])
-    dists = numexpr.evaluate('sqrt(qx**2+qy**2+qz**2)', {
+    dists = numexpr.evaluate('where((abs(qx)>abs(qz))|(abs(qy)>abs(qz)), sqrt(qx**2+qy**2+qz**2), 0)', {
         'qx':qx[:,None,None],
         'qy':qy[None,:,None],
         'qz':qz[None,None,:shape[2]/2+1]
         })
-    minq = min([dists[1,0,0], dists[0,1,0], dists[0,0,1]])
-    maxq = max([dists[1,0,0], dists[0,1,0], dists[0,0,1]])
-    qs = np.arange(max(shape)/2+1)*minq
-    dists[[0,1,-1]]=0
-    dists[:,[0,1,-1]]=0
-    dists[:,:,[0,1]]=0
-    qs = np.union1d(
-        [0, dists[:3,:3,:3][dists[:3,:3,:3]>0].min()], 
-        qs[qs>=dists[:3,:3,:3][dists[:3,:3,:3]>0].min()]
-        )
+    minq = min(factors/shape)
+    maxq = max(factors/shape)
+    #qs = np.arange(max(shape)/2+1)*minq
+    dists[0]=0
+    dists[:,0]=0
+    #dists[:,:,[0,1]]=0
+    #qs = np.union1d(
+     #   [0, dists[:3,:3,:3][dists[:3,:3,:3]>0].min()], 
+      #  qs[qs>=dists[:3,:3,:3][dists[:3,:3,:3]>0].min()]
+       # )
     #bin the wavenumbers
-    nbq, qs = np.histogram(dists.ravel(), qs)
+    nbq, qs = np.histogram(dists.ravel(), max(shape)/2+1)
     S4 = np.zeros(nbq.shape)
     #window function
-    ws = [np.hamming(s) for s in shape]
+    #ws = [np.hamming(s) for s in shape]
     #load all trajectories in memory
     alltrajs = sample_group.trajectories[:]
     #indexing starting time and ending time
@@ -1160,9 +1161,10 @@ def fill_S_overlap(h5file, sample_group, dt, over_thr=4.0):
     for t, inside in enumerate(roi.inside.iterrows()):
         if t<roi._v_attrs.tmin or t+dt>roi._v_attrs.tmax:
             continue
-        pos = np.column_stack([getattr(sample_group, 't%03d'%t).positions.readCoordinates(inside,c)[:] for c in 'xyz'])
+        #pos = np.column_stack([getattr(sample_group, 't%03d'%t).positions.readCoordinates(inside,c)[:] for c in 'xyz'])
+        pos = np.column_stack([getattr(sample_group, 't%03d'%t).positions.col(c)[:] for c in 'xyz'])
         nbtot += len(pos)
-        trnumber = getattr(sample_group, 't%03d'%t).positions.readCoordinates(inside, 'trnumber')[:] 
+        trnumber = getattr(sample_group, 't%03d'%t).positions.col('trnumber')[:]#readCoordinates(inside, 'trnumber')[:] 
         haveafuture = (t + dt < tr_start_stop[trnumber,1])
         future = np.asarray([alltrajs[tr][1+t-tr_start_stop[tr,0]+dt] for tr in trnumber[haveafuture]])
         pos1 = np.column_stack([getattr(sample_group, 't%03d'%(t+dt)).positions.readCoordinates(future, c)[:] for c in 'xyz'])
@@ -1171,16 +1173,16 @@ def fill_S_overlap(h5file, sample_group, dt, over_thr=4.0):
         pos0 = pos[haveafuture][overlap]
         #draw a white pixel at the position of each slow particle
         im.fill(0)
-        wsum = 0.0
+        #wsum = 0.0
         for x, y, z in (pos0-bounds[0])*factors:
-            im[x,y,z] = ws[0][x]*ws[1][y]*ws[2][z]
-            wsum += ws[0][x]*ws[1][y]*ws[2][z]
-        wsum /= len(pos)
+            im[x,y,z] = 1#ws[0][x]*ws[1][y]*ws[2][z]
+            #wsum += ws[0][x]*ws[1][y]*ws[2][z]
+        #wsum /= len(pos)
         #do the (half)Fourier transform
         spectrum = np.abs(anfft.rfftn(im, 3, measure=True))**2
         #return spectrum, dists
         #radial average (sum)
-        S4 += np.histogram(dists.ravel(), qs, weights=spectrum.ravel())[0]/wsum
+        S4 += np.histogram(dists.ravel(), qs, weights=spectrum.ravel())[0]#/wsum
         #S4[nbq>0] /= nbq[nbq>0]
         #S4 /= nbtot
         #return S4, qs
