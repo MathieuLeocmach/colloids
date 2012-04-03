@@ -1127,7 +1127,7 @@ def fill_S_overlap(h5file, sample_group, dt, over_thr=4.0):
     #select the best shape for FFT
     #shape = 2**(np.array(np.log(bounds[1]-bounds[0]+1)/np.log(2), int)+1)
     #factors = shape/(bounds[1]-bounds[0]+1)
-    shape = np.array(np.ceil(bounds[1]-bounds[0]), int)
+    shape = np.array(np.floor(bounds[1]-bounds[0]), int)+1
     factors = np.ones(3)
     im = np.zeros(shape)
     #mask of wavenumbers
