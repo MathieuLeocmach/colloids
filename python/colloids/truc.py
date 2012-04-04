@@ -1150,7 +1150,7 @@ def fill_S_overlap(h5file, sample_group, dt, over_thr=4.0):
       #  qs[qs>=dists[:3,:3,:3][dists[:3,:3,:3]>0].min()]
        # )
     #bin the wavenumbers
-    nbq, qs = np.histogram(dists.ravel(), max(shape)/2+1)
+    nbq, qs = np.histogram(dists.ravel(), qx[:len(qx)/2])#max(shape)/2+1)
     S4 = np.zeros(nbq.shape)
     #window function
     ws = [np.hamming(s) for s in shape]
@@ -1206,6 +1206,84 @@ def fill_S_overlap(h5file, sample_group, dt, over_thr=4.0):
     Soverlap_array = h5file.createArray(
         sample_group.ROI, 'Soverlap_dt%d'%dt,
         S4, 'Structure factor of the particles overlapping between t and t+dt (dt=%d)'%dt
+        )
+    Soverlap_array._v_attrs.bins = qs
+    
+def fill_S_overlap2D(h5file, sample_group, dt, over_thr=4.0):
+    roi = sample_group.ROI
+    #find the edges
+    edges = np.zeros([len(roi.inside), 2, 2])
+    for t, inside in enumerate(roi.inside.iterrows()):
+        pos = np.column_stack([getattr(sample_group, 't%03d'%t).positions.readCoordinates(inside, c) for c in 'xy'])
+        edges[t,0] = pos.min(0)
+        edges[t,1] = pos.max(0)
+    bounds = np.column_stack((
+        np.vstack([edges[:,0].min(0), edges[:,1].max(0)]), 
+        [roi._v_attrs.zmin, roi._v_attrs.zmax]
+        ))
+    #bounds = np.vstack([edges[:,0].min(0), edges[:,1].max(0)])
+    #select the best shape for FFT
+    #shape = 2**(np.array(np.log(bounds[1]-bounds[0]+1)/np.log(2), int)+1)
+    #factors = shape/(bounds[1]-bounds[0]+1)
+    shape = np.array(np.floor(bounds[1]-bounds[0]), int)+1
+    factors = np.ones(3)
+    im = np.zeros(shape)
+    #mask of wavenumbers
+    qx = np.fft.fftfreq(shape[0], d=1/factors[0])
+    qy = np.fft.fftfreq(shape[1], d=1/factors[1])
+    qz = np.fft.fftfreq(shape[2], d=1/factors[2])
+    dists = numexpr.evaluate('sqrt(qx**2+qy**2)', {
+        'qx':qx[:,None],
+        'qy':qy[None,:]
+        })
+    #bin the wavenumbers
+    nbq, qs = np.histogram(dists.ravel(), qx[:len(qx)/2])
+    S4 = np.zeros(nbq.shape)
+    #window function
+    ws = [np.hamming(s) for s in shape]
+    #load all trajectories in memory
+    alltrajs = sample_group.trajectories[:]
+    #indexing starting time and ending time
+    tr_start_stop = np.column_stack(([tr[0] for tr in alltrajs], map(len, alltrajs)))
+    weave.blitz('tr_start_stop[:,1] += tr_start_stop[:,0]-1')
+    nbtot = 0
+    for t, inside in enumerate(roi.inside.iterrows()):
+        if t<roi._v_attrs.tmin or t+dt>roi._v_attrs.tmax:
+            continue
+        pos = np.column_stack([getattr(sample_group, 't%03d'%t).positions.readCoordinates(inside,c)[:] for c in 'xyz'])
+        #pos = np.column_stack([getattr(sample_group, 't%03d'%t).positions.col(c)[:] for c in 'xyz'])
+        nbtot += len(pos)
+        trnumber = getattr(sample_group, 't%03d'%t).positions.readCoordinates(inside, 'trnumber')[:] 
+        haveafuture = (t + dt < tr_start_stop[trnumber,1])
+        future = np.asarray([alltrajs[tr][1+t-tr_start_stop[tr,0]+dt] for tr in trnumber[haveafuture]])
+        pos1 = np.column_stack([getattr(sample_group, 't%03d'%(t+dt)).positions.readCoordinates(future, c)[:] for c in 'xyz'])
+        pos1 -= np.mean(pos1-pos[haveafuture], 0)
+        overlap = numexpr.evaluate('sum((a-b)**2, -1)', {'a': pos[haveafuture], 'b':pos1})<(over_thr)**2
+        pos0 = pos[haveafuture][overlap]
+        #draw a white pixel at the position of each slow particle
+        im.fill(0)
+        #wsum = 0.0
+        for x, y, z in (pos0-bounds[0])*factors:
+            im[x,y,z] = 1
+            #wsum += ws[0][x]*ws[1][y]*ws[2][z]
+        #wsum /= len(pos)
+        #remove offset
+        im -= im.mean()
+        #windowing
+        for d, w in enumerate(ws):
+            im *= w[tuple([None]*d + [slice(None)] + [None]*(2-d))]
+        #do the (half)Fourier transform
+        spectrum = np.abs(anfft.rfftn(im, 3, measure=True)[:,:,0])**2
+        #return spectrum, dists
+        #radial average (sum)
+        S4 += np.histogram(dists.ravel(), qs, weights=spectrum.ravel())[0]/spectrum.mean()*len(pos0)
+    #normalize by the total number of particles and NOT by the number of slow particles
+    S4 /= nbtot
+    #radial average (division)
+    S4[nbq>0] /= nbq[nbq>0]
+    Soverlap_array = h5file.createArray(
+        sample_group.ROI, 'Soverlap2D_dt%d'%dt,
+        S4, 'Structure factor of the particles overlapping between t and t+dt (dt=%d) (qz=0 correlations only)'%dt
         )
     Soverlap_array._v_attrs.bins = qs
     
