@@ -501,6 +501,12 @@ def scale2radius(x, k=1.6, n=3.0, dim=3):
         2 * dim * np.log(2) / float(n) / (2**(2.0/n)-1)
         )
         
+def radius2sigma(R, n=3.0, dim=3):
+    return R / np.sqrt(2*dim* np.log(2) / n/(1 - 2**(-2.0/n)))
+    
+def sigma2radius(sigma, n=3.0, dim=3):
+    return sigma * np.sqrt(2*dim* np.log(2) / n/(1 - 2**(-2.0/n)))
+        
 support_functions = """
 #include <boost/math/special_functions/erf.hpp>
     inline double halfG(const double &d, const double &R, const double &sigma)
@@ -558,7 +564,7 @@ def global_rescale_weave(sigma0, bonds, dists, R0=None, n=3):
     assert len(bonds)==len(dists) 
     alpha = 2**(1.0/n)
     if R0==None:
-        R0 = sigma0 * np.sqrt(6.0/n*np.log(2)/(1-alpha**(-2)))
+        R0 = sigma2radius(sigma0, n=float(n))
     v0 = np.zeros([len(sigma0)])
     tr = np.zeros([len(sigma0)])
     jacob = np.zeros([len(bonds),2])
@@ -595,7 +601,7 @@ def global_rescale_intensity(sigma0, bonds, dists, intensities, R0=None, n=3):
     assert len(bonds)==len(dists) 
     alpha = 2**(1.0/n)
     if R0==None:
-        R0 = sigma0 * np.sqrt(6.0/n*np.log(2)/(1-alpha**(-2)))
+        R0 = sigma2radius(sigma0, n=float(n))
     v0 = np.zeros([len(sigma0)])
     tr = np.zeros([len(sigma0)])
     jacob = np.zeros([len(bonds),2])
@@ -638,7 +644,7 @@ def solve_intensities(sigma0, bonds, dists, intensities, R0=None, n=3):
     assert len(bonds)==len(dists) 
     alpha = 2**(1.0/n)
     if R0==None:
-        R0 = sigma0 * np.sqrt(6.0/n*np.log(2)/(1-alpha**(-2)))
+        R0 = sigma2radius(sigma0, n=float(n))
     tr = np.zeros([len(sigma0)])
     ofd = np.zeros([len(bonds),2])
     code = """
@@ -673,7 +679,7 @@ def solve_intensities(sigma0, bonds, dists, intensities, R0=None, n=3):
 halfG_dsigma = lambda d, R, sigma : (R**2+d*R+sigma**2)*np.exp(-(R+d)**2/(2*sigma**2))/np.sqrt(2*np.pi)/d/sigma**2
 
 def G_dsigma(d, R, sigma):
-    if d==0:
+    if d==0 or (R+d**2==R):
         return -(R**3)/sigma**4*np.sqrt(2/np.pi)*np.exp(-R**2/2/sigma**2)
     else:
         return halfG_dsigma(d,R,sigma) + halfG_dsigma(-d, R, sigma)
@@ -683,7 +689,7 @@ DoG_dsigma = lambda d, R, sigma, alpha : alpha*G_dsigma(d,R,alpha*sigma) - G_dsi
 halfG_dsigma_dR = lambda d, R, sigma : -R*((R+d)**2-sigma**2)*np.exp(-(R+d)**2/(2*sigma**2))/np.sqrt(2*np.pi)/d/sigma**4
     
 def G_dsigma_dR(d, R, sigma):
-    if d==0:
+    if d==0 or (R+d**2==R):
         return R**2*(R**2-3*sigma**2)/sigma**6*np.sqrt(2/np.pi)*np.exp(-R**2/2/sigma**2)
     else:                                                                
         return halfG_dsigma_dR(d,R,sigma) + halfG_dsigma_dR(-d, R, sigma)
@@ -693,7 +699,7 @@ DoG_dsigma_dR = lambda d, R, sigma, alpha : alpha*G_dsigma_dR(d,R,alpha*sigma) -
 def global_rescale(coords, sigma0, R0=None, bonds=None, n=3):
     alpha = 2**(1.0/n)
     if R0==None:
-        R0 = sigma0 * np.sqrt(6.0/n*np.log(2)/(1-alpha**(-2)))
+        R0 = sigma2radius(sigma0, n=float(n))
         v0 = np.zeros([len(coords)])
     else:
         v0 = DoG_dsigma(0, R0, sigma0, alpha)
