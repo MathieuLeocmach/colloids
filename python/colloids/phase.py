@@ -48,6 +48,16 @@ def binodalGL(piv, q, guess=None):
         pv(fs[0], piv, q) - pv(fs[1], piv, q), 
         mu(fs[0], piv, q) - mu(fs[1], piv, q)
         ], guess)
+
+def spinodalGL(q, bins=None):
+    fc, pivc = critical_point(q)
+    if bins is None:
+        bins = 1/np.linspace(1/pivc, 1/(8*pivc))
+    return np.column_stack((bins, np.vstack([(
+        fminbound(lambda f: -pv(f, piv, 0.06), 0, fc),
+        fminbound(lambda f: pv(f, piv, 0.06), fc, 12)
+        ) for piv in bins])))
+    
         
 def all_GL(q, maxpiv=None):
     fc, pivc = critical_point(q)
