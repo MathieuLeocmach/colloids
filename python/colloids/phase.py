@@ -50,6 +50,18 @@ qR2q = lambda qR: 0.9*qR**0.9
 piv2y = lambda piv, qR: qR**3*piv
 f2vf = lambda f: f/(1+f)
 
+def mu_of_log(F, piv, q):
+    f = np.exp(F)
+    return F - logOnePlusX(f) + 8*f + 7*f**2 + 2*f**3  + piv * (1+q)**3 * g(f, q)
+
+pv_of_log = lambda F, piv, q: pv(np.exp(F), piv, q)
+
+def expmu (f, piv, q): 
+    if f<0.01:
+        return np.log(f) + piv * (A(q)+1)
+    else:
+        return mu(f, piv, q)
+
 
 def critical_point(q):
     """Critical point coordinates in the (PIv, f) plane function of the effective size ratio q=delta/a"""
@@ -58,15 +70,15 @@ def critical_point(q):
     return (fc, PIvc)
     
 def binodalGL(piv, q, guess=None):
-    """return (f_gas, f_liquid) on the binodal line at a given insersion work piv"""
+    """return (log(f_gas), log(f_liquid)) on the binodal line at a given insersion work piv"""
     if guess is None:
         fc = critical_point(q)[0]
-        fm = fminbound(mu, fc, 2*fc, args=(piv, q))
-        fM = fminbound(lambda f: -pv(f, piv,q), 0, fc)
-        guess = [0.5*fM, fm+fM]
-    return fsolve(lambda fs: [
-        pv(fs[0], piv, q) - pv(fs[1], piv, q), 
-        mu(fs[0], piv, q) - mu(fs[1], piv, q)
+        fspG = fminbound(lambda f: -pv(f, piv,q), 0, fc)
+        fspL = fminbound(pv, fc, 2*fc, args=(piv, q))
+        guess = np.log([0.5*fspG, fspL+fspG])
+    return fsolve(lambda Fs: [
+        pv_of_log(Fs[0], piv, q) - pv_of_log(Fs[1], piv, q), 
+        mu_of_log(Fs[0], piv, q) - mu_of_log(Fs[1], piv, q)
         ], guess)
 
 def spinodalGL(q, bins=None):
@@ -81,11 +93,12 @@ def spinodalGL(q, bins=None):
         
 def all_GL(q, maxpiv=None):
     fc, pivc = critical_point(q)
+    Fc = np.log(fc)
     #start sensibly above the critical point
     startp = pivc*1.1
     fm = fminbound(mu, fc, 2*fc, args=(startp, q))
     fM = fminbound(lambda f: -pv(f, startp, q), 0, fc)
-    initial_guess = [0.5*fM, fm+fM]
+    initial_guess = np.log([0.5*fM, fm+fM])
     #construct the top of the GL binodal
     if maxpiv is None:
         maxpiv = startp*2
@@ -101,8 +114,8 @@ def all_GL(q, maxpiv=None):
     #join the two results
     binodal = np.vstack((
         [[pivc, fc, fc]],
-        np.column_stack((botp, botGL[1:]))[::-1],
-        np.column_stack((topp, topGL[1:]))[1:]
+        np.column_stack((botp, np.exp(botGL[1:])))[::-1],
+        np.column_stack((topp, np.exp(topGL[1:])))[1:]
         ))
     #spinodal
     spL = [fminbound(mu, G, L, args=(piv, q)) for piv, G, L in binodal]
