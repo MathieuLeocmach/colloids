@@ -96,7 +96,7 @@ def all_GL(q, maxpiv=None):
     #construct the top of the GL binodal
     if maxpiv is None:
         maxpiv = startp*2
-    topp = np.linspace(startp, maxpiv)
+    topp = 1./np.linspace(1./startp, 1./maxpiv)
     topGL = [initial_guess]
     for piv in topp:
         topGL.append(binodalGL(piv, q, topGL[-1]))
