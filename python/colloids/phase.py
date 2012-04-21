@@ -56,12 +56,6 @@ def mu_of_log(F, piv, q):
 
 pv_of_log = lambda F, piv, q: pv(np.exp(F), piv, q)
 
-def expmu (f, piv, q): 
-    if f<0.01:
-        return np.log(f) + piv * (A(q)+1)
-    else:
-        return mu(f, piv, q)
-
 
 def critical_point(q):
     """Critical point coordinates in the (PIv, f) plane function of the effective size ratio q=delta/a"""
@@ -118,10 +112,9 @@ def all_GL(q, maxpiv=None):
         np.column_stack((topp, np.exp(topGL[1:])))[1:]
         ))
     #spinodal
-    spL = [fminbound(mu, G, L, args=(piv, q)) for piv, G, L in binodal]
-    spG = [fminbound(lambda f: -mu(f, piv, 0.06), G, L) for piv, G, L in binodal]
+    spinodal = spinodalGL(q, binodal[:,0])
     #join everything
-    return np.column_stack((binodal, spG, spL))
+    return np.column_stack((binodal, spinodal[:,1:]))
     
     
     
