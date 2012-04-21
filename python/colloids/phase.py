@@ -6,6 +6,26 @@ import numpy as np
 from scipy.optimize import fsolve, fminbound
 from scipy import interpolate
 
+def logOnePlusX(x):
+    """Calculate log(1 + x), preventing loss of precision for small values of x."""
+    #assert x > -1.0, "Invalid input argument (%f); must be greater than -1.0"%x
+    if np.fabs(x) > 0.375:
+        # x is sufficiently large that the obvious evaluation is OK
+        return np.log(1.0 + x);
+    # For smaller arguments we use a rational approximation
+    # to the function log(1+x) to avoid the loss of precision
+    # that would occur if we simply added 1 to x then took the log.
+    p1 =  -0.129418923021993e+01
+    p2 =   0.405303492862024e+00
+    p3 =  -0.178874546012214e-01
+    q1 =  -0.162752256355323e+01
+    q2 =   0.747811014037616e+00
+    q3 =  -0.845104217945565e-01
+    t = x/(x + 2.0)
+    t2 = t*t
+    w = (((p3*t2 + p2)*t2 + p1)*t2 + 1.0)/(((q3*t2 + q2)*t2 + q1)*t2 + 1.0);
+    return 2.0*t*w;
+
 A = lambda q: (1+q)**3 -1
 B = lambda q: 3*q**2*(q+1.5)
 C = lambda q: q**3
@@ -20,7 +40,7 @@ beta3 = lambda f,q: -beta(f,q)*Q3(f,q) - 2*beta1(f,q)*Q2(f,q)- beta2(f,q)*Q1(f,q
 pv_0 = lambda f: f/(1+f) + 4*f**2 + 2* f**3
 pv_0_1 = lambda f: (1+f)**(-2) + 8*f + 6*f**2
 pv_0_2 = lambda f: -2*(1+f)**(-3) + 8 + 12*f
-mu_0 =  lambda f: np.log(f/(1+f)) + 8*f + 7*f**2 + 2*f**3
+mu_0 =  lambda f: np.log(f) - logOnePlusX(f) + 8*f + 7*f**2 + 2*f**3
 g = lambda f,q: (beta(f,q) - (1+f)*beta1(f,q))/(1+q)**3
 h = lambda f,q: beta(f,q) - f*beta1(f,q)
 pv = lambda f, piv, q: pv_0(f) + piv * h(f,q)
