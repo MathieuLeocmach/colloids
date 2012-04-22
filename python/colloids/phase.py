@@ -38,13 +38,17 @@ beta1 = lambda f,q: -beta(f,q)*Q1(f,q)
 beta2 = lambda f,q: -beta(f,q)*Q2(f,q) - beta1(f,q)*Q1(f,q)
 beta3 = lambda f,q: -beta(f,q)*Q3(f,q) - 2*beta1(f,q)*Q2(f,q)- beta2(f,q)*Q1(f,q)
 pv_0 = lambda f: f/(1+f) + 4*f**2 + 2* f**3
+pvS_0 = lambda f: 3/(1.0/f - 1/2.853)
 pv_0_1 = lambda f: (1+f)**(-2) + 8*f + 6*f**2
 pv_0_2 = lambda f: -2*(1+f)**(-3) + 8 + 12*f
 mu_0 =  lambda f: np.log(f) - logOnePlusX(f) + 8*f + 7*f**2 + 2*f**3
+muS_0 = lambda f: 2.1306 + 3.0/((1+f)/f - 1/0.741) - 3*np.log((1+f)/f - 1/0.741)
 g = lambda f,q: (beta(f,q) - (1+f)*beta1(f,q))/(1+q)**3
 h = lambda f,q: beta(f,q) - f*beta1(f,q)
 pv = lambda f, piv, q: pv_0(f) + piv * h(f,q)
+pvS = lambda f, piv, q: pvS_0(f) + piv * h(f,q)
 mu = lambda f, piv, q: mu_0(f) + piv * (1+q)**3 * g(f, q)
+muS = lambda f, piv, q: muS_0(f) + piv * (1+q)**3 * g(f, q)
 alpha = lambda f, q: 1/(beta(f,q) * (1+f))
 qR2q = lambda qR: 0.9*qR**0.9
 piv2y = lambda piv, qR: qR**3*piv
@@ -53,8 +57,13 @@ f2vf = lambda f: f/(1+f)
 def mu_of_log(F, piv, q):
     f = np.exp(F)
     return F - logOnePlusX(f) + 8*f + 7*f**2 + 2*f**3  + piv * (1+q)**3 * g(f, q)
+def muS_of_log (F, piv, q):
+    f = np.exp(F)
+    u = f*(1-1/0.741)
+    return 2.1306 + 3.0*f/(1+u) + 3*F - 3*logOnePlusX(u) + piv * (1+q)**3 * g(f, q)
 
 pv_of_log = lambda F, piv, q: pv(np.exp(F), piv, q)
+pvS_of_log = lambda F, piv, q: pvS(np.exp(F), piv, q)
 
 
 def critical_point(q):
@@ -116,5 +125,10 @@ def all_GL(q, maxpiv=None):
     #join everything
     return np.column_stack((binodal, spinodal[:,1:]))
     
-    
+def binodalFS(piv, q, guess=np.log([0.970, 1.185])):
+    """return (log(f_Fluid), log(f_solid)) on the binodal line at a given insersion work piv"""
+    return fsolve(lambda Fs: [
+        pv_of_log(Fs[0], piv, q) - pvS_of_log(Fs[1], piv, q), 
+        mu_of_log(Fs[0], piv, q) - muS_of_log(Fs[1], piv, q)
+        ], guess)
     
