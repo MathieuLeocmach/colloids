@@ -26,6 +26,9 @@ def logOnePlusX(x):
     w = (((p3*t2 + p2)*t2 + p1)*t2 + 1.0)/(((q3*t2 + q2)*t2 + q1)*t2 + 1.0);
     return 2.0*t*w;
 
+eta_cp = np.pi/6*np.sqrt(2)
+f_cp = eta_cp/(1 - eta_cp)
+
 A = lambda q: (1+q)**3 -1
 B = lambda q: 3*q**2*(q+1.5)
 C = lambda q: q**3
@@ -42,7 +45,9 @@ pvS_0 = lambda f: 3/(1.0/f - 1/2.853)
 pv_0_1 = lambda f: (1+f)**(-2) + 8*f + 6*f**2
 pv_0_2 = lambda f: -2*(1+f)**(-3) + 8 + 12*f
 mu_0 =  lambda f: np.log(f) - logOnePlusX(f) + 8*f + 7*f**2 + 2*f**3
-muS_0 = lambda f: 2.1306 + 3.0/((1+f)/f - 1/0.741) - 3*np.log((1+f)/f - 1/0.741)
+def muS_0(f):
+    u = 1/f - 1/f_cp
+    return 2.1306 + 3.0*(1+f)/u/f - 3*np.log(u)
 g = lambda f,q: (beta(f,q) - (1+f)*beta1(f,q))/(1+q)**3
 h = lambda f,q: beta(f,q) - f*beta1(f,q)
 pv = lambda f, piv, q: pv_0(f) + piv * h(f,q)
@@ -59,8 +64,8 @@ def mu_of_log(F, piv, q):
     return F - logOnePlusX(f) + 8*f + 7*f**2 + 2*f**3  + piv * (1+q)**3 * g(f, q)
 def muS_of_log (F, piv, q):
     f = np.exp(F)
-    u = f*(1-1/0.741)
-    return 2.1306 + 3.0*f/(1+u) + 3*F - 3*logOnePlusX(u) + piv * (1+q)**3 * g(f, q)
+    u = 1/f - 1/f_cp
+    return 2.1306 + 3.0*(1+f)/f/u - 3*np.log(u) + piv * (1+q)**3 * g(f, q)
 
 pv_of_log = lambda F, piv, q: pv(np.exp(F), piv, q)
 pvS_of_log = lambda F, piv, q: pvS(np.exp(F), piv, q)
@@ -132,3 +137,12 @@ def binodalFS(piv, q, guess=np.log([0.970, 1.185])):
         mu_of_log(Fs[0], piv, q) - muS_of_log(Fs[1], piv, q)
         ], guess)
     
+def all_FS(q, maxpiv=None):
+    fc, pivc = critical_point(q)
+    if maxpiv is None:
+        maxpiv = startp*2
+    topp = np.linspace(0, maxpiv)
+    topFS = [np.log([0.970, 1.185])]
+    for piv in topp:
+        topFS.append(binodalFS(piv, q, topFS[-1]))
+    return np.column_stack((topp, np.exp(topFS[1:])))
