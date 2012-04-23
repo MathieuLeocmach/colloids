@@ -99,8 +99,8 @@ def spinodalGL(q, bins=None):
     if bins is None:
         bins = 1/np.linspace(1/pivc, 1/(8*pivc))
     return np.column_stack((bins, np.vstack([(
-        fminbound(lambda f: -pv(f, piv, 0.06), 0, fc),
-        fminbound(lambda f: pv(f, piv, 0.06), fc, 12)
+        fminbound(lambda f: -pv(f, piv, q), 0, fc),
+        fminbound(lambda f: pv(f, piv, q), fc, 12)
         ) for piv in bins])))
     
         
