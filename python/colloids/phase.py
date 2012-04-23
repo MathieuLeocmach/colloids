@@ -41,7 +41,7 @@ beta1 = lambda f,q: -beta(f,q)*Q1(f,q)
 beta2 = lambda f,q: -beta(f,q)*Q2(f,q) - beta1(f,q)*Q1(f,q)
 beta3 = lambda f,q: -beta(f,q)*Q3(f,q) - 2*beta1(f,q)*Q2(f,q)- beta2(f,q)*Q1(f,q)
 pv_0 = lambda f: f/(1+f) + 4*f**2 + 2* f**3
-pvS_0 = lambda f: 3/(1.0/f - 1/2.853)
+pvS_0 = lambda f: 3/(1.0/f - 1/f_cp)
 pv_0_1 = lambda f: (1+f)**(-2) + 8*f + 6*f**2
 pv_0_2 = lambda f: -2*(1+f)**(-3) + 8 + 12*f
 mu_0 =  lambda f: np.log(f) - logOnePlusX(f) + 8*f + 7*f**2 + 2*f**3
@@ -62,14 +62,19 @@ f2vf = lambda f: f/(1+f)
 def mu_of_log(F, piv, q):
     f = np.exp(F)
     return F - logOnePlusX(f) + 8*f + 7*f**2 + 2*f**3  + piv * (1+q)**3 * g(f, q)
-def muS_of_log (F, piv, q):
-    f = np.exp(F)
-    u = 1/f - 1/f_cp
-    return 2.1306 + 3.0*(1+f)/f/u - 3*np.log(u) + piv * (1+q)**3 * g(f, q)
+def muS_of_U (U, piv, q):
+    u = np.exp(U)
+    f = 1.0/(u+1/f_cp)
+    return 2.1306 + 3.0*(1+1/eta_cp/u) - 3*U + piv * (1+q)**3 * g(f, q)
+mu_of_U = lambda U, piv, q: mu_of_log(-np.log(np.exp(U) + 1/f_cp), piv, q)
 
 pv_of_log = lambda F, piv, q: pv(np.exp(F), piv, q)
 pvS_of_log = lambda F, piv, q: pvS(np.exp(F), piv, q)
-
+pv_of_U = lambda U, piv, q: pv(1/(np.exp(U) + 1/f_cp), piv, q)
+def pvS_of_U(U, piv, q):
+    u = np.exp(U)
+    f = 1.0/(u+1/f_cp)
+    return 3/u + piv * h(f,q)
 
 def critical_point(q):
     """Critical point coordinates in the (PIv, f) plane function of the effective size ratio q=delta/a"""
@@ -130,19 +135,25 @@ def all_GL(q, maxpiv=None):
     #join everything
     return np.column_stack((binodal, spinodal[:,1:]))
     
-def binodalFS(piv, q, guess=np.log([0.970, 1.185])):
-    """return (log(f_Fluid), log(f_solid)) on the binodal line at a given insersion work piv"""
-    return fsolve(lambda Fs: [
-        pv_of_log(Fs[0], piv, q) - pvS_of_log(Fs[1], piv, q), 
-        mu_of_log(Fs[0], piv, q) - muS_of_log(Fs[1], piv, q)
-        ], guess)
+def binodalFS(piv, q, guess=[0.970, 1.185]):
+    """return (f_Fluid, f_solid) on the binodal line at a given insersion work piv"""
+    Us0 = np.log(1./np.array(guess) - 1/f_cp)
+    result = fsolve(lambda Us: [
+        pv_of_U(Us[0], piv, q) - pvS_of_U(Us[1], piv, q), 
+        mu_of_U(Us[0], piv, q) - muS_of_U(Us[1], piv, q)
+        ], Us0)
+    return 1./(np.exp(result)+1/f_cp)
     
 def all_FS(q, maxpiv=None):
     fc, pivc = critical_point(q)
     if maxpiv is None:
         maxpiv = startp*2
-    topp = np.linspace(0, maxpiv)
-    topFS = [np.log([0.970, 1.185])]
+    #need to integrate from top to bottom or it gets unstable
+    topp = np.union1d(np.linspace(0, 1.1*pivc), np.linspace(1.1*pivc, maxpiv))[::-1]
+    topFS = [[1e-3, f_cp-1e-3]]
     for piv in topp:
         topFS.append(binodalFS(piv, q, topFS[-1]))
-    return np.column_stack((topp, np.exp(topFS[1:])))
+    return np.vstack((
+        [0, 0.970, 1.185],
+        np.column_stack((topp, topFS[1:]))[::-1]
+        ))
