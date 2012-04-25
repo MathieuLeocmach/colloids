@@ -30,7 +30,7 @@ from math import exp
 from colloids import vtk, statistics
 from pygraph.classes.graph import graph
 from pygraph.algorithms.accessibility import connected_components
-
+import numexpr
 
 def noNaN(x):
     if x == 'NaN':
@@ -395,12 +395,16 @@ class Txp:
             return
         if xp is not None:
             self.xp = xp
-            if not start or start < self.xp.offset:
-                start = self.xp.offset
-            if not size or start+size > self.xp.offset+self.xp.size:
-                size = self.xp.size + self.xp.offset - start
-            self.trajs = self.read_trajs(start, size)
-            self.positions = self.read_pos(start, size)
+            if start is None or start < self.xp.offset:
+                self.start = self.xp.offset
+            else:
+                self.start=start
+            if size is None or start+size > self.xp.offset+self.xp.size:
+                self.size = self.xp.size + self.xp.offset - self.start
+            else:
+                self.size= size
+            self.trajs = self.read_trajs()
+            self.positions = self.read_pos()
             self.remove_drift()
             
     def __getitem__(self, indices):
@@ -410,7 +414,7 @@ class Txp:
         c.positions = c.positions[:, indices]
         return c
 
-    def read_trajs(self, start, size):
+    def read_trajs(self):
         """
             Reads the linked trajectories from the .traj file
             Retrieves only trajectories spanning [start,start+size[
@@ -418,20 +422,23 @@ class Txp:
         starts, positions = load_trajectories(
             os.path.join(self.xp.path,self.xp.trajfile)
             )
+        lengths = np.array(map(len, positions))
+        begin = self.start - np.array(starts)
+        size = lengths - begin
         return np.asarray([
-            pos[start-t0:size]
-            for t0, pos in zip(starts, positions)
-            if t0 <= start and len(pos)-(start-t0)>=size
+            pos[b:b+self.size]
+            for pos, b, s in zip(positions, begin, size)
+            if b>=0 and s>=self.size
             ])
 
-    def read_pos(self, start, size):
+    def read_pos(self):
         """Reads the usefull positions from the .dat files"""
         pos = np.empty((self.trajs.shape[1],self.trajs.shape[0],3))
         for t, fname in self.xp.enum():
-            if t<start or t>= start+size:
+            if t<self.start or t>= self.start+self.size:
                 continue
             raw_pos = np.loadtxt(fname, skiprows=2)
-            pos[t-start] = raw_pos[self.trajs[:,t-start]]
+            pos[t-self.start] = raw_pos[self.trajs[:,t-self.start]]
         return pos
 
     def load_bonds(self, t):
@@ -609,8 +616,9 @@ class Txp:
                 ISF[2] = ( isf([1,3]) + isf([2,4]) )/2
                 ISF[3] = ( isf([1,4]) + isf([2,5]) )/2
     """
-        A = np.exp(
-            self.positions[start:stop+av-1] * (1j * np.pi / self.xp.radius)
+        A = numexpr.evaluate('exp(r * q)',{
+            'r':self.positions[start:stop+av-1],
+            'q': (1j * np.pi / self.xp.radius)}
             )
         return statistics.time_correlation(A, av).mean(axis=-1).real
         
