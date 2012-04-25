@@ -867,6 +867,52 @@ def get_overlap(a, b, thr):
     overlap = np.zeros(len(a), bool)
     weave.blitz('overlap = sum(pow2(a-b), secondIndex())<thr*thr')
     return overlap
+    
+def fill_zoverlap(h5file, sample_group, dt, Nbins=10, over_thr=4.0):
+    roi = sample_group.ROI
+    zbins = np.linspace(roi._v_attrs.zmin, roi._v_attrs.zmax, Nbins+1)
+    zoverlapping = np.zeros([roi._v_attrs.tmax - roi._v_attrs.tmin -dt+1, Nbins], int)
+    zNb = np.zeros([roi._v_attrs.tmax - roi._v_attrs.tmin -dt+1, Nbins], int)
+    #load all trajectories in memory
+    alltrajs = sample_group.trajectories[:]
+    #indexing starting time and ending time SLOW
+    tr_start_stop = np.column_stack(([tr[0] for tr in alltrajs], map(len, alltrajs)))
+    weave.blitz('tr_start_stop[:,1] += tr_start_stop[:,0]-1')
+    for t, inside in enumerate(roi.inside.iterrows()):
+        if t<roi._v_attrs.tmin or t+dt>roi._v_attrs.tmax:
+            continue
+        time_step = getattr(sample_group, 't%03d'%t)
+        time_step1 = getattr(sample_group, 't%03d'%(t+dt))
+        #restrict to the particles having a future of dt
+        trnumber = time_step.positions.readCoordinates(inside, 'trnumber')
+        haveafuture = (t + dt < tr_start_stop[trnumber,1])
+        outslab = inside[haveafuture]
+        trnumber = trnumber[haveafuture]
+        #select future positions
+        future = np.asarray([alltrajs[tr][1+t-tr_start_stop[tr,0]+dt] for tr in trnumber])
+        #load the coordinates
+        pos = np.column_stack([
+            time_step.positions.readCoordinates(outslab, c)
+            for c in 'xyz'])
+        pos1 = np.column_stack([
+            time_step1.positions.readCoordinates(future, c)
+            for c in 'xyz'])
+        #remove drift
+        pos1 -= np.mean(pos1-pos, 0)
+        zoverlapping[t-roi._v_attrs.tmin] = np.histogram(
+            pos[:,-1], zbins, 
+            weights=np.array(numexpr.evaluate(
+                'sum((a-b)**2, -1)', 
+                {'a': pos, 'b':pos1}
+                )<over_thr**2, int)
+            )[0]
+        zNb[t-roi._v_attrs.tmin] = np.histogram(pos[:,-1], zbins)[0]
+    overlap_array = h5file.createArray(
+        sample_group.ROI, 'overlap_dt%d'%dt,
+        zoverlapping, 'Number of ROI particles overlapping between t and t+dt (dt=%d) (z subdivisions).'%(dt)
+        )
+    overlap_array._v_attrs.zbins = zbins
+    overlap_array._v_attrs.zNbs = zNb
      
 def fill_G_overlap_extended(h5file, sample_group, dt, maxdist=75.0, Nbins =200, over_thr=4.0):
     maxsq = float(maxdist**2)
@@ -1098,20 +1144,6 @@ def fill_G_overlap_slice(h5file, sample_group, dt, maxdist=75.0, Nbins =200, ove
     Goverlap_array._v_attrs.width = width
     
 def fill_S_overlap(h5file, sample_group, dt, over_thr=4.0):
-    #declare c++ code for weave
-    histogram_code = """
-    #pragma omp parallel for
-    for(int z=0; z<Nspectrum[0]; ++z)
-        for(int y=0; y<Nspectrum[1]; ++y)
-            for(int x=0; x<Nspectrum[2]; ++x)
-            {
-                const int q = dists(z,y,x);
-                if (q<0 || q>= NS4[1]) continue;
-                const double v = std::norm(spectrum(z,y,x));
-                #pragma omp atomic
-                S4(q) += v;
-            }
-    """
     roi = sample_group.ROI
     #find the edges
     edges = np.zeros([len(roi.inside), 2, 2])
@@ -1139,18 +1171,8 @@ def fill_S_overlap(h5file, sample_group, dt, over_thr=4.0):
         'qy':qy[None,:,None],
         'qz':qz[None,None,:shape[2]/2+1]
         })
-    minq = min(factors/shape)
-    maxq = max(factors/shape)
-    #qs = np.arange(max(shape)/2+1)*minq
-    #dists[0]=0
-    #dists[:,0]=0
-    #dists[:,:,[0,1]]=0
-    #qs = np.union1d(
-     #   [0, dists[:3,:3,:3][dists[:3,:3,:3]>0].min()], 
-      #  qs[qs>=dists[:3,:3,:3][dists[:3,:3,:3]>0].min()]
-       # )
     #bin the wavenumbers
-    nbq, qs = np.histogram(dists.ravel(), qx[:len(qx)/2])#max(shape)/2+1)
+    nbq, qs = np.histogram(dists.ravel(), qx[:len(qx)/2])
     S4 = np.zeros(nbq.shape)
     #window function
     ws = [np.hamming(s) for s in shape]
@@ -1186,19 +1208,13 @@ def fill_S_overlap(h5file, sample_group, dt, over_thr=4.0):
         for d, w in enumerate(ws):
             im *= w[tuple([None]*d + [slice(None)] + [None]*(2-d))]
         #do the (half)Fourier transform
-        spectrum = np.abs(anfft.rfftn(im, 3, measure=True))**2
+        spectrum = numexpr.evaluate('real(abs(a))**2', {'a':anfft.rfftn(im, 3, measure=True)})
         #return spectrum, dists
         #radial average (sum)
         S4 += np.histogram(dists.ravel(), qs, weights=spectrum.ravel())[0]/spectrum.mean()*len(pos0)
         #S4[nbq>0] /= nbq[nbq>0]
         #S4 /= nbtot
         #return S4, qs
-        #weave.inline(
-         #   histogram_code,['spectrum', 'dists', 'S4'],
-          #  type_converters =converters.blitz,
-           # extra_compile_args =['-O3 -fopenmp'],
-            #extra_link_args=['-lgomp'],
-            #verbose=2, compiler='gcc')
     #normalize by the total number of particles and NOT by the number of slow particles
     S4 /= nbtot
     #radial average (division)
