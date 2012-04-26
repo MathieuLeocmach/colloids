@@ -107,30 +107,9 @@ def fill_geometry12(h5file, sample_group):
     for time_step in h5file.walkGroups(sample_group):
         if not hasattr(time_step._v_attrs, 't') or hasattr(time_step, 'neighbours12'):
             continue
-        #position table
-        pos = time_step.positions
         #load positions
-        indexed_part = Particles(
-            np.column_stack((pos.cols.x[:], pos.cols.y[:], pos.cols.z[:])),
-            pos.cols.r[:]
-            )
-        #extreme positions
-        bmin = indexed_part.pos.min(axis=0)
-        bmax = indexed_part.pos.max(axis=0)
-        #get the geometry of each particle
-        neighbours = np.empty([len(indexed_part.pos), 12], int)
-        inside = np.empty([len(indexed_part.pos)], bool)
-        for i, p in enumerate(indexed_part.pos):
-            ngbs = indexed_part.get_N_ngbs(i, 8.0)
-            dist = np.sum((indexed_part.pos[ngbs] - p)**2, axis=-1)
-            dmax = np.sqrt(dist.max())
-            if np.min(p+dmax <= bmax) and np.min(p-dmax >= bmin):
-                inside[i] = True
-            else:
-                inside[i] = False
-                rmax = min([np.min(bmax - p), np.min(p-bmin)])
-                ngbs[dist>rmax**2] = -1
-            neighbours[i] = ngbs
+        pos = np.column_stack([time_step.positions.col(c)[:] for c in 'xyzr'])
+        neighbours, inside = colloids.particles.get_N_ngbs(pos[:,:-1], pos[:,-1])
         #create geometry table
         table = h5file.createTable(
             time_step, 'neighbours12',
@@ -199,10 +178,7 @@ def fill_boo12_l(h5file, sample_group, l=4):
     for time_step in h5file.walkGroups(sample_group):
         if not hasattr(time_step._v_attrs, 't') or hasattr(time_step, 'boo12_l%d'%l):
             continue
-        #position table
-        pos = time_step.positions
-        #load positions
-        coords = np.column_stack((pos.cols.x[:], pos.cols.y[:], pos.cols.z[:]))
+        coords = np.column_stack([time_step.positions.col(c)[:] for c in 'xyz'])
         inside = time_step.neighbours12.cols.inside[:]
         ngbs = time_step.neighbours12.cols.ngbs[:]
         qlms = boo.weave_qlm(coords, ngbs, inside, l)
