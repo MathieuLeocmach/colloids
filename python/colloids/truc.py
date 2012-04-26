@@ -720,6 +720,73 @@ def fill_steihardtgl_extended(h5file, sample_group, maxdist=75.0, Nbins =200, l=
     G6_array._v_attrs.bins = np.linspace(0, maxdist, Nbins)
     G6_array._v_attrs.nbdens = nbdens
     
+    
+def fill_Sl_2D(h5file, sample_group, l=6):
+    roi = sample_group.ROI
+    #find the edges
+    edges = np.zeros([len(roi.inside), 2, 2])
+    for t, inside in enumerate(roi.inside.iterrows()):
+        pos = np.column_stack([getattr(sample_group, 't%03d'%t).positions.readCoordinates(inside, c) for c in 'xy'])
+        edges[t,0] = pos.min(0)
+        edges[t,1] = pos.max(0)
+    bounds = np.column_stack((
+        np.vstack([edges[:,0].min(0), edges[:,1].max(0)]), 
+        [roi._v_attrs.zmin, roi._v_attrs.zmax]
+        ))
+    shape = np.array(np.floor(bounds[1]-bounds[0]), int)+1
+    factors = np.ones(3)
+    im = np.zeros(shape, np.complex64)
+    #mask of wavenumbers
+    qx = np.fft.fftfreq(shape[0], d=1/factors[0])
+    qy = np.fft.fftfreq(shape[1], d=1/factors[1])
+    qz = np.fft.fftfreq(shape[2], d=1/factors[2])
+    dists = numexpr.evaluate('sqrt(qx**2+qy**2)', {
+        'qx':qx[:,None],
+        'qy':qy[None,:]
+        })
+    #bin the wavenumbers
+    nbq, qs = np.histogram(dists.ravel(), qx[:len(qx)/2])
+    Sl = np.zeros(nbq.shape)
+    #window function
+    ws = [np.hamming(s) for s in shape]
+    nbtot = 0
+    for t, inside in enumerate(roi.inside.iterrows()):
+        if t<roi._v_attrs.tmin or t>roi._v_attrs.tmax:
+            continue
+        time_step = getattr(sample_group, 't%03d'%t)
+        #load coordinates
+        pos = np.column_stack([time_step.positions.readCoordinates(inside,c)[:] for c in 'xyz'])
+        nbtot += len(pos)
+        #load BOO
+        if l==6 and hasattr(time_step, 'boo12'):
+            qlms = getattr(time_step, 'boo12').readCoordinates(inside, 'q6m')[:]
+        else:
+            qlms = getattr(time_step, 'boo12_l%d'%l).readCoordinates(inside, 'qlm')[:]
+        im.fill(0)
+        #compute the correlation for each m
+        for m, qlm in enumerate(qlms.T):
+            #draw a valued pixel at the position of each particle
+            for (x, y, z), qm in zip((pos-bounds[0])*factors, qlm):
+                im[x,y,z] = qm
+            #remove offset
+            im -= im.mean()
+            #windowing
+            for d, w in enumerate(ws):
+                im *= w[tuple([None]*d + [slice(None)] + [None]*(2-d))]
+            #do the (half)Fourier transform
+            spectrum = np.abs(anfft.fftn(im, 3, measure=True)[:,:,0])**2
+            #radial average (sum)
+            Sl += (2-(m==0)) * np.histogram(dists.ravel(), qs, weights=spectrum.ravel())[0]/spectrum.mean()*len(pos)
+    #normalize by the total number of particles
+    Sl /= nbtot *(2*l+1)/(4.*np.pi)
+    #radial average (division)
+    Sl[nbq>0] /= nbq[nbq>0]
+    Sl_array = h5file.createArray(
+        sample_group.ROI, 'S_l%d'%l,
+        Sl, 'Bond order structure factor for non-coarse-grained q%dm (qz=0 correlations only)'%l
+        )
+    Sl_array._v_attrs.bins = qs
+    
 def get_w6Q6_hist(sample_group):
     bins = [np.linspace(-0.052, 0.052, 101), np.linspace(0, 0.6, 101)]
     h = np.zeros([100, 100], int)
