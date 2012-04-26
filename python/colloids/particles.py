@@ -377,6 +377,76 @@ def get_bonds(positions, radii, maxdist=3.0):
         verbose=2, compiler='gcc')
     return np.resize(pairs, [len(pairs)/2,2]), np.asarray(dists)
     
+def get_N_ngbs(positions, radii, N=12, maxdist=8.0):
+    #extreme positions
+    bmin = positions.min(axis=0)
+    bmax = positions.max(axis=0)
+    #initialize the geometry of each particle
+    neighbours = -np.ones([len(positions), N], int)
+    inside = np.ones([len(positions)], bool)
+    dist_to_box = np.minimum(
+        np.min(positions - bmin, 1), 
+        np.min(bmax - positions, 1))**2
+    code = """
+    //spatial indexing
+    RTree tree;
+    for(int p=0; p<Npositions[0]; ++p)
+    {
+        typename RTree::BoundingBox bb;
+		for(int d=0; d<3; ++d)
+		{
+			bb.edges[d].first = positions(p,d) - maxdist*radii(p);
+			bb.edges[d].second = positions(p,d) + maxdist*radii(p);
+		}
+        tree.Insert(p, bb);
+    }
+    //look for nearby particles
+    #pragma omp parallel for
+    for(int p=0; p<Npositions[0]; ++p)
+    {
+        double rsq = 9.0*radii(p)*radii(p);
+        std::list<int> overlapping;
+        typename RTree::BoundingBox bb;
+        for(int d=0; d<3; ++d)
+		{
+			bb.edges[d].first = positions(p,d) - maxdist*radii(p);
+			bb.edges[d].second = positions(p,d) + maxdist*radii(p);
+		}
+		tree.Query(typename RTree::AcceptOverlapping(bb), Gatherer(overlapping));
+        overlapping.sort();
+        overlapping.unique();
+        //sort and filter possible neighbours by distance
+        std::multimap<double, int> ngbbydist;
+        for(std::list<int>::const_iterator it=overlapping.begin(); it!=overlapping.end(); ++it)
+        {
+            const int q = *it;
+            double dsq = 0;
+            for(int d=0; d<3; ++d)
+                dsq += pow(positions(p,d)-positions(q,d), 2);
+            if(dsq < dist_to_box(p) && dsq < pow(maxdist*(radii(p)+radii(q)) ,2))
+                ngbbydist.insert(std::make_pair(dsq, q));
+        }
+        std::multimap<double, int>::const_iterator it = ngbbydist.begin();
+        for(int i=0; i<Nneighbours[1] && it!=ngbbydist.end(); ++i)
+            neighbours(p, i) = it->second;
+        //not enough neighbours
+        if(ngbbydist.size()<12)
+        {
+            inside(p) = false;
+        }
+    }
+    """
+    weave.inline(
+        code,['positions', 'radii', 'maxdist', 'dist_to_box', 'neighbours', 'inside'],
+        type_converters =converters.blitz,
+        support_code = support_Rtree,
+        include_dirs = [rstartree_path],
+        headers = ['"RStarTree.h"','<map>', '<list>'],
+        extra_compile_args =['-O3 -fopenmp'],
+        extra_link_args=['-lgomp'],
+        verbose=2, compiler='gcc')
+    return neighbours, inside
+    
 def get_rdf(pos, inside, Nbins=250, maxdist=30.0):
     g = np.zeros(Nbins, int)
     code = """
@@ -393,7 +463,7 @@ def get_rdf(pos, inside, Nbins=250, maxdist=30.0):
         tree.Insert(p, bb);
     }
     const double imaxsq = 1.0 / pow(maxdist, 2);
-    #pragma omp parallel for
+    #pragma omp parallel for schedule(dynamic)
     for(int i=0; i<Npos[0]; ++i)
     {
         if(!inside(i))
@@ -705,6 +775,42 @@ def get_slice_rdf(pos, inside, Nbins=250, maxdist=30.0, width=10.0):
         verbose=2, compiler='gcc')
     return g
 
+def get_rdf_window(pos, box, Nbins=250, maxdist=30.0):
+    assert len(box)==2
+    assert len(box[0]) == 3
+    L = (box[1]-box[0])
+    g = np.zeros(Nbins)
+    #compute the weight of each particle according to the Hamming window function
+    #weights = np.prod(0.54 - 0.46*np.sin(2*np.pi*(pos-box[0])/(box[1]-box[0])), -1)
+    #compute the weight of each particle according to the Hann window function
+    weights = np.prod(0.5*(1-np.sin(2*np.pi*(pos-box[0])/(box[1]-box[0]))), -1)
+    code = """
+    //spatial indexing
+    const double imaxsq = 1.0 / pow(maxdist, 2);
+    #pragma omp parallel for schedule(dynamic)
+    for(int i=0; i<Npos[0]-1; ++i)
+    {
+        for(int j=i+1; j<Npos[0]; ++j)
+        {
+            const double disq = blitz::sum(blitz::pow(blitz::fmod(pos(j,blitz::Range::all())-pos(i,blitz::Range::all())+1.5*L, L)-0.5*L, 2));
+            if(disq*imaxsq>=1.0)
+                continue;
+            const int r = sqrt(disq*imaxsq)*Ng[0];
+            #pragma omp atomic
+            g(r) += weights(i);
+        }
+    }
+    """
+    weave.inline(
+        code,['pos', 'weights', 'L','maxdist', 'g'],
+        type_converters =converters.blitz,
+        support_code = support_Rtree,
+        include_dirs = [rstartree_path],
+        headers = ['"RStarTree.h"','<deque>', '<list>'],
+        extra_compile_args =['-O3 -fopenmp'],
+        extra_link_args=['-lgomp'],
+        verbose=2, compiler='gcc')
+    return g
     
 def spatial_correlation(pos, is_center, values, Nbins, maxdist):
     """
