@@ -420,6 +420,7 @@ def get_N_ngbs(positions, radii, N=12, maxdist=8.0):
         for(std::list<int>::const_iterator it=overlapping.begin(); it!=overlapping.end(); ++it)
         {
             const int q = *it;
+            if(q==p) continue;
             double dsq = 0;
             for(int d=0; d<3; ++d)
                 dsq += pow(positions(p,d)-positions(q,d), 2);
@@ -428,7 +429,7 @@ def get_N_ngbs(positions, radii, N=12, maxdist=8.0):
         }
         std::multimap<double, int>::const_iterator it = ngbbydist.begin();
         for(int i=0; i<Nneighbours[1] && it!=ngbbydist.end(); ++i)
-            neighbours(p, i) = it->second;
+            neighbours(p, i) = (it++)->second;
         //not enough neighbours
         if(ngbbydist.size()<12)
         {
