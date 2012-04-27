@@ -125,49 +125,6 @@ def fill_geometry12(h5file, sample_group):
         table.flush()
     h5file.flush()
 
-def fill_boo12(h5file, sample_group):
-    for time_step in h5file.walkGroups(sample_group):
-        if not hasattr(time_step._v_attrs, 't') or hasattr(time_step, 'boo12'):
-            continue
-        #position table
-        pos = time_step.positions
-        #load positions
-        indexed_part = Particles(
-            np.column_stack((pos.cols.x[:], pos.cols.y[:], pos.cols.z[:])),
-            pos.cols.r[:]
-            )
-        q6ms = np.zeros([len(indexed_part.pos), 7], np.complex128)
-        for n in time_step.neighbours12.where('inside'):
-            q6ms[n['idnumber']] = indexed_part.get_qlm(
-                n['idnumber'],
-                n['ngbs'],
-                ls=[6])[0]
-        Q6ms = np.zeros_like(q6ms)
-        inside = time_step.neighbours12.cols.inside[:]
-        for n in time_step.neighbours12.where('inside'):
-            ngb = n['ngbs'][inside[n['ngbs']]]
-            Q6ms[n['idnumber']] = (q6ms[n['idnumber']] + q6ms[ngb].sum(0)) / (1.0+len(ngb))
-        q6s = colloids.particles.ql(q6ms)
-        w6s = colloids.particles.wl(q6ms)
-        Q6s = colloids.particles.ql(Q6ms)
-        #bond orientational order table
-        table = h5file.createTable(
-            time_step, 'boo12',
-            Bond_order, '6-fold symmetry'
-        )
-        table.flush()
-        row = table.row
-        for i, (q6m, Q6m, q6, w6, Q6) in enumerate(zip(q6ms, Q6ms, q6s, w6s, Q6s)):
-            row['idnumber'] = i
-            row['q6m'] = q6m
-            row['Q6m'] = Q6m
-            row['q6'] = q6
-            row['w6'] = w6
-            row['Q6'] = Q6
-            row.append()
-        table.flush()
-    h5file.flush()
-
 def fill_boo12_l(h5file, sample_group, l=4):
     class Bond_order_l(IsDescription):
         qlm       = ComplexCol(16, pos=1, shape=l+1)
@@ -702,7 +659,13 @@ def fill_Sl_2D(h5file, sample_group, l=6):
     #find the edges
     edges = np.zeros([len(roi.inside), 2, 2])
     for t, inside in enumerate(roi.inside.iterrows()):
-        pos = np.column_stack([getattr(sample_group, 't%03d'%t).positions.readCoordinates(inside, c) for c in 'xy'])
+        time_step = getattr(sample_group, 't%03d'%t)
+        isin = time_step.neighbours12.readCoordinates(inside, 'inside')
+        #if l==6 and hasattr(time_step, 'boo12'):
+         #   qls = time_step.boo12.readCoordinates(inside, 'q6')[:]
+        #else:
+         #   qls = getattr(time_step, 'boo12_l%d'%l).readCoordinates(inside, 'ql')[:]
+        pos = np.column_stack([time_step.positions.readCoordinates(inside[isin], c) for c in 'xy'])
         edges[t,0] = pos.min(0)
         edges[t,1] = pos.max(0)
     bounds = np.column_stack((
@@ -712,6 +675,7 @@ def fill_Sl_2D(h5file, sample_group, l=6):
     shape = np.array(np.floor(bounds[1]-bounds[0]), int)+1
     factors = np.ones(3)
     im = np.zeros(shape, np.complex64)
+    spectrum = np.zeros(shape[:-1])
     #mask of wavenumbers
     qx = np.fft.fftfreq(shape[0], d=1/factors[0])
     qy = np.fft.fftfreq(shape[1], d=1/factors[1])
@@ -723,6 +687,7 @@ def fill_Sl_2D(h5file, sample_group, l=6):
     #bin the wavenumbers
     nbq, qs = np.histogram(dists.ravel(), qx[:len(qx)/2])
     Sl = np.zeros(nbq.shape)
+    tot = np.zeros([roi._v_attrs.tmax - roi._v_attrs.tmin+1, l+1], np.complex128)
     #window function
     ws = [np.hamming(s) for s in shape]
     nbtot = 0
@@ -730,29 +695,38 @@ def fill_Sl_2D(h5file, sample_group, l=6):
         if t<roi._v_attrs.tmin or t>roi._v_attrs.tmax:
             continue
         time_step = getattr(sample_group, 't%03d'%t)
+        #select the particles with a defined ql
+        if l==6 and hasattr(time_step, 'boo12'):
+            qls = getattr(time_step, 'boo12').readCoordinates(inside, 'q6')[:]
+        else:
+            qls = getattr(time_step, 'boo12_l%d'%l).readCoordinates(inside, 'ql')[:]
+        hasql = qls>0
         #load coordinates
-        pos = np.column_stack([time_step.positions.readCoordinates(inside,c)[:] for c in 'xyz'])
-        nbtot += len(pos)
+        pos = np.column_stack([time_step.positions.readCoordinates(inside[hasql],c)[:] for c in 'xyz'])
         #load BOO
         if l==6 and hasattr(time_step, 'boo12'):
-            qlms = getattr(time_step, 'boo12').readCoordinates(inside, 'q6m')[:]
+            qlms = getattr(time_step, 'boo12').readCoordinates(inside[hasql], 'q6m')[:]
         else:
-            qlms = getattr(time_step, 'boo12_l%d'%l).readCoordinates(inside, 'qlm')[:]
+            qlms = getattr(time_step, 'boo12_l%d'%l).readCoordinates(inside[hasql], 'qlm')[:]
+        tot[t-roi._v_attrs.tmin] = qlms.sum(0)
+        nbtot += len(pos)
         im.fill(0)
+        spectrum.fill(0)
         #compute the correlation for each m
         for m, qlm in enumerate(qlms.T):
             #draw a valued pixel at the position of each particle
             for (x, y, z), qm in zip((pos-bounds[0])*factors, qlm):
                 im[x,y,z] = qm
+            #return im;
             #remove offset
             im -= im.mean()
             #windowing
             for d, w in enumerate(ws):
                 im *= w[tuple([None]*d + [slice(None)] + [None]*(2-d))]
             #do the (half)Fourier transform
-            spectrum = np.abs(anfft.fftn(im, 3, measure=True)[:,:,0])**2
-            #radial average (sum)
-            Sl += (2-(m==0)) * np.histogram(dists.ravel(), qs, weights=spectrum.ravel())[0]/spectrum.mean()*len(pos)
+            spectrum += (2-(m==0))*np.abs(anfft.fftn(im, 3, measure=True)[:,:,0])**2
+        #radial average (sum)
+        Sl += np.histogram(dists.ravel(), qs, weights=spectrum.ravel())[0]/spectrum.mean()*len(pos)
     #normalize by the total number of particles
     Sl /= nbtot *(2*l+1)/(4.*np.pi)
     #radial average (division)
@@ -762,6 +736,7 @@ def fill_Sl_2D(h5file, sample_group, l=6):
         Sl, 'Bond order structure factor for non-coarse-grained q%dm (qz=0 correlations only)'%l
         )
     Sl_array._v_attrs.bins = qs
+    Sl_array._v_attrs.tot = tot
     
 def get_w6Q6_hist(sample_group):
     bins = [np.linspace(-0.052, 0.052, 101), np.linspace(0, 0.6, 101)]
