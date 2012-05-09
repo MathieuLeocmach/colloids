@@ -10,6 +10,7 @@
 
 #include "../RStarTree/RStarTree.h"
 #include <boost/array.hpp>
+#include <math.h>
 
 namespace Colloids {
 
