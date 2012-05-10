@@ -833,13 +833,14 @@ BOOST_AUTO_TEST_SUITE( john )
 					//continue;
 			//rescale
 			for(size_t d=0; d<3; ++d)
-				c[d] = (c[d]+0.5) * 256.0 / (2.0 + boxsize);
+				c[d] = (c[d]+0.5) * 192.0 / (2.0 + boxsize);
 			simulation.push_back(c);
 		}
 		sim.close();
 		//create an empty, black input picture as big as the simulation box + margins
-		const double radius = 0.5 * 256.0 / (2.0 + boxsize);
-		int dims[3] = {256, 256, 256}, ldims[3] = {1024, 1024, 1024};
+		const double radius = 0.5 * 192.0 / (2.0 + boxsize);
+		BOOST_WARN_MESSAGE(false, "radius is "<<radius);
+		int dims[3] = {192, 192, 192}, ldims[3] = {768, 768, 768};
 		cv::Mat_<uchar> input(3, dims);
 		{
 			cv::Mat_<uchar> linput(3, ldims);
@@ -856,7 +857,7 @@ BOOST_AUTO_TEST_SUITE( john )
 			volume_shrink(linput, input, 4);
 		}
 		//track in 3D
-		MultiscaleFinder3D finder(256,256,256);
+		MultiscaleFinder3D finder(192,192,192);
 		std::vector<Center3D> centers;
 		finder.get_centers(input, centers);
 		//compare track output and simulation output
