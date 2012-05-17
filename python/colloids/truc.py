@@ -433,13 +433,15 @@ def fill_G6(h5file, sample_group, bins=np.linspace(0, 256., 1024.)):
     G6_table = np.zeros([sample_group._v_attrs.n_time_steps, len(bins)-1, 2])
     for t, inside in enumerate(sample_group.ROI.inside.iterrows()):
         time_step = getattr(sample_group, 't%03d'%t)
+        ngbs = time_step.neighbours12.cols.ngbs[:]
+        isin = time_step.neighbours12.cols.inside[:][ngbs[inside]].min(-1)
         pos = np.column_stack([
-            time_step.positions.readCoordinates(inside, c)
+            time_step.positions.readCoordinates(inside[isin], c)
             for c in 'xyz'])
         if hasattr(time_step, 'boo12'):
-            Q6ms = time_step.boo12.readCoordinates(inside, 'Q6m')
+            Q6ms = time_step.boo12.readCoordinates(inside[isin], 'Q6m')
         else:
-            Q6ms = time_step.boo12_l6.readCoordinates(inside, 'Qlm')
+            Q6ms = time_step.boo12_l6.readCoordinates(inside[isin], 'Qlm')
         htot = np.zeros(len(bins)-1)
         gtot = np.zeros(len(bins)-1, int)
         code="""
@@ -578,9 +580,13 @@ def fill_Glgl_conservative(h5file, sample_group, maxdist=30.0, Nbins =100, l=6):
         nb = np.sum(is_center)
         assert nb>0, "maxdist is too long ! No particle selected."
         nbdens[t] = nb/np.prod(bounds[1]-bounds[0])
-        qlms = getattr(time_step, 'boo12_l%d'%l).readCoordinates(inside, 'qlm')[:]
-        Qlms = getattr(time_step, 'boo12_l%d'%l).readCoordinates(inside, 'Qlm')[:]
-        G6_table[t] = np.column_stack(boo.gG_l(pos, qlms, Qlms, is_center, Nbins, maxdist,l))
+        if l==6 and hasattr(time_step, 'boo12'):
+            qlms = time_step.boo12.readCoordinates(inside, 'q6m')[:]
+            Qlms = time_step.boo12.readCoordinates(inside, 'Q6m')[:]
+        else:
+            qlms = getattr(time_step, 'boo12_l%d'%l).readCoordinates(inside, 'qlm')[:]
+            Qlms = getattr(time_step, 'boo12_l%d'%l).readCoordinates(inside, 'Qlm')[:]
+        G6_table[t] = np.column_stack(boo.gG_l(pos, qlms, Qlms, is_center, Nbins, maxdist))
         if nb>0:
             G6_table[t]/=nb
     G6_array = h5file.createArray(
@@ -623,7 +629,7 @@ def fill_Glgl_extended(h5file, sample_group, maxdist=75.0, Nbins =200, l=6):
         else:
             qlms = getattr(time_step, 'boo12_l%d'%l).readCoordinates(outslab, 'qlm')[:]
             Qlms = getattr(time_step, 'boo12_l%d'%l).readCoordinates(outslab, 'Qlm')[:]
-        G6_table[t] = np.column_stack(boo.gG_l(pos, qlms, Qlms, is_center, Nbins, maxdist, l))
+        G6_table[t] = np.column_stack(boo.gG_l(pos, qlms, Qlms, is_center, Nbins, maxdist))
         if nb>0:
             G6_table[t]/=nb
     G6_array = h5file.createArray(
