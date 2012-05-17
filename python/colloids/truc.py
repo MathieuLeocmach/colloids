@@ -428,33 +428,58 @@ def fill_S(h5file, sample_group, shape=[256]*3):
         )
     S_array._v_attrs.bins = np.arange(len(S))
     
-def fill_G6(h5file, sample_group, bins=np.linspace(0, 256, 1024)):
-    maxsq = bins[-1]**2
+def fill_G6(h5file, sample_group, bins=np.linspace(0, 256., 1024.)):
+    maxsq = 1.0 * bins[-1]**2
     G6_table = np.zeros([sample_group._v_attrs.n_time_steps, len(bins)-1, 2])
     for t, inside in enumerate(sample_group.ROI.inside.iterrows()):
         time_step = getattr(sample_group, 't%03d'%t)
-        pos = np.column_stack((
-            time_step.positions.readCoordinates(inside, 'x'),
-            time_step.positions.readCoordinates(inside, 'y'),
-            time_step.positions.readCoordinates(inside, 'z')
-            ))
-        Q6ms = time_step.boo12.readCoordinates(inside, 'Q6m')
+        pos = np.column_stack([
+            time_step.positions.readCoordinates(inside, c)
+            for c in 'xyz'])
+        if hasattr(time_step, 'boo12'):
+            Q6ms = time_step.boo12.readCoordinates(inside, 'Q6m')
+        else:
+            Q6ms = time_step.boo12_l6.readCoordinates(inside, 'Qlm')
         htot = np.zeros(len(bins)-1)
         gtot = np.zeros(len(bins)-1, int)
-        for i, (p, Q6m) in enumerate(zip(pos, Q6ms)):
-            distsq = numexpr.evaluate(
-                '(p-q)**2',
-                {'p': p, 'q': pos}
-                ).sum(-1)
-            inbound = distsq<maxsq
-            dist = np.sqrt(distsq[inbound])
-            products = colloids.particles.boo_product(Q6m, Q6ms[inbound])
-            h = np.histogram(dist, bins, weights = products)[0]
-            g = np.histogram(dist, bins)[0]
-            nonz = g>0
-            htot[nonz] += h[nonz]/g[nonz]
-            gtot += g
-        G6_table[t] = np.column_stack((htot, g))/ len(pos)
+        code="""
+        #pragma omp parallel for
+        for(int i=0; i<Npos[0]; ++i)
+        {
+            blitz::Array<int,1> g(Ngtot[0]);
+            g=0;
+            blitz::Array<double,1> h(Nhtot[0]);
+            h=0;
+            for(int j=0; j<Npos[0]; ++j)
+            {
+                double disq = 0.0;
+                for(int dim=0; dim<3;++dim)
+                    disq += pow(pos(i,dim)-pos(j,dim), 2);
+                if(disq>= (double)maxsq)
+                    continue;
+                const int d = sqrt(disq/(double)maxsq)*Nhtot[0];
+                ++g(d);
+                double pq = real(Q6ms(i,0)*conj(Q6ms(j,0)));
+                for(int m=1; m<NQ6ms[1]; ++m)
+                    pq += 2.0*real(Q6ms(i,m)*conj(Q6ms(j,m)));
+                h(d) += pq;
+            }
+            #pragma omp critical
+            {
+                for(int b=0; b<Ngtot[0]; ++b)
+                    if(g(b)>0)
+                        htot(b) += h(b)/g(b);
+                gtot += g;
+            }
+        }
+        """
+        weave.inline(
+            code,['Q6ms', 'pos', 'maxsq', 'htot', 'gtot'],
+            type_converters =converters.blitz,
+            extra_compile_args =['-O3 -fopenmp'],
+            extra_link_args=['-lgomp'],
+            verbose=2, compiler='gcc')
+        G6_table[t] = np.column_stack((htot, gtot))/ len(pos)
     G6_array = h5file.createArray(
         sample_group.ROI, 'G6',
         G6_table, 'Spatial correlation of the Q6m'
@@ -654,24 +679,32 @@ def fill_steihardtgl_extended(h5file, sample_group, maxdist=75.0, Nbins =200, l=
     G6_array._v_attrs.nbdens = nbdens
     
     
-def fill_Sl_2D(h5file, sample_group, l=6):
+def fill_Sl_2D(h5file, sample_group, l=6, coarse=False, margin=3.0):
+    if coarse:
+        letter = 'Q'
+    else:
+        letter = 'q'
     roi = sample_group.ROI
     #find the edges
-    edges = np.zeros([len(roi.inside), 2, 2])
+    edges = np.zeros([len(roi.inside), 2, 3])
     for t, inside in enumerate(roi.inside.iterrows()):
+        #if t>roi._v_attrs.tmin: break
         time_step = getattr(sample_group, 't%03d'%t)
-        isin = time_step.neighbours12.readCoordinates(inside, 'inside')
-        #if l==6 and hasattr(time_step, 'boo12'):
-         #   qls = time_step.boo12.readCoordinates(inside, 'q6')[:]
-        #else:
-         #   qls = getattr(time_step, 'boo12_l%d'%l).readCoordinates(inside, 'ql')[:]
-        pos = np.column_stack([time_step.positions.readCoordinates(inside[isin], c) for c in 'xy'])
+        if l==6 and hasattr(time_step, 'boo12'):
+            qls = time_step.boo12.readCoordinates(inside, '%s6'%letter)[:]
+        else:
+            qls = getattr(time_step, 'boo12_l%d'%l).readCoordinates(inside, '%sl'%letter)[:]
+        isin = (qls>0)#np.ones(len(inside), bool) #time_step.neighbours12.readCoordinates(inside, 'inside') #& (qls>0)
+        if coarse:
+            ngbs = time_step.neighbours12.cols.ngbs[:]
+            isin[ngbs[inside[isin],-1]==-1] = False
+            isin[np.min(ngbs[ngbs[inside[isin]]][:,:,-1] == -1, -1)] = False
+        pos = np.column_stack([time_step.positions.readCoordinates(inside[isin], c) for c in 'xyz'])
         edges[t,0] = pos.min(0)
         edges[t,1] = pos.max(0)
-    bounds = np.column_stack((
-        np.vstack([edges[:,0].min(0), edges[:,1].max(0)]), 
-        [roi._v_attrs.zmin, roi._v_attrs.zmax]
-        ))
+    bounds = np.vstack([edges[:,0].max(0)+margin, edges[:,1].min(0)-margin])
+    bounds[0,-1] = np.maximum(bounds[0,-1], roi._v_attrs.zmin)
+    bounds[1,-1] = np.minimum(bounds[1,-1], roi._v_attrs.zmax)
     shape = np.array(np.floor(bounds[1]-bounds[0]), int)+1
     factors = np.ones(3)
     im = np.zeros(shape, np.complex64)
@@ -687,56 +720,139 @@ def fill_Sl_2D(h5file, sample_group, l=6):
     #bin the wavenumbers
     nbq, qs = np.histogram(dists.ravel(), qx[:len(qx)/2])
     Sl = np.zeros(nbq.shape)
-    tot = np.zeros([roi._v_attrs.tmax - roi._v_attrs.tmin+1, l+1], np.complex128)
+    #tot = np.zeros([roi._v_attrs.tmax - roi._v_attrs.tmin+1, l+1], np.complex128)
+    tot = np.zeros([roi._v_attrs.tmax - roi._v_attrs.tmin+1])
+    nbs = np.zeros([roi._v_attrs.tmax - roi._v_attrs.tmin+1], int)
     #window function
     ws = [np.hamming(s) for s in shape]
-    nbtot = 0
     for t, inside in enumerate(roi.inside.iterrows()):
         if t<roi._v_attrs.tmin or t>roi._v_attrs.tmax:
             continue
         time_step = getattr(sample_group, 't%03d'%t)
         #select the particles with a defined ql
         if l==6 and hasattr(time_step, 'boo12'):
-            qls = getattr(time_step, 'boo12').readCoordinates(inside, 'q6')[:]
+            qls = getattr(time_step, 'boo12').readCoordinates(inside, '%s6'%letter)[:]
         else:
-            qls = getattr(time_step, 'boo12_l%d'%l).readCoordinates(inside, 'ql')[:]
-        hasql = qls>0
+            qls = getattr(time_step, 'boo12_l%d'%l).readCoordinates(inside, '%sl'%letter)[:]
+        hasql = (qls>0)#np.ones(len(inside), bool) #time_step.neighbours12.readCoordinates(inside, 'inside') #& (qls>0)
+        if coarse:
+            ngbs = time_step.neighbours12.cols.ngbs[:]
+            hasql[ngbs[inside[hasql],-1]==-1] = False
+            hasql[np.min(ngbs[ngbs[inside[hasql]]][:,:,-1] == -1, -1)] = False
         #load coordinates
         pos = np.column_stack([time_step.positions.readCoordinates(inside[hasql],c)[:] for c in 'xyz'])
+        isin = np.min(pos>bounds[0], 1) & np.min(pos<bounds[1], 1)
+        pos = pos[isin]
         #load BOO
-        if l==6 and hasattr(time_step, 'boo12'):
-            qlms = getattr(time_step, 'boo12').readCoordinates(inside[hasql], 'q6m')[:]
-        else:
-            qlms = getattr(time_step, 'boo12_l%d'%l).readCoordinates(inside[hasql], 'qlm')[:]
-        tot[t-roi._v_attrs.tmin] = qlms.sum(0)
-        nbtot += len(pos)
-        im.fill(0)
+        #if l==6 and hasattr(time_step, 'boo12'):
+         #   qlms = getattr(time_step, 'boo12').readCoordinates(inside[hasql][isin], '%6m'%letter)[:]
+        #else:
+         #   qlms = getattr(time_step, 'boo12_l%d'%l).readCoordinates(inside[hasql][isin], '%slm'%letter)[:]
+        tot[t-roi._v_attrs.tmin] = qls[hasql][isin].sum(0)
+        nbs[t-roi._v_attrs.tmin] = len(pos)
         spectrum.fill(0)
         #compute the correlation for each m
-        for m, qlm in enumerate(qlms.T):
-            #draw a valued pixel at the position of each particle
-            for (x, y, z), qm in zip((pos-bounds[0])*factors, qlm):
-                im[x,y,z] = qm
-            #return im;
-            #remove offset
-            im -= im.mean()
-            #windowing
-            for d, w in enumerate(ws):
-                im *= w[tuple([None]*d + [slice(None)] + [None]*(2-d))]
-            #do the (half)Fourier transform
-            spectrum += (2-(m==0))*np.abs(anfft.fftn(im, 3, measure=True)[:,:,0])**2
+        #for m, qlm in enumerate(qlms.T):
+        im.fill(0)
+        #draw a valued pixel at the position of each particle
+        for (x, y, z), qm in zip((pos-bounds[0])*factors, qls[hasql][isin]):#qlm):
+            im[x,y,z] = qm
+        #if m>0: return im;
+        #remove offset
+        im -= im.mean()
+        #windowing
+        for d, w in enumerate(ws):
+            im *= w[tuple([None]*d + [slice(None)] + [None]*(2-d))]
+        #do the (half)Fourier transform
+        #spectrum += (2-(m==0))*np.abs(anfft.fftn(im, 3, measure=True)[:,:,0])**2
+        spectrum = np.abs(anfft.fftn(im, 3, measure=True)[:,:,0])**2
+        #break
         #radial average (sum)
         Sl += np.histogram(dists.ravel(), qs, weights=spectrum.ravel())[0]/spectrum.mean()*len(pos)
+        #return qx, Sl[1:]/nbq[1:]/nbs[0] * 4.*np.pi/(2*l+1)
     #normalize by the total number of particles
-    Sl /= nbtot *(2*l+1)/(4.*np.pi)
+    Sl /= nbs.sum() #*(2*l+1)/(4.*np.pi)
     #radial average (division)
     Sl[nbq>0] /= nbq[nbq>0]
+    name = 'S_l%d'%l
+    if coarse:
+        name += "_cg"
     Sl_array = h5file.createArray(
-        sample_group.ROI, 'S_l%d'%l,
-        Sl, 'Bond order structure factor for non-coarse-grained q%dm (qz=0 correlations only)'%l
+        sample_group.ROI, name,
+        Sl, 'Bond order structure factor for %s%dm (qz=0 correlations only)'%(letter,l)
         )
     Sl_array._v_attrs.bins = qs
     Sl_array._v_attrs.tot = tot
+    Sl_array._v_attrs.nbs = nbs
+    
+def fill_Sl_2D_bin(h5file, sample_group, l=6, margin=3.0, thr=None, ratio=None):
+    roi = sample_group.ROI
+    #find the edges
+    edges = np.zeros([len(roi.inside), 2, 3])
+    isins = []
+    poss = []
+    qls = []
+    for t, inside in enumerate(roi.inside.iterrows()):
+        #if t>roi._v_attrs.tmin: break
+        time_step = getattr(sample_group, 't%03d'%t)
+        if l==6 and hasattr(time_step, 'boo12'):
+            ql = time_step.boo12.readCoordinates(inside, 'Q6')[:]
+        else:
+            ql = getattr(time_step, 'boo12_l%d'%l).readCoordinates(inside, 'Ql')[:]
+        isin = (ql>0)
+        ngbs = time_step.neighbours12.cols.ngbs[:]
+        isin[ngbs[inside[isin],-1]==-1] = False
+        isin[np.min(ngbs[ngbs[inside[isin]]][:,:,-1] == -1, -1)] = False
+        isins.append(isin)
+        qls.append(ql[isin])
+        pos = np.column_stack([time_step.positions.readCoordinates(inside[isin], c) for c in 'xyz'])
+        poss.append(pos)
+        edges[t,0] = pos.min(0)
+        edges[t,1] = pos.max(0)
+    bounds = np.vstack([edges[:,0].max(0)+margin, edges[:,1].min(0)-margin])
+    bounds[0,-1] = np.maximum(bounds[0,-1], roi._v_attrs.zmin)
+    bounds[1,-1] = np.minimum(bounds[1,-1], roi._v_attrs.zmax)
+    #discard particles that are not inside
+    for t, pos in enumerate(poss):
+        isin = np.min(pos>bounds[0], 1) & np.min(pos<bounds[1], 1)
+        poss[t] = pos[isin]
+        isins[t] = isins[t][isin]
+        qls[t] = qls[t][isin]
+    #distribution of order parameter
+    thrQ6 = np.array([
+        np.histogram(ql, np.linspace(0, 0.6, 101))[0] 
+        for t, ql in enumerate(qls) 
+        if t>=roi._v_attrs.tmin and t<=roi._v_attrs.tmax
+        ])
+    if ratio is not None:
+        #set the threshold in order to have a fixed ratio of ordered particles
+        thr = np.linspace(0, 0.6, 101)[np.where(
+            np.cumsum(thrQ6.sum(0)[::-1])[::-1] > thrQ6.sum()*ratio
+            )[0][-1]]
+    if thr is None:
+        #threshold maximizing the susceptibility
+        thr = np.linspace(0, 0.6, 101)[np.argmax(np.var(np.cumsum(thrQ6[:,::-1],1)[:,::-1],0))]
+    #best shape for the FFT
+    shape = np.array(np.floor(bounds[1]-bounds[0]), int)+1
+    #initialise the structure factor calculator
+    Sl = sta.StructureFactor2D(shape)
+    nbs = np.zeros([roi._v_attrs.tmax - roi._v_attrs.tmin+1], int)
+    #window function
+    ws = [np.hamming(s) for s in shape]
+    for t, inside in enumerate(roi.inside.iterrows()):
+        if t<roi._v_attrs.tmin or t>roi._v_attrs.tmax:
+            continue
+        #compute the structure factor
+        Sl(poss[t][qls[t]>thr] - bounds[0])
+        #return qx, Sl[1:]/nbq[1:]/nbtot * 4.*np.pi/(2*l+1)
+    Sl_array = h5file.createArray(
+        sample_group.ROI, 'S_l%d_2D_bin'%l,
+        Sl.get_S() / thrQ6.sum(), #normalize by the total number of particles
+        'Binary bond order structure factor for Q%d (qz=0 correlations only)'%l
+        )
+    Sl_array._v_attrs.bins = Sl.qs
+    Sl_array._v_attrs.threshold = thr
+    Sl_array._v_attrs.distributions = np.var(np.cumsum(thrQ6[:,::-1],1)[:,::-1],0) / thrQ6.sum(1).mean()
     
 def get_w6Q6_hist(sample_group):
     bins = [np.linspace(-0.052, 0.052, 101), np.linspace(0, 0.6, 101)]
@@ -1255,26 +1371,9 @@ def fill_S_overlap2D(h5file, sample_group, dt, over_thr=4.0):
         np.vstack([edges[:,0].min(0), edges[:,1].max(0)]), 
         [roi._v_attrs.zmin, roi._v_attrs.zmax]
         ))
-    #bounds = np.vstack([edges[:,0].min(0), edges[:,1].max(0)])
-    #select the best shape for FFT
-    #shape = 2**(np.array(np.log(bounds[1]-bounds[0]+1)/np.log(2), int)+1)
-    #factors = shape/(bounds[1]-bounds[0]+1)
     shape = np.array(np.floor(bounds[1]-bounds[0]), int)+1
-    factors = np.ones(3)
-    im = np.zeros(shape)
-    #mask of wavenumbers
-    qx = np.fft.fftfreq(shape[0], d=1/factors[0])
-    qy = np.fft.fftfreq(shape[1], d=1/factors[1])
-    qz = np.fft.fftfreq(shape[2], d=1/factors[2])
-    dists = numexpr.evaluate('sqrt(qx**2+qy**2)', {
-        'qx':qx[:,None],
-        'qy':qy[None,:]
-        })
-    #bin the wavenumbers
-    nbq, qs = np.histogram(dists.ravel(), qx[:len(qx)/2])
-    S4 = np.zeros(nbq.shape)
-    #window function
-    ws = [np.hamming(s) for s in shape]
+    #initialise the structure factor calculator
+    S4 = sta.StructureFactor2D(shape)
     #load all trajectories in memory
     alltrajs = sample_group.trajectories[:]
     #indexing starting time and ending time
@@ -1294,32 +1393,14 @@ def fill_S_overlap2D(h5file, sample_group, dt, over_thr=4.0):
         pos1 -= np.mean(pos1-pos[haveafuture], 0)
         overlap = numexpr.evaluate('sum((a-b)**2, -1)', {'a': pos[haveafuture], 'b':pos1})<(over_thr)**2
         pos0 = pos[haveafuture][overlap]
-        #draw a white pixel at the position of each slow particle
-        im.fill(0)
-        #wsum = 0.0
-        for x, y, z in (pos0-bounds[0])*factors:
-            im[x,y,z] = 1
-            #wsum += ws[0][x]*ws[1][y]*ws[2][z]
-        #wsum /= len(pos)
-        #remove offset
-        im -= im.mean()
-        #windowing
-        for d, w in enumerate(ws):
-            im *= w[tuple([None]*d + [slice(None)] + [None]*(2-d))]
-        #do the (half)Fourier transform
-        spectrum = np.abs(anfft.rfftn(im, 3, measure=True)[:,:,0])**2
-        #return spectrum, dists
-        #radial average (sum)
-        S4 += np.histogram(dists.ravel(), qs, weights=spectrum.ravel())[0]/spectrum.mean()*len(pos0)
-    #normalize by the total number of particles and NOT by the number of slow particles
-    S4 /= nbtot
-    #radial average (division)
-    S4[nbq>0] /= nbq[nbq>0]
+        #compute the structure factor
+        S4(pos0-bounds[0])
     Soverlap_array = h5file.createArray(
         sample_group.ROI, 'Soverlap2D_dt%d'%dt,
-        S4, 'Structure factor of the particles overlapping between t and t+dt (dt=%d) (qz=0 correlations only)'%dt
+        S4.get_S() / nbtot, #normalize by the total number of particles and NOT by the number of slow particles
+        'Structure factor of the particles overlapping between t and t+dt (dt=%d) (qz=0 correlations only)'%dt
         )
-    Soverlap_array._v_attrs.bins = qs
+    Soverlap_array._v_attrs.bins = S4.qs
     
 def fill_S_overlap_slice(h5file, sample_group, dt, shape=[256]*3, over_thr=4.0, width=10):
     #declare c++ code for weave
