@@ -1,6 +1,7 @@
 import numpy as np
 import Gnuplot
 import numexpr
+import anfft
 
 g=Gnuplot.Gnuplot()
 g('set pm3d map')
@@ -191,3 +192,45 @@ def dca(data, groups):
     eval('g.plot('+', '.join(['d[%d]'%i for i in range(len(d))])+')')
     raw_input('ok?')
     return evalues, evect
+    
+class StructureFactor2D:
+    def __init__(self, shape):
+        self.im = np.zeros(shape)
+        #mask of wavenumbers
+        self.wavenumbers = map(np.fft.fftfreq, shape)
+        self.dists = numexpr.evaluate('sqrt(qx**2+qy**2)', {
+            'qx':self.wavenumbers[0][:,None],
+            'qy':self.wavenumbers[1][None,:]
+            })
+        #bin the wavenumbers
+        self.nbq, self.qs = np.histogram(self.dists.ravel(), self.wavenumbers[0][:len(self.wavenumbers[0])/2])
+        self.S = np.zeros(self.nbq.shape)
+        self.ws = map(np.hamming, shape)
+        self.Ns = []
+        
+    def __call__(self, pos):
+        if len(pos)==0:
+            self.Ns.append(0)
+            return
+        #draw a white pixel at the position of each particle
+        self.im.fill(0)
+        for x, y, z in pos:
+            self.im[x,y,z] = 1
+        #remove offset
+        self.im -= self.im.mean()
+        #windowing
+        for d, w in enumerate(self.ws):
+            self.im *= w[tuple([None]*d + [slice(None)] + [None]*(2-d))]
+        #do the (half)Fourier transform
+        spectrum = np.abs(anfft.rfftn(self.im, 3, measure=True)[:,:,0])**2
+        #radial average (sum)
+        self.S += np.histogram(self.dists.ravel(), self.qs, weights=spectrum.ravel())[0]/spectrum.mean()*len(pos)
+        self.Ns.append(len(pos))
+        
+    def get_S(self):
+        #radial average (division)
+        S = np.copy(self.S)
+        S[self.nbq>0] /= self.nbq[self.nbq>0]
+        S[0] = np.var(self.Ns) * len(self.Ns)
+        return S
+        
