@@ -596,11 +596,13 @@ def fill_Glgl_conservative(h5file, sample_group, maxdist=30.0, Nbins =100, l=6):
     G6_array._v_attrs.bins = np.linspace(0, maxdist, Nbins)
     G6_array._v_attrs.nbdens = nbdens
 
-def fill_Glgl_extended(h5file, sample_group, maxdist=75.0, Nbins =200, l=6):
+def fill_Glgl_extended(h5file, sample_group, maxdist=75.0, Nbins =200, l=6, margin=5.0):
     maxsq = float(maxdist**2)
     G6_table = np.zeros([sample_group._v_attrs.n_time_steps, Nbins, 3])
     nbdens =  np.zeros(sample_group._v_attrs.n_time_steps)
     roi = sample_group.ROI
+    #im = np.zeros([256]*3+[7], np.complex128)
+    #imnb = np.zeros([256]*3, int)
     for t, inside in enumerate(roi.inside.iterrows()):
         time_step = getattr(sample_group, 't%03d'%t)
         #select all particles within maxdist of the ROI
@@ -619,7 +621,7 @@ def fill_Glgl_extended(h5file, sample_group, maxdist=75.0, Nbins =200, l=6):
         is_in = np.zeros(len(time_step.positions), bool)
         is_in[inside] = True
         #and within maxdist from the boundaries of outslab
-        bounds = np.vstack((pos.min(0)+maxdist, pos.max(0)-maxdist))
+        bounds = np.vstack((pos.min(0)+maxdist+margin, pos.max(0)-maxdist-margin))
         is_center = (pos>bounds[0]).min(1) & (pos<bounds[1]).min(1) & is_in[outslab]
         nb = np.sum(is_center)
         nbdens[t] = nb/np.prod(bounds[1]-bounds[0])
@@ -629,9 +631,13 @@ def fill_Glgl_extended(h5file, sample_group, maxdist=75.0, Nbins =200, l=6):
         else:
             qlms = getattr(time_step, 'boo12_l%d'%l).readCoordinates(outslab, 'qlm')[:]
             Qlms = getattr(time_step, 'boo12_l%d'%l).readCoordinates(outslab, 'Qlm')[:]
+        #for (x,y,z), Qm in zip(pos, Qlms):
+         #   im[x,y,z] += Qm
+          #  imnb[x,y,z] += 1
         G6_table[t] = np.column_stack(boo.gG_l(pos, qlms, Qlms, is_center, Nbins, maxdist))
         if nb>0:
             G6_table[t]/=nb
+    #return im, imnb
     G6_array = h5file.createArray(
         sample_group.ROI, 'gG_l%d_extended'%l,
         G6_table, 'Spatial correlation of the q%dm and the Q%dm using as centers the particles inside the ROI and within maxdist from the boundary. Take correlation with particles outside the ROI.'%(l,l)
