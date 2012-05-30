@@ -22,7 +22,7 @@ import numpy as np
 import scipy.constants as const
 from scipy.ndimage.filters import gaussian_filter1d
 from scipy.ndimage.morphology import grey_dilation
-from scipy import optimize
+from scipy import optimize, sparse
 from scipy.optimize import leastsq
 import os, os.path, subprocess
 import re, string, math
@@ -84,7 +84,8 @@ class Experiment:
         self.read_traj()
 
     def read_traj(self):
-        with open(os.path.join(self.path,self.trajfile),'r') as f:
+        trajfile = os.path.join(self.path,self.trajfile)
+        with open(trajfile,'r') as f:
             self.radius,self.dt = [
                 float(s) for s in re.split("\t",f.readline()[:-1])
                 ]
@@ -94,6 +95,12 @@ class Experiment:
                 int(s) for s in re.split("\t",f.readline()[:-1])
                 ]
             self.read_pattern(pattern)
+        #read the trajectory data in itself
+        self.starts, self.trajs = load_trajectories(trajfile)
+        self.p2tr = [np.zeros(n, int) for n in self.get_nb()]
+        for tr, (start, traj) in enumerate(zip(self.starts, self.trajs)):
+            for dt, p in enumerate(traj):
+                self.p2tr[start+dt][p] = tr
 
     def read_pattern(self,pattern):
         m = re.match('(.*)'+self.token+'([0-9]*)',os.path.splitext(pattern)[0])
@@ -153,7 +160,7 @@ class Experiment:
         if not hasattr(self,'__Nb'):
             self.__Nb = np.array([
                 int(re.split("\t", open(name,'r').readline())[1])
-                for t,name in self.enum():
+                for t,name in self.enum()
                 ], int)
         return self.__Nb
     
@@ -162,7 +169,7 @@ class Experiment:
         if not hasattr(self,'__Nb_bonds'):
             self.__Nb_bonds = np.array([
                 len([line for line in open(name,'r')])
-                for t,name in self.enum(ext='bonds'):
+                for t,name in self.enum(ext='bonds')
                 ], int)
         return self.__Nb_bonds
 
@@ -394,7 +401,19 @@ class Experiment:
                 np.asarray([len(trajs[tr][1]) for tr in pos2traj[t]])
                 ))
             v.save(self.get_format_string('_check', ext='vtk')%t)
-            
+    
+    def bond_life(self):
+        """When do bonds first form and are last seen"""
+        bstart = sparse.dok_matrix(tuple([len(self.trajs)]*2), int)
+        blast = sparse.dok_matrix(tuple([len(self.trajs)]*2), int)
+        for t,name in self.enum(ext='bonds'):
+            bonds = np.sort(self.p2tr[t][np.loadtxt(name, int)], 1)
+            for a,b in bonds:
+                blast[a,b] = t
+                if not bstart.has_key((a,b)):
+                    bstart[a,b] = t
+        return bstart, blast
+        
 
 class Txp:
     """Implementig time algorithms in python"""
