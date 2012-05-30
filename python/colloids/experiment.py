@@ -147,16 +147,28 @@ class Experiment:
         format_string = self.get_format_string(postfix,ext,absPath)
         for t in self.get_range():
             yield t, (format_string % t)
+            
+    def get_nb(self):
+        """Number of particles in each frame"""
+        if not hasattr(self,'__Nb'):
+            self.__Nb = np.array([
+                int(re.split("\t", open(name,'r').readline())[1])
+                for t,name in self.enum():
+                ], int)
+        return self.__Nb
+    
+    def get_nb_bonds(self):
+        """Number of bonds in each frame"""
+        if not hasattr(self,'__Nb_bonds'):
+            self.__Nb_bonds = np.array([
+                len([line for line in open(name,'r')])
+                for t,name in self.enum(ext='bonds'):
+                ], int)
+        return self.__Nb_bonds
 
     def mean_Nb(self):
         """Calculate the time averaged number of particles in a frame"""
-        if not hasattr(self,'__mean_Nb'):
-            nb = 0L
-            for t,name in self.enum():
-                with open(name,'r') as f:
-                    nb += int(re.split("\t",f.readline())[1])
-            self.__mean_Nb = float(nb) / self.size
-        return self.__mean_Nb
+        return np.mean(self.get_nb())
 
     def mean_V(self):
         """Calculate the time averaged volume"""
