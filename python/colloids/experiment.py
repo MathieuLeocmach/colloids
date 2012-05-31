@@ -51,7 +51,7 @@ def load_trajectories(fname):
             positions.append(map(int, f.next()[:-1].split()))
     return starts, positions
 
-class Experiment:
+class Experiment(object):
     """A serie of coordinates and it's derived data"""
 
     def __init__(self, trajPath, T=310, pixel_size=297e-9):
@@ -95,12 +95,33 @@ class Experiment:
                 int(s) for s in re.split("\t",f.readline()[:-1])
                 ]
             self.read_pattern(pattern)
-        #read the trajectory data in itself
-        self.starts, self.trajs = load_trajectories(trajfile)
-        self.p2tr = [np.zeros(n, int) for n in self.get_nb()]
+    
+    def fill_traj_data(self):
+        """read the trajectory data in itself"""
+        trajfile = os.path.join(self.path,self.trajfile)
+        self.__starts, self.__trajs = load_trajectories(trajfile)
+        self.__p2tr = [np.zeros(n, int) for n in self.get_nb()]
         for tr, (start, traj) in enumerate(zip(self.starts, self.trajs)):
             for dt, p in enumerate(traj):
                 self.p2tr[start+dt][p] = tr
+    
+    @property
+    def starts(self):
+        if not hasattr(self,'__starts'):
+            self.fill_traj_data()
+        return self.__starts
+        
+    @property
+    def trajs(self):
+        if not hasattr(self,'__trajs'):
+            self.fill_traj_data()
+        return self.__trajs
+        
+    @property
+    def p2tr(self):
+        if not hasattr(self,'__p2tr'):
+            self.fill_traj_data()
+        return self.__p2tr
 
     def read_pattern(self,pattern):
         m = re.match('(.*)'+self.token+'([0-9]*)',os.path.splitext(pattern)[0])
