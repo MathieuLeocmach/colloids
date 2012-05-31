@@ -100,10 +100,6 @@ class Experiment(object):
         """read the trajectory data in itself"""
         trajfile = os.path.join(self.path,self.trajfile)
         self.__starts, self.__trajs = load_trajectories(trajfile)
-        self.__p2tr = [np.zeros(n, int) for n in self.get_nb()]
-        for tr, (start, traj) in enumerate(zip(self.starts, self.trajs)):
-            for dt, p in enumerate(traj):
-                self.p2tr[start+dt][p] = tr
     
     @property
     def starts(self):
@@ -120,7 +116,10 @@ class Experiment(object):
     @property
     def p2tr(self):
         if not hasattr(self,'__p2tr'):
-            self.fill_traj_data()
+            self.__p2tr = [np.zeros(n, int) for n in self.get_nb()]
+            for tr, (start, traj) in enumerate(zip(self.starts, self.trajs)):
+                for dt, p in enumerate(traj):
+                    self.__p2tr[start+dt][p] = tr
         return self.__p2tr
 
     def read_pattern(self,pattern):
