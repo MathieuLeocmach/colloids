@@ -22,6 +22,7 @@ BOOST_AUTO_TEST_SUITE( Lif )
 		BOOST_CHECK_GT(dims.size(), 2);
 		const size_t total_z = dims.size()>2 ? dims[2] : 1;
 		BOOST_CHECK_EQUAL(total_z, 256);
+		BOOST_REQUIRE_MESSAGE(std::ofstream("test_output/z_scan.avi").good(), "Tests are not run in the right directory");
 		cv::VideoWriter w("test_output/z_scan.avi", CV_FOURCC('D', 'I', 'V', 'X'), 16, slice.size(), true);
 		for(size_t z=0; z<total_z; ++z)
 		{
@@ -57,6 +58,7 @@ BOOST_AUTO_TEST_SUITE( Lif )
 					*b++ = *a++;
 			}*/
 		std::ofstream f("test_output/locate_one_stack_small_input.raw", std::ios_base::binary);
+		BOOST_REQUIRE_MESSAGE(f.good(), "Tests are not run in the right directory");
 		f.write((const char*)small_input.data, sdims[0]*sdims[1]*sdims[2]);
 		MultiscaleFinder3D finder(sdims[0], sdims[1], sdims[2]);
 		std::vector<Center3D> centers;
