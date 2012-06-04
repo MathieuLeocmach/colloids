@@ -59,7 +59,7 @@ tests: $(OBJS) $(USER_OBJS)
 bonds: $(OBJS) $(USER_OBJS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: GCC C++ Linker'
-	g++ -L/usr/local/lib -o"bonds" bonds.cpp -O3 -g3 -Wall -c -lboost_program_options -fopenmp -fmessage-length=0 -mtune=native -MMD -MP
+	g++ -L/usr/local/lib -o"bonds" ../bonds.cpp -O3 -g3 -Wall -lboost_program_options -fopenmp -fmessage-length=0 -mtune=native -MMD -MP
 	@echo 'Finished building target: $@'
 	@echo ' '
 
