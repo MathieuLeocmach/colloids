@@ -3,29 +3,11 @@
 ################################################################################
 
 # Add inputs and outputs from these tool invocations to the build variables 
-CPP_SRCS += \
-../src/lifFile.cpp \
-../src/locatorfromlif.cpp \
-../src/multiscalefinder.cpp \
-../src/octavefinder.cpp \
-../src/reconstructor.cpp \
-../src/traj.cpp 
+CPP_SRCS += $(wildcard ../src/*.cpp) 
 
-OBJS += \
-./src/lifFile.o \
-./src/locatorfromlif.o \
-./src/multiscalefinder.o \
-./src/octavefinder.o \
-./src/reconstructor.o \
-./src/traj.o 
+OBJS += $(patsubst ../src/%.cpp, ./src/%.o, $(wildcard ../src/*.cpp))
 
-CPP_DEPS += \
-./src/lifFile.d \
-./src/locatorfromlif.d \
-./src/multiscalefinder.d \
-./src/octavefinder.d \
-./src/reconstructor.d \
-./src/traj.d 
+CPP_DEPS += $(patsubst ../src/%.cpp, ./src/%.d, $(wildcard ../src/*.cpp))
 
 
 # Each subdirectory must supply rules for building sources it contributes
