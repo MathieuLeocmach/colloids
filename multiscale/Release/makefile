@@ -39,7 +39,7 @@ endif
 # Add inputs and outputs from these tool invocations to the build variables 
 
 # All Target
-all: multiscale test bonds
+all: multiscale tests bonds
 
 # Tool invocations
 multiscale: $(OBJS) $(USER_OBJS)
