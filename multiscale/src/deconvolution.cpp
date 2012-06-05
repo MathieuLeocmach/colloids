@@ -7,6 +7,7 @@
 
 #include "deconvolution.hpp"
 #include <algorithm>
+#include <stdexcept>
 
 namespace Colloids {
 
@@ -56,6 +57,38 @@ namespace Colloids {
 			this->real[i] = *input;
 			input += step;
 		}
+	}
+
+	std::vector<float> get_spectrum_1d(const cv::Mat_<float> &im, int axis)
+	{
+		if(axis >= im.dims)
+			throw std::invalid_argument("Matrix dimension is too small to compute the spectrum along this axis");
+		assert(im.isContinuous());
+		Convolver co(im.size[axis]);
+		std::vector<float> spectrum(co.size());
+		std::vector<double> tot(co.size(), 0.0);
+		unsigned long int step = im.step1(axis);
+		//whatever the real dimension, we fall back to a 3d situation where the dimension of interest is y
+		//and either x or z can be of size 1
+		int nbplanes = 1;
+		for(int d=0; d<axis; ++d)
+			nbplanes *= im.size[axis];
+		int planestep = im.total()/nbplanes;
+		//for each plane
+		for(int i=0; i<nbplanes; ++i)
+		{
+			//for each line
+			for(size_t j=0; j<step; ++j)
+			{
+				co.spectrum(reinterpret_cast<float* const>(im.data) + i*planestep + j, step, &spectrum[0]);
+				for(size_t u=0; u<spectrum.size(); ++u)
+					tot[u] += spectrum[u];
+			}
+		}
+		const double icount = 1.0 / (nbplanes * step);
+		for(size_t i=0; i<tot.size(); ++i)
+			spectrum[i] = tot[i]*icount;
+		return spectrum;
 	}
 
 }

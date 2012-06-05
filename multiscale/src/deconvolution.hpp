@@ -8,6 +8,7 @@
 #ifndef DECONVOLUTION_HPP_
 #define DECONVOLUTION_HPP_
 
+#include <opencv2/core/core.hpp>
 #include<vector>
 #include<complex>
 #include<fftw3.h>
@@ -43,6 +44,8 @@ namespace Colloids {
 		fftwf_plan forward, backward;
 		void fill(const float* input, const int step);
 	};
+
+	std::vector<float> get_spectrum_1d(const cv::Mat_<float> &im, int axis=0);
 
 }
 

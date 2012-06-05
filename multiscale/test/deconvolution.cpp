@@ -8,6 +8,7 @@
 #define BOOST_TEST_DYN_LINK
 
 #include "../src/deconvolution.hpp"
+#include "../src/multiscalefinder.hpp"
 #include <boost/test/unit_test.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/progress.hpp>
@@ -56,6 +57,19 @@ BOOST_AUTO_TEST_SUITE( Deconvolution )
 		//for a size of 10 the result is exactly null
 		BOOST_CHECK_EQUAL(spectrum[5], 0.0);
 		fftwf_cleanup();
+	}
+	BOOST_AUTO_TEST_CASE( spectrum )
+	{
+		cv::Mat_<float>input(32, 32);
+		input.setTo(0.0f);
+		cv::circle(input, cv::Point(16, 16), 4, 255, -1);
+		std::vector<float> spy = get_spectrum_1d(input, 0);
+		std::vector<float> spx = get_spectrum_1d(input, 1);
+		BOOST_CHECK_GT(*std::max_element(spx.begin(), spx.end()), 0);
+		BOOST_REQUIRE_EQUAL(spy.size(), spx.size());
+		for(size_t i=0; i<spy.size(); ++i)
+			BOOST_CHECK_MESSAGE(spx[i] == spy[i], "at i="<<i<<"\t"<<spx[i]<<" != "<<spy[i]);
+
 	}
 BOOST_AUTO_TEST_SUITE_END()
 
