@@ -17,22 +17,24 @@ namespace Colloids {
 	class Convolver
 	{
 	public:
-		//constructor
-		Convolver(int size, int step);
+		//constructor, destructor
+		Convolver(unsigned long int size);
+		~Convolver();
 
 		//accessors
 		int size(){return this->_size;}
 		int fourier_size(){return this->_fourier_size;}
 
 		//processing
-		void spectrum(const float* input, float* output);
-		void operator()(float* input, float* kernel);
+		void spectrum(const float* input, const int step, float* output);
+		void operator()(float* input, const int step, float* kernel);
 
 	protected:
-		int _size;
-		int _fourier_size;
+		unsigned long int _size;
+		unsigned long int _fourier_size;
+		float* real;
 		fftwf_complex* fourier;
-		fftw_plan forward, backward;
+		fftwf_plan forward, backward;
 	};
 
 }

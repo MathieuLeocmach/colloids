@@ -20,9 +20,39 @@ using namespace boost::posix_time;
 BOOST_AUTO_TEST_SUITE( Deconvolution )
 	BOOST_AUTO_TEST_CASE( convolver )
 	{
-		Convolver co(10, 1);
-		BOOST_REQUIRE_EQUAL(co.size(), 10);
-		BOOST_REQUIRE_EQUAL(co.fourier_size(), 6);
+		//tests both even and odd sizes
+		boost::array<int,2> sizes ={{11,10}};
+		boost::array<float,6> spectrum;
+		for (boost::array<int,2>::const_iterator s=sizes.begin(); s!=sizes.end(); ++s)
+		{
+			Convolver co(*s);
+			BOOST_REQUIRE_EQUAL(co.size(), *s);
+			BOOST_REQUIRE_EQUAL(co.fourier_size(), 6);
+			std::vector<float> input(*s);
+			//empty input
+			std::fill(input.begin(), input.end(), 0.0f);
+			co.spectrum(&input[0], 1, &spectrum[0]);
+			BOOST_CHECK_EQUAL(*std::max_element(spectrum.begin(), spectrum.end()), 0);
+			BOOST_CHECK_EQUAL(*std::min_element(spectrum.begin(), spectrum.end()), 0);
+			//step input
+			input[0]=1;
+			input[1]=1;
+			co.spectrum(&input[0], 1, &spectrum[0]);
+			BOOST_CHECK_EQUAL(spectrum[0], 4.0);
+			//striding input
+			std::vector<float> input2(2*(*s));
+			std::fill(input2.begin(), input2.end(), 0.0f);
+			input2[0]=1;
+			input2[1]=1;
+			input2[2]=1;
+			co.spectrum(&input2[0], 2, &spectrum[0]);
+			BOOST_CHECK_EQUAL(spectrum[0], 4.0);
+
+
+		}
+		//for a size of 10 the result is exactly null
+		BOOST_CHECK_EQUAL(spectrum[5], 0.0);
+		fftwf_cleanup();
 	}
 BOOST_AUTO_TEST_SUITE_END()
 
