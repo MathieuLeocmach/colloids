@@ -26,8 +26,14 @@ namespace Colloids {
 		int fourier_size(){return this->_fourier_size;}
 
 		//processing
+		/**
+		 * \brief Compute the spectrum of a (possibly discontinuous) input
+		 */
 		void spectrum(const float* input, const int step, float* output);
-		void operator()(float* input, const int step, float* kernel);
+		/**
+		 * \brief Convolve in place the (possibly discontinuous) input with the kernel (given in Fourier space)
+		 */
+		void operator()(float* input, const int step, const float* kernel);
 
 	protected:
 		unsigned long int _size;
@@ -35,6 +41,7 @@ namespace Colloids {
 		float* real;
 		fftwf_complex* fourier;
 		fftwf_plan forward, backward;
+		void fill(const float* input, const int step);
 	};
 
 }

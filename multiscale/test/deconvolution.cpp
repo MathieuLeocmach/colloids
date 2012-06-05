@@ -29,7 +29,7 @@ BOOST_AUTO_TEST_SUITE( Deconvolution )
 			BOOST_REQUIRE_EQUAL(co.size(), *s);
 			BOOST_REQUIRE_EQUAL(co.fourier_size(), 6);
 			std::vector<float> input(*s);
-			//empty input
+			//spectrum from empty input
 			std::fill(input.begin(), input.end(), 0.0f);
 			co.spectrum(&input[0], 1, &spectrum[0]);
 			BOOST_CHECK_EQUAL(*std::max_element(spectrum.begin(), spectrum.end()), 0);
@@ -47,8 +47,11 @@ BOOST_AUTO_TEST_SUITE( Deconvolution )
 			input2[2]=1;
 			co.spectrum(&input2[0], 2, &spectrum[0]);
 			BOOST_CHECK_EQUAL(spectrum[0], 4.0);
-
-
+			//simplest convolution: remove of the DC coefficient = subtract the average
+			boost::array<float,6> kernel ={{0,1,1,1,1,1}};
+			co(&input[0], 1, &kernel[0]);
+			BOOST_CHECK_CLOSE(input[0], 1-2.0 / *s, 1e-5);
+			BOOST_CHECK_CLOSE(input[2], -2.0 / *s, 1e-5);
 		}
 		//for a size of 10 the result is exactly null
 		BOOST_CHECK_EQUAL(spectrum[5], 0.0);

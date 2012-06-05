@@ -6,6 +6,7 @@
  */
 
 #include "deconvolution.hpp"
+#include <algorithm>
 
 namespace Colloids {
 
@@ -28,14 +29,33 @@ namespace Colloids {
 
 	void Convolver::spectrum(const float *input, int step, float *output)
 	{
+		this->fill(input, step);
+		fftwf_execute(this->forward);
+		for (unsigned long int i=0; i<this->_fourier_size; ++i)
+			*output++ = std::norm(*reinterpret_cast<std::complex<float>*>(this->fourier+i));
+	}
+
+	void Convolver::operator()(float* input, const int step, const float* kernel)
+	{
+		this->fill(input, step);
+		fftwf_execute(this->forward);
+		for(unsigned long int i=0; i<this->_fourier_size; ++i)
+		{
+			const float factor = *kernel++ / this->_size;
+			this->fourier[i][0] *= factor;
+			this->fourier[i][1] *= factor;
+		}
+		fftwf_execute(this->backward);
+		for (unsigned long int i=0; i<this->_size; ++i)
+			*input++ = this->real[i];
+	}
+	void Convolver::fill(const float* input, const int step)
+	{
 		for (unsigned long int i=0; i<this->_size; ++i)
 		{
 			this->real[i] = *input;
 			input += step;
 		}
-		fftwf_execute(this->forward);
-		for (unsigned long int i=0; i<this->_fourier_size; ++i)
-			*output++ = std::norm(*reinterpret_cast<std::complex<float>*>(this->fourier+i));
 	}
 
 }
