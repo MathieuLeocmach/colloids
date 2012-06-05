@@ -87,6 +87,9 @@ int main(int argc, char ** argv)
 		boost::ptr_vector<Particles> positions(span);
 		for(size_t t=0; t<span; ++t)
 			positions.push_back(new Particles(datSerie%t));
+			
+		if(positions.back().empty())
+		    throw invalid_argument("Last time step is empty, consider reducing 'span'");
 
 		//spatially index each frame
 		cout<<"index ..."<<endl;
