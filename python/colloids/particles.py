@@ -962,4 +962,10 @@ class Linker:
         self.trajstart += [len(self.pos2tr) for p in notused]
         #add the new frame
         self.pos2tr.append(newframe)
+        
+    def save(self, f):
+        """write the trajectory data to an opend file"""
+        for start, tr in zip(self.trajstart, self.tr2pos):
+            f.write('%d\n'%start)
+            f.write('\t'.join(['%d'%p for p in tr])+'\n')
 
