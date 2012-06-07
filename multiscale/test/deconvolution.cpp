@@ -149,15 +149,17 @@ BOOST_AUTO_TEST_SUITE( Deconvolution )
 		BOOST_REQUIRE_CLOSE(std::accumulate(sinput.begin(), sinput.end(), 0.0), 6247.4463, 1e-2);
 		//deconvolution kernel
 		std::vector<float> kernel = get_deconv_kernel(sinput, 1, 0, 2.0);
+		BOOST_REQUIRE_EQUAL(kernel.size(), 9);
 		BOOST_CHECK_LT(*std::max_element(kernel.begin(), kernel.end()), 100);
 		BOOST_CHECK_GT(*std::min_element(kernel.begin(), kernel.end()), 0);
 		//deconvolve y
-		convolve(input, 0, &kernel[0]);
+		convolve(sinput, 0, &kernel[0]);
 		BOOST_CHECK_GT(*std::max_element(sinput.begin(), sinput.end()), 0);
 		BOOST_CHECK_GT(sinput(8,16), sinput(7,16));
 		BOOST_CHECK_GT(sinput(8,16), sinput(8,15));
 		BOOST_CHECK_GT(sinput(8,15), sinput(7,16));
 		BOOST_CHECK_LT(sinput(8,13), sinput(7,16));
+		BOOST_CHECK_CLOSE(sinput(8,14), sinput(7,16), 10);
 	}
 BOOST_AUTO_TEST_SUITE_END()
 
