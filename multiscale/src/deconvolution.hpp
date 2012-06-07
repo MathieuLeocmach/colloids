@@ -45,7 +45,9 @@ namespace Colloids {
 		void fill(const float* input, const int step);
 	};
 
-	std::vector<float> get_spectrum_1d(const cv::Mat_<float> &im, int axis=0);
+	std::vector<float> get_spectrum_1d(const cv::Mat_<float> &im, const int axis=0);
+	std::vector<float> get_deconv_kernel(const cv::Mat_<float> &im, const int good_axis, const int bad_axis, const double size_ratio=1.0);
+	void convolve(cv::Mat_<float> &im, const int axis, const float* kernel);
 
 }
 

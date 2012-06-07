@@ -59,20 +59,20 @@ namespace Colloids {
 		}
 	}
 
-	std::vector<float> get_spectrum_1d(const cv::Mat_<float> &im, int axis)
+	std::vector<float> get_spectrum_1d(const cv::Mat_<float> &im, const int axis)
 	{
 		if(axis >= im.dims)
 			throw std::invalid_argument("Matrix dimension is too small to compute the spectrum along this axis");
 		assert(im.isContinuous());
 		Convolver co(im.size[axis]);
-		std::vector<float> spectrum(co.size());
-		std::vector<double> tot(co.size(), 0.0);
+		std::vector<float> spectrum(co.fourier_size());
+		std::vector<double> tot(co.fourier_size(), 0.0);
 		unsigned long int step = im.step1(axis);
-		//whatever the real dimension, we fall back to a 3d situation where the dimension of interest is y
+		//whatever the real dimension, we fall back to a 3d situation where the axis of interest is y
 		//and either x or z can be of size 1
 		int nbplanes = 1;
 		for(int d=0; d<axis; ++d)
-			nbplanes *= im.size[axis];
+			nbplanes *= im.size[d];
 		int planestep = im.total()/nbplanes;
 		//for each plane
 		for(int i=0; i<nbplanes; ++i)
@@ -91,4 +91,46 @@ namespace Colloids {
 		return spectrum;
 	}
 
+	std::vector<float> get_deconv_kernel(const cv::Mat_<float> &im, const int good_axis, const int bad_axis, const double size_ratio)
+	{
+		std::vector<float> bad_sp = get_spectrum_1d(im, bad_axis);
+		std::vector<float> good_sp = get_spectrum_1d(im, good_axis);
+		//linear interpolation of good_sp to take into account the voxel size ratio
+		const double qratio = bad_sp.size() * size_ratio / good_sp.size();
+		std::vector<float> scaled(std::min(bad_sp.size(), good_sp.size()), 0);
+		for(size_t i=0; i<scaled.size(); ++i)
+		{
+			const double q = i * qratio;
+			const size_t nq = q;
+			const double dq = q-nq;
+			if(nq+1>=good_sp.size()) break;
+			scaled[i] = (1.0-dq) * good_sp[nq] + dq * good_sp[nq+1];
+		}
+		//deconvolution kernel
+		std::vector<float> kernel(bad_sp.size(), 1.0f);
+		for(size_t i=0; i<bad_sp.size() && i<scaled.size(); ++i)
+			if(1.0f+bad_sp[i]*bad_sp[i]>1.0f)
+				kernel[i] = sqrt(scaled[i]/bad_sp[i]);
+		return kernel;
+	}
+
+	void convolve(cv::Mat_<float> &im, const int axis, const float* kernel)
+	{
+		if(axis >= im.dims)
+			throw std::invalid_argument("Matrix dimension is too small to convolve along this axis");
+		assert(im.isContinuous());
+		Convolver co(im.size[axis]);
+		unsigned long int step = im.step1(axis);
+		//whatever the real dimension, we fall back to a 3d situation where the axis of interest is y
+		//and either x or z can be of size 1
+		int nbplanes = 1;
+		for(int d=0; d<axis; ++d)
+			nbplanes *= im.size[d];
+		int planestep = im.total()/nbplanes;
+		//for each plane
+		for(int i=0; i<nbplanes; ++i)
+			//for each line
+			for(size_t j=0; j<step; ++j)
+				co(reinterpret_cast<float*>(im.data) + i*planestep + j, step, kernel);
+	}
 }

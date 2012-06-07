@@ -66,10 +66,98 @@ BOOST_AUTO_TEST_SUITE( Deconvolution )
 		std::vector<float> spy = get_spectrum_1d(input, 0);
 		std::vector<float> spx = get_spectrum_1d(input, 1);
 		BOOST_CHECK_GT(*std::max_element(spx.begin(), spx.end()), 0);
+		BOOST_CHECK_CLOSE(spx[0], 668538.28125, 1e-5);
 		BOOST_REQUIRE_EQUAL(spy.size(), spx.size());
 		for(size_t i=0; i<spy.size(); ++i)
 			BOOST_CHECK_MESSAGE(spx[i] == spy[i], "at i="<<i<<"\t"<<spx[i]<<" != "<<spy[i]);
+		//isotropic blur
+		cv::GaussianBlur(input, input, cv::Size(0,0), 2*1.6);
+		spy = get_spectrum_1d(input, 0);
+		spx = get_spectrum_1d(input, 1);
+		BOOST_CHECK_GT(*std::max_element(spx.begin(), spx.end()), 0);
+		BOOST_CHECK_CLOSE(spx[0], 364005.77, 1e-2);
+		BOOST_REQUIRE_EQUAL(spy.size(), spx.size());
+		for(size_t i=0; i<spy.size(); ++i)
+			BOOST_CHECK_CLOSE(spx[i], spy[i], 0.4);
 
+	}
+	BOOST_AUTO_TEST_CASE( Gaussian_y )
+	{
+		cv::Mat_<float>input(32, 32);
+		input.setTo(0.0f);
+		cv::circle(input, cv::Point(16, 16), 4, 255, -1);
+		//anisotropic blur
+		cv::GaussianBlur(input, input, cv::Size(0,0), 2*1.6, 1.6);
+		//deconvolution kernel
+		std::vector<float> kernel = get_deconv_kernel(input, 1, 0);
+		BOOST_CHECK_LT(*std::max_element(kernel.begin(), kernel.end()), 100);
+		BOOST_CHECK_GT(*std::min_element(kernel.begin(), kernel.end()), 0);
+		//deconvolve y
+		convolve(input, 0, &kernel[0]);
+		BOOST_CHECK_GT(*std::max_element(input.begin(), input.end()), 0);
+		BOOST_CHECK_GT(input(16,16), input(15,16));
+		BOOST_CHECK_GT(input(16,16), input(16,15));
+		BOOST_CHECK_CLOSE(input(16,15), input(15,16), 2);
+	}
+	BOOST_AUTO_TEST_CASE( rectangular_y )
+	{
+		cv::Mat_<float>input(32, 30);
+		input.setTo(0.0f);
+		cv::circle(input, cv::Point(15, 16), 4, 255, -1);
+		//anisotropic blur
+		cv::GaussianBlur(input, input, cv::Size(0,0), 2*1.6, 1.6);
+		//deconvolution kernel
+		std::vector<float> kernel = get_deconv_kernel(input, 1, 0);
+		BOOST_CHECK_LT(*std::max_element(kernel.begin(), kernel.end()), 100);
+		BOOST_CHECK_GT(*std::min_element(kernel.begin(), kernel.end()), 0);
+		//deconvolve y
+		convolve(input, 0, &kernel[0]);
+		BOOST_CHECK_GT(*std::max_element(input.begin(), input.end()), 0);
+		BOOST_CHECK_GT(input(16,15), input(15,15));
+		BOOST_CHECK_GT(input(16,15), input(16,14));
+		BOOST_CHECK_CLOSE(input(16,14), input(15,15), 2);
+	}
+	BOOST_AUTO_TEST_CASE( rectangular_x )
+	{
+		cv::Mat_<float>input(30, 32);
+		input.setTo(0.0f);
+		cv::circle(input, cv::Point(16, 15), 4, 255, -1);
+		//anisotropic blur
+		cv::GaussianBlur(input, input, cv::Size(0,0), 2*1.6, 1.6);
+		//deconvolution kernel
+		std::vector<float> kernel = get_deconv_kernel(input, 1, 0);
+		BOOST_CHECK_LT(*std::max_element(kernel.begin(), kernel.end()), 100);
+		BOOST_CHECK_GT(*std::min_element(kernel.begin(), kernel.end()), 0);
+		//deconvolve y
+		convolve(input, 0, &kernel[0]);
+		BOOST_CHECK_GT(*std::max_element(input.begin(), input.end()), 0);
+		BOOST_CHECK_GT(input(15,16), input(14,16));
+		BOOST_CHECK_GT(input(15,16), input(15,15));
+		BOOST_CHECK_CLOSE(input(15,15), input(14,16), 2);
+	}
+	BOOST_AUTO_TEST_CASE( sampling )
+	{
+		cv::Mat_<float>input(32, 32), sinput(16,32);
+		input.setTo(0.0f);
+		sinput.setTo(0.0f);
+		cv::circle(input, cv::Point(16, 16), 4, 255, -1);
+		//anisotropic blur
+		cv::GaussianBlur(input, input, cv::Size(0,0), 2*1.6, 1.6);
+		//remove half of the lines
+		for(int j=0; j<16; ++j)
+			std::copy(&input(2*j,0), (&input(2*j,0))+32, &sinput(j,0));
+		BOOST_REQUIRE_CLOSE(std::accumulate(sinput.begin(), sinput.end(), 0.0), 6247.4463, 1e-2);
+		//deconvolution kernel
+		std::vector<float> kernel = get_deconv_kernel(sinput, 1, 0, 2.0);
+		BOOST_CHECK_LT(*std::max_element(kernel.begin(), kernel.end()), 100);
+		BOOST_CHECK_GT(*std::min_element(kernel.begin(), kernel.end()), 0);
+		//deconvolve y
+		convolve(input, 0, &kernel[0]);
+		BOOST_CHECK_GT(*std::max_element(sinput.begin(), sinput.end()), 0);
+		BOOST_CHECK_GT(sinput(8,16), sinput(7,16));
+		BOOST_CHECK_GT(sinput(8,16), sinput(8,15));
+		BOOST_CHECK_GT(sinput(8,15), sinput(7,16));
+		BOOST_CHECK_LT(sinput(8,13), sinput(7,16));
 	}
 BOOST_AUTO_TEST_SUITE_END()
 
