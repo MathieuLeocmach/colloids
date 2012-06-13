@@ -23,6 +23,7 @@ import subprocess, shlex, StringIO, os, os.path
 from scipy import weave
 from scipy.weave import converters
 import itertools
+import os.path
 
 class Particles:
     """Positions of the particles at a givent time"""
@@ -968,4 +969,24 @@ class Linker:
         for start, tr in zip(self.trajstart, self.tr2pos):
             f.write('%d\n'%start)
             f.write('\t'.join(['%d'%p for p in tr])+'\n')
+            
+def link_save(path, dt, size, radius=4.32692):
+    """Link and save the trajectories"""
+    pattern = path+'_t%0'+('%dd.dat'%len('%d'%size))
+    #last frame is often empty when acquisition was interrupted
+    if len([line for line in open(pattern%(size-1))])<3 or len(np.loadtxt(pattern%(size-1), skiprows=2))==0:
+        size -=1
+    #linking
+    pos1 = np.loadtxt(pattern%0, skiprows=2)
+    linker = Linker(len(pos1))
+    for t in range(size-1):
+        pos0 = pos1
+        pos1 = np.loadtxt(pattern%(t+1), skiprows=2)
+        pairs, distances = get_links(pos0, np.ones(len(pos0)), pos1, np.ones(len(pos1)), maxdist=5)
+        linker.addFrame(len(pos1), pairs, distances)
+    #saving in the same format as the c++
+    with open(path+'.traj', 'w') as f:
+        f.write('%g\t%g\n'%(dt, radius))
+        f.write('%s\n_t\n0\t%d\n'%(os.path.basename(pattern%0), size))
+        linker.save(f)
 
