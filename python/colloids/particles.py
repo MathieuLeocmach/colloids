@@ -914,13 +914,13 @@ def get_links(pos0, radii0, pos1, radii1, maxdist=1.0):
     return np.resize(pairs, [len(pairs)/2,2]), np.asarray(dists)
     
 def get_links_size(pos0, radii0, pos1, radii1, maxdist=1.0):
-    pairs, distances = particles.get_links(pos0, radii0, pos1, radii1, maxdist)
+    pairs, distances = get_links(pos0, radii0, pos1, radii1, maxdist)
     code = """
     #pragma omp parallel for
     for(int i=0; i<Npairs[0]; ++i)
     {
         const int p = pairs(i,0), q = pairs(i,1);
-        distances(i) += pow(radii0(i) - radii1(j), 2);
+        distances(i) += pow(radii0(p) - radii1(q), 2);
     }
     """
     weave.inline(
@@ -929,7 +929,7 @@ def get_links_size(pos0, radii0, pos1, radii1, maxdist=1.0):
         extra_compile_args =['-O3 -fopenmp'],
         extra_link_args=['-lgomp'],
         verbose=2, compiler='gcc')
-    return pairs, dists  
+    return pairs, distances  
 
 class Linker:
     def __init__(self, nb_initial_pos):
