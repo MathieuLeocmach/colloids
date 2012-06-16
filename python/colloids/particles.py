@@ -986,7 +986,7 @@ def link_save(path, dt, size, radius=4.32692):
         linker.addFrame(len(pos1), pairs, distances)
     #saving in the same format as the c++
     with open(path+'.traj', 'w') as f:
-        f.write('%g\t%g\n'%(dt, radius))
+        f.write('%g\t%g\n'%(radius, dt))
         f.write('%s\n_t\n0\t%d\n'%(os.path.basename(pattern%0), size))
         linker.save(f)
 
