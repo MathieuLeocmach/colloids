@@ -17,7 +17,6 @@
 #    along with Colloids.  If not, see <http://www.gnu.org/licenses/>.
 #
 import numpy as np
-import rtree.index
 from scipy.special import sph_harm
 from scipy import weave
 from scipy.weave import converters
@@ -76,6 +75,7 @@ def weave_qlm(pos, ngbs, inside, l=6):
     return qlm
     
 def periodic_qlm(pos, ngbs, period, l=6):
+    assert len(pos) == len(ngbs)
     qlm = np.zeros([len(pos), l+1], np.complex128)
     support = """
     #include <boost/math/special_functions/spherical_harmonic.hpp>
@@ -84,8 +84,6 @@ def periodic_qlm(pos, ngbs, period, l=6):
     #pragma omp parallel for
     for(int i=0; i<Nngbs[0]; ++i)
     {
-        if(!inside(i))
-            continue;
         double cart[3] = {0, 0, 0};
         double sph[3] = {0, 0, 0};
         int nb = 0;
@@ -96,7 +94,7 @@ def periodic_qlm(pos, ngbs, period, l=6):
                 continue;
             nb++;
             for(int d=0; d<3; ++d)
-                cart[d] = modf(pos(i,d) - pos(q, d) + 1.5 * period, period) - 0.5 * period;
+                cart[d] = fmod(pos(i,d) - pos(q, d), 0.5*period);
             sph[0] = sqrt(cart[0]*cart[0] + cart[1]*cart[1] + cart[2]*cart[2]);
             if(abs(cart[2])==sph[0] || sph[0]*sph[0]+1.0 == 1.0)
             {
@@ -317,7 +315,6 @@ def periodic_gG_l(pos, L, qlms, Qlms, Nbins):
     """
     assert len(pos) == len(qlms)
     assert len(qlms) == len(Qlms)
-    assert len(is_center) == len(pos)
     maxdist = L/2.0
     maxsq = float(maxdist**2)
     hQ = np.zeros(Nbins)
@@ -325,16 +322,14 @@ def periodic_gG_l(pos, L, qlms, Qlms, Nbins):
     g = np.zeros(Nbins, int)
     code = """
     #pragma omp parallel for
-    for(int i=0; i<Npos[0]; ++i)
+    for(int i=0; i<Npos[0]-1; ++i)
     {
-        if(!is_center(i)) 
-            continue;
-        for(int j=0; j<Npos[0]; ++j)
+        for(int j=i+1; j<Npos[0]; ++j)
         {
             if(i==j) continue;
             double disq = 0.0;
             for(int dim=0; dim<3;++dim)
-                disq += pow(fmod(pos(i,dim)-pos(j,dim), L), 2);
+                disq += pow(fmod(pos(i,dim)-pos(j,dim)+1.5*L, 0.5*L), 2);
             if(disq>=(double)maxsq)
                 continue;
             const int r = sqrt(disq/(double)maxsq)*Nbins;
@@ -356,7 +351,7 @@ def periodic_gG_l(pos, L, qlms, Qlms, Nbins):
     }
     """
     weave.inline(
-        code,['qlms', 'Qlms', 'pos', 'maxsq', 'Nbins', 'hQ', 'hq', 'g','is_center', 'L'],
+        code,['qlms', 'Qlms', 'pos', 'maxsq', 'Nbins', 'hQ', 'hq', 'g', 'L'],
         type_converters =converters.blitz,
         extra_compile_args =['-O3 -fopenmp'],
         extra_link_args=['-lgomp'],
