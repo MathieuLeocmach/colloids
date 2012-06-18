@@ -126,7 +126,10 @@ def get_rdf(p, pos, Nbins, L=203.0, maxdist=None):
     #pragma omp parallel for
     for(int j=0; j<Npos[0]; ++j)
     {
-        const double disq = blitz::sum(blitz::pow(blitz::fmod(pos(j,blitz::Range::all())-p+1.5*L, L)-0.5*L, 2));
+        const double disq = blitz::sum(blitz::pow(blitz::fmod(
+            blitz::abs(pos(j,blitz::Range::all())-p), 
+            0.5*L
+            ), 2));
         if(disq*imaxsq>=1.0)
             continue;
         const int r = sqrt(disq*imaxsq)*Ng[0];
@@ -155,7 +158,7 @@ def get_mono_rdf(pos, Nbins, L, maxdist=None):
         {
             double disq = 0.0;
             for(int dim=0; dim<3;++dim)
-                disq += pow(fmod(pos(i,dim)-pos(j,dim)+1.5*L, L)-0.5*L, 2);
+                disq += pow(fmod(fabs(pos(i,dim)-pos(j,dim)), 0.5*L), 2);
             if(disq*imaxsq>=1)
                 continue;
             const int r = sqrt(disq*imaxsq)*Ng[1];
@@ -189,7 +192,7 @@ def get_binary_rdf(pos, Nbins, L, sep=800, maxdist=None):
                 continue;
             double disq = 0.0;
             for(int dim=0; dim<3;++dim)
-                disq += pow(fmod(pos(i,dim)-pos(j,dim)+1.5*L, L)-0.5*L, 2);
+                disq += pow(fmod(fabs(pos(i,dim)-pos(j,dim)), 0.5*L), 2);
             if(disq*imaxsq>=1)
                 continue;
             const int r = sqrt(disq*imaxsq)*Nbins;
@@ -202,7 +205,7 @@ def get_binary_rdf(pos, Nbins, L, sep=800, maxdist=None):
                 continue;
             double disq = 0.0;
             for(int dim=0; dim<3;++dim)
-                disq += pow(fmod(pos(i,dim)-pos(j,dim)+1.5*L, L)-0.5*L, 2);
+                disq += pow(fmod(fabs(pos(i,dim)-pos(j,dim)), 0.5*L), 2);
             if(disq*imaxsq>=1)
                 continue;
             const int r = sqrt(disq*imaxsq)*Nbins;
@@ -219,11 +222,11 @@ def get_binary_rdf(pos, Nbins, L, sep=800, maxdist=None):
         verbose=2, compiler='gcc')
     return g
     
-def get_space_correls(pos, fields, Nbins, L):
+def get_space_correl(pos, field, Nbins, L):
     maxdist = L/2.0
     imaxsq = 1.0/(maxdist**2)
     g = np.zeros(Nbins, int)
-    h = np.zeros([Nbins, fields.shape[1]])
+    h = np.zeros([Nbins])
     code = """
     #pragma omp parallel for
     for(int i=0; i<Npos[0]; ++i)
@@ -234,30 +237,30 @@ def get_space_correls(pos, fields, Nbins, L):
                 continue;
             double disq = 0.0;
             for(int dim=0; dim<3;++dim)
-                disq += pow(fmod(pos(i,dim)-pos(j,dim)+1.5*L, L)-0.5*L, 2);
+                disq += pow(fmod(fabs(pos(i,dim)-pos(j,dim)), 0.5*L), 2);
             if(disq*imaxsq>=1)
                 continue;
             const int r = sqrt(disq*imaxsq)*Ng[0];
-            const blitz::Array<double,1> v = fields(i, blitz::Range::all())*fields(j, blitz::Range::all());
+            const double v = field(i)*field(j);
             #pragma omp critical
             {
                 ++g(r);
-                h(r, blitz::Range::all()) += v;
+                h(r) += v;
             }
         }
     }
     """
     weave.inline(
-        code,['pos', 'imaxsq', 'L', 'fields', 'g', 'h'],
+        code,['pos', 'imaxsq', 'L', 'field', 'g', 'h'],
         type_converters =converters.blitz,
         extra_compile_args =['-O3 -fopenmp'],
         extra_link_args=['-lgomp'],
         verbose=2, compiler='gcc')
     return h, g
     
-def get_space_correl(pos, field, Nbins, L):
-    h, g = get_space_correls(pos, field[:,None], L)
-    return h[:,0], g
+#def get_space_correl(pos, field, Nbins, L):
+ #   h, g = get_space_correls(pos, field[:,None], Nbins, L)
+  #  return h[:,0], g
     
 def get_space_correl_binary(pos, field, Nbins, L, sep=800):
     maxdist = L/2.0
@@ -274,7 +277,7 @@ def get_space_correl_binary(pos, field, Nbins, L, sep=800):
                 continue;
             double disq = 0.0;
             for(int dim=0; dim<3;++dim)
-                disq += pow(fmod(pos(i,dim)-pos(j,dim)+1.5*L, L)-0.5*L, 2);
+                disq += pow(fmod(fabs(pos(i,dim)-pos(j,dim)), 0.5*L), 2);
             if(disq*imaxsq>=1)
                 continue;
             const int r = sqrt(disq*imaxsq)*Ng[1];
