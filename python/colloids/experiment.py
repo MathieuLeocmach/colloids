@@ -114,13 +114,38 @@ class Experiment(object):
         return self._trajs
         
     @property
-    def p2tr(self):
-        if not hasattr(self,'_p2tr'):
-            self._p2tr = [np.zeros(n, int) for n in self.get_nb()]
-            for tr, (start, traj) in enumerate(zip(self.starts, self.trajs)):
-                for dt, p in enumerate(traj):
-                    self._p2tr[start+dt][p] = tr
-        return self._p2tr
+    def nb_trajs(self):
+        if not hasattr(self,'_nb_trajs'):
+            if hasattr(self,'_trajs'):
+                self._nb_trajs = len(self._trajs)
+            else:
+                with open(os.path.join(self.path,self.trajfile),'r') as f:
+                    for l, line in enumerate(f):
+                        if l==3:
+                                break
+                        tr=0
+                    for line in f:
+                        tr += 1
+                self._nb_trajs =  tr/2
+        return self._nb_trajs
+        
+    def p2tr(self, t):
+        fname = self.get_format_string(ext='p2tr')%t
+        if not os.path.exists(fname):
+            pos2tr = [np.zeros(n, int) for n in self.get_nb()]
+            with open(os.path.join(self.path,self.trajfile),'r') as f:
+                for l, line in enumerate(f):
+                    if l==3:
+                        break
+                tr=0
+                for line in f:
+                    start = int(line[:-1])
+                    for dt, p in enumerate(map(int, f.next()[:-1].split())):
+                        pos2tr[start+dt][p] = tr
+                    tr += 1
+            for (t, name), trs in zip(self.enum(ext='p2tr'), pos2tr):
+                np.savetxt(name, trs, fmt='%d')
+        return np.loadtxt(fname, dtype=int)
 
     def read_pattern(self,pattern):
         m = re.match('(.*)'+self.token+'([0-9]*)',os.path.splitext(pattern)[0])
@@ -179,7 +204,7 @@ class Experiment(object):
         """Number of particles in each frame"""
         if not hasattr(self,'__Nb'):
             self.__Nb = np.array([
-                int(re.split("\t", open(name,'r').readline())[1])
+                int(open(name,'r').readline().split()[1])
                 for t,name in self.enum()
                 ], int)
         return self.__Nb
@@ -424,15 +449,30 @@ class Experiment(object):
     
     def bond_life(self):
         """When do bonds first form and are last seen"""
-        bstart = sparse.dok_matrix(tuple([len(self.trajs)]*2), int)
-        blast = sparse.dok_matrix(tuple([len(self.trajs)]*2), int)
+        bstart = sparse.dok_matrix(tuple([self.nb_trajs]*2), int)
+        blast = sparse.dok_matrix(tuple([self.nb_trajs]*2), int)
         for t,name in self.enum(ext='bonds'):
-            bonds = np.sort(self.p2tr[t][np.loadtxt(name, int)], 1)
+            bonds = np.sort(self.p2tr(t)[np.loadtxt(name, int)], 1)
             for a,b in bonds:
                 blast[a,b] = t
                 if not bstart.has_key((a,b)):
                     bstart[a,b] = t
         return bstart, blast
+        
+    def bond_last(self, persistence=10):
+        blast = dict()
+        for t,name in self.enum(ext='bonds'):
+            bonds = np.sort(self.p2tr(t)[np.loadtxt(name, int)], 1)
+            for a,b in bonds:
+                blast[(a,b)] = t
+            out = dict()
+            for k, tf in blast.iteritems():
+                if tf+persistence<t:
+                    out[k]=tf
+            for k in out.iterkeys():
+                del blast[k]
+            yield out
+        yield blast
         
 
 class Txp:
