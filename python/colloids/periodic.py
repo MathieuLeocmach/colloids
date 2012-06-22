@@ -4,9 +4,39 @@ import os, subprocess, shlex
 from scipy import weave
 from scipy.weave import converters
 
+dist_code = """
+inline double periodic_dist(const double &x, const double &y, const double &period)
+{
+    const double half = period*0.5;
+    double d = x-y;
+    while(d > half)
+        d -= period;
+    while(d < -half)
+        d =+ period;
+    return d;
+}
+"""
+
 def get_displ(start, stop, L=203):
     """Compute displacement with periodic bounday conditions, assuming no particle moved further than L/2"""
-    return np.mod(stop - start + 1.5 * L, L) - 0.5 * L
+    assert start.shape == stop.shape
+    displ = np.zeros_like(start)
+    code = """
+    #pragma omp parallel for
+    for(int i=0; i<Nstart[0]; ++i)
+    {
+        for(int j=0; j<Nstart[1];++j)
+            displ(i,j) = periodic_dist(p, pos(j,dim), L);
+    }
+    """
+    weave.inline(
+        code,['start', 'stop', 'displ', 'L'],
+        type_converters =converters.blitz,
+        support_code = dist_code,
+        extra_compile_args =['-O3 -fopenmp'],
+        extra_link_args=['-lgomp'],
+        verbose=2, compiler='gcc')
+    return displ
 
 def grv2vtk(pattern, T, radii=None):
     positions = np.asarray(
@@ -126,10 +156,9 @@ def get_rdf(p, pos, Nbins, L=203.0, maxdist=None):
     #pragma omp parallel for
     for(int j=0; j<Npos[0]; ++j)
     {
-        const double disq = blitz::sum(blitz::pow(blitz::fmod(
-            blitz::abs(pos(j,blitz::Range::all())-p), 
-            0.5*L
-            ), 2));
+        double disq = 0.0;
+            for(int dim=0; dim<3;++dim)
+                disq += pow(periodic_dist(p, pos(j,dim), L), 2);
         if(disq*imaxsq>=1.0)
             continue;
         const int r = sqrt(disq*imaxsq)*Ng[0];
@@ -140,6 +169,7 @@ def get_rdf(p, pos, Nbins, L=203.0, maxdist=None):
     weave.inline(
         code,['p', 'pos', 'imaxsq', 'L', 'g'],
         type_converters =converters.blitz,
+        support_code = dist_code,
         extra_compile_args =['-O3 -fopenmp'],
         extra_link_args=['-lgomp'],
         verbose=2, compiler='gcc')
@@ -158,7 +188,7 @@ def get_mono_rdf(pos, Nbins, L, maxdist=None):
         {
             double disq = 0.0;
             for(int dim=0; dim<3;++dim)
-                disq += pow(fmod(fabs(pos(i,dim)-pos(j,dim)), 0.5*L), 2);
+                disq += pow(periodic_dist(pos(i,dim), pos(j,dim), L), 2);
             if(disq*imaxsq>=1)
                 continue;
             const int r = sqrt(disq*imaxsq)*Ng[1];
@@ -172,6 +202,7 @@ def get_mono_rdf(pos, Nbins, L, maxdist=None):
     weave.inline(
         code,['pos', 'imaxsq', 'L', 'g'],
         type_converters =converters.blitz,
+        support_code = dist_code,
         extra_compile_args =['-O3 -fopenmp'],
         extra_link_args=['-lgomp'],
         verbose=2, compiler='gcc')
@@ -192,7 +223,7 @@ def get_binary_rdf(pos, Nbins, L, sep=800, maxdist=None):
                 continue;
             double disq = 0.0;
             for(int dim=0; dim<3;++dim)
-                disq += pow(fmod(fabs(pos(i,dim)-pos(j,dim)), 0.5*L), 2);
+                disq += pow(periodic_dist(pos(i,dim), pos(j,dim), L), 2);
             if(disq*imaxsq>=1)
                 continue;
             const int r = sqrt(disq*imaxsq)*Nbins;
@@ -205,7 +236,7 @@ def get_binary_rdf(pos, Nbins, L, sep=800, maxdist=None):
                 continue;
             double disq = 0.0;
             for(int dim=0; dim<3;++dim)
-                disq += pow(fmod(fabs(pos(i,dim)-pos(j,dim)), 0.5*L), 2);
+                disq += pow(periodic_dist(pos(i,dim), pos(j,dim), L), 2);
             if(disq*imaxsq>=1)
                 continue;
             const int r = sqrt(disq*imaxsq)*Nbins;
@@ -217,6 +248,7 @@ def get_binary_rdf(pos, Nbins, L, sep=800, maxdist=None):
     weave.inline(
         code,['pos', 'imaxsq', 'L', 'sep', 'g', 'Nbins'],
         type_converters =converters.blitz,
+        support_code = dist_code,
         extra_compile_args =['-O3 -fopenmp'],
         extra_link_args=['-lgomp'],
         verbose=2, compiler='gcc')
@@ -237,7 +269,7 @@ def get_space_correl(pos, field, Nbins, L):
                 continue;
             double disq = 0.0;
             for(int dim=0; dim<3;++dim)
-                disq += pow(fmod(fabs(pos(i,dim)-pos(j,dim)), 0.5*L), 2);
+                disq += pow(periodic_dist(pos(i,dim), pos(j,dim), L), 2);
             if(disq*imaxsq>=1)
                 continue;
             const int r = sqrt(disq*imaxsq)*Ng[0];
@@ -253,6 +285,7 @@ def get_space_correl(pos, field, Nbins, L):
     weave.inline(
         code,['pos', 'imaxsq', 'L', 'field', 'g', 'h'],
         type_converters =converters.blitz,
+        support_code = dist_code,
         extra_compile_args =['-O3 -fopenmp'],
         extra_link_args=['-lgomp'],
         verbose=2, compiler='gcc')
@@ -277,7 +310,7 @@ def get_space_correl_binary(pos, field, Nbins, L, sep=800):
                 continue;
             double disq = 0.0;
             for(int dim=0; dim<3;++dim)
-                disq += pow(fmod(fabs(pos(i,dim)-pos(j,dim)), 0.5*L), 2);
+                disq += pow(periodic_dist(pos(i,dim), pos(j,dim), L), 2);
             if(disq*imaxsq>=1)
                 continue;
             const int r = sqrt(disq*imaxsq)*Ng[1];
@@ -318,6 +351,7 @@ def get_space_correl_binary(pos, field, Nbins, L, sep=800):
     weave.inline(
         code,['pos', 'imaxsq', 'L', 'field', 'sep', 'g', 'h'],
         type_converters =converters.blitz,
+        support_code = dist_code,
         extra_compile_args =['-O3 -fopenmp'],
         extra_link_args=['-lgomp'],
         verbose=2, compiler='gcc')

@@ -21,6 +21,7 @@ from scipy.special import sph_harm
 from scipy import weave
 from scipy.weave import converters
 import numexpr
+import periodic
         
 def weave_qlm(pos, ngbs, inside, l=6):
     qlm = np.zeros([len(pos), l+1], np.complex128)
@@ -77,9 +78,6 @@ def weave_qlm(pos, ngbs, inside, l=6):
 def periodic_qlm(pos, ngbs, period, l=6):
     assert len(pos) == len(ngbs)
     qlm = np.zeros([len(pos), l+1], np.complex128)
-    support = """
-    #include <boost/math/special_functions/spherical_harmonic.hpp>
-    """
     code = """
     #pragma omp parallel for
     for(int i=0; i<Nngbs[0]; ++i)
@@ -94,7 +92,7 @@ def periodic_qlm(pos, ngbs, period, l=6):
                 continue;
             nb++;
             for(int d=0; d<3; ++d)
-                cart[d] = fmod(pos(i,d) - pos(q, d), 0.5*period);
+                cart[d] = periodic_dist(pos(i,d), pos(q, d), period);
             sph[0] = sqrt(cart[0]*cart[0] + cart[1]*cart[1] + cart[2]*cart[2]);
             if(abs(cart[2])==sph[0] || sph[0]*sph[0]+1.0 == 1.0)
             {
@@ -119,7 +117,8 @@ def periodic_qlm(pos, ngbs, period, l=6):
     weave.inline(
         code,['pos', 'ngbs', 'period', 'qlm'],
         type_converters =converters.blitz,
-        support_code = support,
+        headers = ['<boost/math/special_functions/spherical_harmonic.hpp>'],
+        support_code = periodic.dist_code,
         extra_compile_args =['-O3 -fopenmp'],
         extra_link_args=['-lgomp'],
         verbose=2, compiler='gcc')
@@ -329,7 +328,7 @@ def periodic_gG_l(pos, L, qlms, Qlms, Nbins):
             if(i==j) continue;
             double disq = 0.0;
             for(int dim=0; dim<3;++dim)
-                disq += pow(fmod(pos(i,dim)-pos(j,dim)+1.5*L, 0.5*L), 2);
+                disq += pow(periodic_dist(pos(i,dim), pos(j,dim), L), 2);
             if(disq>=(double)maxsq)
                 continue;
             const int r = sqrt(disq/(double)maxsq)*Nbins;
@@ -353,6 +352,7 @@ def periodic_gG_l(pos, L, qlms, Qlms, Nbins):
     weave.inline(
         code,['qlms', 'Qlms', 'pos', 'maxsq', 'Nbins', 'hQ', 'hq', 'g', 'L'],
         type_converters =converters.blitz,
+        support_code = periodic.dist_code,
         extra_compile_args =['-O3 -fopenmp'],
         extra_link_args=['-lgomp'],
         verbose=2, compiler='gcc')
