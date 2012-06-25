@@ -166,10 +166,20 @@ BOOST_AUTO_TEST_SUITE( Deconvolution )
 		MultiscaleFinder3D finder(66, 64, 62);
 		int dims[3] = {66,64,62};
 		OctaveFinder::Image input(3, dims);
-		input.setTo(1);
+		input.setTo(0);
+		drawsphere(input, 32, 32, 32, 4.0, (OctaveFinder::PixelType)1.0);
+		//anisotropic blur
+		inplace_blur3D(input, 0.5, 8);
 		std::vector<float> kernel = get_deconv_kernel(input, 0, 2, 1.0);
 		BOOST_REQUIRE_EQUAL(kernel.size(), 62/2+1);
 		finder.load_deconv_kernel(kernel);
+		finder.set_deconv();
+		std::vector<Center3D> v;
+		finder.get_centers(input, v);
+		BOOST_REQUIRE_EQUAL(v.size(), 1);
+		BOOST_CHECK_CLOSE(v[0][0], 32, 2);
+		BOOST_CHECK_CLOSE(v[0][1], v[0][0], 0.01);
+		BOOST_CHECK_CLOSE(v[0][2], v[0][1], 0.01);
 	}
 BOOST_AUTO_TEST_SUITE_END()
 

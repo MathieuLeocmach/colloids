@@ -1,4 +1,5 @@
 #include "octavefinder.hpp"
+#include "deconvolution.hpp"
 #include <boost/array.hpp>
 #include <algorithm>
 #include <numeric>
@@ -257,8 +258,6 @@ void Colloids::OctaveFinder3D::load_deconv_kernel(const std::vector<PixelType> &
 
 void Colloids::OctaveFinder3D::_fill_internal(Image &temp)
 {
-	// TODO	Add here the z-deconvolution code from known kernel
-
 	//iterative Gaussian blur
 	for(size_t i=0; i<this->layersG.size()-1; ++i)
 	{
@@ -275,10 +274,19 @@ void Colloids::OctaveFinder::preblur(Image &input)
 
 void Colloids::OctaveFinder3D::preblur(Image &input)
 {
-	if(this->halfZpreblur)
-		inplace_blur3D(input, this->preblur_radius, 0.5);
+	if(this->deconv)
+	{
+		inplace_blur3D(input, this->preblur_radius, 1.0);
+		//Deconvolve along z
+		convolve(input, 0, &(this->deconvKernel[0]));
+	}
 	else
-		inplace_blur3D(input, this->preblur_radius, this->ZXratio);
+	{
+		if(this->halfZpreblur)
+			inplace_blur3D(input, this->preblur_radius, 0.5);
+		else
+			inplace_blur3D(input, this->preblur_radius, this->ZXratio);
+	}
 	//write to disk
 	input.copyTo(this->layersG.front());
 
