@@ -195,5 +195,44 @@ namespace Colloids
 
 	void inplace_blurXY(cv::Mat &im, const double &radius);
 	void inplace_blur3D(cv::Mat &im, const double &radius, const double &ZXratio=1.0);
+
+	//draw a sphere plane by plane on a 3D image
+	template<class T>
+	void drawsphere(cv::Mat_<T> & input, const double &z, const double &y, const double &x, const double &r, const T & value=255)
+	{
+		const double rsq = r*r;
+		for(int k=std::max(0.0, z-r); k<std::min((double)input.size[0], z+r+1); ++k)
+		{
+			const double dz = pow(k-z, 2);
+			for(int j=std::max(0.0, y-r); j<std::min((double)input.size[1], y+r+1); j++)
+			{
+				const double dy = pow(j-y, 2);
+				for(int i=std::max(0.0, x-r); i<std::min((double)input.size[2], x+r+1); i++)
+				{
+					const double distsq = pow(i-x, 2) + dy + dz;
+					if(distsq < rsq)
+						input(k,j,i) = value;
+				}
+
+			}
+		}
+	}
+	template<typename T>
+	void volume_shrink(const cv::Mat_<T> & large, cv::Mat_<T> & small, size_t factor)
+	{
+		for(int k=0; k<small.size[0]; ++k)
+			for(int j=0; j<small.size[1]; ++j)
+				for(int i=0; i<small.size[2]; ++i)
+				{
+					double v = 0;
+					for(size_t mk=0; mk<factor; ++mk)
+						for(size_t mj=0; mj<factor; ++mj)
+						{
+							const T* a = &large(factor*k+mk, factor*j+mj, factor*i);
+							v += std::accumulate(a, a+factor, 0);
+						}
+					small(k, j, i) = (v/(factor*factor*factor) + 0.5);
+				}
+	}
 };
 #endif // OCTAVEFINDER_H

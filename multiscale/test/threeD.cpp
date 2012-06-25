@@ -23,56 +23,6 @@ struct by_coordinate : std::binary_function<const T&, const T&, bool>
 	}
 };
 
-//draw a sphere plane by plane
-template<class T>
-void drawsphere(cv::Mat_<T> & input, const double &z, const double &y, const double &x, const double &r, const T & value=255)
-{
-	const double rsq = r*r, bigrsq = (r+1) * (r+1);
-	for(int k=std::max(0.0, z-r); k<std::min((double)input.size[0], z+r+1); ++k)
-	{
-		const double dz = pow(k-z, 2);
-		for(int j=std::max(0.0, y-r); j<std::min((double)input.size[1], y+r+1); j++)
-		{
-			const double dy = pow(j-y, 2);
-			for(int i=std::max(0.0, x-r); i<std::min((double)input.size[2], x+r+1); i++)
-			{
-				const double distsq = pow(i-x, 2) + dy + dz;
-				if(distsq < rsq)
-					input(k,j,i) = value;
-				/*else
-					if(distsq<=bigrsq)
-					{
-						input(k,j,i) = value / (sqrt(distsq)-r);
-					}*/
-			}
-
-		}
-		/*const double Rsq = r*r - (k-z)*(k-z);
-		if(Rsq>=0)
-		{
-			cv::Mat slice(input.size[1], input.size[2], input.type(), &input.at<unsigned char>(k,0,0));
-			cv::circle(slice, cv::Point(y, x), (int)(sqrt(Rsq)), value, -1);
-		}*/
-	}
-}
-template<typename T>
-void volume_shrink(const cv::Mat_<T> & large, cv::Mat_<T> & small, size_t factor)
-{
-	for(int k=0; k<small.size[0]; ++k)
-		for(int j=0; j<small.size[1]; ++j)
-			for(int i=0; i<small.size[2]; ++i)
-			{
-				double v = 0;
-				for(size_t mk=0; mk<factor; ++mk)
-					for(size_t mj=0; mj<factor; ++mj)
-					{
-						const T* a = &large(factor*k+mk, factor*j+mj, factor*i);
-						v += std::accumulate(a, a+factor, 0);
-					}
-				small(k, j, i) = (v/(factor*factor*factor) + 0.5);
-			}
-}
-
 BOOST_AUTO_TEST_SUITE( threeD )
 
 BOOST_AUTO_TEST_SUITE( circular )
