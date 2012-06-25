@@ -78,10 +78,16 @@ public:
 	const size_t get_depth() const {return dynamic_cast<OctaveFinder3D*>(this->octaves[0])->get_depth()/2; };
 	void set_ZXratio(const double &ratio);
 	void set_halfZpreblur(bool value);
+	void set_deconv(bool value=true){this->deconv=value;};
+	void load_deconv_kernel(const std::vector<PixelType> &kernel);
 	inline const double& get_ZXratio() const {return dynamic_cast<OctaveFinder3D*>(this->octaves[0])->get_ZXratio();}
 	virtual Image downscale(const size_t &o) const;
 	virtual Image upscale(const cv::Mat &input) const;
 	void global_scale2radius(std::vector<Center3D > &centers) const;
+
+protected:
+	bool deconv;
+	std::vector<PixelType> deconvKernel;
 };
 
 /**

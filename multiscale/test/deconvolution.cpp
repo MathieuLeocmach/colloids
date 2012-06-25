@@ -161,5 +161,15 @@ BOOST_AUTO_TEST_SUITE( Deconvolution )
 		BOOST_CHECK_LT(sinput(8,13), sinput(7,16));
 		BOOST_CHECK_CLOSE(sinput(8,14), sinput(7,16), 10);
 	}
+	BOOST_AUTO_TEST_CASE( feed_finder )
+	{
+		MultiscaleFinder3D finder(66, 64, 62);
+		int dims[3] = {66,64,62};
+		OctaveFinder::Image input(3, dims);
+		input.setTo(1);
+		std::vector<float> kernel = get_deconv_kernel(input, 0, 2, 1.0);
+		BOOST_REQUIRE_EQUAL(kernel.size(), 62/2+1);
+		finder.load_deconv_kernel(kernel);
+	}
 BOOST_AUTO_TEST_SUITE_END()
 

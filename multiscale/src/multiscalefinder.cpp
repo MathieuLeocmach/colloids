@@ -40,7 +40,8 @@ namespace Colloids {
 			occ /= 2;
 		}
 	}
-	MultiscaleFinder3D::MultiscaleFinder3D(const int nplanes, const int nrows, const int ncols, const int nbLayers, const double &preblur_radius, bool incore)
+	MultiscaleFinder3D::MultiscaleFinder3D(const int nplanes, const int nrows, const int ncols, const int nbLayers, const double &preblur_radius, bool incore):
+			deconv(false)
 	{
 		//must not fail if the image is too small, construct the 0th octave anyway
 		const int s = (nplanes<10 || nrows<10 || ncols<10)?1:(log(min(nplanes, min(nrows, ncols))/5)/log(2));
@@ -78,6 +79,12 @@ namespace Colloids {
     {
     	if(this->octaves.size()>1)
     		dynamic_cast<OctaveFinder3D*>(this->octaves[1])->set_halfZpreblur(value);
+    }
+    void MultiscaleFinder3D::load_deconv_kernel(const std::vector<PixelType> &kernel)
+    {
+    	if(kernel.size() != this->get_height()/2+1)
+    		throw std::invalid_argument("The kernel size must match the last dimension of the finder");
+    	this->deconvKernel = kernel;
     }
 
     /**
