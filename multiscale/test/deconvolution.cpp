@@ -181,5 +181,54 @@ BOOST_AUTO_TEST_SUITE( Deconvolution )
 		BOOST_CHECK_CLOSE(v[0][1], v[0][0], 0.01);
 		BOOST_CHECK_CLOSE(v[0][2], v[0][1], 0.01);
 	}
+	BOOST_AUTO_TEST_CASE( gel )
+	{
+		int dims[3] = {31, 64, 64};
+		cv::Mat_<uchar> image(3, dims);
+		image.setTo(0);
+		//read test data from disk
+		std::ifstream imf("test_input/gel.raw");
+		BOOST_REQUIRE_MESSAGE(imf.good(), "could not find test_input/gel.raw");
+		imf.read((char*)image.data, 31*64*64);
+		imf.close();
+		//deconvolution kernel
+		std::vector<float> kernel = get_deconv_kernel(image, 0, 2, 1.0);
+		//track in 3D
+		MultiscaleFinder3D finder(31, 64, 64);
+		finder.load_deconv_kernel(kernel);
+		finder.set_deconv();
+		std::vector<Center3D> centers;
+		finder.get_centers(image, centers);
+		//output deconvolved image
+		std::ofstream imout("test_output/gel_deconv.raw", std::ios_base::binary);
+		imout.write((char*)finder.get_octave(1).get_layersG(0).data, 31*64*64*sizeof(OctaveFinder::PixelType));
+		imout.close();
+		//check track output
+		BOOST_REQUIRE(!centers.empty());
+		int contains = 0;
+		for(size_t p=0; p<centers.size(); ++p)
+		{
+			if(centers[p][0]>30 && centers[p][0]<39 &&
+					centers[p][1]>15 && centers[p][1]<25 &&
+					centers[p][2]>11 && centers[p][2]<25)
+				++contains;
+		}
+		BOOST_REQUIRE_MESSAGE(contains>0, "Bridge particle not detected");
+		BOOST_CHECK_MESSAGE(contains<2, ""<<contains<<" bridge particles detected");
+		removeOverlapping(centers);
+		std::ofstream out("test_output/gel_deconv.csv");
+		contains = 0;
+		for(size_t p=0; p<centers.size(); ++p)
+		{
+			if(centers[p][0]>30 && centers[p][0]<39 &&
+					centers[p][1]>15 && centers[p][1]<25 &&
+					centers[p][2]>11 && centers[p][2]<25)
+				++contains;
+			for(int d=0;d<3;++d)
+				out<<centers[p][d]<<";";
+			out<<centers[p].r<<";"<<centers[p].intensity<<"\n";
+		}
+		BOOST_CHECK_MESSAGE(contains==1, ""<<contains<<" bridge particles detected after overlap removal");
+	}
 BOOST_AUTO_TEST_SUITE_END()
 
