@@ -98,6 +98,8 @@ namespace Colloids
 			inline void set_ZXratio(const double& ratio){this->ZXratio = ratio;}
 			inline const double& get_ZXratio() const {return this->ZXratio;}
 			inline void set_halfZpreblur(bool value){this->halfZpreblur = value;}
+			void set_deconv(bool value=true);
+			void load_deconv_kernel(const std::vector<PixelType> &kernel);
 
 			virtual void initialize_binary(const double &max_ratio = 1.1);
 			virtual void spatial_subpix(const std::vector<int> &ci, Center_base& c) const;
@@ -116,6 +118,8 @@ namespace Colloids
 			std::vector<Center3D> centers;
 			double ZXratio;
 			bool halfZpreblur;
+			bool deconv;
+			std::vector<PixelType> deconvKernel;
 
 			virtual void fill_iterative_radii();
 			virtual void preblur(Image &input);

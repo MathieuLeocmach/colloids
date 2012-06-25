@@ -43,7 +43,7 @@ OctaveFinder::OctaveFinder(const int nrows, const int ncols, const int nbLayers,
 }
 
 OctaveFinder3D::OctaveFinder3D(const int nplanes, const int nrows, const int ncols, const int nbLayers, const double &preblur_radius, bool incore) :
-	OctaveFinder(0, 0, nbLayers, preblur_radius), iterative_Zgaussian_filters(nbLayers+2), ZXratio(1.0), halfZpreblur(false)
+	OctaveFinder(0, 0, nbLayers, preblur_radius), iterative_Zgaussian_filters(nbLayers+2), ZXratio(1.0), halfZpreblur(false), deconv(false)
 {
 	const size_t nbpixels =  nplanes * nrows * ncols;
 	if(incore)
@@ -241,8 +241,24 @@ void inplace_blur3D(cv::Mat &im, const double &radius, const double &ZXratio)
 	inplace_blurXY(im, radius);
 }
 
+void Colloids::OctaveFinder3D::set_deconv(bool value)
+{
+	if(value && ((int)this->deconvKernel.size() != this->get_height()/2+1))
+		throw std::invalid_argument("Load the kernel before");
+	this->deconv=value;
+}
+
+void Colloids::OctaveFinder3D::load_deconv_kernel(const std::vector<PixelType> &kernel)
+{
+	if((int)kernel.size() != this->get_height()/2+1)
+		throw std::invalid_argument("The kernel size must match the last dimension of the finder");
+	this->deconvKernel = kernel;
+}
+
 void Colloids::OctaveFinder3D::_fill_internal(Image &temp)
 {
+	// TODO	Add here the z-deconvolution code from known kernel
+
 	//iterative Gaussian blur
 	for(size_t i=0; i<this->layersG.size()-1; ++i)
 	{
