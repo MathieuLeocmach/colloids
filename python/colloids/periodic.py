@@ -26,7 +26,7 @@ def get_displ(start, stop, L=203):
     for(int i=0; i<Nstart[0]; ++i)
     {
         for(int j=0; j<Nstart[1];++j)
-            displ(i,j) = periodic_dist(p, pos(j,dim), L);
+            displ(i,j) = periodic_dist(stop(i,j), start(i,j), L);
     }
     """
     weave.inline(
@@ -357,20 +357,21 @@ def get_space_correl_binary(pos, field, Nbins, L, sep=800):
         verbose=2, compiler='gcc')
     return h, g
 
-def get_Sq(pos, Nbins, L=203.0):
+def get_Sq(pos, Nbins, L=203.0, maxNvec=30):
     Sq = np.zeros(Nbins)
     code = """
     #pragma omp parallel for
-    for(nk=0; nk<NSq[0]; ++nk)
+    for(int nk=1; nk<NSq[0]; ++nk)
     {
         //generate the k-vectors
         int nvec = 0;
-        blitz::Array<double,2> kvectors(30, 3);
+        blitz::Array<double,2> kvectors(maxNvec, 3);
         kvectors = 0;
-        for(int i=0; i<nk && nvec<30; ++i)
-            for(int j=0; j<nk-i && nvec<30; ++j)
+        for(int i=0; i<nk && nvec<maxNvec; ++i)
+            for(int j=0; j*j<nk*nk-i*i && nvec<maxNvec; ++j)
             {
-                const int k = nk-i-j;
+                const int k = sqrt(nk*nk-i*i-j*j);
+                if(k != floor(k)) continue;
                 kvectors(nvec++, blitz::Range::all()) = i, j, k;
                 kvectors(nvec++, blitz::Range::all()) = j, k, i;
                 kvectors(nvec++, blitz::Range::all()) = k, i, j;
@@ -382,19 +383,21 @@ def get_Sq(pos, Nbins, L=203.0):
             for(int i=0; i<Npos[0]; ++i)
             {
                 double kr = 0.0;
-                for(int j=0; j<Npos[2]; ++j)
+                for(int j=0; j<Npos[1]; ++j)
                     kr += kvectors(k,j) * pos(i, j);
                 kr *= 2*M_PI/L;
                 sum_rho += std::polar(1.0, kr);
             }
-            Sq[nk] += std::norm(sum_rho);
+            Sq(nk) += std::norm(sum_rho);
         }
-        Sq[nk] /= nvec;
+        Sq(nk) /= nvec;
+    }
     """
     weave.inline(
-        code,['pos', 'Sq', 'L'],
+        code,['pos', 'Sq', 'L', 'maxNvec'],
         type_converters =converters.blitz,
         extra_compile_args =['-O3 -fopenmp'],
         extra_link_args=['-lgomp'],
         verbose=2, compiler='gcc')
+    return Sq
     
