@@ -357,3 +357,44 @@ def get_space_correl_binary(pos, field, Nbins, L, sep=800):
         verbose=2, compiler='gcc')
     return h, g
 
+def get_Sq(pos, Nbins, L=203.0):
+    Sq = np.zeros(Nbins)
+    code = """
+    #pragma omp parallel for
+    for(nk=0; nk<NSq[0]; ++nk)
+    {
+        //generate the k-vectors
+        int nvec = 0;
+        blitz::Array<double,2> kvectors(30, 3);
+        kvectors = 0;
+        for(int i=0; i<nk && nvec<30; ++i)
+            for(int j=0; j<nk-i && nvec<30; ++j)
+            {
+                const int k = nk-i-j;
+                kvectors(nvec++, blitz::Range::all()) = i, j, k;
+                kvectors(nvec++, blitz::Range::all()) = j, k, i;
+                kvectors(nvec++, blitz::Range::all()) = k, i, j;
+            }
+        
+        for(int k=0; k<nvec; ++k)
+        {
+            std::complex<double> sum_rho(0.0,0.0);
+            for(int i=0; i<Npos[0]; ++i)
+            {
+                double kr = 0.0;
+                for(int j=0; j<Npos[2]; ++j)
+                    kr += kvectors(k,j) * pos(i, j);
+                kr *= 2*M_PI/L;
+                sum_rho += std::polar(1.0, kr);
+            }
+            Sq[nk] += std::norm(sum_rho);
+        }
+        Sq[nk] /= nvec;
+    """
+    weave.inline(
+        code,['pos', 'Sq', 'L'],
+        type_converters =converters.blitz,
+        extra_compile_args =['-O3 -fopenmp'],
+        extra_link_args=['-lgomp'],
+        verbose=2, compiler='gcc')
+    
