@@ -244,15 +244,15 @@ void inplace_blur3D(cv::Mat &im, const double &radius, const double &ZXratio)
 
 void Colloids::OctaveFinder3D::set_deconv(bool value)
 {
-	if(value && ((int)this->deconvKernel.size() != this->get_height()/2+1))
+	if(value && ((int)this->deconvKernel.size() != this->get_depth()/2+1))
 		throw std::invalid_argument("Load the kernel before");
 	this->deconv=value;
 }
 
 void Colloids::OctaveFinder3D::load_deconv_kernel(const std::vector<PixelType> &kernel)
 {
-	if((int)kernel.size() != this->get_height()/2+1)
-		throw std::invalid_argument("The kernel size must match the last dimension of the finder");
+	if((int)kernel.size() != this->get_depth()/2+1)
+		throw std::invalid_argument("The kernel size must match the first dimension of the finder");
 	this->deconvKernel = kernel;
 }
 

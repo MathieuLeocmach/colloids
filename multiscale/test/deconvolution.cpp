@@ -170,8 +170,8 @@ BOOST_AUTO_TEST_SUITE( Deconvolution )
 		drawsphere(input, 32, 32, 32, 4.0, (OctaveFinder::PixelType)1.0);
 		//anisotropic blur
 		inplace_blur3D(input, 0.5, 8);
-		std::vector<float> kernel = get_deconv_kernel(input, 0, 2, 1.0);
-		BOOST_REQUIRE_EQUAL(kernel.size(), 62/2+1);
+		std::vector<float> kernel = get_deconv_kernel(input, 2, 0, 1.0);
+		BOOST_REQUIRE_EQUAL(kernel.size(), 66/2+1);
 		finder.load_deconv_kernel(kernel);
 		finder.set_deconv();
 		std::vector<Center3D> v;
@@ -192,7 +192,7 @@ BOOST_AUTO_TEST_SUITE( Deconvolution )
 		imf.read((char*)image.data, 31*64*64);
 		imf.close();
 		//deconvolution kernel
-		std::vector<float> kernel = get_deconv_kernel(image, 0, 2, 1.0);
+		std::vector<float> kernel = get_deconv_kernel(image, 2, 0, 1.0);
 		//track in 3D
 		MultiscaleFinder3D finder(31, 64, 64);
 		finder.load_deconv_kernel(kernel);
