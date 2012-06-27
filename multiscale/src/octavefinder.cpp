@@ -279,6 +279,9 @@ void Colloids::OctaveFinder3D::preblur(Image &input)
 		inplace_blur3D(input, this->preblur_radius, 1.0);
 		//Deconvolve along z
 		convolve(input, 0, &(this->deconvKernel[0]));
+		//remove negative
+		for(PixelType* i=reinterpret_cast<PixelType*>(input.data); i!=reinterpret_cast<PixelType*>(input.dataend); ++i)
+			if(*i<0) *i=0;
 	}
 	else
 	{
