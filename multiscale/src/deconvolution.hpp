@@ -25,6 +25,7 @@ namespace Colloids {
 		//accessors
 		int size(){return this->_size;}
 		int fourier_size(){return this->_fourier_size;}
+		const fftwf_complex* get_fourier(){return this->fourier;}
 
 		//processing
 		/**
@@ -35,6 +36,12 @@ namespace Colloids {
 		 * \brief Convolve in place the (possibly discontinuous) input with the kernel (given in Fourier space)
 		 */
 		void operator()(float* input, const int step, const float* kernel);
+		/**
+		 * \brief set the window function to Hanning
+		 */
+		void set_hanning();
+		void unset_window(){this->window.clear();}
+		bool windowing(){return !this->window.empty();}
 
 	protected:
 		unsigned long int _size;
@@ -42,10 +49,11 @@ namespace Colloids {
 		float* real;
 		fftwf_complex* fourier;
 		fftwf_plan forward, backward;
+		std::vector<double> window;
 		void fill(const float* input, const int step);
 	};
 
-	std::vector<float> get_spectrum_1d(const cv::Mat_<float> &im, const int axis=0);
+	std::vector<float> get_spectrum_1d(const cv::Mat_<float> &im, const int axis=0, const bool windowing=true);
 	std::vector<float> get_deconv_kernel(const cv::Mat_<float> &im, const int good_axis, const int bad_axis, const double size_ratio=1.0);
 	void convolve(cv::Mat_<float> &im, const int axis, const float* kernel);
 

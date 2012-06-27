@@ -52,21 +52,35 @@ namespace Colloids {
 	}
 	void Convolver::fill(const float* input, const int step)
 	{
-		for (unsigned long int i=0; i<this->_size; ++i)
+		for(size_t i=0; i<this->_size; ++i)
 		{
 			this->real[i] = *input;
 			input += step;
 		}
+		if(this->windowing())
+		{
+			for(size_t i=0; i<this->_size; ++i)
+				this->real[i] *= this->window[i];
+		}
+	}
+	void Convolver::set_hanning()
+	{
+		this->window.resize(this->size(), 1.0);
+		for(int i=0; i<this->size(); ++i)
+			this->window[i] = 0.5 *(1.0 - cos(2*M_PI*i/(this->size()-1)));
 	}
 
-	std::vector<float> get_spectrum_1d(const cv::Mat_<float> &im, const int axis)
+	std::vector<float> get_spectrum_1d(const cv::Mat_<float> &im, const int axis, const bool windowing)
 	{
 		if(axis >= im.dims)
 			throw std::invalid_argument("Matrix dimension is too small to compute the spectrum along this axis");
 		assert(im.isContinuous());
 		Convolver co(im.size[axis]);
+		if(windowing)
+			co.set_hanning();
 		std::vector<float> spectrum(co.fourier_size());
 		std::vector<double> tot(co.fourier_size(), 0.0);
+		std::vector<std::complex<double> > totf(co.fourier_size(), 0.0);
 		unsigned long int step = im.step1(axis);
 		//whatever the real dimension, we fall back to a 3d situation where the axis of interest is y
 		//and either x or z can be of size 1

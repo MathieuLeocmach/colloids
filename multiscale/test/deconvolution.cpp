@@ -27,6 +27,7 @@ BOOST_AUTO_TEST_SUITE( Deconvolution )
 		for (boost::array<int,2>::const_iterator s=sizes.begin(); s!=sizes.end(); ++s)
 		{
 			Convolver co(*s);
+			BOOST_REQUIRE(!co.windowing());
 			BOOST_REQUIRE_EQUAL(co.size(), *s);
 			BOOST_REQUIRE_EQUAL(co.fourier_size(), 6);
 			std::vector<float> input(*s);
@@ -35,6 +36,7 @@ BOOST_AUTO_TEST_SUITE( Deconvolution )
 			co.spectrum(&input[0], 1, &spectrum[0]);
 			BOOST_CHECK_EQUAL(*std::max_element(spectrum.begin(), spectrum.end()), 0);
 			BOOST_CHECK_EQUAL(*std::min_element(spectrum.begin(), spectrum.end()), 0);
+			BOOST_REQUIRE(!co.windowing());
 			//step input
 			input[0]=1;
 			input[1]=1;
@@ -53,6 +55,9 @@ BOOST_AUTO_TEST_SUITE( Deconvolution )
 			co(&input[0], 1, &kernel[0]);
 			BOOST_CHECK_CLOSE(input[0], 1-2.0 / *s, 1e-5);
 			BOOST_CHECK_CLOSE(input[2], -2.0 / *s, 1e-5);
+			BOOST_REQUIRE(!co.windowing());
+			co.set_hanning();
+			BOOST_REQUIRE(co.windowing());
 		}
 		//for a size of 10 the result is exactly null
 		BOOST_CHECK_EQUAL(spectrum[5], 0.0);
@@ -63,8 +68,8 @@ BOOST_AUTO_TEST_SUITE( Deconvolution )
 		cv::Mat_<float>input(32, 32);
 		input.setTo(0.0f);
 		cv::circle(input, cv::Point(16, 16), 4, 255, -1);
-		std::vector<float> spy = get_spectrum_1d(input, 0);
-		std::vector<float> spx = get_spectrum_1d(input, 1);
+		std::vector<float> spy = get_spectrum_1d(input, 0, false);
+		std::vector<float> spx = get_spectrum_1d(input, 1, false);
 		BOOST_CHECK_GT(*std::max_element(spx.begin(), spx.end()), 0);
 		BOOST_CHECK_CLOSE(spx[0], 668538.28125, 1e-5);
 		BOOST_REQUIRE_EQUAL(spy.size(), spx.size());
@@ -72,14 +77,23 @@ BOOST_AUTO_TEST_SUITE( Deconvolution )
 			BOOST_CHECK_MESSAGE(spx[i] == spy[i], "at i="<<i<<"\t"<<spx[i]<<" != "<<spy[i]);
 		//isotropic blur
 		cv::GaussianBlur(input, input, cv::Size(0,0), 2*1.6);
-		spy = get_spectrum_1d(input, 0);
-		spx = get_spectrum_1d(input, 1);
+		spy = get_spectrum_1d(input, 0, false);
+		spx = get_spectrum_1d(input, 1, false);
 		BOOST_CHECK_GT(*std::max_element(spx.begin(), spx.end()), 0);
 		BOOST_CHECK_CLOSE(spx[0], 364005.77, 1e-2);
 		BOOST_REQUIRE_EQUAL(spy.size(), spx.size());
 		for(size_t i=0; i<spy.size(); ++i)
 			BOOST_CHECK_CLOSE(spx[i], spy[i], 0.4);
-
+		//including windowing
+		input.setTo(0.0f);
+		cv::circle(input, cv::Point(16, 16), 4, 255, -1);
+		spy = get_spectrum_1d(input, 0);
+		spx = get_spectrum_1d(input, 1);
+		BOOST_CHECK_GT(*std::max_element(spx.begin(), spx.end()), 0);
+		BOOST_CHECK_CLOSE(spx[0], 609217.625, 1e-5);
+		BOOST_REQUIRE_EQUAL(spy.size(), spx.size());
+		for(size_t i=0; i<spy.size(); ++i)
+			BOOST_CHECK_MESSAGE(spx[i] == spy[i], "at i="<<i<<"\t"<<spx[i]<<" != "<<spy[i]);
 	}
 	BOOST_AUTO_TEST_CASE( Gaussian_y )
 	{
@@ -97,7 +111,7 @@ BOOST_AUTO_TEST_SUITE( Deconvolution )
 		BOOST_CHECK_GT(*std::max_element(input.begin(), input.end()), 0);
 		BOOST_CHECK_GT(input(16,16), input(15,16));
 		BOOST_CHECK_GT(input(16,16), input(16,15));
-		BOOST_CHECK_CLOSE(input(16,15), input(15,16), 2);
+		BOOST_CHECK_CLOSE(input(16,15), input(15,16), 1.5);
 	}
 	BOOST_AUTO_TEST_CASE( rectangular_y )
 	{
@@ -115,7 +129,7 @@ BOOST_AUTO_TEST_SUITE( Deconvolution )
 		BOOST_CHECK_GT(*std::max_element(input.begin(), input.end()), 0);
 		BOOST_CHECK_GT(input(16,15), input(15,15));
 		BOOST_CHECK_GT(input(16,15), input(16,14));
-		BOOST_CHECK_CLOSE(input(16,14), input(15,15), 2);
+		BOOST_CHECK_CLOSE(input(16,14), input(15,15), 1.5);
 	}
 	BOOST_AUTO_TEST_CASE( rectangular_x )
 	{
@@ -133,7 +147,7 @@ BOOST_AUTO_TEST_SUITE( Deconvolution )
 		BOOST_CHECK_GT(*std::max_element(input.begin(), input.end()), 0);
 		BOOST_CHECK_GT(input(15,16), input(14,16));
 		BOOST_CHECK_GT(input(15,16), input(15,15));
-		BOOST_CHECK_CLOSE(input(15,15), input(14,16), 2);
+		BOOST_CHECK_CLOSE(input(15,15), input(14,16), 1.5);
 	}
 	BOOST_AUTO_TEST_CASE( sampling )
 	{
@@ -159,7 +173,7 @@ BOOST_AUTO_TEST_SUITE( Deconvolution )
 		BOOST_CHECK_GT(sinput(8,16), sinput(8,15));
 		BOOST_CHECK_GT(sinput(8,15), sinput(7,16));
 		BOOST_CHECK_LT(sinput(8,13), sinput(7,16));
-		BOOST_CHECK_CLOSE(sinput(8,14), sinput(7,16), 10);
+		BOOST_CHECK_CLOSE(sinput(8,14), sinput(7,16), 8);
 	}
 	BOOST_AUTO_TEST_CASE( feed_finder )
 	{
