@@ -144,7 +144,7 @@ int main(int ac, char* av[]){
 				//load the kernel from file
 				if(!!vm.count("verbose"))
 					std::cout<<"Load the deconvolution kernel from "<< vm["deconvolution-kernel"].as<std::string>() << std::endl;
-				if(!vm.count("deconvolution_kernel"))
+				if(!vm.count("deconvolution-kernel"))
 				{
 					std::cerr<<cmdline_options << std::endl;
 					std::cerr<<"deconvolution-kernel file needed" << std::endl;
