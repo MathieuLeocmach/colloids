@@ -97,10 +97,10 @@ namespace Colloids {
 		std::vector<float> good_sp = get_spectrum_1d(im, good_axis);
 		//linear interpolation of good_sp to take into account the voxel size ratio
 		const double qratio = bad_sp.size() * size_ratio / good_sp.size();
-		std::vector<float> scaled(std::min(bad_sp.size(), (size_t)((good_sp.size()-1)/qratio)), 0);
+		std::vector<float> scaled(std::min(bad_sp.size(), (size_t)((good_sp.size()-1)*qratio)), 0);
 		for(size_t i=0; i<scaled.size(); ++i)
 		{
-			const double q = i * qratio;
+			const double q = i / qratio;
 			const size_t nq = q;
 			const double dq = q-nq;
 			scaled[i] = (1.0-dq) * good_sp[nq] + dq * good_sp[nq+1];
