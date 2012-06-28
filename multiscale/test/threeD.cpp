@@ -932,6 +932,7 @@ BOOST_AUTO_TEST_SUITE( real )
 		imf.close();
 		//track in 3D
 		MultiscaleFinder3D finder(55, 50, 50);
+		finder.disable_Octave0();
 		std::vector<Center3D> centers;
 		finder.get_centers(image, centers);
 		//check track output

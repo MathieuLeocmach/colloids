@@ -17,7 +17,7 @@ void images_are_close(const cv::Mat &a, const cv::Mat &b, float precision)
 	for(int i=0; i<a.rows; i++)
 		for(int j=0; j<a.cols; j++)
 		{
-			BOOST_REQUIRE_MESSAGE(*u<precision, "at x=" << i <<" y=" << j);
+			BOOST_REQUIRE_MESSAGE(*u<precision, "at x=" << i <<" y=" << j <<"\t"<<diff(i,j)*peak<<" > "<<precision);
 			BOOST_CHECK_SMALL(*u, precision);
 			u++;
 		}

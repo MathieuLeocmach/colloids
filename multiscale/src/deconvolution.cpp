@@ -48,7 +48,10 @@ namespace Colloids {
 		}
 		fftwf_execute(this->backward);
 		for (unsigned long int i=0; i<this->_size; ++i)
-			*input++ = this->real[i];
+		{
+			*input = this->real[i];
+			input += step;
+		}
 	}
 	void Convolver::fill(const float* input, const int step)
 	{
