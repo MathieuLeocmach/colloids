@@ -118,14 +118,7 @@ int main(int ac, char* av[]){
 						3, dimsint, CV_8UC1, (unsigned char*)(file.data() + serie.getOffset(0))
 						).convertTo(image, image.type());
 				if(!!vm.count("verbose"))
-				{
-					std::cout<<"Image loaded";
-					std::flush(std::cout);
-				}
-				//preblur in all 3 dimensions to eliminate noise
-				inplace_blur3D(image, 1.6, 1.0);
-				if(!!vm.count("verbose"))
-					std::cout<<" and preblurred."<<std::endl;
+					std::cout<<"Image loaded"<<std::endl;
 				//kernel that would make the Z axis as the X axis
 				deconv_kernel = get_deconv_kernel(image, 2, 0);
 				if(!!vm.count("verbose"))
