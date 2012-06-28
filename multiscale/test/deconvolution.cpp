@@ -42,6 +42,7 @@ BOOST_AUTO_TEST_SUITE( Deconvolution )
 			input[1]=1;
 			co.spectrum(&input[0], 1, &spectrum[0]);
 			BOOST_CHECK_EQUAL(spectrum[0], 4.0);
+			BOOST_CHECK_GE(*std::min_element(spectrum.begin(), spectrum.end()), 0);
 			//striding input
 			std::vector<float> input2(2*(*s));
 			std::fill(input2.begin(), input2.end(), 0.0f);
@@ -49,6 +50,7 @@ BOOST_AUTO_TEST_SUITE( Deconvolution )
 			input2[1]=1;
 			input2[2]=1;
 			co.spectrum(&input2[0], 2, &spectrum[0]);
+			BOOST_CHECK_GE(*std::min_element(spectrum.begin(), spectrum.end()), 0);
 			BOOST_CHECK_EQUAL(spectrum[0], 4.0);
 			//simplest convolution: remove of the DC coefficient = subtract the average
 			boost::array<float,6> kernel ={{0,1,1,1,1,1}};
@@ -70,8 +72,9 @@ BOOST_AUTO_TEST_SUITE( Deconvolution )
 		cv::circle(input, cv::Point(16, 16), 4, 255, -1);
 		std::vector<float> spy = get_spectrum_1d(input, 0, false);
 		std::vector<float> spx = get_spectrum_1d(input, 1, false);
+		BOOST_CHECK_GE(*std::min_element(spx.begin(), spx.end()), 0);
 		BOOST_CHECK_GT(*std::max_element(spx.begin(), spx.end()), 0);
-		BOOST_CHECK_CLOSE(spx[0], 668538.28125, 1e-5);
+		BOOST_CHECK_CLOSE(spx[0], 516072.4365234375, 1e-5);
 		BOOST_REQUIRE_EQUAL(spy.size(), spx.size());
 		for(size_t i=0; i<spy.size(); ++i)
 			BOOST_CHECK_MESSAGE(spx[i] == spy[i], "at i="<<i<<"\t"<<spx[i]<<" != "<<spy[i]);
@@ -80,7 +83,7 @@ BOOST_AUTO_TEST_SUITE( Deconvolution )
 		spy = get_spectrum_1d(input, 0, false);
 		spx = get_spectrum_1d(input, 1, false);
 		BOOST_CHECK_GT(*std::max_element(spx.begin(), spx.end()), 0);
-		BOOST_CHECK_CLOSE(spx[0], 364005.77, 1e-2);
+		BOOST_CHECK_CLOSE(spx[0], 211539.93515454759, 1e-2);
 		BOOST_REQUIRE_EQUAL(spy.size(), spx.size());
 		for(size_t i=0; i<spy.size(); ++i)
 			BOOST_CHECK_CLOSE(spx[i], spy[i], 0.4);
@@ -90,7 +93,7 @@ BOOST_AUTO_TEST_SUITE( Deconvolution )
 		spy = get_spectrum_1d(input, 0);
 		spx = get_spectrum_1d(input, 1);
 		BOOST_CHECK_GT(*std::max_element(spx.begin(), spx.end()), 0);
-		BOOST_CHECK_CLOSE(spx[0], 609217.625, 1e-5);
+		BOOST_CHECK_CLOSE(spx[0], 469144.84933865839, 1e-5);
 		BOOST_REQUIRE_EQUAL(spy.size(), spx.size());
 		for(size_t i=0; i<spy.size(); ++i)
 			BOOST_CHECK_MESSAGE(spx[i] == spy[i], "at i="<<i<<"\t"<<spx[i]<<" != "<<spy[i]);

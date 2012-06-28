@@ -25,7 +25,7 @@ namespace Colloids {
 		//accessors
 		int size(){return this->_size;}
 		int fourier_size(){return this->_fourier_size;}
-		const fftwf_complex* get_fourier(){return this->fourier;}
+		const std::complex<float>* get_fourier(){return reinterpret_cast<std::complex<float>*>(this->fourier);}
 
 		//processing
 		/**

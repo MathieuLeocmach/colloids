@@ -97,11 +97,13 @@ namespace Colloids {
 				co.spectrum(reinterpret_cast<float* const>(im.data) + i*planestep + j, step, &spectrum[0]);
 				for(size_t u=0; u<spectrum.size(); ++u)
 					tot[u] += spectrum[u];
+				for(size_t u=0; u<spectrum.size(); ++u)
+					totf[u] += co.get_fourier()[u];
 			}
 		}
 		const double icount = 1.0 / (nbplanes * step);
 		for(size_t i=0; i<tot.size(); ++i)
-			spectrum[i] = tot[i]*icount;
+			spectrum[i] = tot[i]*icount - std::norm(totf[i]*icount);
 		return spectrum;
 	}
 
