@@ -109,16 +109,17 @@ void MultiscaleFinder::subpix(std::vector<Center<D> > &centers) const
 			for(size_t p=0; p<v.size(); ++p)
 				this->seam(v[p], o-1);
 		//transform scale coordinate in size coordinate
+		#pragma omp parallel for
 		for(size_t c=0; c< v.size(); ++c)
-			this->octaves[o]->scale(v[c]);
-		//stack up
-		for(size_t c=0; c<v.size(); ++c)
 		{
+			this->octaves[o]->scale(v[c]);
 			for(int d=0; d<D; ++d)
 			v[c][d] *= pow(2.0, (int)(o)-1);
 			v[c].r *= pow(2.0, (int)(o)-1);
-			centers.push_back(v[c]);
 		}
+		//stack up
+		for(size_t c=0; c<v.size(); ++c)
+			centers.push_back(v[c]);
 	}
 }
 
