@@ -17,14 +17,20 @@ std::map<size_t, cv::Mat_<double> > OctaveFinder::kernels;
 
 const cv::Mat_<double>& OctaveFinder::get_kernel(const double &sigma)
 {
+	std::map<size_t, cv::Mat_<double> >::iterator ker;
 	const int m = ((int)(sigma*4+0.5)*2 + 1)|1;
-	//grab the kernel if it already exists within 1% precision
-	std::map<size_t, cv::Mat_<double> >::iterator ker = kernels.find(100*sigma);
-	if(ker==kernels.end())
-		ker = kernels.insert(std::make_pair(
-				100*sigma,
-				cv::getGaussianKernel(m, sigma, CV_32F)
-		)).first;
+	//protect against parallel modifications of the map
+	#pragma omp critical (get_kernel)
+	{
+		//grab the kernel if it already exists within 1% precision
+		ker = kernels.find(100*sigma);
+		//or create it and insert it in the map
+		if(ker==kernels.end())
+			ker = kernels.insert(std::make_pair(
+					100*sigma,
+					cv::getGaussianKernel(m, sigma, CV_32F)
+			)).first;
+	}
 	return ker->second;
 }
 
@@ -498,6 +504,7 @@ void Colloids::OctaveFinder3D::initialize_binary(const double & max_ratio)
 			circ.loadplanes(&this->layersG[l](k+3, 0, 0), l);
 
 		//look for local minima in DoG
+		#pragma omp parallel for
 		for(int l=1; l<(int)this->layersG.size()-2; l+=2)
 			for(int j = this->sizes[l]; j < this->layersG.front().size[1] - this->sizes[l]- 1; j += 2)
 				for(int i = this->sizes[l]; i < this->layersG.front().size[2] - this->sizes[l]- 1; i += 2)
