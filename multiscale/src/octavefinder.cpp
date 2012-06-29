@@ -504,8 +504,8 @@ void Colloids::OctaveFinder3D::initialize_binary(const double & max_ratio)
 			circ.loadplanes(&this->layersG[l](k+3, 0, 0), l);
 
 		//look for local minima in DoG
-		#pragma omp parallel for
 		for(int l=1; l<(int)this->layersG.size()-2; l+=2)
+		    #pragma omp parallel for
 			for(int j = this->sizes[l]; j < this->layersG.front().size[1] - this->sizes[l]- 1; j += 2)
 				for(int i = this->sizes[l]; i < this->layersG.front().size[2] - this->sizes[l]- 1; i += 2)
 				{
@@ -535,6 +535,7 @@ void Colloids::OctaveFinder3D::initialize_binary(const double & max_ratio)
 					ci[1] = mj;
 					ci[2] = mk+k;
 					ci[3] = ml;
+					#pragma omp critical(centers_no_subpix)
 					this->centers_no_subpix.push_back(ci);
 					//subpixel resolution
 					Center3D c;
@@ -543,6 +544,7 @@ void Colloids::OctaveFinder3D::initialize_binary(const double & max_ratio)
 					c[1] = ci[1] + circ.shift(ml, mk, mj, mi, 1);
 					c[2] = ci[2] + circ.shift(ml, mk, mj, mi, 2);
 					c.r = ml + circ.shift(ml, mk, mj, mi, 3);
+					#pragma omp critical(centers)
 					this->centers.push_back(c);
 				} //end of finding local minima
 
