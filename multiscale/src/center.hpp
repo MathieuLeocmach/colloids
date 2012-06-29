@@ -18,6 +18,7 @@ namespace Colloids {
 	{
 		double r, intensity;
 		explicit Center_base(const double &r=0, const double &i=0) : r(r), intensity(i){};
+		virtual ~Center_base(){};
 		virtual const double& operator[](size_t i) const=0;
 		virtual double& operator[](size_t i)=0;
 	};
