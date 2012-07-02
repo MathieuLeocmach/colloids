@@ -14,6 +14,7 @@ int main(int ac, char* av[]){
 	try {
 		std::string input,output;
 		int ser = -1;
+		double preblur_width = 1.6;
 		// Declare a group of options that will be
 		// allowed only on command line
 		po::options_description cmdline_options("Generic options");
@@ -25,6 +26,7 @@ int main(int ac, char* av[]){
 			("series,s", po::value<int>(&ser), "Dataset number")
 			("start", po::value<int>()->default_value(0), "Starting time step. The output file numbering will also start at that time.")
 			//("removeOverlap", po::value<double>()->default_value(0.5), "When two centers are closer than the sum of their radius x parameter, remove the weaker")
+			("preblur-width",po::value<double>(&preblur_width)->default_value(1.6), "Width of the first blurring kernel. Values below 1.2 are not recommended.")
 			("Octave0",
 					"Enables upsampling of the image to get two times smaller particles (between 4 and 8 pixels in diameter)\n"
 					"NOT resilient to noise"
@@ -80,7 +82,7 @@ int main(int ac, char* av[]){
 			const double ZXratio = serie.getZXratio();
 			//initialize the finder
 			int dimsint[3] = {dims[2], dims[1], dims[0]};
-			MultiscaleFinder3D finder(dimsint[0], dimsint[1], dimsint[2], 3, 1.6, vm.count("incore"));
+			MultiscaleFinder3D finder(dimsint[0], dimsint[1], dimsint[2], 3, preblur_width, vm.count("incore"));
 			//set the voxel size ratio (sampling in Z is often poorer than in X and Y)
 			//finder.set_ZXratio(serie.getZXratio()); //DISABLED Particles get lost
 			if(!vm.count("Octave0"))
@@ -205,7 +207,8 @@ int main(int ac, char* av[]){
 					}
 				}
 				nb[t] = centers.size();
-				#ifndef _OPENMP
+				//do not create file if no center (black empty frame at the end of the lif file due to interruption in the aquisition)
+				if(centers.empty()) continue;
 				//scale z according to the Z/X ratio of the image voxel
 				for(size_t c=0; c<centers.size(); ++c)
 					centers[c][2] *=  ZXratio;
@@ -215,7 +218,6 @@ int main(int ac, char* av[]){
 				removeHalfOverlapping(centers);
 				if(!!vm.count("verbose"))
 					std::cout << " -> "<<centers.size()<<std::endl;
-				#endif
 				//output
 				std::ostringstream os;
 				os << output <<"_t"<< std::setfill('0') << std::setw(3) << t;
@@ -232,43 +234,6 @@ int main(int ac, char* av[]){
 				if(progress.get())
 					++(*progress.get());
 			}
-			#ifdef _OPENMP
-			//now remove overlap in parallel
-			std::cout << "Remove overlap"<<std::endl;
-			boost::progress_display progress2(serie.getNbTimeSteps()-vm["start"].as<int>());
-			#pragma omp parallel for shared(progress2)
-			for(size_t t=vm["start"].as<int>(); t<serie.getNbTimeSteps(); ++t)
-			{
-				//read
-				std::ostringstream os;
-				os << output <<"_t"<< std::setfill('0') << std::setw(3) << t;
-				std::ifstream in(os.str().c_str());
-				std::vector<Center3D> cen(nb[t]);
-				for(size_t c=0; c<centers.size(); ++c)
-				{
-					for(int d=0; d<3; ++d)
-						in >> cen[c][d];
-					in >> cen[c].r >> cen[c].intensity;
-				}
-				in.close();
-				//scale z according to the Z/X ratio of the image voxel
-				for(size_t c=0; c<centers.size(); ++c)
-					centers[c][2] *=  ZXratio;
-				//remove overlap
-				removeHalfOverlapping(centers);
-				//write back
-				std::ofstream out(os.str().c_str());
-				for(size_t c=0; c<centers.size(); ++c)
-				{
-					for(int d=0; d<3; ++d)
-						out << centers[c][d] << "\t";
-					out << centers[c].r << "\t" << centers[c].intensity <<"\n";
-				}
-				out.close();
-				#pragma omp critical(UpdateProgress)
-				++progress2;
-			}
-			#endif
 			std::cout<< "total time" << microsec_clock::local_time()-past_total <<" including CPU ";
 		}
 			break;
