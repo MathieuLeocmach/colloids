@@ -348,16 +348,16 @@ void Colloids::OctaveFinder::initialize_binary(const double & max_ratio)
 	for(int k = 1;k < nblayers+1;k += 2)
 	{
 		const Image & layer0 = this->layers[k], layer1 = this->layers[k+1];
-		const int si = this->sizes[k];
-		for(int j = this->sizes[k]+1;j < this->get_width() - si- 1;j += 2)
+		const int si = max(this->sizes[k]+1, 3);
+		for(int j = si;j < this->get_width() - si;j += 2)
 		{
 			boost::array<const PixelType*, 4> ngb_ptr = {{
-					&layer0(j, si+1),
-					&layer0(j+1, si+1),
-					&layer1(j, si+1),
-					&layer1(j+1, si+1)
+					&layer0(j, si),
+					&layer0(j+1, si),
+					&layer1(j, si),
+					&layer1(j+1, si)
 			}};
-			for(int i = si+1;i < this->get_height() -si - 1;i += 2){
+			for(int i = si;i < this->get_height() -si;i += 2){
 				//copy the whole neighbourhood together for locality
 				boost::array<float, 8> ngb = {{
 						*ngb_ptr[0]++, *ngb_ptr[0]++,
@@ -436,7 +436,8 @@ void Colloids::OctaveFinder1D::initialize_binary(const double & max_ratio)
 							&this->layers[k](0, this->sizes[k]+1),
 							&this->layers[k+1](0, this->sizes[k]+1)
 		}};
-		for(int i = this->sizes[k]+1;i < this->get_height() -this->sizes[k]- 1;i += 2)
+		const int si = std::max(this->sizes[k]+1, 3);
+		for(int i = si;i < this->get_height() -si;i += 2)
 		{
 			//copy the whole neighbourhood together for locality
 			boost::array<float, 4> ngb = {{
@@ -497,7 +498,7 @@ void Colloids::OctaveFinder3D::initialize_binary(const double & max_ratio)
 		circ.loadplanes(&this->layersG[l](this->sizes[1]-3, 0, 0), l, -3, 6);
 
 	//dynamic block algorithm in 4D
-	for(int k=this->sizes[1]; k<this->layersG.front().size[0] - this->sizes[1]-1; k += 2)
+	for(int k=max(this->sizes[1],3); k<this->layersG.front().size[0] - max(this->sizes[1],3)-1; k += 2)
 	{
 		//load the 2 next planes at every scale
 		for(int l=0; l<(int)this->layersG.size(); ++l)
@@ -505,9 +506,11 @@ void Colloids::OctaveFinder3D::initialize_binary(const double & max_ratio)
 
 		//look for local minima in DoG
 		for(int l=1; l<(int)this->layersG.size()-2; l+=2)
+		{
+			const int si = std::max(this->sizes[l], 3);
 		    #pragma omp parallel for
-			for(int j = this->sizes[l]; j < this->layersG.front().size[1] - this->sizes[l]- 1; j += 2)
-				for(int i = this->sizes[l]; i < this->layersG.front().size[2] - this->sizes[l]- 1; i += 2)
+			for(int j = si; j < this->layersG.front().size[1] - si-1; j += 2)
+				for(int i = si; i < this->layersG.front().size[2] - si-1; i += 2)
 				{
 					//DoG block
 					int ml, mk, mj, mi;
@@ -547,7 +550,7 @@ void Colloids::OctaveFinder3D::initialize_binary(const double & max_ratio)
 					#pragma omp critical(centers)
 					this->centers.push_back(c);
 				} //end of finding local minima
-
+		}
 		//prepare next step
 		++circ;
 	}
