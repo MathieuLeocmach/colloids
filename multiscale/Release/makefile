@@ -2,6 +2,9 @@
 # Automatically-generated file. Do not edit!
 ################################################################################
 
+# All Target
+all: multiscale tests bonds
+
 -include ../makefile.init
 
 RM := rm -rf
@@ -37,9 +40,6 @@ endif
 -include ../makefile.defs
 
 # Add inputs and outputs from these tool invocations to the build variables 
-
-# All Target
-all: multiscale tests bonds
 
 # Tool invocations
 multiscale: $(OBJS) $(USER_OBJS)
