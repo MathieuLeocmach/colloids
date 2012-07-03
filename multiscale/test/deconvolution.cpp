@@ -253,6 +253,15 @@ BOOST_AUTO_TEST_SUITE( Deconvolution )
 					BOOST_WARN_MESSAGE(false, "dist = "<<sqrt(disq)<<"\tR_"<<p<<" = "<<centers[p].r<<"\tR_"<<q<<" = "<<centers[q].r);
 				}
 			}
+		{
+			std::ofstream omfc("test_output/Z_elong.xyz");
+			for(size_t p=0; p<centers.size(); ++p)
+			{
+				for(int d=0; d<3; ++d)
+					omfc<<centers[p][d]<<"\t";
+				omfc<<centers[p].r<<"\n";
+			}
+		}
 		BOOST_CHECK_EQUAL(tooclose, 1);
 		//save first octave as reference
 		std::ofstream omf("test_output/Z_elong_octaves.raw");
@@ -318,6 +327,15 @@ BOOST_AUTO_TEST_SUITE( Deconvolution )
 					BOOST_WARN_MESSAGE(false, "dist = "<<sqrt(disq)<<"\tR_"<<p<<" = "<<centers[p].r<<"\tR_"<<q<<" = "<<centers[q].r);
 				}
 			}
+		{
+			std::ofstream omfc("test_output/Z_elong_deconv.xyz");
+			for(size_t p=0; p<centers.size(); ++p)
+			{
+				for(int d=0; d<3; ++d)
+					omfc<<centers[p][d]<<"\t";
+				omfc<<centers[p].r<<"\n";
+			}
+		}
 		BOOST_CHECK_EQUAL(tooclose, 0);
 	}
 	BOOST_AUTO_TEST_CASE( gel )
