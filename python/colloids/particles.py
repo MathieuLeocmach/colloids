@@ -979,14 +979,18 @@ def link_save(path, dt, size, radius=4.32692):
     #linking
     pos1 = np.loadtxt(pattern%0, skiprows=2)
     linker = Linker(len(pos1))
+    np.savetxt((pattern[:-3]+'p2tr')%0, linker.pos2tr[0], fmt='%d')
     for t in range(size-1):
         pos0 = pos1
         pos1 = np.loadtxt(pattern%(t+1), skiprows=2)
         pairs, distances = get_links(pos0, np.ones(len(pos0)), pos1, np.ones(len(pos1)), maxdist=5)
         linker.addFrame(len(pos1), pairs, distances)
+        #saving p2tr
+        np.savetxt((pattern[:-3]+'p2tr')%(t+1), linker.pos2tr[-1], fmt='%d')
     #saving in the same format as the c++
     with open(path+'.traj', 'w') as f:
         f.write('%g\t%g\n'%(radius, dt))
         f.write('%s\n_t\n0\t%d\n'%(os.path.basename(pattern%0), size))
         linker.save(f)
+    
 
