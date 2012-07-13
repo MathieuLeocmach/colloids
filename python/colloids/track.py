@@ -760,7 +760,9 @@ class OctaveBlobFinder:
         for l, layer in enumerate(self.layersG[:-1]):
             gaussian_filter(layer, sigmas_iter[l], output=self.layersG[l+1])
         #Difference of gaussians
-        self.layers[:] = np.diff(self.layersG, axis=0) #5.99 ms
+        for l in range(len(self.layers)):
+            self.layers[l] = self.layersG[l+1] - self.layersG[l]
+        #self.layers[:] = np.diff(self.layersG, axis=0) #5.99 ms
         #Erosion 86.2 ms
         grey_erosion(self.layers, [3]*self.layers.ndim, output=self.eroded)
         #scale space minima, whose neighbourhood are all negative 10 ms
@@ -898,19 +900,24 @@ Returns an array of (x, y, r, -intensity in scale space)"""
         
 class MultiscaleBlobFinder:
     """Locator of bright blobs in an image of fixed shape. Works on more than one octave, starting at octave -1."""
-    def __init__(self, shape=(256,256), nbLayers=3, nbOctaves=3, dtype=np.float32):
+    def __init__(self, shape=(256,256), nbLayers=3, nbOctaves=3, dtype=np.float32, Octave0=True):
         """Allocate memory for each octave"""
-        shapes = np.vstack([np.ceil([s*2.0**(1-o) for s in shape]) for o in range(nbOctaves)])
+        shapes = np.vstack([np.ceil([s*2.0**(Octave0-o) for s in shape]) for o in range(nbOctaves)])
         self.preblurred = np.empty(shapes[0], dtype)
         self.octaves = [
             OctaveBlobFinder(s, nbLayers, dtype)
             for s in shapes if s.min()>8
             ] #shortens the list of octaves if no blob can be detected in that small window
+        if not Octave0:
+            self.octaves.insert(0, OctaveBlobFinder([0]*len(shape), nbLayers, dtype))
+        self.Octave0 = Octave0
         self.time = 0.0
         self.ncalls = 0
         
     def __call__(self, image, k=1.6, Octave0=True, removeOverlap=True, maxedge=1.1):
         """Locate blobs in each octave and regroup the results"""
+        if not self.Octave0:
+            Octave0 = False
         self.ncalls += 1
         t0 = time.clock()
         if len(self.octaves)==0:
