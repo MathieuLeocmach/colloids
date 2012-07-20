@@ -166,7 +166,7 @@ namespace Colloids {
 		const Image & a = this->octaves[o-1]->get_layersG(this->octaves[o-1]->get_n_layers());
 		for(int k=0; k<roi2.size[0] && 2*k+1<a.size[0]; ++k)
 			for(int j=0; j<roi2.size[1] && 2*j+1<a.size[1]; ++j)
-				for(int i=0; i<roi2.size[0] && 2*i+1<a.size[0]; ++i)
+				for(int i=0; i<roi2.size[2] && 2*i+1<a.size[2]; ++i)
 					roi2(k,j,i) = 0.125 * (
 							a(2*k, 2*j, 2*i) + a(2*k, 2*j, 2*i+1) +
 							a(2*k, 2*j+1, 2*i) + a(2*k, 2*j+1, 2*i+1) +

@@ -568,6 +568,33 @@ BOOST_AUTO_TEST_SUITE( multiscale3D_call )
 		}
 		BOOST_WARN_MESSAGE(false, "An multiscale detector smaller than "<< (i+1)<<" pixels cannot detect anything in 3D");
 	}
+
+	BOOST_AUTO_TEST_CASE( rectangular )
+	{
+		MultiscaleFinder3D finder(32, 64, 64);
+		int dims[3] = {32,64,64};
+		cv::Mat_<uchar>input(3, dims, (unsigned char)0);
+		input.setTo(0);
+		drawsphere(input, 16, 16, 16, 8, (unsigned char)255);
+		std::vector<Center3D> v;
+		finder.get_centers(input, v);
+		BOOST_REQUIRE_EQUAL(v.size(),1);
+		const int s = cv::sum(input)[0];
+		input.setTo(0);
+		drawsphere(input, 16, 48, 16, 8, (unsigned char)255);
+		BOOST_REQUIRE_EQUAL(cv::sum(input)[0], s);
+		finder.get_centers(input, v);
+		BOOST_REQUIRE_EQUAL(v.size(),1);
+		input.setTo(0);
+		drawsphere(input, 16, 16, 48, 5, (unsigned char)255);
+		finder.get_centers(input, v);
+		BOOST_REQUIRE_EQUAL(v.size(),1);
+		input.setTo(0);
+		drawsphere(input, 16, 16, 48, 8, (unsigned char)255);
+		BOOST_REQUIRE_EQUAL(cv::sum(input)[0], s);
+		finder.get_centers(input, v);
+		BOOST_REQUIRE_EQUAL(v.size(),1);
+	}
 BOOST_AUTO_TEST_SUITE_END() //multiscale 3D call
 
 BOOST_AUTO_TEST_SUITE( john )
