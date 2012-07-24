@@ -449,6 +449,46 @@ def get_N_ngbs(positions, radii, N=12, maxdist=8.0):
         verbose=2, compiler='gcc')
     return neighbours, inside
     
+def ngbN2bonds(ngbs):
+    b0 = []
+    b1 = []
+    code="""
+    #pragma omp parallel for
+    for(int i=0; i<Nngbs[0]; ++i)
+    {
+        for(int j=0; j<Nngbs[1]; ++j)
+        {
+            int n = ngbs(i,j);
+            if (n<0) continue;
+            if (i<n)
+            {
+                #pragma omp critical
+                {
+                b0.append(i);
+                b1.append(n);
+                }
+            }
+            else
+            {
+                #pragma omp critical
+                {
+                b0.append(n);
+                b1.append(i);
+                }
+            }
+        }
+    }   
+    """
+    weave.inline(
+        code,['ngbs', 'b0', 'b1'],
+        type_converters =converters.blitz,
+        extra_compile_args =['-O3 -fopenmp -mtune=native'],
+        extra_link_args=['-lgomp'],
+        verbose=2, compiler='gcc')
+    bonds = list(set([b for b in zip(b0,b1)]))
+    bonds.sort()
+    return np.array(bonds)
+    
 def get_rdf(pos, inside, Nbins=250, maxdist=30.0):
     g = np.zeros(Nbins, int)
     code = """
