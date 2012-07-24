@@ -57,7 +57,9 @@ muS = lambda f, piv, q: muS_0(f) + piv * (1+q)**3 * g(f, q)
 alpha = lambda f, q: beta(f,q)/(1+f)
 qR2q = lambda qR: 0.9*qR**0.9
 piv2y = lambda piv, qR: qR**3*piv
+y2piv = lambda y, qR: y/qR**3
 f2vf = lambda f: f/(1+f)
+vf2f = lambda vf: vf/(1-vf)
 
 def mu_of_log(F, piv, q):
     f = np.exp(F)
