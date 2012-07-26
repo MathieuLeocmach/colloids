@@ -569,6 +569,53 @@ BOOST_AUTO_TEST_SUITE( multiscale3D_call )
 		BOOST_WARN_MESSAGE(false, "An multiscale detector smaller than "<< (i+1)<<" pixels cannot detect anything in 3D");
 	}
 
+	BOOST_AUTO_TEST_CASE( multiscale3D_relative_sizes )
+	{
+		double preblur[2] = {1.6, 1.0};
+	    std::string names[2] = {"test_output/multiscale3D_relative_sizes1_6.out", "test_output/multiscale3D_relative_sizes1_0.out"};
+		for(int p=0; p<2; ++p)
+		{
+			const int s = 4, spl=16;
+			int dims[3] = {pow(2, s+1), pow(2, s+1), pow(2, s+1)};
+			int ldims[3] = {spl*pow(2, s+1), spl*pow(2, s+1), spl*pow(2, s+1)};
+			MultiscaleFinder3D finder(pow(2, s+1), pow(2, s+1), pow(2,s+1), 3, preblur[p], true);
+			//cv cannot draw circle sizes better than a pixel, so the input image is drawn in high resolution
+			cv::Mat_<uchar>input(3, ldims), small_input(3, dims);
+			std::vector<Center3D> v, v_s;
+			std::ofstream f(names[p].c_str());
+			std::set<int> large_radii;
+			for(int i=0; i<spl; ++i)
+				large_radii.insert(2*spl+spl/4+i);
+			for(int k=2; k<s-1; ++k)
+				for(int i=0; i<spl; ++i)
+					large_radii.insert((spl+spl/2)*pow(2, k-1)+i*pow(2, k));
+			for(std::set<int>::const_iterator lr = large_radii.begin(); lr != large_radii.end(); ++lr)
+			{
+				input.setTo(0);
+				const double radius =  *lr/double(spl);
+				BOOST_TEST_CHECKPOINT("radius = "<<radius<<" call");
+				drawsphere(input, spl*pow(2, s), spl*pow(2, s), spl*pow(2, s), *lr, (unsigned char)255);
+				volume_shrink(input, small_input, spl);
+				finder.get_centers(small_input, v_s);
+				for(size_t j=0; j<v_s.size(); ++j)
+					f << radius << "\t" << v_s[j].r << "\n";
+				BOOST_TEST_CHECKPOINT("radius = "<<radius<<" size");
+				BOOST_CHECK_MESSAGE(
+						v_s.size()==1,
+						""<<((v_s.size()==0)?"No center":"More than one center")<<" for input radius "<<radius
+						);
+				if(v_s.empty()) continue;
+				BOOST_CHECK_CLOSE(v_s[0][1], pow(2, s), 2);
+				/*if(radius<pow(2, s-1))
+					BOOST_CHECK_CLOSE(v_s[0][2], radius, 5);*/
+				BOOST_TEST_CHECKPOINT("radius = "<<radius<<" copy");
+				std::copy(v_s.begin(), v_s.end(), std::back_inserter(v));
+			}
+			f<<std::endl;
+			BOOST_CHECK_EQUAL(v.size(), large_radii.size());
+		}
+	}
+
 	BOOST_AUTO_TEST_CASE( rectangular )
 	{
 		MultiscaleFinder3D finder(32, 64, 64);
