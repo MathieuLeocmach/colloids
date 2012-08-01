@@ -854,6 +854,37 @@ def get_rdf_window(pos, box, Nbins=250, maxdist=30.0):
         verbose=2, compiler='gcc')
     return g
     
+def get_s2(rdfbin, nd, av=5000, binlength=0.02):
+    assert(rdfbin.ndim==2)
+    s2 = np.zeros(len(rdfbin))
+    factors = 1.0/(av*nd*np.diff(
+        4*np.pi/3.*(np.arange(rdfbin.shape[1]+1)*binlength)**3
+        ))
+    code = """
+    #pragma omp parallel for
+    for(int i=0; i<Nrdfbin[0]; ++i)
+    {
+        for(int j=0; j<Nrdfbin[1]; ++j)
+        {
+            if(rdfbin(i,j)<1)
+                s2(i) += 1;
+            else
+            {
+                const double g = rdfbin(i,j) * factors(j);
+                s2(i) += g * log(g) - g + 1;
+            }
+        }
+        s2(i) *= -nd/2; 
+    }
+    """
+    weave.inline(
+        code,['rdfbin', 'factors', 'nd', 's2'],
+        type_converters =converters.blitz,
+        extra_compile_args =['-O3 -fopenmp -mtune=native'],
+        extra_link_args=['-lgomp'],
+        verbose=2, compiler='gcc')
+    return s2
+    
 def spatial_correlation(pos, is_center, values, Nbins, maxdist):
     """
     Spatial correlation of the qlms and the Qlms
