@@ -350,7 +350,10 @@ def fill_dynamics(h5file, sample_group):
             't%03d'%(t+roi._v_attrs.tmin)
             ).positions.readCoordinates(tr, c) for c in 'xyz'])
         for t, tr in enumerate(trajs.T)])
-    radii = sample_group.t000.positions.readCoordinates(tr, 'r')*np.sqrt(2)
+    radii = getattr(
+            sample_group,
+            't%03d'%(roi._v_attrs.tmin)
+            ).positions.readCoordinates(trajs[:,0], 'r')*np.sqrt(2)
     #remove drift
     drift = np.mean(positions-positions[0], 1)
     positions -= drift[:,None,:]
