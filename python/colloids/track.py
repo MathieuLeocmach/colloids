@@ -762,7 +762,6 @@ class OctaveBlobFinder:
         #Difference of gaussians
         for l in range(len(self.layers)):
             self.layers[l] = self.layersG[l+1] - self.layersG[l]
-        #self.layers[:] = np.diff(self.layersG, axis=0) #5.99 ms
         #Erosion 86.2 ms
         grey_erosion(self.layers, [3]*self.layers.ndim, output=self.eroded)
         #scale space minima, whose neighbourhood are all negative 10 ms
