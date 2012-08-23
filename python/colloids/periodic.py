@@ -357,6 +357,24 @@ def get_space_correl_binary(pos, field, Nbins, L, sep=800):
         verbose=2, compiler='gcc')
     return h, g
 
+code_kvec = """
+inline int generate_kvec(const int nk, blitz::Array<double,2> &kvectors, const int maxNvec=30)
+{
+	kvectors = 0;
+	int nvec = 0;
+	for(int i=0; i<nk && nvec<maxNvec; ++i)
+		for(int j=0; j*j<nk*nk-i*i && nvec<maxNvec; ++j)
+		{
+			const int k = sqrt(nk*nk-i*i-j*j);
+			if(k != floor(k)) continue;
+			kvectors(nvec++, blitz::Range::all()) = i, j, k;
+			kvectors(nvec++, blitz::Range::all()) = j, k, i;
+			kvectors(nvec++, blitz::Range::all()) = k, i, j;
+		}
+	return nvec;
+}
+"""
+
 def get_Sq(pos, Nbins, L=203.0, maxNvec=30, field=None):
     if field is None:
         Sq = np.zeros(Nbins)
@@ -365,18 +383,8 @@ def get_Sq(pos, Nbins, L=203.0, maxNvec=30, field=None):
         for(int nk=1; nk<NSq[0]; ++nk)
         {
             //generate the k-vectors
-            int nvec = 0;
             blitz::Array<double,2> kvectors(maxNvec, 3);
-            kvectors = 0;
-            for(int i=0; i<nk && nvec<maxNvec; ++i)
-                for(int j=0; j*j<nk*nk-i*i && nvec<maxNvec; ++j)
-                {
-                    const int k = sqrt(nk*nk-i*i-j*j);
-                    if(k != floor(k)) continue;
-                    kvectors(nvec++, blitz::Range::all()) = i, j, k;
-                    kvectors(nvec++, blitz::Range::all()) = j, k, i;
-                    kvectors(nvec++, blitz::Range::all()) = k, i, j;
-                }
+			const int nvec = generate_kvec(nk, kvectors, maxNvec);
             
             for(int k=0; k<nvec; ++k)
             {
@@ -396,6 +404,7 @@ def get_Sq(pos, Nbins, L=203.0, maxNvec=30, field=None):
         """
         weave.inline(
             code,['pos', 'Sq', 'L', 'maxNvec'],
+			support_code = code_kvec,
             type_converters =converters.blitz,
             extra_compile_args =['-O3 -fopenmp'],
             extra_link_args=['-lgomp'],
@@ -403,24 +412,14 @@ def get_Sq(pos, Nbins, L=203.0, maxNvec=30, field=None):
         return Sq
     else:
         assert len(field) == len(pos)
-        Sq = np.zeros(Nbins, field.dtype)
+        Sq = np.zeros(Nbins)
         code = """
         #pragma omp parallel for
         for(int nk=1; nk<NSq[0]; ++nk)
         {
             //generate the k-vectors
-            int nvec = 0;
             blitz::Array<double,2> kvectors(maxNvec, 3);
-            kvectors = 0;
-            for(int i=0; i<nk && nvec<maxNvec; ++i)
-                for(int j=0; j*j<nk*nk-i*i && nvec<maxNvec; ++j)
-                {
-                    const int k = sqrt(nk*nk-i*i-j*j);
-                    if(k != floor(k)) continue;
-                    kvectors(nvec++, blitz::Range::all()) = i, j, k;
-                    kvectors(nvec++, blitz::Range::all()) = j, k, i;
-                    kvectors(nvec++, blitz::Range::all()) = k, i, j;
-                }
+			const int nvec = generate_kvec(nk, kvectors, maxNvec);
             
             for(int k=0; k<nvec; ++k)
             {
@@ -440,6 +439,7 @@ def get_Sq(pos, Nbins, L=203.0, maxNvec=30, field=None):
         """
         weave.inline(
             code,['pos', 'field', 'Sq', 'L', 'maxNvec'],
+			support_code = code_kvec,
             type_converters =converters.blitz,
             extra_compile_args =['-O3 -fopenmp'],
             extra_link_args=['-lgomp'],
