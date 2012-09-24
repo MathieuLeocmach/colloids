@@ -140,6 +140,77 @@ def ngp(A, av=10, L=203):
                 mqd[dt+1] += (diff**2).sum()
         msd[0]=1
         return av * A.shape[1] * 3 * mqd / (5*msd**2) -1
+        
+def overlap(pos, ov=0.3, av=10, L=203):
+    """
+    Overlap between configurations function of their time difference.
+    If av is 0 (Default), the calculation will act greedily,
+    averaging over all the avilabe intervals of a given length.
+        Example : start=1 stop=4 av=0
+            overlap[0] = 1
+            overlap[1] = ( overlap([1,2]) + overlap([2,3]) + overlap([3,4]))/3
+            overlap[2] = ( overlap([1,3]) + overlap([2,4]) )/2
+            overlap[3] = overlap([1,4])
+    If av>0, the average will be done over av time intervals starting
+    from start, start+1,...,start+av-1
+        Example : start=1 stop=4 av=2
+            overlap[0] = 1
+            overlap[1] = ( overlap([1,2]) + overlap([2,3]) )/2
+            overlap[2] = ( overlap([1,3]) + overlap([2,4]) )/2
+            overlap[3] = ( overlap([1,4]) + overlap([2,5]) )/2
+    returns Nboverlap, Ntotal
+"""
+    overlap = np.zeros(len(pos)-av+1, int)
+    if av==0:
+        code ="""
+        const double ovsq = ov*ov;
+        #pragma omp parallel for schedule(dynamic)
+        for (int t0=0; t0<Npos[0]-1; ++t0)
+            for (int t1=t0+1; t1<Npos[0]; ++t1)
+            {
+                for(int i=0; i<Npos[1]; ++i)
+                {
+                    double disq = 0.0;
+                    for(int dim=0; dim<Npos[2];++dim)
+                        disq += pow(periodic_dist(pos(t0,i,dim), pos(t1,i,dim), L), 2);
+                    if (disq < ovsq) overlap(t1-t0)++;
+                }
+            }
+        """
+        weave.inline(
+            code,['pos', 'ov', 'L', 'overlap'],
+            type_converters =converters.blitz,
+            support_code = dist_code,
+            extra_compile_args =['-O3 -fopenmp'],
+            extra_link_args=['-lgomp'],
+            verbose=2, compiler='gcc')
+        overlap[0] = pos.shape[0] * pos.shape[1]
+        return overlap, np.arange(1, len(overlap))[::-1]*pos.shape[1]
+    else:
+        code ="""
+        const double ovsq = ov*ov;
+        #pragma omp parallel for
+        for (int t0=0; t0<av; ++t0)
+            for (int dt=1; dt<Npos[0]-av; ++dt)
+            {
+                for(int i=0; i<Npos[1]; ++i)
+                {
+                    double disq = 0.0;
+                    for(int dim=0; dim<Npos[2];++dim)
+                        disq += pow(periodic_dist(pos(t0,i,dim), pos(t0+dt,i,dim), L), 2);
+                    if (disq < ovsq) overlap(dt)++;
+                }
+            }
+        """
+        weave.inline(
+            code,['pos', 'ov', 'L', 'overlap'],
+            type_converters =converters.blitz,
+            support_code = dist_code,
+            extra_compile_args =['-O3 -fopenmp'],
+            extra_link_args=['-lgomp'],
+            verbose=2, compiler='gcc')
+        overlap[0] = av * pos.shape[1]
+        return overlap, np.ones(len(overlap), int) * av * pos.shape[1]
 
 def loadXbonds(fname, Q6, thr=0.25):
     """Load the bonds linking two MRCO particles"""
