@@ -185,10 +185,11 @@ def overlap(pos, ov=0.3, av=10, L=203):
             extra_link_args=['-lgomp'],
             verbose=2, compiler='gcc')
         overlap[0] = pos.shape[0] * pos.shape[1]
-        return overlap, np.arange(1, len(overlap))[::-1]*pos.shape[1]
+        return overlap, np.arange(1, len(pos))[::-1]*pos.shape[1]
     else:
         code ="""
         const double ovsq = ov*ov;
+        const int av = Npos[0] - Noverlap[0]+1;
         #pragma omp parallel for
         for (int t0=0; t0<av; ++t0)
             for (int dt=1; dt<Npos[0]-av; ++dt)
