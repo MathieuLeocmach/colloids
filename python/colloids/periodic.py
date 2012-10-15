@@ -212,6 +212,42 @@ def overlap(pos, ov=0.3, av=10, L=203):
             verbose=2, compiler='gcc')
         overlap[0] = av * pos.shape[1]
         return overlap, np.ones(len(overlap), int) * av * pos.shape[1]
+        
+def get_N_ngbs(pos, radii, L=203, N=12, maxdist=8.0):
+    assert len(pos) == len(radii)
+    #initialize the geometry of each particle
+    neighbours = -np.ones([len(pos), N], int)
+    code = """
+    const double maxdistsq = maxdist*maxdist;
+    //look for nearby particles
+    #pragma omp parallel for
+    for(int p=0; p<Npos[0]; ++p)
+    {
+        std::multimap<double, int> ngbbydist;
+        for(int q=0; q<Npos[0]; ++q)
+        {
+            if (p==q) continue;
+            double disq = 0.0;
+            for(int dim=0; dim<3;++dim)
+                disq += pow(periodic_dist(pos(p,dim), pos(q,dim), L), 2);
+            disq /= pow(radii(p) + radii(q), 2);
+            if (disq>maxdistsq) continue;
+            ngbbydist.insert(std::make_pair(disq, q));
+        }
+        std::multimap<double, int>::const_iterator it = ngbbydist.begin();
+        for(int i=0; i<Nneighbours[1] && it!=ngbbydist.end(); ++i)
+            neighbours(p, i) = (it++)->second;
+    }
+    """
+    weave.inline(
+        code,['pos', 'radii', 'maxdist', 'L', 'neighbours'],
+        type_converters =converters.blitz,
+        support_code = dist_code,
+        headers = ['<map>', '<list>'],
+        extra_compile_args =['-O3 -fopenmp -march=native'],
+        extra_link_args=['-lgomp'],
+        verbose=2, compiler='gcc')
+    return neighbours
 
 def loadXbonds(fname, Q6, thr=0.25):
     """Load the bonds linking two MRCO particles"""
