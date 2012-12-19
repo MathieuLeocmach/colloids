@@ -20,18 +20,27 @@ if len(sys.argv) >1:
 else:
     while(True):
         filename = raw_input("filename --> ")
-        if isfile(filename):
-            break
-        else:
-            print '"%s" is not an existing file' % filename
+        try:
+            if isfile(filename) or isfile(filename%0):
+                break
+            else:
+                print '"%s" is not an existing file' % filename
+        except TypeError:
+            print '"%s" is not a valid pattern' % filename
 
-#how is made the file series name template
-#the last groupe of digits afet a _ is supposed to be the time step
-m = re.match('(.*)_([0-9]*)(.*)', filename)
-assert m is not None, '"%s" do not match pattern' % filename
-pattern = m.group(1)+'_%'+('0%dd'%len(m.group(2)))+(''.join(m.groups()[2:]))
-path, name = split(m.group(1))
-outpattern = join(path,'treated_'+name)+'_%'+('0%dd'%len(m.group(2)))+(''.join(m.groups()[2:]))
+if isfile(filename):
+    #how is made the file series name template
+    #the last groupe of digits afet a _ is supposed to be the time step
+    m = re.match('(.*)_([0-9]*)(.*)', filename)
+    assert m is not None, '"%s" do not match pattern' % filename
+    pattern = m.group(1)+'_%'+('0%dd'%len(m.group(2)))+(''.join(m.groups()[2:]))
+    path, name = split(m.group(1))
+    outpattern = join(path,'treated_'+name)+'_%'+('0%dd'%len(m.group(2)))+(''.join(m.groups()[2:]))
+else:
+    pattern = filename
+    path, name = split(filename)
+    outpattern = join(path,'treated_'+name)
+    filename = pattern%0
 
 #read the first image
 im = imread(filename)
