@@ -317,6 +317,54 @@ def weave_non_overlapping(positions, radii):
         extra_link_args=['-lgomp'],
         verbose=2, compiler='gcc')
     return good
+    
+def weave_non_halfoverlapping(positions, radii):
+    """Give the mask of non-halfoverlapping particles. Early bird."""
+    assert len(positions)==len(radii)
+    good = np.zeros(len(positions), dtype=bool)
+    code = """
+    RTree tree;
+    for(int p=0; p<Npositions[0]; ++p)
+    {
+        //norm 1 overlapping
+		typename RTree::BoundingBox bb;
+		for(int d=0; d<3; ++d)
+		{
+			bb.edges[d].first = positions(p,d) - radii(p);
+			bb.edges[d].second = positions(p,d) + radii(p);
+		}
+		std::list<int> overlapping;
+		tree.Query(typename RTree::AcceptOverlapping(bb), Gatherer(overlapping));
+		bool is_overlapping = false;
+		//norm 2 half overlapping
+		for(std::list<int>::const_iterator q= overlapping.begin(); q!=overlapping.end(); ++q)
+		{
+		    double disq = 0;
+		    for(int d=0; d<3; ++d)
+		        disq += pow(positions(p,d)-positions(*q,d), 2);
+			if(disq < pow(std::max(radii(p), radii(*q)) ,2))
+			{
+				is_overlapping = true;
+				break;
+			}
+		}
+		if(!is_overlapping)
+		{
+			tree.Insert(p, bb);
+			good(p) = true;
+		}
+    }
+    """
+    weave.inline(
+        code,['positions', 'radii', 'good'],
+        type_converters =converters.blitz,
+        support_code = support_Rtree,
+        include_dirs = [rstartree_path],
+        headers = ['"RStarTree.h"'],
+        extra_compile_args =['-O3 -fopenmp -mtune=native'],
+        extra_link_args=['-lgomp'],
+        verbose=2)
+    return good
 
 def get_bonds(positions, radii, maxdist=3.0):
     pairs = []
