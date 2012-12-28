@@ -59,11 +59,19 @@ if __name__ == "__main__":
         if im.ndim ==0:
             im = readTIFF16(pattern%t)
         #localisation
-        centers = finder(im, Octave0=False, removeOverlap=True)
+        centers = finder(im, Octave0=False, removeOverlap=False)
         centers = centers[centers[:,-1]<-1]
         scales = track.radius2scale(centers[:,-2], dim=2)
-        centers = centers[scales>0]
-        scales = scales[scales>0]
+        goodscales = (scales>0) & (scales/3 < len(finder.octaves))
+        centers = centers[goodscales]
+        scales = scales[goodscales]
+        #remove half overlap externally (optimized)
+        byintensity = np.argsort(centers[:,-1])
+        centers = centers[byintensity]
+        centers = centers[particles.weave_non_halfoverlapping(
+            centers[:,:-2], centers[:,-2]
+            )]
+        scales = track.radius2scale(centers[:,-2], dim=2)
         #output result image
         cent.fill(0)
         for (ym,xm), (yM, xM) in zip(np.maximum(0, centers[:,:2]-centers[:,2][:,None]), np.minimum(centers[:,:2]+centers[:,2][:,None]+1, im.shape[::-1])):
