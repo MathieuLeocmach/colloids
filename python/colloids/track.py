@@ -28,6 +28,8 @@ from scipy import weave
 from scipy.weave import converters
 import numexpr
 
+coefprime = np.array([1,-8, 0, 8, -1])
+coefsec = np.array([-1, 16, -30, 16, -1]) 
 
 def bestParams(inputPath, outputPath, radMins=np.arange(2.5, 5, 0.5), radMaxs=np.arange(6, 32, 4), t=0, serie=None):
     if serie==None:
@@ -724,7 +726,92 @@ def global_rescale(coords, sigma0, R0=None, bonds=None, n=3):
         v0[j] += DoG_dsigma(d, R0[i], sigma0[j], alpha)
     return R0 + spsolve(jacob0.tocsc(), -v0)
     
-
+class CrockerGrierFinder:
+    """A single scale blob finder using Crocker & Grier algorithm"""
+    def __init__(self, shape=(256,256), dtype=np.float32):
+        """Allocate memory once"""
+        self.blurred = np.empty(shape, dtype)
+        self.background = np.empty(shape, dtype)
+        self.dilated = np.empty_like(self.blurred)
+        self.binary = np.empty(self.blurred.shape, bool)
+        
+    def fill(self, image, k=1.6):
+        """All the image processing when accepting a new image."""
+        assert self.blurred.shape == image.shape, """Wrong image size:
+%s instead of %s"""%(image.shape, self.blurred.shape)
+        #fill the first layer by the input
+        self.blurred[:] = image
+        #Gaussian filter
+        gaussian_filter(self.blurred, k, output=self.blurred)
+        #background removal
+        #Dilation
+        grey_dilation(self.blurred, [3]*self.blurred.ndim, output=self.dilated)
+        
+    def initialize_binary(self, maxedge=1.1, threshold=None):
+        if threshold is None:
+            self.binary[:] = self.blurred == self.dilated
+        else:
+            self.binary = numexpr.evaluate(
+                '(b==d) & (b>thr)',
+                {'b':self.blurred, 'd':self.dilated, 'thr':self.threshold}
+                )
+        #eliminate particles on the edges of image
+        for a in range(self.binary.ndim):
+            self.binary[tuple([slice(None)]*(self.binary.ndim-1-a)+[slice(0,2)])]=False
+            self.binary[tuple([slice(None)]*(self.binary.ndim-1-a)+[slice(-2, None)])]=False
+        #eliminate blobs that are edges
+        if self.blurred.ndim==3 and maxedge>0 :
+            for p in np.transpose(np.where(self.binary)):
+                #xy neighbourhood
+                ngb = self.blurred[tuple([slice(u-1, u+2) for u in p])]
+                #compute the XYhessian matrix coefficients
+                hess = [
+                    ngb[0, 1] - 2*ngb[1, 1] + ngb[-1,1],
+                    ngb[1, 0] - 2*ngb[1, 1] + ngb[1,-1],
+                    ngb[0,0] + ngb[-1,-1] - ngb[0,-1] - ngb[-1,0]
+                    ]
+                #determinant of the Hessian, for the coefficient see
+                #H Bay, a Ess, T Tuytelaars, and L Vangool,
+                #Computer Vision and Image Understanding 110, 346-359 (2008)
+                detH = hess[0]*hess[1] - hess[2]**2
+                ratio = (hess[0]+hess[1])**2/(4.0*hess[0]*hess[1])
+                if detH<0 or ratio>maxedge:
+                    self.binary[tuple(p.tolist())] = False
+                    
+    def no_subpix(self):
+        """extracts centers positions and values from binary without subpixel resolution"""
+        nb_centers = self.binary.sum()
+        if nb_centers==0 or self.binary.min():
+            return np.zeros([0, self.blurred.ndim+1])
+        #original positions of the centers
+        c0 = np.transpose(np.where(self.binary))
+        vals = self.blurred[self.binary]
+        return np.column_stack((vals, c0))
+        
+    def subpix(self):
+        """Extract and refine to subpixel resolution the positions and size of the blobs"""
+        nb_centers = self.binary.sum()
+        if nb_centers==0 or self.binary.min():
+            return np.zeros([0, self.blurred.ndim+1])
+        centers = np.empty([nb_centers, self.blurred.ndim+1])
+        #original positions of the centers
+        c0 = np.transpose(np.where(self.binary))
+        for i, p in enumerate(c0):
+            #neighbourhood
+            ngb = self.blurred[tuple([slice(u-2, u+3) for u in p])]
+            for dim in range(ngb.ndim):
+                a = ngb[tuple([1]*(ngb.ndim-1-dim)+[slice(None)]+[1]*dim)]
+                centers[i,dim+1] = p[dim] - np.dot(coefprime,a)/np.dot(coefsec,a)
+            centers[i,0] = ngb.mean()
+        return centers
+        
+    def __call__(self, image, k=1.6, maxedge=1.1, threshold=None):
+        """Locate bright blobs in an image with subpixel resolution.
+Returns an array of (x, y, intensity)"""
+        self.fill(image, k)
+        self.initialize_binary(maxedge, threshold)
+        centers = self.subpix()[:,::-1]
+        return centers
 
 class OctaveBlobFinder:
     """Locator of bright blobs in an image of fixed shape. Works on a single octave."""
