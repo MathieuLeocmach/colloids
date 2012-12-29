@@ -255,20 +255,21 @@ rstartree_path = os.path.join(
     '../../multiscale/RStarTree'
     )
      
-support_Rtree = """
-typedef RStarTree<int, 3, 4, 32, double> RTree;
-	struct Gatherer {
-		std::list<int> *gathered;
-		bool ContinueVisiting;
+def support_Rtree(dim=3):
+    return """
+    typedef RStarTree<int, %d, 4, 32, double> RTree;
+	    struct Gatherer {
+		    std::list<int> *gathered;
+		    bool ContinueVisiting;
 
-		Gatherer(std::list<int> &result) : gathered(&result), ContinueVisiting(true) {};
+		    Gatherer(std::list<int> &result) : gathered(&result), ContinueVisiting(true) {};
 
-		void operator()(const typename RTree::Leaf * const leaf)
-		{
-			gathered->push_back(leaf->leaf);
-		}
-	};
-"""
+		    void operator()(const typename RTree::Leaf * const leaf)
+		    {
+			    gathered->push_back(leaf->leaf);
+		    }
+	    };
+    """%dim
 
 def weave_non_overlapping(positions, radii):
     """Give the mask of non-overlapping particles. Early bird."""
@@ -280,7 +281,7 @@ def weave_non_overlapping(positions, radii):
     {
         //norm 1 overlapping
 		typename RTree::BoundingBox bb;
-		for(int d=0; d<3; ++d)
+		for(int d=0; d<Npositions[1]; ++d)
 		{
 			bb.edges[d].first = positions(p,d) - radii(p);
 			bb.edges[d].second = positions(p,d) + radii(p);
@@ -292,7 +293,7 @@ def weave_non_overlapping(positions, radii):
 		for(std::list<int>::const_iterator q= overlapping.begin(); q!=overlapping.end(); ++q)
 		{
 		    double disq = 0;
-		    for(int d=0; d<3; ++d)
+		    for(int d=0; d<Npositions[1]; ++d)
 		        disq += pow(positions(p,d)-positions(*q,d), 2);
 			if(disq < pow(radii(p) + radii(*q) ,2))
 			{
@@ -310,7 +311,7 @@ def weave_non_overlapping(positions, radii):
     weave.inline(
         code,['positions', 'radii', 'good'],
         type_converters =converters.blitz,
-        support_code = support_Rtree,
+        support_code = support_Rtree(positions.shape[1]),
         include_dirs = [rstartree_path],
         headers = ['"RStarTree.h"'],
         extra_compile_args =['-O3 -fopenmp'],
@@ -328,7 +329,7 @@ def weave_non_halfoverlapping(positions, radii):
     {
         //norm 1 overlapping
 		typename RTree::BoundingBox bb;
-		for(int d=0; d<3; ++d)
+		for(int d=0; d<Npositions[1]; ++d)
 		{
 			bb.edges[d].first = positions(p,d) - radii(p);
 			bb.edges[d].second = positions(p,d) + radii(p);
@@ -340,7 +341,7 @@ def weave_non_halfoverlapping(positions, radii):
 		for(std::list<int>::const_iterator q= overlapping.begin(); q!=overlapping.end(); ++q)
 		{
 		    double disq = 0;
-		    for(int d=0; d<3; ++d)
+		    for(int d=0; d<Npositions[1]; ++d)
 		        disq += pow(positions(p,d)-positions(*q,d), 2);
 			if(disq < pow(std::max(radii(p), radii(*q)) ,2))
 			{
@@ -358,7 +359,7 @@ def weave_non_halfoverlapping(positions, radii):
     weave.inline(
         code,['positions', 'radii', 'good'],
         type_converters =converters.blitz,
-        support_code = support_Rtree,
+        support_code = support_Rtree(positions.shape[1]),
         include_dirs = [rstartree_path],
         headers = ['"RStarTree.h"'],
         extra_compile_args =['-O3 -fopenmp -mtune=native'],
@@ -375,7 +376,7 @@ def get_bonds(positions, radii, maxdist=3.0):
     for(int p=0; p<Npositions[0]; ++p)
     {
         typename RTree::BoundingBox bb;
-		for(int d=0; d<3; ++d)
+		for(int d=0; d<Npositions[1]; ++d)
 		{
 			bb.edges[d].first = positions(p,d) - maxdist*radii(p);
 			bb.edges[d].second = positions(p,d) + maxdist*radii(p);
@@ -389,7 +390,7 @@ def get_bonds(positions, radii, maxdist=3.0):
         double rsq = 9.0*radii(p)*radii(p);
         std::list<int> overlapping;
         typename RTree::BoundingBox bb;
-        for(int d=0; d<3; ++d)
+        for(int d=0; d<Npositions[1]; ++d)
 		{
 			bb.edges[d].first = positions(p,d) - maxdist*radii(p);
 			bb.edges[d].second = positions(p,d) + maxdist*radii(p);
@@ -403,7 +404,7 @@ def get_bonds(positions, radii, maxdist=3.0):
         {
             const int q = *it;
             double dsq = 0;
-            for(int d=0; d<3; ++d)
+            for(int d=0; d<Npositions[1]; ++d)
                 dsq += pow(positions(p,d)-positions(q,d), 2);
             if(dsq < pow(maxdist*(radii(p)+radii(q)) ,2))
             #pragma omp critical
@@ -418,7 +419,7 @@ def get_bonds(positions, radii, maxdist=3.0):
     weave.inline(
         code,['positions', 'radii', 'maxdist', 'pairs', 'dists'],
         type_converters =converters.blitz,
-        support_code = support_Rtree,
+        support_code = support_Rtree(positions.shape[1]),
         include_dirs = [rstartree_path],
         headers = ['"RStarTree.h"','<deque>', '<list>'],
         extra_compile_args =['-O3 -fopenmp'],
@@ -442,7 +443,7 @@ def get_N_ngbs(positions, radii, N=12, maxdist=8.0):
     for(int p=0; p<Npositions[0]; ++p)
     {
         typename RTree::BoundingBox bb;
-		for(int d=0; d<3; ++d)
+		for(int d=0; d<Npositions[1]; ++d)
 		{
 			bb.edges[d].first = positions(p,d) - maxdist*radii(p);
 			bb.edges[d].second = positions(p,d) + maxdist*radii(p);
@@ -456,7 +457,7 @@ def get_N_ngbs(positions, radii, N=12, maxdist=8.0):
         double rsq = 9.0*radii(p)*radii(p);
         std::list<int> overlapping;
         typename RTree::BoundingBox bb;
-        for(int d=0; d<3; ++d)
+        for(int d=0; d<Npositions[1]; ++d)
 		{
 			bb.edges[d].first = positions(p,d) - maxdist*radii(p);
 			bb.edges[d].second = positions(p,d) + maxdist*radii(p);
@@ -471,7 +472,7 @@ def get_N_ngbs(positions, radii, N=12, maxdist=8.0):
             const int q = *it;
             if(q==p) continue;
             double dsq = 0;
-            for(int d=0; d<3; ++d)
+            for(int d=0; d<Npositions[1]; ++d)
                 dsq += pow(positions(p,d)-positions(q,d), 2);
             if(dsq < dist_to_box(p) && dsq < pow(maxdist*(radii(p)+radii(q)) ,2))
                 ngbbydist.insert(std::make_pair(dsq, q));
@@ -489,7 +490,7 @@ def get_N_ngbs(positions, radii, N=12, maxdist=8.0):
     weave.inline(
         code,['positions', 'radii', 'maxdist', 'dist_to_box', 'neighbours', 'inside'],
         type_converters =converters.blitz,
-        support_code = support_Rtree,
+        support_code = support_Rtree(positions.shape[1]),
         include_dirs = [rstartree_path],
         headers = ['"RStarTree.h"','<map>', '<list>'],
         extra_compile_args =['-O3 -fopenmp'],
@@ -545,7 +546,7 @@ def get_rdf(pos, inside, Nbins=250, maxdist=30.0):
     for(int p=0; p<Npos[0]; ++p)
     {
         typename RTree::BoundingBox bb;
-		for(int d=0; d<3; ++d)
+		for(int d=0; d<Npos[1]; ++d)
 		{
 			bb.edges[d].first = pos(p,d) - maxdist;
 			bb.edges[d].second = pos(p,d) + maxdist;
@@ -560,7 +561,7 @@ def get_rdf(pos, inside, Nbins=250, maxdist=30.0):
             continue;
         std::list<int> overlapping;
         typename RTree::BoundingBox bb;
-        for(int d=0; d<3; ++d)
+        for(int d=0; d<Npos[1]; ++d)
 		{
 			bb.edges[d].first = pos(i,d) - maxdist;
 			bb.edges[d].second = pos(i,d) + maxdist;
@@ -585,7 +586,7 @@ def get_rdf(pos, inside, Nbins=250, maxdist=30.0):
     weave.inline(
         code,['pos', 'inside', 'maxdist', 'g'],
         type_converters =converters.blitz,
-        support_code = support_Rtree,
+        support_code = support_Rtree(pos.shape[1]),
         include_dirs = [rstartree_path],
         headers = ['"RStarTree.h"','<deque>', '<list>'],
         extra_compile_args =['-O3 -fopenmp'],
@@ -613,7 +614,7 @@ def get_Sq(pos, inside, qmax=10.0, maxdist=30.0, rate=1):
     for(int p=0; p<Npos[0]; ++p)
     {
         typename RTree::BoundingBox bb;
-		for(int d=0; d<3; ++d)
+		for(int d=0; d<Npos[1]; ++d)
 		{
 			bb.edges[d].first = pos(p,d) - maxdist;
 			bb.edges[d].second = pos(p,d) + maxdist;
@@ -631,7 +632,7 @@ def get_Sq(pos, inside, qmax=10.0, maxdist=30.0, rate=1):
         a=0;
         std::list<int> overlapping;
         typename RTree::BoundingBox bb;
-        for(int d=0; d<3; ++d)
+        for(int d=0; d<Npos[1]; ++d)
 		{
 			bb.edges[d].first = pos(i,d) - maxdist;
 			bb.edges[d].second = pos(i,d) + maxdist;
@@ -664,7 +665,7 @@ def get_Sq(pos, inside, qmax=10.0, maxdist=30.0, rate=1):
     weave.inline(
         code,['pos', 'inside', 'maxdist', 'qns', 'qas', 'S'],
         type_converters =converters.blitz,
-        support_code = support_Rtree,
+        support_code = support_Rtree(pos.shape[1]),
         include_dirs = [rstartree_path],
         headers = ['"RStarTree.h"','<deque>', '<list>'],
         extra_compile_args =['-O3 -fopenmp'],
@@ -695,7 +696,7 @@ def get_srdf(pos, radii, inside, Nbins=250, maxdist=3.0):
     for(int p=0; p<Npos[0]; ++p)
     {
         typename RTree::BoundingBox bb;
-		for(int d=0; d<3; ++d)
+		for(int d=0; d<Npos[1]; ++d)
 		{
 			bb.edges[d].first = pos(p,d) - maxdist*radii(p);
 			bb.edges[d].second = pos(p,d) + maxdist*radii(p);
@@ -710,7 +711,7 @@ def get_srdf(pos, radii, inside, Nbins=250, maxdist=3.0):
             continue;
         std::list<int> overlapping;
         typename RTree::BoundingBox bb;
-        for(int d=0; d<3; ++d)
+        for(int d=0; d<Npos[1]; ++d)
 		{
 			bb.edges[d].first = pos(i,d) - maxdist*radii(i);
 			bb.edges[d].second = pos(i,d) + maxdist*radii(i);
@@ -735,7 +736,7 @@ def get_srdf(pos, radii, inside, Nbins=250, maxdist=3.0):
     weave.inline(
         code,['pos', 'radii', 'inside', 'maxdist', 'g'],
         type_converters =converters.blitz,
-        support_code = support_Rtree,
+        support_code = support_Rtree(pos.shape[1]),
         include_dirs = [rstartree_path],
         headers = ['"RStarTree.h"','<deque>', '<list>'],
         extra_compile_args =['-O3 -fopenmp'],
@@ -754,7 +755,7 @@ def get_planar_rdf(pos, inside, Nbins=250, maxdist=30.0, maxangle=np.pi/3):
     for(int p=0; p<Npos[0]; ++p)
     {
         typename RTree::BoundingBox bb;
-		for(int d=0; d<3; ++d)
+		for(int d=0; d<Npos[1]; ++d)
 		{
 			bb.edges[d].first = pos(p,d) - maxdist;
 			bb.edges[d].second = pos(p,d) + maxdist;
@@ -769,7 +770,7 @@ def get_planar_rdf(pos, inside, Nbins=250, maxdist=30.0, maxangle=np.pi/3):
             continue;
         std::list<int> overlapping;
         typename RTree::BoundingBox bb;
-        for(int d=0; d<3; ++d)
+        for(int d=0; d<Npos[1]; ++d)
 		{
 			bb.edges[d].first = pos(i,d) - maxdist;
 			bb.edges[d].second = pos(i,d) + maxdist;
@@ -796,7 +797,7 @@ def get_planar_rdf(pos, inside, Nbins=250, maxdist=30.0, maxangle=np.pi/3):
     weave.inline(
         code,['pos', 'inside', 'maxdist', 'maxsin','g'],
         type_converters =converters.blitz,
-        support_code = support_Rtree,
+        support_code = support_Rtree(pos.shape[1]),
         include_dirs = [rstartree_path],
         headers = ['"RStarTree.h"','<deque>', '<list>'],
         extra_compile_args =['-O3 -fopenmp'],
@@ -806,6 +807,7 @@ def get_planar_rdf(pos, inside, Nbins=250, maxdist=30.0, maxangle=np.pi/3):
     
 def get_slice_rdf(pos, inside, Nbins=250, maxdist=30.0, width=10.0):
     """Construct radial distribution function in a thin slice around each central particle"""
+    assert pos.shape[1]==3
     g = np.zeros(Nbins, int)
     code = """
     //spatial indexing
@@ -813,7 +815,7 @@ def get_slice_rdf(pos, inside, Nbins=250, maxdist=30.0, width=10.0):
     for(int p=0; p<Npos[0]; ++p)
     {
         typename RTree::BoundingBox bb;
-		for(int d=0; d<3; ++d)
+		for(int d=0; d<Npos[1]; ++d)
 		{
 			bb.edges[d].first = pos(p,d) - maxdist;
 			bb.edges[d].second = pos(p,d) + maxdist;
@@ -857,7 +859,7 @@ def get_slice_rdf(pos, inside, Nbins=250, maxdist=30.0, width=10.0):
     weave.inline(
         code,['pos', 'inside', 'maxdist', 'width','g'],
         type_converters =converters.blitz,
-        support_code = support_Rtree,
+        support_code = support_Rtree(pos.shape[1]),
         include_dirs = [rstartree_path],
         headers = ['"RStarTree.h"','<deque>', '<list>'],
         extra_compile_args =['-O3 -fopenmp'],
@@ -894,7 +896,7 @@ def get_rdf_window(pos, box, Nbins=250, maxdist=30.0):
     weave.inline(
         code,['pos', 'weights', 'L','maxdist', 'g'],
         type_converters =converters.blitz,
-        support_code = support_Rtree,
+        #support_code = support_Rtree,
         include_dirs = [rstartree_path],
         headers = ['"RStarTree.h"','<deque>', '<list>'],
         extra_compile_args =['-O3 -fopenmp'],
@@ -952,7 +954,7 @@ def spatial_correlation(pos, is_center, values, Nbins, maxdist):
         {
             if(i==j) continue;
             double disq = 0.0;
-            for(int dim=0; dim<3;++dim)
+            for(int dim=0; dim<Npos[1];++dim)
                 disq += pow(pos(i,dim)-pos(j,dim), 2);
             if(disq>=(double)maxsq)
                 continue;
@@ -984,7 +986,7 @@ def get_links(pos0, radii0, pos1, radii1, maxdist=1.0):
     for(int p=0; p<Npos0[0]; ++p)
     {
         typename RTree::BoundingBox bb;
-        for(int d=0; d<3; ++d)
+        for(int d=0; d<Npos1[1]; ++d)
         {
             bb.edges[d].first = pos0(p,d) - maxdist*radii0(p);
             bb.edges[d].second = pos0(p,d) + maxdist*radii0(p);
@@ -997,7 +999,7 @@ def get_links(pos0, radii0, pos1, radii1, maxdist=1.0):
     {
         std::list<int> overlapping;
         typename RTree::BoundingBox bb;
-        for(int d=0; d<3; ++d)
+        for(int d=0; d<Npos1[1]; ++d)
         {
             bb.edges[d].first = pos1(p,d) - maxdist*radii1(p);
             bb.edges[d].second = pos1(p,d) + maxdist*radii1(p);
@@ -1009,7 +1011,7 @@ def get_links(pos0, radii0, pos1, radii1, maxdist=1.0):
         {
             const int q = *it;
             double dsq = 0;
-            for(int d=0; d<3; ++d)
+            for(int d=0; d<Npos1[1]; ++d)
                 dsq += pow(pos1(p,d)-pos0(q,d), 2);
             if(dsq < pow(maxdist*(radii1(p)+radii0(q)), 2))
             #pragma omp critical
@@ -1024,7 +1026,7 @@ def get_links(pos0, radii0, pos1, radii1, maxdist=1.0):
     weave.inline(
         code,['pos0', 'radii0', 'pos1', 'radii1', 'maxdist', 'pairs', 'dists'],
         type_converters =converters.blitz,
-        support_code = support_Rtree,
+        support_code = support_Rtree(pos1.shape[1]),
         include_dirs = [rstartree_path],
         headers = ['"RStarTree.h"','<deque>', '<list>'],
         extra_compile_args =['-O3 -fopenmp'],
