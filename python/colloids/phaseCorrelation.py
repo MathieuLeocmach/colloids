@@ -60,18 +60,25 @@ def getDispl(a):
             displ[i] -= a.shape[i]
 
     return displ
+    
+def get_phaseshift(a,b):
+    assert a.shape == b.shape
+    window = np.hanning(a.shape[0])[:,None]*np.hanning(a.shape[1])
+    R = np.fft.fftn(a)*np.conjugate(np.fft.fftn(b*window))
+    return getDispl(np.abs(np.fft.ifftn(R/np.abs(R))))
+    
+if __name__ == "__main__":
+    #aquire initial data
+    reader = lif.Reader("D:\Users\ishizaka\Documents\dataMathieu\Tsuru11dm_phi=52.53_J36.lif")
+    serie = reader.getSeries()[3]
+    size2D = tuple(serie.getNumberOfElements()[:2])
+    a0 = np.fromstring(serie.get2DString(T=0),np.ubyte).reshape(size2D[1],size2D[0])
+    a1 = np.fromstring(serie.get2DString(T=29),np.ubyte).reshape(size2D[1],size2D[0])
 
-#aquire initial data
-reader = lif.Reader("D:\Users\ishizaka\Documents\dataMathieu\Tsuru11dm_phi=52.53_J36.lif")
-serie = reader.getSeries()[3]
-size2D = tuple(serie.getNumberOfElements()[:2])
-a0 = np.fromstring(serie.get2DString(T=0),np.ubyte).reshape(size2D[1],size2D[0])
-a1 = np.fromstring(serie.get2DString(T=29),np.ubyte).reshape(size2D[1],size2D[0])
+    #in fact, windowing the inputs produces strong noise
+    #r = phaseCorrel(windowFunction(a0),windowFunction(a1))
+    r = phaseCorrel(a0,a1)
 
-#in fact, windowing the inputs produces strong noise
-#r = phaseCorrel(windowFunction(a0),windowFunction(a1))
-r = phaseCorrel(a0,a1)
+    print getDispl(r)
 
-print getDispl(r)
-
-showNormalized(r)
+    showNormalized(r)
