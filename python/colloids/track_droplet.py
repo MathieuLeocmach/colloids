@@ -1,5 +1,5 @@
 import numpy as np
-from colloids import track, particles
+from colloids import track, particles, phaseCorrelation
 from scipy.misc import imsave, imshow, imread
 import sys, itertools, re
 from os.path import split,join,isfile, splitext
@@ -12,7 +12,7 @@ def readTIFF16(path):
         im.tostring(), 
         np.uint8
         ).reshape(tuple(list(im.size)+[2]))
-    return (np.array(out[:,:,0], np.uint16)<<8)+out[:,:,1]
+    return (np.array(out[:,:,0], np.uint16) << 8) + out[:,:,1]
 
 if __name__ == "__main__":
     #read input file name
@@ -48,9 +48,14 @@ if __name__ == "__main__":
     if im.ndim ==0:
         im = readTIFF16(filename)
     cent = np.zeros_like(im)
+    #estimate the best blurring radius
     finder = track.MultiscaleBlobFinder(im.shape, nbOctaves=100)
-
-
+    centers = finder(im, Octave0=False, removeOverlap=False)
+    sigma = 1.6*2**((1+np.argmax([oc.binary[1:-1].sum(-1).sum(-1) for oc in finder.octaves[1:]]))/3.)
+    #create a monoscale Crocker & Grier finder
+    finder = track.CrockerGrierFinder(im.shape)
+    #create drift file
+    fdrift = open(splitext(pattern%0)+'.shifts', 'w')
 
     for t in itertools.count():
         if not isfile(pattern%t):
@@ -59,36 +64,31 @@ if __name__ == "__main__":
         if im.ndim ==0:
             im = readTIFF16(pattern%t)
         #localisation
-        centers = finder(im, Octave0=False, removeOverlap=False)
-        centers = centers[centers[:,-1]<-1]
-        scales = track.radius2scale(centers[:,-2], dim=2)
-        goodscales = (scales>0) & (scales/3 < len(finder.octaves))
-        centers = centers[goodscales]
-        scales = scales[goodscales]
-        #remove half overlap externally (optimized)
-        byintensity = np.argsort(centers[:,-1])
-        centers = centers[byintensity]
-        centers = centers[particles.weave_non_halfoverlapping(
-            centers[:,:-2], centers[:,-2]
-            )]
-        scales = track.radius2scale(centers[:,-2], dim=2)
+        centers = finder(im, sigma)
         #output result image
         cent.fill(0)
-        for (ym,xm), (yM, xM) in zip(np.maximum(0, centers[:,:2]-centers[:,2][:,None]), np.minimum(centers[:,:2]+centers[:,2][:,None]+1, im.shape[::-1])):
+        for (ym,xm), (yM, xM) in zip(np.maximum(0, centers[:,:2]-sigma), np.minimum(centers[:,:2]+sigma+1, im.shape[::-1])):
             cent[xm:xM,ym:yM] += 50/256.*im.max()
         imsave(outpattern%t, np.dstack((im, cent, cent)))
-        #look for Gaussian intensities
-        for i, s in enumerate(scales):
-            o = int(s/3)
-            centers[i,-1] = finder.octaves[o].layersG[s-3*o, centers[i,1]/2**o, centers[i,0]/2**o]
         #Trajectory linking
         if t==0:
             linker = particles.Linker(len(centers))
             pos1 = centers
+            sp1 = np.fft.fftn(
+                im*np.hanning(im.shape[0])[:,None]*np.hanning(im.shape[1])
+                )
         else:
             pos0 = pos1
             pos1 = centers
-            pairs, distances = particles.get_links_size(pos0[:,:-2], pos0[:,-2], pos1[:,:-2], pos1[:,-2], maxdist=2)
+            #look for overall shift between successive pictures
+            sp0 = sp1
+            sp1 = np.fft.fftn(
+                im*np.hanning(im.shape[0])[:,None]*np.hanning(im.shape[1])
+                )
+            R = sp0 * np.conjugate(sp1)
+            shift = phaseCorrelation.getDispl(np.abs(np.fft.ifftn(R/np.abs(R))))
+            fdrift.write('%d %d\n'%(shift[1], shift[0]))
+            pairs, distances = particles.get_links(pos0[:,:2], np.ones(len(pos0)), pos1[:,:2]+shift[::-1], np.ones(len(pos1)), maxdist=6.*sigma)
             linker.addFrame(len(pos1), pairs, distances)
         #output
         np.savetxt(
