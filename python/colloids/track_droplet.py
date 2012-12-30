@@ -55,7 +55,8 @@ if __name__ == "__main__":
     #create a monoscale Crocker & Grier finder
     finder = track.CrockerGrierFinder(im.shape)
     #create drift file
-    fdrift = open(splitext(pattern%0)+'.shifts', 'w')
+    fdrift = open(splitext(pattern%0)[0]+'.drift', 'w')
+    window = np.hanning(im.shape[0])[:,None]*np.hanning(im.shape[1])
 
     for t in itertools.count():
         if not isfile(pattern%t):
@@ -75,20 +76,18 @@ if __name__ == "__main__":
             linker = particles.Linker(len(centers))
             pos1 = centers
             sp1 = np.fft.fftn(
-                im*np.hanning(im.shape[0])[:,None]*np.hanning(im.shape[1])
+                im*window
                 )
         else:
             pos0 = pos1
             pos1 = centers
             #look for overall shift between successive pictures
             sp0 = sp1
-            sp1 = np.fft.fftn(
-                im*np.hanning(im.shape[0])[:,None]*np.hanning(im.shape[1])
-                )
+            sp1 = np.fft.fftn(im*window)
             R = sp0 * np.conjugate(sp1)
             shift = phaseCorrelation.getDispl(np.abs(np.fft.ifftn(R/np.abs(R))))
             fdrift.write('%d %d\n'%(shift[1], shift[0]))
-            pairs, distances = particles.get_links(pos0[:,:2], np.ones(len(pos0)), pos1[:,:2]+shift[::-1], np.ones(len(pos1)), maxdist=6.*sigma)
+            pairs, distances = particles.get_links(pos0[:,:2], np.ones(len(pos0)), pos1[:,:2]+shift[::-1], np.ones(len(pos1)), maxdist=6.*sigma + np.sqrt(np.dot(shift,shift)))
             linker.addFrame(len(pos1), pairs, distances)
         #output
         np.savetxt(
@@ -96,6 +95,12 @@ if __name__ == "__main__":
             np.column_stack((linker.pos2tr[-1], centers)),
             fmt='%g'
             )
-        
-        
+    fdrift.close()
+    isspanning = np.array(map(len, linker.tr2pos)) == len(linker.pos2tr)
+    intensities = np.zeros((len(linker.pos2tr), isspanning.sum()))
+    for t, pos2tr in enumerate(linker.pos2tr):
+        name = splitext(pattern%t)[0]+'.csv'
+        trs = np.loadtxt(name, usecols=[0], dtype=int)
+        intensities[t] = np.loadtxt(name, usecols=[3])[isspanning[pos2tr]][np.argsort(pos2tr[isspanning[pos2tr]])]
+    np.savetxt(splitext(pattern%t)[0]+'.intensities', intensities, fmt='%g')
     
