@@ -19,7 +19,7 @@ from __future__ import with_statement #for python 2.5, useless in 2.6
 import numpy as np
 import os.path, subprocess, shlex, string, re, time
 from colloids import lif, vtk
-from scipy.ndimage.filters import gaussian_filter, gaussian_filter1d, sobel
+from scipy.ndimage.filters import gaussian_filter, gaussian_filter1d, sobel, uniform_filter
 from scipy.ndimage.morphology import grey_erosion, grey_dilation, binary_dilation
 from scipy.ndimage import measurements
 from scipy.sparse.linalg import splu, spsolve
@@ -735,7 +735,7 @@ class CrockerGrierFinder:
         self.dilated = np.empty_like(self.blurred)
         self.binary = np.empty(self.blurred.shape, bool)
         
-    def fill(self, image, k=1.6):
+    def fill(self, image, k=1.6, uniform_size=None):
         """All the image processing when accepting a new image."""
         assert self.blurred.shape == image.shape, """Wrong image size:
 %s instead of %s"""%(image.shape, self.blurred.shape)
@@ -744,6 +744,10 @@ class CrockerGrierFinder:
         #Gaussian filter
         gaussian_filter(self.blurred, k, output=self.blurred)
         #background removal
+        if uniform_size is None:
+            uniform_size = int(10*k)
+        uniform_filter(self.blurred, uniform_size, output=self.background)
+        self.blurred -= self.background
         #Dilation
         grey_dilation(self.blurred, [3]*self.blurred.ndim, output=self.dilated)
         
