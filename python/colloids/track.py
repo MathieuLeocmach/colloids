@@ -735,7 +735,7 @@ class CrockerGrierFinder:
         self.dilated = np.empty_like(self.blurred)
         self.binary = np.empty(self.blurred.shape, bool)
         
-    def fill(self, image, k=1.6, uniform_size=None):
+    def fill(self, image, k=1.6, uniform_size=None, background=None):
         """All the image processing when accepting a new image."""
         assert self.blurred.shape == image.shape, """Wrong image size:
 %s instead of %s"""%(image.shape, self.blurred.shape)
@@ -744,10 +744,14 @@ class CrockerGrierFinder:
         #Gaussian filter
         gaussian_filter(self.blurred, k, output=self.blurred)
         #background removal
-        if uniform_size is None:
-            uniform_size = int(10*k)
-        uniform_filter(self.blurred, uniform_size, output=self.background)
-        self.blurred -= self.background
+        if background is None:
+            if uniform_size is None:
+                uniform_size = int(10*k)
+            if uniform_size>0:
+                uniform_filter(self.blurred, uniform_size, output=self.background)
+                self.blurred -= self.background
+        else:
+            self.blurred -= background
         #Dilation
         grey_dilation(self.blurred, [3]*self.blurred.ndim, output=self.dilated)
         
@@ -800,6 +804,25 @@ class CrockerGrierFinder:
         centers = np.empty([nb_centers, self.blurred.ndim+1])
         #original positions of the centers
         c0 = np.transpose(np.where(self.binary))
+        if self.binary.ndim==2:
+            im = self.blurred
+            code = """
+            #pragma omp parallel for
+            for(int p=0; p<Nc0[0]; ++p)
+            {
+                const int i = c0(p,0), j = c0(p,1);
+                centers(p,0) = blitz::sum(im(blitz::Range(i-2,i+2), blitz::Range(j-2,j+2)))/25.;
+                centers(p,1) = i - blitz::sum(im(blitz::Range(i-2,i+2), j) * coefprime) / blitz::sum(im(blitz::Range(i-2,i+2), j) * coefsec);
+                centers(p,2) = j - blitz::sum(im(i, blitz::Range(j-2,j+2)) * coefprime) / blitz::sum(im(i, blitz::Range(j-2,j+2)) * coefsec);
+            }
+            """
+            weave.inline(
+                code,['c0', 'centers', 'coefprime', 'coefsec', 'im'],
+                type_converters =converters.blitz,
+                extra_compile_args =['-O3 -fopenmp -mtune=native'],
+                extra_link_args=['-lgomp'],
+                verbose=2)
+            return centers
         for i, p in enumerate(c0):
             #neighbourhood
             ngb = self.blurred[tuple([slice(u-2, u+3) for u in p])]
@@ -809,10 +832,10 @@ class CrockerGrierFinder:
             centers[i,0] = ngb.mean()
         return centers
         
-    def __call__(self, image, k=1.6, maxedge=1.1, threshold=None):
+    def __call__(self, image, k=1.6, maxedge=1.1, threshold=None, uniform_size=None, background=None):
         """Locate bright blobs in an image with subpixel resolution.
 Returns an array of (x, y, intensity)"""
-        self.fill(image, k)
+        self.fill(image, k, uniform_size, background)
         self.initialize_binary(maxedge, threshold)
         centers = self.subpix()[:,::-1]
         return centers
