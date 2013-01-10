@@ -988,7 +988,7 @@ def get_links(pos0, radii0, pos1, radii1, maxdist=1.0):
     """Get the pairs of particles closer than maxdist in two configurations and their distances"""
     pairs = []
     dists = []
-    maxdist_ = 1.0*maxdist
+    maxdist_=maxdist
     code = """
     const double maxdist=maxdist_;
     //spatial indexing
@@ -1070,9 +1070,16 @@ class Linker:
         self.tr2pos = [[p] for p in range(nb_initial_pos)]
         self.pos2tr = [np.arange(nb_initial_pos)]
         self.trajstart = [0 for p in range(nb_initial_pos)]
+        self.nbtrajs = [nb_initial_pos]
         
     def addFrame(self, frame_size, pairs, distances):
         assert len(pairs) == len(distances)
+        if len(pairs)==0:
+            self.tr2pos += [[p] for p in range(frame_size)]
+            self.trajstart += [len(self.pos2tr) for p in range(frame_size)]
+            self.pos2tr.append(np.arange(frame_size)+self.nbtrajs[-1])
+            self.nbtrajs.append(len(self.trajstart))
+            return
         assert pairs[:,1].max() < frame_size, "The largest particle index in the new frame is larger than the new frame size"
         #sort the possible links by increasing distances
         pairs = pairs[np.argsort(distances)]
@@ -1116,8 +1123,49 @@ class Linker:
         newframe[notused] = np.arange(len(notused)) + len(self.tr2pos)
         self.tr2pos += [[p] for p in notused]
         self.trajstart += [len(self.pos2tr) for p in notused]
+        self.nbtrajs.append(len(self.trajstart))
         #add the new frame
         self.pos2tr.append(newframe)
+        
+    def update(self, pairs, distances):
+        """Continue trajectories terminated two steps ago (not existing one step ago). The first column of pairs contains trajectory indices, the second column contains present (last frame) positions indices."""
+        assert len(self.pos2tr)>2
+        assert len(pairs) == len(distances)
+        #sort the possible links by increasing distances
+        pairs = pairs[np.argsort(distances)]
+        #any position can be linked only once. Initialize the ones allready linked.
+        from_used = np.zeros(self.nbtrajs[-2], bool)
+        from_used[self.pos2tr[-2]] = True
+        to_used = self.pos2tr[-1] < self.nbtrajs[-2]
+        #filter the links
+        links = []
+        for tr, p in pairs:
+            if from_used[tr] or to_used[p]: continue
+            from_used[tr] = True
+            to_used[p] = True
+            links.append((tr, p))
+        links = np.array(links, dtype=int)
+        links = links[np.argsort(links[:,0])]
+        #create intermediate position indices
+        self.pos2tr[-2] = np.concatenate((self.pos2tr[-2], links[:,0]))
+        #set grown trajectories in the present frame
+        self.pos2tr[-1][links[:,1]] = links[:,0]
+        #remove the trajectories previously starting in the present frame
+        del self.trajstart[self.nbtrajs[-2]:]
+        del self.tr2pos[self.nbtrajs[-2]:]
+        #grow trajectories
+        for (tr, p), inter in zip(links, range(len(self.pos2tr[-2]) - len(links), len(self.pos2tr[-2]))):
+            self.tr2pos[tr] += [inter, p]
+        #recreate the trajectories now starting in the present frame
+        notused = np.where(np.bitwise_not(to_used))[0]
+        self.pos2tr[-1][notused] = np.arange(len(notused)) + self.nbtrajs[-2]
+        self.tr2pos += [[p] for p in notused]
+        self.trajstart += [len(self.pos2tr)-1 for p in notused]
+        self.nbtrajs[-1] = len(self.trajstart)
+        #note the trajectories that have grown in the process
+        has_grown = np.zeros(len(self.trajstart), bool)
+        has_grown[links[:,0]] = True
+        return has_grown
         
     def save(self, f):
         """write the trajectory data to an opend file"""
@@ -1148,4 +1196,3 @@ def link_save(path, dt, size, radius=4.32692):
         f.write('%s\n_t\n0\t%d\n'%(os.path.basename(pattern%0), size))
         linker.save(f)
     
-

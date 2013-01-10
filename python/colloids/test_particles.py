@@ -1,0 +1,77 @@
+from particles import *
+import unittest
+import numpy.testing as npt
+
+
+class TestLinker(unittest.TestCase):
+    def test_one(self):
+        #a single particle at t=0
+        linker = Linker(1)
+        self.assertEqual(len(linker.pos2tr), 1)
+        npt.assert_equal(linker.pos2tr[-1], [0])
+        self.assertEqual(len(linker.tr2pos), 1)
+        self.assertListEqual(linker.tr2pos[0], [0])
+        self.assertListEqual(linker.trajstart, [0])
+        self.assertListEqual(linker.nbtrajs, [1])
+        #no particles at t=1
+        pairs = np.zeros([0,2],int)
+        distances = np.zeros([0])
+        linker.addFrame(0, pairs, distances)
+        self.assertEqual(len(linker.pos2tr), 2)
+        self.assertEqual(len(linker.pos2tr[-1]), 0)
+        self.assertEqual(len(linker.tr2pos), 1)
+        self.assertListEqual(linker.tr2pos[0], [0])
+        self.assertListEqual(linker.trajstart, [0])
+        self.assertListEqual(linker.nbtrajs, [1,1])
+        #the particle is back a t=2
+        linker.addFrame(1, pairs, distances)
+        self.assertEqual(len(linker.pos2tr), 3)
+        npt.assert_equal(linker.pos2tr[-1], [1])
+        self.assertEqual(len(linker.tr2pos), 2)
+        self.assertListEqual(linker.tr2pos, [[0],[0]])
+        self.assertListEqual(linker.trajstart, [0, 2])
+        self.assertListEqual(linker.nbtrajs, [1,1,2])
+        #Actually the particle at t=0 and the one at t=2 where the same
+        pairs = np.array([[0, 0]], int)
+        distances = np.zeros([1])
+        linker.update(pairs, distances)
+        self.assertEqual(len(linker.pos2tr), 3)
+        npt.assert_equal(linker.pos2tr[0], [0])
+        npt.assert_equal(linker.pos2tr[1], [0])
+        npt.assert_equal(linker.pos2tr[2], [0])
+        self.assertEqual(len(linker.tr2pos), 1)
+        self.assertListEqual(linker.tr2pos[0], [0,0,0])
+        self.assertListEqual(linker.trajstart, [0])
+        self.assertListEqual(linker.nbtrajs, [1,1,1])
+        #no particles at t=3
+        pairs = np.zeros([0,2],int)
+        distances = np.zeros([0])
+        linker.addFrame(0, pairs, distances)
+        self.assertEqual(len(linker.pos2tr), 4)
+        self.assertEqual(len(linker.pos2tr[-1]), 0)
+        self.assertEqual(len(linker.tr2pos), 1)
+        self.assertListEqual(linker.tr2pos[0], [0,0,0])
+        self.assertListEqual(linker.trajstart, [0])
+        self.assertListEqual(linker.nbtrajs, [1,1,1,1])
+        #two particles are back a t=4
+        linker.addFrame(2, pairs, distances)
+        self.assertEqual(len(linker.pos2tr), 5)
+        npt.assert_equal(linker.pos2tr[-1], [1,2])
+        self.assertEqual(len(linker.tr2pos), 3)
+        self.assertListEqual(linker.tr2pos, [[0,0,0],[0],[1]])
+        self.assertListEqual(linker.trajstart, [0, 4, 4])
+        self.assertListEqual(linker.nbtrajs, [1,1,1,1,3])
+        #Actually the particle at t=3 and the second one at t=4 where the same
+        pairs = np.array([[0, 1]], int)
+        distances = np.zeros([1])
+        linker.update(pairs, distances)
+        self.assertEqual(len(linker.pos2tr), 5)
+        npt.assert_equal(linker.pos2tr[0], [0])
+        npt.assert_equal(linker.pos2tr[1], [0])
+        npt.assert_equal(linker.pos2tr[2], [0])
+        npt.assert_equal(linker.pos2tr[3], [0])
+        npt.assert_equal(linker.pos2tr[4], [1,0])
+        self.assertEqual(len(linker.tr2pos), 2)
+        self.assertListEqual(linker.tr2pos, [[0,0,0,0,1],[0]])
+        self.assertListEqual(linker.trajstart, [0,4])
+        self.assertListEqual(linker.nbtrajs, [1,1,1,1,2])
