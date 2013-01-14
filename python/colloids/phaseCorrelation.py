@@ -24,6 +24,7 @@ import lif
 import Image
 import numpy as np
 from numpy.fft import rfft2, irfft2
+import numpy.lib.stride_tricks
 
 def inplaceWindowFunction(a):
     """apply a Hamming window function to each dimension of the input array"""
@@ -54,10 +55,10 @@ def showNormalized(a):
 def getDispl(a):
     """Get the periodic displacement of the maximum of an array with respect to (0,0)"""
     l = a.argmax()
-    displ = [l / a.shape[0], l % a.shape[0]]
+    displ = np.array(np.unravel_index(l, a.shape))
     for i,v in enumerate(displ):
         if v > a.shape[i]/2:
-            displ[i] -= a.shape[i]
+            displ[i] = a.shape[i] - displ[i]
 
     return displ
     
@@ -66,6 +67,56 @@ def get_phaseshift(a,b):
     window = np.hanning(a.shape[0])[:,None]*np.hanning(a.shape[1])
     R = np.fft.fftn(a)*np.conjugate(np.fft.fftn(b*window))
     return getDispl(np.abs(np.fft.ifftn(R/np.abs(R))))
+    
+def sub_windows(a, window_size, overlap ):
+    """
+    This is a nice numpy trick. The concept of numpy strides should be
+    clear to understand this code.
+    Basically, we have a 2d array and we want to perform cross-correlation
+    over the interrogation windows. An approach could be to loop over the array
+    but loops are expensive in python. So we create from the array a new array
+    with three dimension, of size (n_windows, window_size, window_size), in which
+    each slice, (along the first axis) is an interrogation window.
+    """
+    sz = a.itemsize
+    shape = a.shape
+    
+    strides = (sz*shape[1]*(window_size-overlap), sz*(window_size-overlap), sz*shape[1], sz)
+    shape = ( int((shape[0] - window_size)/(window_size-overlap))+1, int((shape[1] - window_size)/(window_size-overlap))+1 , window_size, window_size)
+    
+    return numpy.lib.stride_tricks.as_strided( a, strides=strides, shape=shape ).reshape(-1, window_size, window_size)
+    
+def get_coordinates( image_size, window_size, overlap ):
+    """Compute the x, y coordinates of the centers of the interrogation windows.
+Parameters
+----------
+image_size: two elements tuple
+a two dimensional tuple for the pixel size of the image
+first element is number of rows, second element is
+the number of columns.
+window_size: int
+the size of the interrogation windows.
+overlap: int
+the number of pixel by which two adjacent interrogation
+windows overlap.
+Returns
+-------
+x : 2d np.ndarray
+a two dimensional array containing the x coordinates of the
+interrogation window centers, in pixels.
+y : 2d np.ndarray
+a two dimensional array containing the y coordinates of the
+interrogation window centers, in pixels.
+"""
+
+    # get shape of the resulting flow field
+    field_shape = get_field_shape( image_size, window_size, overlap )
+
+    # compute grid coordinates of the interrogation window centers
+    x = np.arange( field_shape[1] )*(window_size-overlap) + (window_size-1)/2.0
+    y = np.arange( field_shape[0] )*(window_size-overlap) + (window_size-1)/2.0
+    
+    return np.meshgrid(x,y[::-1])
     
 if __name__ == "__main__":
     #aquire initial data
