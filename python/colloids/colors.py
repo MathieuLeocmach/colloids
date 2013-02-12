@@ -29,10 +29,10 @@ def msh2rgb(im):
     b = numexpr.evaluate('m * sin(s) * sin(h)')
     return lab2rgb(np.dstack((l,a,b)))
     
-def colorscale(im, centre=88):
+def colorscale(im, centre=88, extrema=80):
     """Take real values from 0 to 1 and return rgb colors on the diverging color scale blue-white-red. Taken from Paraview."""
     x = np.mod(im, 1)
-    m = numexpr.evaluate('2*(80-centre)*abs(x-0.5)+centre')
+    m = numexpr.evaluate('2*(extrema-centre)*abs(x-0.5)+centre')
     #m = numexpr.evaluate('88-16*abs(x-0.5)')
     s = numexpr.evaluate('1.08 * 2*abs(0.5-x)')
     h = numexpr.evaluate('where(x<0.5, -1.1 - 2*x*0.561, 1.061 - 2*(x-0.5)*0.561)')
