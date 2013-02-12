@@ -5,14 +5,17 @@ import sys, itertools, re
 from os.path import split,join,isfile, splitext
 import Image
 
-def readTIFF16(path):
+def readTIFF16(path, bigendian=True):
     """Read 16bits TIFF"""
     im = Image.open(path)
     out = np.fromstring(
         im.tostring(), 
         np.uint8
         ).reshape(tuple(list(im.size)+[2]))
-    return (np.array(out[:,:,0], np.uint16) << 8) + out[:,:,1]
+    if bigendian:
+        return (np.array(out[:,:,0], np.uint16) << 8) + out[:,:,1]
+    else:
+        return (np.array(out[:,:,1], np.uint16) << 8) + out[:,:,0]
     
 def nth_period(a, n=2, guess=150, width=50):
     period = guess
