@@ -182,7 +182,11 @@ def export_structured_points(fname, data, name="", spacing=np.ones(3), origin=np
             ('POINT_DATA %d\n'%data.size)+
             'SCALARS Intensity unsigned_char\nLOOKUP_TABLE default\n'
             )
-        data.tofile(f)
+        if data.dtype.itemsize > 8:
+             #Paraview reads only bigendian by default
+            np.array(data, np.dtype('>'+data.dtype.str[1:])).tofile(f)
+        else:
+            data.tofile(f)
         
 
 def spatialCorelation(points, fields, vectorColumns=None, Nbins=200, maxDist=50.0):
