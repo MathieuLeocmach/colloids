@@ -146,12 +146,16 @@ def binodalFS(piv, q, guess=[0.970, 1.185]):
         ], Us0)
     return 1./(np.exp(result)+1/f_cp)
     
-def all_FS(q, maxpiv=None):
-    fc, pivc = critical_point(q)
-    if maxpiv is None:
-        maxpiv = startp*2
-    #need to integrate from top to bottom or it gets unstable
-    topp = np.union1d(np.linspace(0, 1.1*pivc), np.linspace(1.1*pivc, maxpiv))[::-1]
+def all_FS(q, maxpiv=None, topp=None):
+    if topp is None:
+        fc, pivc = critical_point(q)
+        if maxpiv is None:
+            maxpiv = pivc*2
+        #need to integrate from top to bottom or it gets unstable
+        topp = np.union1d(
+            np.linspace(0, 1.1*pivc), 
+            np.linspace(1.1*pivc, maxpiv)
+            )[::-1]
     topFS = [[1e-3, f_cp-1e-3]]
     for piv in topp:
         topFS.append(binodalFS(piv, q, topFS[-1]))
