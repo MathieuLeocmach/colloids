@@ -761,7 +761,7 @@ class CrockerGrierFinder:
         else:
             self.binary = numexpr.evaluate(
                 '(b==d) & (b>thr)',
-                {'b':self.blurred, 'd':self.dilated, 'thr':self.threshold}
+                {'b':self.blurred, 'd':self.dilated, 'thr':threshold}
                 )
         #eliminate particles on the edges of image
         for a in range(self.binary.ndim):
