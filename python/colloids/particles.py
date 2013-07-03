@@ -1072,6 +1072,18 @@ class Linker:
         self.trajstart = [0 for p in range(nb_initial_pos)]
         self.nbtrajs = [nb_initial_pos]
         
+    def loadFrame(self, frame):
+        """Load a precalculated pos2tr frame."""
+        t = len(self.pos2tr)
+        self.pos2tr.append(frame)
+        for p,tr in enumerate(frame):
+            if tr<self.nbtrajs[-1]:
+                self.tr2pos[tr].append(p)
+            else:
+                self.trajstart.append(t)
+                self.tr2pos.append([p])
+        self.nbtrajs.append(len(self.trajstart))
+        
     def addFrame(self, frame_size, pairs, distances):
         assert len(pairs) == len(distances)
         if len(pairs)==0:
