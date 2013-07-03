@@ -25,6 +25,7 @@ import Image
 import numpy as np
 from numpy.fft import rfft2, irfft2
 import numpy.lib.stride_tricks
+from numpy import ma
 
 def inplaceWindowFunction(a):
     """apply a Hamming window function to each dimension of the input array"""
@@ -58,9 +59,24 @@ def getDispl(a):
     displ = np.array(np.unravel_index(l, a.shape))
     for i,v in enumerate(displ):
         if v > a.shape[i]/2:
-            displ[i] = a.shape[i] - displ[i]
+            displ[i] -= a.shape[i]
 
     return displ
+    
+def getDisplConfidence(a):
+    """Get the periodic displacement of the maximum of an array with respect to (0,0), and the confidence, expressed as the rqtio of intensity of the first by the second maximum"""
+    b = np.fft.fftshift(a)
+    l = b.argmax()
+    first_peak = a.max()
+    displ = np.array(np.unravel_index(l, a.shape))
+    masked = b.view(ma.MaskedArray)
+    lb = np.maximum(displ-2, 0)
+    ub = np.minimum(displ+3, a.shape)
+    masked[lb[0]:ub[0], lb[1]:ub[1]] = ma.masked
+    second_peak = masked.max()
+    displ -= np.array(a.shape)/2
+
+    return list(displ) + [first_peak/second_peak]
     
 def get_phaseshift(a,b):
     assert a.shape == b.shape
@@ -86,6 +102,31 @@ def sub_windows(a, window_size, overlap ):
     
     return numpy.lib.stride_tricks.as_strided( a, strides=strides, shape=shape ).reshape(-1, window_size, window_size)
     
+def get_field_shape ( image_size, window_size, overlap ):
+    """Compute the shape of the resulting flow field.
+Given the image size, the interrogation window size and
+the overlap size, it is possible to calculate the number
+of rows and columns of the resulting flow field.
+Parameters
+----------
+image_size: two elements tuple
+a two dimensional tuple for the pixel size of the image
+first element is number of rows, second element is
+the number of columns.
+window_size: int
+the size of the interrogation window.
+overlap: int
+the number of pixel by which two adjacent interrogation
+windows overlap.
+Returns
+-------
+field_shape : two elements tuple
+the shape of the resulting flow field
+"""
+    
+    return ( (image_size[0] - window_size)//(window_size-overlap)+1,
+             (image_size[1] - window_size)//(window_size-overlap)+1 )
+             
 def get_coordinates( image_size, window_size, overlap ):
     """Compute the x, y coordinates of the centers of the interrogation windows.
 Parameters
