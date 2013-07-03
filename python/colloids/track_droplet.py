@@ -4,6 +4,13 @@ from scipy.misc import imsave, imshow, imread
 import sys, itertools, re
 from os.path import split,join,isfile, splitext
 import Image
+from scipy.ndimage import gaussian_filter
+from scipy.interpolate import RectBivariateSpline
+from colloids.colors import colorscale
+import matplotlib, pylab as plt
+from matplotlib.colors import ListedColormap
+
+matplotlib.cm.register_cmap("bluetored", ListedColormap(colorscale(np.linspace(0,1,256,False)[None,:])[0]))
 
 def readTIFF16(path, bigendian=True):
     """Read 16bits TIFF"""
@@ -46,10 +53,12 @@ if __name__ == "__main__":
         pattern = m.group(1)+'_%'+('0%dd'%len(m.group(2)))+(''.join(m.groups()[2:]))
         path, name = split(m.group(1))
         outpattern = join(path,'treated_'+name)+'_%'+('0%dd'%len(m.group(2)))+(''.join(m.groups()[2:]))
+        divpattern = join(path,'bgdiv_'+name)+'_%'+('0%dd'%len(m.group(2)))+(''.join(m.groups()[2:]))
     else:
         pattern = filename
         path, name = split(filename)
         outpattern = join(path,'treated_'+name)
+        divpattern = splitext(join(path,'bgdiv_'+name))[0]+'.jpg'
         filename = pattern%0
 
     #read the first image
@@ -72,10 +81,14 @@ if __name__ == "__main__":
     #background
     background = track.gaussian_filter(np.array(im, float), 10*sigma)
     background[background==0] = 1.0
+    #drift or flow
+    overlap = 2**int(np.log(20*sigma)/np.log(2))
+    window_size = 2*overlap
+    xgrid, ygrid = phaseCorrelation.get_coordinates(im.shape, window_size, overlap)
     #create drift file
-    fdrift = open(splitext(pattern%0)[0]+'.drift', 'w')
-    window = np.hanning(im.shape[0])[:,None]*np.hanning(im.shape[1])
-    drifts = []
+    #fdrift = open(splitext(pattern%0)[0]+'.drift', 'w')
+    window = np.hanning(window_size)[:,None]*np.hanning(window_size)
+    #drifts = []
 
     for t in itertools.count():
         if not isfile(pattern%t):
@@ -90,24 +103,42 @@ if __name__ == "__main__":
         for (ym,xm), (yM, xM) in zip(np.maximum(0, centers[:,:2]-sigma), np.minimum(centers[:,:2]+sigma+1, im.shape[::-1])):
             cent[xm:xM,ym:yM] += 50/256.*im.max()
         imsave(outpattern%t, np.dstack((im, cent, cent)))
+        plt.imsave(divpattern%t, finder.blurred, cmap='bluetored', vmin=1, vmax=2)
         #Trajectory linking
         if t==0:
             linker = particles.Linker(len(centers))
             pos1 = centers
             sp1 = np.fft.fftn(
-                im*window
+                phaseCorrelation.sub_windows(im/background, window_size, overlap) * window,
+                axes=[1,2]
                 )
         else:
             pos0 = pos1
             pos1 = centers
             #look for overall drift between successive pictures
             sp0 = sp1
-            sp1 = np.fft.fftn(im*window)
+            sp1 = np.fft.fftn(
+                phaseCorrelation.sub_windows(im/background, window_size, overlap) * window,
+                axes=[1,2]
+                )
             R = sp0 * np.conjugate(sp1)
-            shift = phaseCorrelation.getDispl(np.abs(np.fft.ifftn(R/np.abs(R))))
-            fdrift.write('%d %d\n'%(shift[1], shift[0]))
-            drifts.append(shift)
-            pairs, distances = particles.get_links(pos0[:,:2], np.ones(len(pos0)), pos1[:,:2]+shift[::-1], np.ones(len(pos1)), maxdist=6.*sigma + np.sqrt(np.dot(shift,shift)))
+            u,v, confidence = np.transpose([
+                phaseCorrelation.getDisplConfidence(r) 
+                for r in np.abs(np.fft.ifftn(R/np.abs(R), axes=[1,2]))
+                ])
+            #confidence-weighted average on the neighbouring windows
+            weights = gaussian_filter(confidence.reshape(xgrid.shape), 1.0)-1
+            u = gaussian_filter((u*(confidence-1)).reshape(xgrid.shape), 1.0)/weights
+            v = gaussian_filter((v*(confidence-1)).reshape(xgrid.shape), 1.0)/weights
+            #interpolate using 2D splines
+            uspl = RectBivariateSpline(xgrid[0], ygrid[::-1,0], u, s=0)
+            vspl = RectBivariateSpline(xgrid[0], ygrid[::-1,0], v, s=0)
+            dx = vspl.ev(pos1[:,0], pos1[:,1])
+            dy = uspl.ev(pos1[:,0], pos1[:,1])
+            #shift = phaseCorrelation.getDispl(np.abs(np.fft.ifftn(R/np.abs(R))))
+            #fdrift.write('%d %d\n'%(shift[1], shift[0]))
+            #drifts.append(shift)
+            pairs, distances = particles.get_links(pos0[:,:2], np.ones(len(pos0)), pos1[:,:2]+np.column_stack((dx, dy)), np.ones(len(pos1)), maxdist=6.*sigma)
             linker.addFrame(len(pos1), pairs, distances)
             if t>1:
                 #try to link trajectories terminated two time steps ago with newly created trajectories (no match with one step ago)
@@ -116,9 +147,9 @@ if __name__ == "__main__":
                 pairs, distances = particles.get_links(
                     terminated[:,1:3], 
                     np.ones(len(terminated)), 
-                    pos1[starting_pos,:2]+shift[::-1], 
+                    (pos1[:,:2]+np.column_stack((dx, dy)))[starting_pos], 
                     np.ones(len(starting_pos)), 
-                    maxdist=6.*sigma + np.sqrt(np.dot(shift,shift))
+                    maxdist=6.*sigma
                     )
                 if len(pairs)>0:
                     #translate pairs into indices the linker understands
@@ -128,7 +159,7 @@ if __name__ == "__main__":
                     has_grown = linker.update(pairs, distances)
                     #add intermediate positions at the end of the previous time step
                     newly = pos1[has_grown[linker.pos2tr[-1]]]
-                    newly[:,:2] += shift[::-1]
+                    newly[:,:2] += np.column_stack((dx, dy))[has_grown[linker.pos2tr[-1]]]
                     intermediate = 0.5 * (terminated[has_grown[terminated_tr]] + newly)
                     np.savetxt(
                         open(splitext(pattern%(t-1))[0]+'.csv', 'a'),
@@ -148,7 +179,9 @@ if __name__ == "__main__":
             else:
                 terminated_pos, terminated_tr = np.transpose(terminated_pos_tr)
                 terminated = pos0[terminated_pos]
-                terminated[:,:2] -= shift[::-1]
+                dx = vspl.ev(terminated[:,0], terminated[:,1])
+                dy = uspl.ev(terminated[:,0], terminated[:,1])
+                terminated[:,:2] -= np.column_stack((dx, dy))
         #remember inner image of the traker to measure intensities afterward
         blurred0 = np.copy(finder.blurred)
         #output
@@ -157,7 +190,7 @@ if __name__ == "__main__":
             np.column_stack((linker.pos2tr[-1], centers)),
             fmt='%g'
             )
-    fdrift.close()
+    #fdrift.close()
     #Focus on the trajectories spanning the whole time and half of it
     isspanning = np.array(map(len, linker.tr2pos)) == len(linker.pos2tr)
     halfspanning = np.intersect1d(linker.pos2tr[0], linker.pos2tr[len(linker.pos2tr)/2])
