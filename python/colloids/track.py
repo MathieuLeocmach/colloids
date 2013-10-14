@@ -27,9 +27,22 @@ from scipy import sparse
 from scipy import weave
 from scipy.weave import converters
 import numexpr
+import PIL.Image
 
 coefprime = np.array([1,-8, 0, 8, -1])
-coefsec = np.array([-1, 16, -30, 16, -1]) 
+coefsec = np.array([-1, 16, -30, 16, -1])
+
+def readTIFF16(path, bigendian=True):
+    """Read 16bits TIFF"""
+    im = PIL.Image.open(path)
+    out = np.fromstring(
+        im.tostring(), 
+        np.uint8
+        ).reshape(tuple(list(im.size)+[2]))
+    if bigendian:
+        return (np.array(out[:,:,0], np.uint16) << 8) + out[:,:,1]
+    else:
+        return (np.array(out[:,:,1], np.uint16) << 8) + out[:,:,0]
 
 def bestParams(inputPath, outputPath, radMins=np.arange(2.5, 5, 0.5), radMaxs=np.arange(6, 32, 4), t=0, serie=None):
     if serie==None:
