@@ -28,6 +28,7 @@ from scipy import weave
 from scipy.weave import converters
 import numexpr
 import PIL.Image
+import unittest
 
 coefprime = np.array([1,-8, 0, 8, -1])
 coefsec = np.array([-1, 16, -30, 16, -1])
@@ -1126,3 +1127,18 @@ def localize2D3D(serie, file_pattern, cleanup=True):
             for z in range(serie.getFrameShape()[-1]):
                 os.remove(file_pattern%(t, z, 'dat'))
                 os.remove(file_pattern%(t, z, 'intensity'))
+              
+        
+  
+                
+if __name__ == '__main__':
+    import os.path
+    #tests
+    class TestCrockerGrier(unittest.TestCase):
+
+        def test_init(self):
+            im = np.load(os.path.join(os.path.dirname(__file__), 'dillute_raw.npy'))
+            finder = CrockerGrierFinder(im.shape)
+            centers = finder(im, threshold=0.1)
+            self.assertEqual(len(centers), 5)
+    unittest.main()
