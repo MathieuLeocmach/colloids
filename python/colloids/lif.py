@@ -309,6 +309,19 @@ class SerieHeader:
             self.__nbPixelsPerSlice = nb
         return self.__nbPixelsPerSlice
 
+def extract_XML(name):
+    """Extract the XML header from LIF file and save it"""
+    with open(name,"rb") as f:
+        memBlock, trash, testBlock = struct.unpack("iic", f.read(9))
+        if memBlock != 112:
+            raise Exception("This is not a valid LIF file")
+        if testBlock != '*':
+            raise Exception ("Invalid block at %l" % self.f.tell())
+        memorysize, = struct.unpack("I", f.read(4))
+        #open the output file
+        with open(name[:-3]+'xml', 'wb') as out:
+            out.write(f.read(2*memorysize))
+
 
 class Reader(Header):
     """Reads Leica LIF files"""
