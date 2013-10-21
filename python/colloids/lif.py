@@ -17,7 +17,8 @@
 #    along with Colloids.  If not, see <http://www.gnu.org/licenses/>.
 #
 from __future__ import with_statement #for python 2.5, useless in 2.6
-import struct, StringIO, re, os.path, subprocess, shlex
+import struct, StringIO, re, os.path, subprocess, shlex, io
+from bs4 import BeautifulSoup
 from xml.dom.minidom import parse
 import numpy as np
 from numpy.fft import rfft2, irfft2
@@ -318,9 +319,12 @@ def extract_XML(name):
         if testBlock != '*':
             raise Exception ("Invalid block at %l" % self.f.tell())
         memorysize, = struct.unpack("I", f.read(4))
+        #read and parse the header
+        soup = BeautifulSoup(f.read(2*memorysize).decode("utf-16"), "xml")
         #open the output file
         with open(name[:-3]+'xml', 'wb') as out:
-            out.write(f.read(2*memorysize))
+            #write the header in a human-reable way
+            out.write(soup.prettify('utf-8'))
 
 
 class Reader(Header):
