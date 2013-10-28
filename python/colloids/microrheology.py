@@ -19,6 +19,7 @@
 
 import numpy as np
 import scipy.constants as const
+from scipy.special import gamma
 import warnings
 
 def logderive(x,f,width):
