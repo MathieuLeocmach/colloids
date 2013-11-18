@@ -24,6 +24,7 @@ import warnings
 
 def logderive(x,f,width):
     """A special purpose routine for finding the first and second logarithmic derivatives of slowly varying, but noisy data.  It returns a smoother version of 'f' and its first and second log derivative."""
+    assert len(x)==len(y)
     lx = np.log(x)
     ly = np.log(f)
     f2 = np.zeros_like(f)
@@ -70,11 +71,12 @@ def msd2G(dt, msd, a, T, dim=3, clip=0.03, width=0.7):
         
         This function is the translation of the IDL implementation by John C. Crocker in 1999
     """
+    assert len(dt) == len(msd)
     #convert the inputs in meters - Kilograms - Seconds
     am = a * 1e-6
     omega = 1./ dt
     msdm = msd * 1e-12
-    C = dim * constants.k * T / (3 * np.pi * am)
+    C = dim * const.k * T / (3 * np.pi * am)
     
     #use 2nd order local formula for G(s)-- good to 1% of G(s)
     m, d, dd = logderive(dt, msdm, width)
@@ -89,7 +91,7 @@ def msd2G(dt, msd, a, T, dim=3, clip=0.03, width=0.7):
     
     #clip off the suspicious (i.e. unreliable) data
     w = G.real < Gs*clip
-    if n.sum() > 0: 
+    if w.sum() > 0: 
         G.real[w]=0
     w = G.imag < Gs*clip
     if w.sum() > 0: 
