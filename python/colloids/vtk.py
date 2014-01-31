@@ -20,6 +20,9 @@ from __future__ import with_statement #for python 2.5, useless in 2.6
 import numpy as np
 from scipy.spatial import KDTree
 import math
+import os, bz2
+from lxml import etree
+
 
 class Polydata:
     """A VTK polydata dataset"""
@@ -180,14 +183,40 @@ def export_structured_points(fname, data, name="", spacing=np.ones(3), origin=np
             ('ORIGIN %g %g %g\n'%tuple(list(origin)))+
             ('SPACING %g %g %g\n'%tuple(list(spacing)))+
             ('POINT_DATA %d\n'%data.size)+
-            'SCALARS Intensity unsigned_char\nLOOKUP_TABLE default\n'
+            ('SCALARS Intensity %s\nLOOKUP_TABLE default\n'%({
+                'B': 'unsigned_char',
+                'b': 'char',
+                'H': 'unsigned_short',
+                'h': 'short',
+                'I': 'unsigned_int',
+                'i': 'int',
+                'L': 'unsigned_long',
+                'l': 'long',
+                'f': 'float',
+                'd': 'double',
+                }[data.dtype.char]))
             )
-        if data.dtype.itemsize > 8:
+        if data.dtype.itemsize > 1:
              #Paraview reads only bigendian by default
             np.array(data, np.dtype('>'+data.dtype.str[1:])).tofile(f)
         else:
             data.tofile(f)
         
+def loadXMLFile(filename):
+    """A helpful function to load compressed or uncompressed XML files"""
+    if (os.path.splitext(filename)[1][1:].strip() == "bz2"):
+        with bz2.BZ2File(filename) as f:
+            return etree.parse(f)
+    return etree.parse(filename)
+
+def Dynamo2vtk(filename):
+    XMLDoc = loadXMLFile(filename)
+    RootElement = XMLDoc.getroot()
+    PtTags = RootElement.xpath("//Pt/P")
+    v = Polydata()
+    v.points = np.array([[float(p.get(d)) for d in 'xyz'] for p in PtTags])
+    v.save(os.path.splitext(filename)[0]+'.vtk')
+    
 
 def spatialCorelation(points, fields, vectorColumns=None, Nbins=200, maxDist=50.0):
     """Compute the spatial corellation of each field
