@@ -215,6 +215,11 @@ def Dynamo2vtk(filename):
     PtTags = RootElement.xpath("//Pt/P")
     v = Polydata()
     v.points = np.array([[float(p.get(d)) for d in 'xyz'] for p in PtTags])
+    PairTags = RootElement.xpath("//CaptureMap/Pair")
+    v.bonds = np.array([
+        [int(p.get('ID%d'%d)) for d in [1,2]] 
+        for p in PairTags if p.get('val') == '1'
+        ], int)
     v.save(os.path.splitext(filename)[0]+'.vtk')
     
 
