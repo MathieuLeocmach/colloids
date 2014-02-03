@@ -170,6 +170,18 @@ class Polydata:
             Nbins,
             maxDist
             )
+            
+    def clustersize(self):
+        import networkx as nx
+        G = nx.Graph()
+        G.add_nodes_from(range(len(self.points)))
+        G.add_edges_from([(a,b) for a,b in self.bonds])
+        cc = nx.connected_components(G)
+        cl_size = np.zeros(len(self.points), int)
+        for c in cc:
+            cl_size[c] = len(c)
+        self.scalars += [('cl_size', cl_size)]
+        
 
 def export_structured_points(fname, data, name="", spacing=np.ones(3), origin=np.zeros(3)):
     """Export grid data to a vtk file"""
@@ -209,7 +221,7 @@ def loadXMLFile(filename):
             return etree.parse(f)
     return etree.parse(filename)
 
-def Dynamo2vtk(filename):
+def Dynamo2vtk(filename, clustersize = True):
     XMLDoc = loadXMLFile(filename)
     RootElement = XMLDoc.getroot()
     PtTags = RootElement.xpath("//Pt/P")
@@ -220,28 +232,8 @@ def Dynamo2vtk(filename):
         [int(p.get('ID%d'%d)) for d in [1,2]] 
         for p in PairTags if p.get('val') == '1'
         ], int)
-    v.save(os.path.splitext(filename)[0]+'.vtk')
-    
-def Dynamo2vtk_size(filename):
-    import networkx as nx
-    XMLDoc = loadXMLFile(filename)
-    RootElement = XMLDoc.getroot()
-    PtTags = RootElement.xpath("//Pt/P")
-    v = Polydata()
-    v.points = np.array([[float(p.get(d)) for d in 'xyz'] for p in PtTags])
-    PairTags = RootElement.xpath("//CaptureMap/Pair")
-    v.bonds = np.array([
-        [int(p.get('ID%d'%d)) for d in [1,2]] 
-        for p in PairTags if p.get('val') == '1'
-        ], int)
-    G = nx.Graph()
-    G.add_nodes_from(range(len(v.points)))
-    G.add_edges_from([(a,b) for a,b in v.bonds])
-    cc = nx.connected_components(G)
-    cl_size = np.zeros(len(v.points), int)
-    for c in cc:
-        cl_size[c] = len(c)
-    v.scalars = [('cl_size', cl_size)]
+    if clustersize:
+        v.clustersize()
     v.save(os.path.splitext(filename)[0]+'.vtk')
     
 
