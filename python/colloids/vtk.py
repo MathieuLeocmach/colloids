@@ -222,6 +222,28 @@ def Dynamo2vtk(filename):
         ], int)
     v.save(os.path.splitext(filename)[0]+'.vtk')
     
+def Dynamo2vtk_size(filename):
+    import networkx as nx
+    XMLDoc = loadXMLFile(filename)
+    RootElement = XMLDoc.getroot()
+    PtTags = RootElement.xpath("//Pt/P")
+    v = Polydata()
+    v.points = np.array([[float(p.get(d)) for d in 'xyz'] for p in PtTags])
+    PairTags = RootElement.xpath("//CaptureMap/Pair")
+    v.bonds = np.array([
+        [int(p.get('ID%d'%d)) for d in [1,2]] 
+        for p in PairTags if p.get('val') == '1'
+        ], int)
+    G = nx.Graph()
+    G.add_nodes_from(range(len(v.points)))
+    G.add_edges_from([(a,b) for a,b in v.bonds])
+    cc = nx.connected_components(G)
+    cl_size = np.zeros(len(v.points), int)
+    for c in cc:
+        cl_size[c] = len(c)
+    v.scalars = [('cl_size', cl_size)]
+    v.save(os.path.splitext(filename)[0]+'.vtk')
+    
 
 def spatialCorelation(points, fields, vectorColumns=None, Nbins=200, maxDist=50.0):
     """Compute the spatial corellation of each field
