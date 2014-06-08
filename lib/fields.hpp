@@ -98,7 +98,7 @@ namespace Colloids
 
     /**	\brief	create a view of the content of an existing container */
     template<class V> template<class ForwardInterator>
-	Field<V>::Field(ForwardInterator first, ForwardInterator last,const std::string &name) : name(name), values(distance(first, last))
+	Field<V>::Field(ForwardInterator first, ForwardInterator last,const std::string &name) : name(name), values(std::distance(first, last))
 	{
 		while(first!=last)
 			values.push_back(&((*first++)));
@@ -106,7 +106,7 @@ namespace Colloids
 
     /**	\brief	constructor from a table containing some columns and one field per column */
     template<class V> template<class tableInterator>
-	Field<V>::Field(tableInterator first, tableInterator last, const std::string &name, const size_t &column) : name(name), values(distance(first, last))
+	Field<V>::Field(tableInterator first, tableInterator last, const std::string &name, const size_t &column) : name(name), values(std::distance(first, last))
 	{
 		while(first!=last)
 			values.push_back(&((*first++)[column]));
@@ -117,7 +117,7 @@ namespace Colloids
 	void DynamicField<V>::push_back(const Field<V> &frame)
 	{
 		if(averaging/2 ==0)
-			copy(frame.values.begin(), frame.values.end(), values[actual_time].begin());
+			std::copy(frame.values.begin(), frame.values.end(), values[actual_time].begin());
 		else
 		{
 			//bin the values at actual time in the next "average interval" time steps (including actual)

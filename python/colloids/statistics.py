@@ -208,7 +208,7 @@ class StructureFactor2D:
         self.ws = map(np.hamming, shape)
         self.Ns = []
         
-    def __call__(self, pos):
+    def __call__(self, pos, accumulate=True):
         if len(pos)==0:
             self.Ns.append(0)
             return
@@ -224,8 +224,12 @@ class StructureFactor2D:
         #do the (half)Fourier transform
         spectrum = np.abs(np.fft.rfftn(self.im)[:,:,0])**2
         #radial average (sum)
-        self.S += np.histogram(self.dists.ravel(), self.qs, weights=spectrum.ravel())[0]/spectrum.mean()*len(pos)
-        self.Ns.append(len(pos))
+        S = np.histogram(self.dists.ravel(), self.qs, weights=spectrum.ravel())[0]/spectrum.mean()
+        if accumulate:
+            self.S += S*len(pos)
+            self.Ns.append(len(pos))
+        else:
+            return S
         
     def get_S(self):
         #radial average (division)
@@ -251,7 +255,7 @@ class StructureFactor3D:
         self.ws = map(np.hamming, shape)
         self.Ns = []
         
-    def __call__(self, pos, periodic=False):
+    def __call__(self, pos, periodic=False, accumulate=True):
         if len(pos)==0:
             self.Ns.append(0)
             return
@@ -272,8 +276,12 @@ class StructureFactor3D:
             )
 
         #radial average (sum)
-        self.S += np.histogram(self.dists.ravel(), self.qs, weights=self.spectrum.ravel())[0]/self.spectrum.mean()*len(pos)
-        self.Ns.append(len(pos))
+        S = np.histogram(self.dists.ravel(), self.qs, weights=self.spectrum.ravel())[0]/self.spectrum.mean()
+        if accumulate:
+            self.S += S*len(pos)
+            self.Ns.append(len(pos))
+        else:
+            return S
         
     def get_S(self):
         #radial average (division)

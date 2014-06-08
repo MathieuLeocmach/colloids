@@ -84,6 +84,10 @@ if __name__ == "__main__":
     #drift or flow
     overlap = 2**int(np.log(20*sigma)/np.log(2))
     window_size = 2*overlap
+    #having 3 subwindows is not enought
+    use_subgrid_phasecor = 5*overlap < min(im.shape)
+    if not use_subgrid_phasecor:
+        window_size = im.shape[0]
     xgrid, ygrid = phaseCorrelation.get_coordinates(im.shape, window_size, overlap)
     #create drift file
     #fdrift = open(splitext(pattern%0)[0]+'.drift', 'w')
@@ -108,33 +112,47 @@ if __name__ == "__main__":
         if t==0:
             linker = particles.Linker(len(centers))
             pos1 = centers
-            sp1 = np.fft.fftn(
-                phaseCorrelation.sub_windows(im/background, window_size, overlap) * window,
-                axes=[1,2]
-                )
+            if use_subgrid_phasecor:
+                sp1 = np.fft.fftn(
+                    phaseCorrelation.sub_windows(im/background, window_size, overlap) * window,
+                    axes=[1,2]
+                    )
+            else:
+                sp1 = np.fft.fftn(im/background*window)
         else:
             pos0 = pos1
             pos1 = centers
-            #look for overall drift between successive pictures
+            #look for drift between successive pictures
             sp0 = sp1
-            sp1 = np.fft.fftn(
-                phaseCorrelation.sub_windows(im/background, window_size, overlap) * window,
-                axes=[1,2]
-                )
-            R = sp0 * np.conjugate(sp1)
-            u,v, confidence = np.transpose([
-                phaseCorrelation.getDisplConfidence(r) 
-                for r in np.abs(np.fft.ifftn(R/np.abs(R), axes=[1,2]))
-                ])
-            #confidence-weighted average on the neighbouring windows
-            weights = gaussian_filter(confidence.reshape(xgrid.shape), 1.0)-1
-            u = gaussian_filter((u*(confidence-1)).reshape(xgrid.shape), 1.0)/weights
-            v = gaussian_filter((v*(confidence-1)).reshape(xgrid.shape), 1.0)/weights
-            #interpolate using 2D splines
-            uspl = RectBivariateSpline(xgrid[0], ygrid[::-1,0], u, s=0)
-            vspl = RectBivariateSpline(xgrid[0], ygrid[::-1,0], v, s=0)
-            dx = vspl.ev(pos1[:,0], pos1[:,1])
-            dy = uspl.ev(pos1[:,0], pos1[:,1])
+            if use_subgrid_phasecor:
+                #a phase correlation per subwindow
+                sp1 = np.fft.fftn(
+                    phaseCorrelation.sub_windows(im/background, window_size, overlap) * window,
+                    axes=[1,2]
+                    )
+                R = sp0 * np.conjugate(sp1)
+                u,v, confidence = np.transpose([
+                    phaseCorrelation.getDisplConfidence(r) 
+                    for r in np.abs(np.fft.ifftn(R/np.abs(R), axes=[1,2]))
+                    ])
+                #confidence-weighted average on the neighbouring windows
+                weights = gaussian_filter(confidence.reshape(xgrid.shape), 1.0)-1
+                u = gaussian_filter((u*(confidence-1)).reshape(xgrid.shape), 1.0)/weights
+                v = gaussian_filter((v*(confidence-1)).reshape(xgrid.shape), 1.0)/weights
+                #interpolate using 2D splines
+                uspl = RectBivariateSpline(xgrid[0], ygrid[::-1,0], u, s=0)
+                vspl = RectBivariateSpline(xgrid[0], ygrid[::-1,0], v, s=0)
+                dx = vspl.ev(pos1[:,0], pos1[:,1])
+                dy = uspl.ev(pos1[:,0], pos1[:,1])
+            else:
+                #only global phase correlation
+                sp1 = np.fft.fftn(im/background*window)
+                R = sp0 * np.conjugate(sp1)
+                dx, dy, confidence = phaseCorrelation.getDisplConfidence(
+                    np.abs(np.fft.ifftn(R/np.abs(R)))
+                    )
+                dx = dx*np.ones(len(pos1))
+                dy = dy*np.ones(len(pos1))
             #shift = phaseCorrelation.getDispl(np.abs(np.fft.ifftn(R/np.abs(R))))
             #fdrift.write('%d %d\n'%(shift[1], shift[0]))
             #drifts.append(shift)
@@ -179,9 +197,12 @@ if __name__ == "__main__":
             else:
                 terminated_pos, terminated_tr = np.transpose(terminated_pos_tr)
                 terminated = pos0[terminated_pos]
-                dx = vspl.ev(terminated[:,0], terminated[:,1])
-                dy = uspl.ev(terminated[:,0], terminated[:,1])
-                terminated[:,:2] -= np.column_stack((dx, dy))
+                if use_subgrid_phasecor:
+                    dx = vspl.ev(terminated[:,0], terminated[:,1])
+                    dy = uspl.ev(terminated[:,0], terminated[:,1])
+                    terminated[:,:2] -= np.column_stack((dx, dy))
+                else:
+                    terminated[:,:2] -= [dx[0], dy[0]]
         #remember inner image of the traker to measure intensities afterward
         blurred0 = np.copy(finder.blurred)
         #output

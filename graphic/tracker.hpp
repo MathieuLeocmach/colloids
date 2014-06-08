@@ -297,7 +297,7 @@ OutputIterator Tracker::copyImage(OutputIterator result) const
 		return result;
 	}
 	else
-		return copy(data, data+centersMap.num_elements(), result);
+		return std::copy(data, data+centersMap.num_elements(), result);
 }
 
 /** @brief output Image (with the paddings)
@@ -306,7 +306,7 @@ OutputIterator Tracker::copyImage(OutputIterator result) const
 template <class OutputIterator>
 OutputIterator Tracker::copyPaddedImage(OutputIterator result) const
 {
-	return copy(data, data+2*FFTmask.num_elements(), result);
+	return std::copy(data, data+2*FFTmask.num_elements(), result);
 }
 
 /** @brief output Spectrum
