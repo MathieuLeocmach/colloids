@@ -23,7 +23,7 @@
 import lif
 import Image
 import numpy as np
-from numpy.fft import rfft2, irfft2
+from numpy.fft import rfft2, irfft2,fft2, ifft2
 import numpy.lib.stride_tricks
 from numpy import ma
 
@@ -41,9 +41,9 @@ def windowFunction(a):
 
 def phaseCorrel(a,b):
     """phase correlation calculation"""
-    R = rfft2(a)*np.conj(rfft2(b))
+    R = fft2(a)*np.conj(fft2(b))
     R /= np.absolute(R)
-    return irfft2(R,a.shape)
+    return ifft2(R,a.shape)
 
 def showNormalized(a):
     """normalizing array to display as image"""
