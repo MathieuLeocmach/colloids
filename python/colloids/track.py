@@ -782,7 +782,7 @@ class CrockerGrierFinder:
             self.binary[tuple([slice(None)]*(self.binary.ndim-1-a)+[slice(0,2)])]=False
             self.binary[tuple([slice(None)]*(self.binary.ndim-1-a)+[slice(-2, None)])]=False
         #eliminate blobs that are edges
-        if self.blurred.ndim==3 and maxedge>0 :
+        if self.blurred.ndim==2 and maxedge>0 :
             for p in np.transpose(np.where(self.binary)):
                 #xy neighbourhood
                 ngb = self.blurred[tuple([slice(u-1, u+2) for u in p])]
