@@ -495,6 +495,7 @@ class Txp:
             else:
                 self.size= size
             self.trajs = self.read_trajs()
+            assert len(self.trajs)>0
             self.positions = self.read_pos()
             self.remove_drift()
             
