@@ -292,7 +292,7 @@ class StructureFactor3D:
         
         
 class ImageStructureFactor:
-"""A class to compute rapially averaged structure factor of a 2D image"""
+    """A class to compute rapially averaged structure factor of a 2D image"""
     def __init__(self, shape):
         assert len(shape) == 2, "only 2D images implemented"
         L = max(shape)
@@ -301,9 +301,9 @@ class ImageStructureFactor:
         self.dcount = np.histogram(self.dists.ravel(), bins=self.qs)[0]
         self.has_window = False
         
-    def set_window(w='hanning'):
+    def set_window(self,w='hanning'):
         if hasattr(np, w):
-            self.window = getattr(np,w)(shape[0])[:,None] * getattr(np,w)(shape[1])[:,None]
+            self.window = getattr(np,w)(self.dists.shape[0])[:,None] * getattr(np,w)(self.dists.shape[1])[:,None]
             self.has_window = True
         elif w == False:
             self.has_window = False
@@ -314,7 +314,7 @@ class ImageStructureFactor:
         
     def __call__(self, im):
         if self.has_window:
-            spectrum = np.abs(np.fft.fft2(im*window))**2
+            spectrum = np.abs(np.fft.fft2(im*self.window))**2
         else:
             spectrum = np.abs(np.fft.fft2(im))**2
         return np.histogram(self.dists.ravel(), bins=self.qs, weights=spectrum.ravel())[0] / self.dcount
