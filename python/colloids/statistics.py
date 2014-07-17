@@ -303,7 +303,7 @@ class ImageStructureFactor:
         
     def set_window(self,w='hanning'):
         if hasattr(np, w):
-            self.window = getattr(np,w)(self.dists.shape[0])[:,None] * getattr(np,w)(self.dists.shape[1])[:,None]
+            self.window = getattr(np,w)(self.dists.shape[0])[:,None] * getattr(np,w)(self.dists.shape[1])
             self.has_window = True
         elif w == False:
             self.has_window = False
