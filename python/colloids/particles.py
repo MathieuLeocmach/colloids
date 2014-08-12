@@ -541,6 +541,15 @@ def ngbN2bonds(ngbs):
     bonds.sort()
     return np.array(bonds)
     
+def bonds2ngbs(bonds, N):
+    """Returns an array of neighbours from bond data. N in the number of particles"""
+    ngbs = -np.ones([N, np.histogram(bonds, bins=np.arange(N+1))[0].max()], int)
+    if bonds.shape[-1]>0:
+        for a,b in bonds:
+            ngbs[a, np.where(ngbs[a]==-1)[0][0]] = b
+            ngbs[b, np.where(ngbs[b]==-1)[0][0]] = a
+    return ngbs
+    
 def get_rdf(pos, inside, Nbins=250, maxdist=30.0):
     g = np.zeros(Nbins, int)
     code = """
