@@ -24,6 +24,7 @@ from scipy import weave
 from scipy.weave import converters
 import itertools
 import os.path
+from colloids import periodic
 
 class Particles:
     """Positions of the particles at a givent time"""
@@ -607,85 +608,16 @@ def get_rdf(pos, inside, Nbins=250, maxdist=30.0):
         verbose=2, compiler='gcc')
     return g
 
-def get_Sq(pos, inside, qmax=10.0, maxdist=30.0, rate=1):
-    assert rate>0
-    assert inside.ndim == 1
-    assert len(inside) == len(pos)
-    qns = np.arange(0, qmax, np.pi/maxdist/rate)[rate:]
-    qphis = np.linspace(0, np.pi, 4, False)
-    qths = np.linspace(0, 2*np.pi, 8, False)
-    qas = np.column_stack((
-        np.outer(np.sin(qphis), np.cos(qths)).ravel(),
-        np.outer(np.sin(qphis), np.sin(qths)).ravel(),
-        np.repeat(np.cos(qphis), len(qths))
-        ))
-    #qas = np.eye(3)
-    S = np.zeros(len(qns), float)
-    code = """
-    //spatial indexing
-    typedef RStarTree<int, %(dim)d, 4, 32, double> RTree;
-    RTree tree;
-    for(int p=0; p<Npos[0]; ++p)
-    {
-        typename RTree::BoundingBox bb;
-		for(int d=0; d<Npos[1]; ++d)
-		{
-			bb.edges[d].first = pos(p,d) - maxdist;
-			bb.edges[d].second = pos(p,d) + maxdist;
-		}
-        tree.Insert(p, bb);
-    }
-    const double imaxsq = 1.0 / pow(maxdist, 2);
-    blitz::Array<std::complex<double>, 1> A(NS[0]);
-    #pragma omp parallel for schedule(dynamic)
-    for(int i=0; i<Npos[0]; ++i)
-    {
-        if(!inside(i))
-            continue;
-        blitz::Array<std::complex<double>, 2> a(NS[0], Nqas[0]);
-        a=0;
-        std::list<int> overlapping;
-        typename RTree::BoundingBox bb;
-        for(int d=0; d<Npos[1]; ++d)
-		{
-			bb.edges[d].first = pos(i,d) - maxdist;
-			bb.edges[d].second = pos(i,d) + maxdist;
-		}
-		tree.Query(typename RTree::AcceptOverlapping(bb), Gatherer<RTree::Leaf>(overlapping));
-        overlapping.sort();
-        overlapping.unique();
-        for(std::list<int>::const_iterator it=overlapping.begin(); it!=overlapping.end(); ++it)
-        {
-            const int j = *it;
-            if(i==j)
-                continue;
-            blitz::Array<double, 1> diff(pos(j,blitz::Range::all())-pos(i,blitz::Range::all()));
-            for(int l=0; l<Nqas[0]; ++l)
-            {
-                const double th = blitz::sum(qas(l, blitz::Range::all())*diff);
-                a(blitz::Range::all(), l) += blitz::polar(1.0, qns*th);
-            }
-        }
-        #pragma omp critical
-        {
-            blitz::secondIndex l;
-            S += blitz::sum(blitz::norm(a), l)/(overlapping.size()-1);
-            A += blitz::sum(a, l)/(double)(overlapping.size()-1);
-        }
-    }
-    S = (S-blitz::norm(A))/Nqas[0];
-    //S /= Nqas[0];
-    """%{'dim':pos.shape[1]}
-    weave.inline(
-        code,['pos', 'inside', 'maxdist', 'qns', 'qas', 'S'],
-        type_converters =converters.blitz,
-        support_code = support_Rtree,
-        include_dirs = [rstartree_path],
-        headers = ['"RStarTree.h"','<deque>', '<list>'],
-        extra_compile_args =['-O3 -fopenmp'],
-        extra_link_args=['-lgomp'],
-        verbose=2, compiler='gcc')
-    return 1+S/np.sum(inside), qns
+def structure_factor(positions, Nbins, Ls=[203.0]*3, maxNvec=30, field=None):
+    """Compute the structure factor of the positions in a non-periodic rectinilear box of dimensions Ls. 
+    To avoid the effects of box window, a Hanning window is applied. The three first coefficients are probably affected by this windowing. Be careful of the boundaries: do not leave empty margins around the data."""
+    if field is None:
+        field = np.ones(len(positions))
+    assert len(field) == len(positions)
+    #use the periodic version of get_Sq, but first the field is
+    # windowed by a Hanning
+    window = np.prod(0.5 * (1 + np.sin(2*np.pi*positions/Ls)), -1)
+    return periodic.rectangular_Sq(positions, Nbins, Ls, maxNvec, field*window) / (window**2).mean()
     
 def S2d_3d(S, q, width, dq=None):
     """Approximate restoration of a 3D structure factor from a structure factor taken in 2D on a slice of finite width. See Hiroo Totsuji and Chieko Totsuji, Physical Review E 85, 031139 (2012)."""
