@@ -466,8 +466,9 @@ def get_space_correl_binary(pos, field, Nbins, L, sep=800):
     return h, g
 
 code_kvec = """
-inline int generate_kvec(const int nk, blitz::Array<double,2> &kvectors, const int maxNvec=30)
+inline int generate_kvec(const int nk, blitz::Array<int,2> &kvectors, const int maxNvec=30)
 {
+    assert(maxNvec%3==0);
 	kvectors = 0;
 	int nvec = 0;
 	for(int i=0; i<nk && nvec<maxNvec; ++i)
@@ -485,72 +486,131 @@ inline int generate_kvec(const int nk, blitz::Array<double,2> &kvectors, const i
 
 def get_Sq(pos, Nbins, L=203.0, maxNvec=30, field=None):
     if field is None:
-        Sq = np.zeros(Nbins)
-        code = """
-        #pragma omp parallel for
-        for(int nk=1; nk<NSq[0]; ++nk)
+        field = np.ones(len(pos))
+    assert len(field) == len(pos)
+    Sq = np.zeros(Nbins)
+    #cache the complex exponential caculations
+    cache = np.ones([Nbins]+list(pos.shape), np.complex128)
+    code = """
+    //cache the complex exponential caculations
+    #pragma omp parallel for
+    for(int i=0; i<Npos[0]; ++i)
+        for(int j=0; j<Npos[1]; ++j)
         {
-            //generate the k-vectors
-            blitz::Array<double,2> kvectors(maxNvec, 3);
-			const int nvec = generate_kvec(nk, kvectors, maxNvec);
-            
-            for(int k=0; k<nvec; ++k)
-            {
-                std::complex<double> sum_rho(0.0,0.0);
-                for(int i=0; i<Npos[0]; ++i)
-                {
-                    double kr = 0.0;
-                    for(int j=0; j<Npos[1]; ++j)
-                        kr += kvectors(k,j) * pos(i, j);
-                    kr *= 2*M_PI/L;
-                    sum_rho += std::polar(1.0, kr);
-                }
-                Sq(nk) += std::norm(sum_rho);
-            }
-            Sq(nk) /= nvec;
+            std::complex<double> e = std::polar(1.0, 2*M_PI/L * pos(i,j));
+            for(int nk=1; nk<NSq[0]; ++nk)
+                cache(nk,i,j) = cache(nk-1,i,j) * e;
         }
-        """
-        weave.inline(
-            code,['pos', 'Sq', 'L', 'maxNvec'],
-			support_code = code_kvec,
-            type_converters =converters.blitz,
-            extra_compile_args =['-O3 -fopenmp'],
-            extra_link_args=['-lgomp'],
-            verbose=2, compiler='gcc')
-        return Sq
-    else:
-        assert len(field) == len(pos)
-        Sq = np.zeros(Nbins)
-        code = """
-        #pragma omp parallel for
-        for(int nk=1; nk<NSq[0]; ++nk)
-        {
-            //generate the k-vectors
-            blitz::Array<double,2> kvectors(maxNvec, 3);
-			const int nvec = generate_kvec(nk, kvectors, maxNvec);
-            
-            for(int k=0; k<nvec; ++k)
-            {
-                std::complex<double> sum_rho(0.0,0.0);
-                for(int i=0; i<Npos[0]; ++i)
-                {
-                    double kr = 0.0;
-                    for(int j=0; j<Npos[1]; ++j)
-                        kr += kvectors(k,j) * pos(i, j);
-                    kr *= 2*M_PI/L;
-                    sum_rho += field(i) * std::polar(1.0, kr);
-                }
-                Sq(nk) += std::norm(sum_rho);
-            }
-            Sq(nk) /= nvec;
-        }
-        """
-        weave.inline(
-            code,['pos', 'field', 'Sq', 'L', 'maxNvec'],
-			support_code = code_kvec,
-            type_converters =converters.blitz,
-            extra_compile_args =['-O3 -fopenmp'],
-            extra_link_args=['-lgomp'],
-            verbose=2, compiler='gcc')
-        return Sq/field.sum()
     
+    #pragma omp parallel for schedule(dynamic)
+    for(int nk=1; nk<NSq[0]; ++nk)
+    {
+        //generate the k-vectors
+        blitz::Array<int,2> kvectors(maxNvec, 3);
+		const int nvec = generate_kvec(nk, kvectors, maxNvec);
+        
+        for(int k=0; k<nvec; ++k)
+        {
+            std::complex<double> sum_rho(0.0,0.0);
+            for(int i=0; i<Npos[0]; ++i)
+            {
+                std::complex<double> prod(field(i), 0);
+                for(int j=0; j<Npos[1]; ++j)
+                {
+                    //random access to cache
+                    const int kv = kvectors(k,j);
+                    prod *= cache(kv, i,j);
+                }
+                sum_rho += prod;
+            }
+            Sq(nk) += std::norm(sum_rho);
+        }
+        Sq(nk) /= nvec;
+    }
+    """
+    weave.inline(
+        code,['pos', 'field', 'Sq', 'cache', 'L', 'maxNvec'],
+		support_code = code_kvec,
+        type_converters =converters.blitz,
+        extra_compile_args =['-O3 -fopenmp'],
+        extra_link_args=['-lgomp'],
+        verbose=2, compiler='gcc')
+    return Sq/field.sum()
+    
+#same in a rectangular box
+code_kvec_rect = """
+inline int generate_kvec_rect(const int nk, blitz::Array<double,2> &kvectors, const blitz::Array<double,1> &Lsq, const int maxNvec=30)
+{
+	kvectors = 0;
+	int nvec = 0;
+	for(int i=0; i<nk+1 && nvec<maxNvec; ++i)
+		for(int j=0; Lsq(0)*j*j<Lsq(1)*(nk*nk-i*i)+1 && nvec<maxNvec; ++j)
+		{
+		    const int ksqmax = Lsq(2) * ((nk*nk-i*i)/Lsq(0) - j*j/Lsq(1));
+		    const int ksqmin = Lsq(2) * (((nk-1)*(nk-1)-i*i)/Lsq(0) - j*j/Lsq(1));
+		    for (int k=sqrt(std::max(0, ksqmin)); k<=sqrt(ksqmax) && nvec<maxNvec; ++k)
+		        if (((nk-1)*(nk-1) - i*i)/Lsq(0) < j*j/Lsq(1) + k*k/Lsq(2))
+    		        kvectors(nvec++, blitz::Range::all()) = i, j, k;
+		}
+	return nvec;
+}
+"""
+
+def rectangular_Sq(positions, Nbins, Ls=[203.0]*3, maxNvec=30, field=None):
+    #sort xyz by decreasing box size
+    pos = positions[:, np.argsort(Ls)[::-1]]
+    dims = np.sort(Ls)[::-1]
+    Lsq = dims.astype(float)**2
+    if field is None:
+        field = np.ones(len(pos))
+    assert len(field) == len(pos)
+    assert maxNvec%3==0
+    Sq = np.zeros(Nbins)
+    #cache the complex exponential caculations
+    cache = np.ones([Nbins]+list(pos.shape), np.complex128)
+    code = """
+    //cache the complex exponential caculations
+    #pragma omp parallel for
+    for(int i=0; i<Npos[0]; ++i)
+        for(int j=0; j<Npos[1]; ++j)
+        {
+            std::complex<double> e = std::polar(1.0, 2*M_PI/dims(j) * pos(i,j));
+            for(int nk=1; nk<NSq[0]; ++nk)
+                cache(nk,i,j) = cache(nk-1,i,j) * e;
+        }
+    
+    #pragma omp parallel for schedule(dynamic)
+    for(int nk=1; nk<NSq[0]; ++nk)
+    {
+        //generate the k-vectors
+        blitz::Array<double,2> kvectors(maxNvec, 3);
+		const int nvec = generate_kvec_rect(nk, kvectors, Lsq, maxNvec);
+		//const int nvec = generate_kvec(nk, kvectors, maxNvec);
+        
+        for(int k=0; k<nvec; ++k)
+        {
+            std::complex<double> sum_rho(0.0,0.0);
+            for(int i=0; i<Npos[0]; ++i)
+            {
+                std::complex<double> prod(field(i), 0);
+                for(int j=0; j<Npos[1]; ++j)
+                {
+                    //random access to cache
+                    const int kv = kvectors(k,j);
+                    prod *= cache(kv, i,j);
+                }
+                sum_rho += prod;
+            }
+            Sq(nk) += std::norm(sum_rho);
+        }
+        Sq(nk) /= nvec;
+    }
+    """
+    weave.inline(
+        code,['pos', 'field', 'Sq', 'dims', 'cache', 'Lsq', 'maxNvec'],
+		support_code = code_kvec_rect,
+        type_converters =converters.blitz,
+        extra_compile_args =['-O3 -fopenmp'],
+        extra_link_args=['-lgomp'],
+        verbose=2, compiler='gcc')
+    return Sq/field.sum()
