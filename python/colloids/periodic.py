@@ -514,7 +514,7 @@ def get_Sq(pos, Nbins, L=203.0, maxNvec=30, field=None):
             std::complex<double> sum_rho(0.0,0.0);
             for(int i=0; i<Npos[0]; ++i)
             {
-                std::complex<double> prod(field(i), 0);
+                std::complex<double> prod(field(i));
                 for(int j=0; j<Npos[1]; ++j)
                 {
                     //random access to cache
@@ -535,7 +535,7 @@ def get_Sq(pos, Nbins, L=203.0, maxNvec=30, field=None):
         extra_compile_args =['-O3 -fopenmp'],
         extra_link_args=['-lgomp'],
         verbose=2, compiler='gcc')
-    return Sq/field.sum()
+    return Sq/len(pos)
     
 #same in a rectangular box
 code_kvec_rect = """
@@ -592,7 +592,7 @@ def rectangular_Sq(positions, Nbins, Ls=[203.0]*3, maxNvec=30, field=None):
             std::complex<double> sum_rho(0.0,0.0);
             for(int i=0; i<Npos[0]; ++i)
             {
-                std::complex<double> prod(field(i), 0);
+                std::complex<double> prod(field(i));
                 for(int j=0; j<Npos[1]; ++j)
                 {
                     //random access to cache
@@ -613,4 +613,4 @@ def rectangular_Sq(positions, Nbins, Ls=[203.0]*3, maxNvec=30, field=None):
         extra_compile_args =['-O3 -fopenmp'],
         extra_link_args=['-lgomp'],
         verbose=2, compiler='gcc')
-    return Sq/field.sum()
+    return Sq/len(pos)
