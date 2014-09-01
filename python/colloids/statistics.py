@@ -1,46 +1,31 @@
 import numpy as np
-import Gnuplot
+from matplotlib.pyplot import *
+from matplotlib.colors import LogNorm
 import numexpr
 from scipy import weave
 
-g=Gnuplot.Gnuplot()
-g('set pm3d map')
 
 def plothist(data, title=None, bins=50, normed=False):
+    figure('histograms')
     h, b = np.histogram(data, bins=bins, normed=normed)
-    return Gnuplot.Data(
-        b[:-1], h,
-        title=title,
-        with_='steps'
-        )
+    step(b[:-1], h, label=title)
 
-def columnData(data, xvals=None, yvals=None, **keywords):
-    """Prepare the arguments needed for an usual Gnuplot grid data in order to have a column data (no interpolation)"""
-    if xvals is None:
-        xvals = np.arange(data.shape[0])
-    if yvals is None:
-        yvals = np.arange(data.shape[1])
-    data = np.repeat(np.repeat(data, 2, axis=0), 2, axis=1)
-    xvals2 = np.repeat(xvals, 2)
-    xvals2[1:-1:2] = xvals[1:]
-    xvals2[-1] = xvals[-1]+2*(xvals[-1]-xvals[-2])
-    yvals2 = np.repeat(yvals, 2)
-    yvals2[1:-1:2] = yvals[1:]
-    yvals2[-1] = yvals[-1]+2*(yvals[-1]-yvals[-2])
-    keywords['binary'] = False
-    return Gnuplot.GridData(data, xvals2, yvals2, **keywords)
 
 def plot2dhist(datax, datay, title=None, bins=50, normed=False, cbmax=None, cbmin=None, logscale=False):
     h, bx, by = np.histogram2d(datax, datay, bins=bins, normed=normed)
     if logscale:
-        h[np.where(h>0)] = np.log10(h[np.where(h>0)])
-    h2 = np.repeat(np.repeat(h, 2, axis=0), 2, axis=1)
-    bx2 = np.repeat(bx[:-1], 2)
-    bx2[1::2] = bx[:-1]+(bx[1]-bx[0])
-    by2 = np.repeat(by[:-1], 2)
-    by2[1::2] = by[:-1]+(by[1]-by[0])
-    g('set palette gray negative')
-    g.splot(Gnuplot.GridData(h2, bx2, by2, binary=0))
+        imshow(
+            h, extent=(bx[0], bx[-2], by[0], by[-2]), 
+            aspect='auto', interpolation='none',
+            norm = LogNorm(vmin=cbmin, vmax=cbmax)
+            )
+    else:
+        imshow(
+            h, extent=(bx[0], bx[-2], by[0], by[-2]), 
+            vmin=cbmin, vmax=cbmax, 
+            aspect='auto', interpolation='none'
+            )
+
 
 def digitized2dhist(datax, datay, bins=50, zbins=5, logscale=True):
     h, bx, by = np.histogram2d(datax, datay, bins=bins)
@@ -71,33 +56,6 @@ def meanMap(x, y, values, bins=50):
     total, bx, by = np.histogram2d(x, y, bins=[bx, by], weights=values)
     return np.where(number==0, -1, total/number), bx[:-1], by[:-1]
 
-def plotMeanMap(x, y, values, bins=50, cbmax=None, cbmin=None):
-    """plot the mean map in order to have real step functions"""
-    h, bx, by = meanMap(x, y, values, bins)
-    h2 = np.repeat(np.repeat(h, 2, axis=0), 2, axis=1)
-    bx2 = np.repeat(bx, 2)
-    bx2[1::2] = bx+(bx[1]-bx[0])
-    by2 = np.repeat(by, 2)
-    by2[1::2] = by+(by[1]-by[0])
-    if not cbmax:
-            cbmax = h.max()
-    if cbmin:
-        low = cbmin
-    else:
-        low = np.extract(h>-1, h).min();
-    g(
-        'set palette defined ('
-        +'%g "white", %g "black", %g "purple", %g "red", %g "yellow")'
-        % (
-            low-(cbmax-low)/100,
-            low,
-            (2*cbmax+3*low)/5,
-            (3*cbmax+2*low)/5,
-            cbmax
-            )
-        )
-    g('set cbrange [%g:%g]' % (low-(cbmax-low)/100, cbmax))
-    g.splot(Gnuplot.GridData(h2, bx2, by2, binary=0))
 
 def timecorrel(data):
     """time correlation of an array of size [time, particles"""
@@ -156,42 +114,6 @@ def space_correlation(positions, values, bins):
 	total[nonzero] += h[nonzero]/n[nonzero]
     return total/(v*np.conj(v)).sum(), rdf/bins[1:]**2
 
-
-def pca(data):
-    cov = np.cov(data.T)
-    evalues, evect = np.linalg.eig(cov)
-    s = (-np.absolute(evalues)).argsort()
-    evect = evect[s]
-    evalues = evalues[s]
-    nored = np.dot(evect.T, data.T)
-    g = Gnuplot.Gnuplot()
-    d = Gnuplot.Data(nored[0], nored[1])
-    g.plot(d)
-    red = [np.dot(evect[:,:i].T, data.T) for i in range(1,len(evect)+1)]
-    redback = np.asarray(
-            [np.dot(evect[:,:i+1], r).T for i,r in enumerate(red)]
-            )
-    raw_input('ok ?')
-    return redback
-
-def dca(data, groups):
-    Ws = np.asarray([np.cov(data[g].T) for g in groups])
-    W = np.average(Ws, axis=0, weights=map(len, groups))
-    mus = np.asarray([data[g].mean(axis=0) for g in groups])
-    Bs = np.asarray([np.outer(m-mu, m-mu) for m in mus])
-    B = np.average(Bs, axis=0, weights=map(len, groups))
-    V = B+W
-    evalues, evect = np.linalg.eig(np.dot(np.linalg.inv(V), B))
-    evalues=np.real_if_close(evalues)
-    s = (-np.absolute(evalues)).argsort()
-    evalues = evalues[s]
-    evect = evect[s]
-    nored = np.dot(evect.T, cloudSC.T)
-    d = [Gnuplot.Data(nored[0][g], nored[1][g]) for g in groups]
-    g = Gnuplot.Gnuplot()
-    eval('g.plot('+', '.join(['d[%d]'%i for i in range(len(d))])+')')
-    raw_input('ok?')
-    return evalues, evect
     
 class StructureFactor2D:
     def __init__(self, shape):
