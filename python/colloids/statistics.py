@@ -81,7 +81,7 @@ def time_correlation(data, av=10):
         return np.mean([timecorrel(data[t0:len(data)+t0-av]) for t0 in range(av)], axis=0)
 
 def correlate_qlm(qlm, average=True):
-    qlm_cor = np.real(qlm*np.conj(qlm[0]))[:,:,[0]+2*range(1,qlm.shape[-1])].sum(axis=-1)
+    qlm_cor = np.real(qlm*np.conj(qlm[0]))[:,:,[0]+2*np.arange(1,qlm.shape[-1])].sum(axis=-1)
     if average:
             return (qlm_cor/qlm_cor[0]).mean(axis=-1)
     else:
@@ -118,7 +118,7 @@ class StructureFactor2D:
     def __init__(self, shape):
         self.im = np.zeros(shape)
         #mask of wavenumbers
-        self.wavenumbers = map(np.fft.fftfreq, shape)
+        self.wavenumbers = list(map(np.fft.fftfreq, shape))
         self.dists = numexpr.evaluate('sqrt(qx**2+qy**2)', {
             'qx':self.wavenumbers[0][:,None],
             'qy':self.wavenumbers[1][None,:]
@@ -126,7 +126,7 @@ class StructureFactor2D:
         #bin the wavenumbers
         self.nbq, self.qs = np.histogram(self.dists.ravel(), self.wavenumbers[0][:len(self.wavenumbers[0])/2])
         self.S = np.zeros(self.nbq.shape)
-        self.ws = map(np.hamming, shape)
+        self.ws = list(map(np.hamming, shape))
         self.Ns = []
         
     def __call__(self, pos, accumulate=True):
@@ -163,7 +163,7 @@ class StructureFactor3D:
     def __init__(self, shape):
         self.im = np.zeros(shape)
         #mask of wavenumbers
-        self.wavenumbers = map(np.fft.fftfreq, shape)
+        self.wavenumbers = list(map(np.fft.fftfreq, shape))
         self.dists = numexpr.evaluate('sqrt(qx**2+qy**2+qz**2)', {
             'qx':self.wavenumbers[0][:,None,None],
             'qy':self.wavenumbers[1][None,:,None],
@@ -173,7 +173,7 @@ class StructureFactor3D:
         #bin the wavenumbers
         self.nbq, self.qs = np.histogram(self.dists.ravel(), self.wavenumbers[0][:len(self.wavenumbers[0])/2])
         self.S = np.zeros(self.nbq.shape)
-        self.ws = map(np.hamming, shape)
+        self.ws = list(map(np.hamming, shape))
         self.Ns = []
         
     def __call__(self, pos, periodic=False, accumulate=True):
