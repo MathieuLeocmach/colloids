@@ -2,7 +2,6 @@ import numpy as np
 from matplotlib.pyplot import *
 from matplotlib.colors import LogNorm
 import numexpr
-from scipy import weave
 
 
 def plothist(data, title=None, bins=50, normed=False):
@@ -106,12 +105,12 @@ def space_correlation(positions, values, bins):
     total = np.zeros(len(bins)-1, values.dtype)
     rdf = np.zeros_like(total)
     for p, u in zip(positions, np.conjugate(v)):
-	distsq = np.sum((positions-p)**2, axis=-1)
-	h = np.histogram(distsq, bins=bins, weights=v*u)[0]
-	n = np.histogram(distsq, bins=bins)[0]
-	rdf += n
-	nonzero = n>0
-	total[nonzero] += h[nonzero]/n[nonzero]
+        distsq = np.sum((positions-p)**2, axis=-1)
+        h = np.histogram(distsq, bins=bins, weights=v*u)[0]
+        n = np.histogram(distsq, bins=bins)[0]
+        rdf += n
+        nonzero = n>0
+        total[nonzero] += h[nonzero]/n[nonzero]
     return total/(v*np.conj(v)).sum(), rdf/bins[1:]**2
 
     
