@@ -7,7 +7,7 @@ import numexpr
 def plothist(data, title=None, bins=50, normed=False):
     figure('histograms')
     h, b = np.histogram(data, bins=bins, normed=normed)
-    step(b[:-1], h, label=title)
+    step(b, h.tolist()+[h[-1]], where='post', label=title)
 
 
 def plot2dhist(datax, datay, title=None, bins=50, normed=False, cbmax=None, cbmin=None, logscale=False):
@@ -43,6 +43,17 @@ def digitized2dhist(datax, datay, bins=50, zbins=5, logscale=True):
                 h.ravel(),
                 np.linspace(1, h.max(), zbins)
                 ).reshape(h.shape)
+                
+def decimate_hist(h, col=1, thr=10):
+    """keep only the bins having more than thr. Column 0 is the bin"""
+    ret = [h[0]]
+    for l in h[1:]:
+        if ret[-1][col] > thr:
+            ret.append(l)
+        else:
+            ret[-1][1:] += l[1:]
+    return np.array(ret)
+            
 
 def meanMap1D(x, values, bins=50):
     number, b = np.histogram(x, bins)
