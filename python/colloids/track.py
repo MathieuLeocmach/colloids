@@ -450,6 +450,8 @@ def split_clusters(clusters, centers):
     
 def draw_spheres(shape, pos, radii):
     im = np.zeros(shape, np.uint8)
+    if np.isscalar(radii):
+        radii = radii * np.ones(len(pos))
     assert len(pos)==len(radii)
     assert np.min(pos.max(0)<shape[::-1]) and np.min([0,0,0]<=pos.min(0)), "points out of bounds"
     code = """
