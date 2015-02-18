@@ -5,9 +5,12 @@ import numexpr
 
 
 def plothist(data, title=None, bins=50, normed=False):
+    olf = gcf()
     figure('histograms')
     h, b = np.histogram(data, bins=bins, normed=normed)
     step(b, h.tolist()+[h[-1]], where='post', label=title)
+    #focus to the figure previously in focus
+    figure(olf.number)
 
 
 def plot2dhist(datax, datay, title=None, bins=50, normed=False, cbmax=None, cbmin=None, logscale=False):
@@ -237,18 +240,25 @@ class ImageStructureFactor:
         if w == False:
             self.has_window = False
         elif hasattr(np, w):
-            self.window = getattr(np,w)(self.dists.shape[0])[:,None] * getattr(np,w)(self.dists.shape[1])
+            self.window = [getattr(np,w)(self.dists.shape[0])[:,None], getattr(np,w)(self.dists.shape[1])]
             self.has_window = True
         elif isinstance(w, np.ndarray):
             assert w.shape == self.dists.shape
             self.window = w
             self.has_window = True
+            
+    def windowing(self, im):
+        if not self.has_window:
+            return im
+        if isinstance(self.window, np.ndarray):
+            return numexpr.evaluate('im*w', {'im':im, 'w':self.window})
+        return numexpr.evaluate('im*w0*w1', {'im':im, 'w0':self.window[0], 'w1':self.window[1]})
         
     def __call__(self, im):
-        if self.has_window:
-            spectrum = np.abs(np.fft.fft2(im*self.window))**2
-        else:
-            spectrum = np.abs(np.fft.fft2(im))**2
+        spectrum = numexpr.evaluate(
+            'real(abs(f))**2',
+            {'f':np.fft.fft2(self.windowing(im))}
+            )
         return np.histogram(self.dists.ravel(), bins=self.qs, weights=spectrum.ravel())[0] / self.dcount
         
         
