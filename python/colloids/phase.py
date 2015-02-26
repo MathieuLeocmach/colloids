@@ -79,7 +79,7 @@ def pvS_of_U(U, piv, q):
     return 3/u + piv * h(f,q)
 
 def critical_point(q):
-    """Critical point coordinates in the (PIv, f) plane function of the effective size ratio q=delta/a"""
+    """Critical point coordinates in the (f,PIv) plane function of the effective size ratio q=delta/a"""
     fc = fsolve(lambda f: 1/f + beta3(f,q)/beta2(f,q) - pv_0_2(f)/pv_0_1(f), 0.5)[0]
     PIvc = pv_0_1(fc)/fc/beta2(fc, q)
     return (fc, PIvc)
