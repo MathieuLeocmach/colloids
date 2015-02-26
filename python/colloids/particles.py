@@ -251,10 +251,10 @@ def non_overlapping(positions, radii):
             tree.insert(i, bb)
     return [i for i in tree.intersection(tree.bounds)]
 
-rstartree_path = os.path.join(
+rstartree_path = os.path.abspath(os.path.join(
     os.path.dirname(__file__),
     '../../multiscale/RStarTree'
-    )
+    ))
      
 support_Rtree = """
 template <typename Leaf>
