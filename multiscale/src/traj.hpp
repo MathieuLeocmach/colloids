@@ -28,6 +28,7 @@
 #define traj_H
 
 #include <boost/ptr_container/ptr_vector.hpp>
+#include <boost/noncopyable.hpp>
 #include <map>
 #include <vector>
 #include <deque>

@@ -6,6 +6,7 @@
  */
 
 #include "octavefinder.hpp"
+#include <boost/noncopyable.hpp>
 #include <boost/ptr_container/ptr_vector.hpp>
 
 #ifndef MULTISCALEFINDER_HPP_

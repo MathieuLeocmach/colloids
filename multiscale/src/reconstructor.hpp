@@ -12,6 +12,7 @@
 #include "traj.hpp"
 #include <list>
 #include <memory>
+#include <boost/noncopyable.hpp>
 
 namespace Colloids
 {
