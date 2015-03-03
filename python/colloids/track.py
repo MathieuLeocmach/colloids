@@ -508,6 +508,24 @@ def draw_rods(pos, radii, shape=None, im=None):
         extra_link_args=['-lgomp'],
         verbose=2, compiler='gcc')
     return im;
+    
+    
+def get_deconv_kernel(im, k=1.6, pxZ = 1.0, pxX=1.0):
+    """Compute the deconvolution kernel from a priori isotropic image. 
+    Returned kernel is in Fourier space."""
+    assert im.ndim == 3
+    imbl = gaussian_filter(im, k)
+    sblx = (np.abs(np.fft.rfft(imbl, axis=2))**2).mean(0).mean(0)
+    sblz = (np.abs(np.fft.rfft(imbl, axis=0))**2).mean(1).mean(1)
+    f2 = np.interp(
+        np.fft.fftfreq(2*len(sblz), pxZ)[:len(sblz)], 
+        np.fft.fftfreq(2*len(sblx), pxX)[:len(sblx)], sblx
+        )/sblz
+    return np.sqrt(f2)
+    
+def deconvolve(im, kernel):
+    """Deconvolve the input image. Suppose no noise (already blurred input)."""
+    return np.fft.irfft(np.fft.rfft(im, axis=0) * kernel[:,None,None], axis=0, n=im.shape[0])
 
 def radius2scale(R, k=1.6, n=3.0, dim=3):
     return n / np.log(2) * np.log(
@@ -1043,7 +1061,7 @@ class MultiscaleBlobFinder:
         self.time = 0.0
         self.ncalls = 0
         
-    def __call__(self, image, k=1.6, Octave0=True, removeOverlap=True, maxedge=1.1):
+    def __call__(self, image, k=1.6, Octave0=True, removeOverlap=True, maxedge=1.1, deconvKernel=None):
         """Locate blobs in each octave and regroup the results"""
         if not self.Octave0:
             Octave0 = False
@@ -1064,7 +1082,16 @@ class MultiscaleBlobFinder:
         else:
             centers = []
         if len(self.octaves)>1:
-            centers += [self.octaves[1](gaussian_filter(image, k), maxedge=maxedge)]
+            if deconvKernel is not None:
+                assert len(deconvKernel) == image.shape[0]/2+1
+                assert image.ndim == 3
+                #deconvolve the Z direction by a precalculated kernel
+                #To avoid noise amplification, the blurred image is deconvolved, not the raw one
+                deconv = deconvolve(gaussian_filter(image.astype(float), k), deconvKernel)
+                #remove negative values
+                centers += [self.octaves[1](np.maximum(0, deconv), maxedge=maxedge)]
+            else:
+                centers += [self.octaves[1](gaussian_filter(image, k), maxedge=maxedge)]
         #subsample the -3 layerG of the previous octave
         #which is two times more blurred that layer 0
         #and use it as the base of new octave
