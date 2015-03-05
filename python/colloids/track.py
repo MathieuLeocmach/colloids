@@ -528,19 +528,23 @@ def deconvolve(im, kernel):
     return np.fft.irfft(np.fft.rfft(im, axis=0) * kernel[:,None,None], axis=0, n=im.shape[0])
 
 def radius2scale(R, k=1.6, n=3.0, dim=3):
+    """Converts a radius (in pixels) to a scale index (logarithmic scale corresponding to the inner working of a MultiscaleTracker)"""
     return n / np.log(2) * np.log(
         R/k * np.sqrt(n*(2**(2.0/n) - 1)/(2 * dim* np.log(2)))
         ) -1
 
 def scale2radius(x, k=1.6, n=3.0, dim=3):
+    """Converts a scale index (logarithmic scale corresponding to the inner working of a MultiscaleTracker) to a radius (in pixels)"""
     return k * 2**((x+1)/float(n))*np.sqrt(
         2 * dim * np.log(2) / float(n) / (2**(2.0/n)-1)
         )
         
 def radius2sigma(R, n=3.0, dim=3):
+    """Converts a radius (in pixels) to a scale (logarithmic pixel scale)"""
     return R / np.sqrt(2*dim* np.log(2) / n/(1 - 2**(-2.0/n)))
     
 def sigma2radius(sigma, n=3.0, dim=3):
+    """Converts a scale (logarithmic pixel scale) to a radius (in pixels)"""
     return sigma * np.sqrt(2*dim* np.log(2) / n/(1 - 2**(-2.0/n)))
         
 support_functions = """
@@ -597,6 +601,21 @@ support_functions = """
     """
 
 def global_rescale_weave(sigma0, bonds, dists, R0=None, n=3):
+    """Takes into account the overlapping of the blurred spot of neighbouring particles to compute the radii of all particles. Suppose all particles equally bright.
+    
+    parameters
+    ----------
+    sigma0 :  array((N))
+        The radii output by MultiscaleTracker via scale2radius.
+    bonds : array((M,2), int)
+        First output of particles.get_bonds
+    dists : array((M), float)
+        Second output of particles.get_bonds
+    R0 : array((N))
+        Previous iteration's radii
+    n : int
+        Same as in MultiscaleTracker
+    """
     assert len(bonds)==len(dists) 
     alpha = 2**(1.0/n)
     if R0==None:
@@ -634,6 +653,23 @@ def global_rescale_weave(sigma0, bonds, dists, R0=None, n=3):
     return R0 + spsolve(jacob0.tocsc(), -v0)
     
 def global_rescale_intensity(sigma0, bonds, dists, intensities, R0=None, n=3):
+    """Takes into account the overlapping of the blurred spot of neighbouring particles to compute the radii of all particles. The brightness of the particles is taken into account.
+    
+    parameters
+    ----------
+    sigma0 :  array((N))
+        The radii output by MultiscaleTracker via scale2radius.
+    bonds : array((M,2), int)
+        First output of particles.get_bonds
+    dists : array((M), float)
+        Second output of particles.get_bonds
+    intensities : array((N), float)
+        Output of solve_intensities
+    R0 : array((N), float)
+        Previous iteration's radii
+    n : int
+        Same as in MultiscaleTracker
+    """
     assert len(bonds)==len(dists) 
     alpha = 2**(1.0/n)
     if R0==None:
@@ -677,6 +713,23 @@ def global_rescale_intensity(sigma0, bonds, dists, intensities, R0=None, n=3):
     return R0 + spsolve(jacob0.tocsc(), -v0)
     
 def solve_intensities(sigma0, bonds, dists, intensities, R0=None, n=3):
+    """Takes into account the overlapping of the blurred spot of neighbouring particles to compute the brightness of all particles.
+    
+    parameters
+    ----------
+    sigma0 :  array((N))
+        The radii output by MultiscaleTracker via scale2radius.
+    bonds : array((M,2), int)
+        First output of particles.get_bonds
+    dists : array((M), float)
+        Second output of particles.get_bonds
+    intensities : array((N), float)
+        Value of the Difference of Gaussian at the place and scale of each particle, e.g. the last column of the output of MultiscaleTracker
+    R0 : array((N), float)
+        Previous iteration's radii
+    n : int
+        Same as in MultiscaleTracker
+    """
     assert len(bonds)==len(dists) 
     alpha = 2**(1.0/n)
     if R0==None:
