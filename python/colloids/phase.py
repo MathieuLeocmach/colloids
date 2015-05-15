@@ -206,6 +206,38 @@ class Kolafa(EquationOfState):
         """Chemical potential - np.log(f)"""
         return (-8*logOnePlusX(f) + 5 - 4/(f+1) + 25*f + 45*f**2/2. + 5*f**3) / 3.
         
+class LeFevre(EquationOfState):
+    """Le Fevre equation of state for a hard sphere fluid.
+    
+    Should be valid at all densities even if less accurate than CS at low densities"""
+    
+    def __init__(self):
+        self.P = np.poly1d([-0.0972383, -1.21581, -3.89085, -5.35009, -3.40466, -0.826856, 0])
+        self.Q = np.poly1d([1, -2.50397, 2.38135, -1.35199, -0.0972383, -0.924177, -0.826856])
+    
+    def pv_0(self, f):
+        """Pressure * volume = phi*Z(phi) function of f=phi/(1-phi)"""
+        return self.P(f)/self.Q(f)
+    
+    def pv_0_1(self, f):
+        """First derivative of pv_0 with respect to f"""
+        return (self.P.deriv() * self.Q - self.P * self.Q.deriv())(f) / (self.Q**2)(f)
+        
+    def pv_0_2(self, f):
+        """Second derivative of pv_0 with respect to f"""
+        return (self.P.deriv(2) * self.Q**2 - 2*self.P.deriv()*self.Q.deriv()*self.Q +2*self.P * self.Q.deriv()**2 - self.P * self.Q * self.Q.deriv(2))(f) / (self.Q**3)(f)
+        
+    def mu_0_nolog(self, f):
+        """Chemical potential - np.log(f)"""
+        phi = f2vf(f)
+        Q1 = np.poly1d([-1, 0.636566])(phi)
+        Q2 = np.poly1d([1, 0.977327])(phi)
+        Q3 = np.poly1d([1, -0.646459, 0.468619])(phi)
+        Q4 = np.poly1d([1, -1.15801, 0.391873])(phi)
+        Z = 1.11967/Q1 +0.0258742/Q2 + (0.342478*phi-0.278592)/Q3 + (0.751322*phi-0.0748109)/Q4
+        intZ = -1.75889*np.log(Q1) -0.0264744*np.log(Q2) +0.297249*np.log(Q3) +0.0954345*np.log(Q4) -2.6928*np.arctan(2.43318-4.20234*phi) -0.249103*np.arctan(0.535643-1.65716*phi)
+        return - logOnePlusX(f) + Z - 1 + intZ + 2.8219814517647936
+        
 
         
 class Hall(EquationOfState):
