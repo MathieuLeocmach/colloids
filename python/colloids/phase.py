@@ -5,6 +5,8 @@ see Gerard J Fleer and Remco Tuinier, Advances in Colloid and Interface Science 
 import numpy as np
 from scipy.optimize import fsolve, fminbound
 from scipy import interpolate
+from scipy.misc import derivative
+from scipy.integrate import quad
 
 def logOnePlusX(x):
     """Calculate log(1 + x), preventing loss of precision for small values of x."""
@@ -62,21 +64,28 @@ alpha = lambda f, q: beta(f,q)/(1+f)
 class EquationOfState:
     """An equation of state for the system without polymer."""
     
+    def Z(self, f):
+        """Compressibility function of f=phi/(1-phi)"""
+        raise NotImplementedError()
+    
     def pv_0(self, f):
         """Pressure * volume = phi*Z(phi) function of f=phi/(1-phi)"""
-        raise NotImplementedError()
+        return f/(1.+f) * self.Z(f)
     
     def pv_0_1(self, f):
         """First derivative of pv_0 with respect to f"""
-        raise NotImplementedError()
+        return derivative(self.pv_0, f, dx=1e-6)
         
     def pv_0_2(self, f):
         """Second derivative of pv_0 with respect to f"""
-        raise NotImplementedError()
+        return derivative(self.pv_0, f, dx=1e-6, n=2)
         
     def mu_0_nolog(self, f):
         """Chemical potential - np.log(f)"""
-        raise NotImplementedError()
+        func = lambda x: (self.Z(x)-1)/(1.+x)/x
+        return - logOnePlusX(f) + self.Z(f) + np.vectorize(
+            lambda y: quad(func, 0, y)[0]
+            )(f)
         
     def mu_0(self, f):
         """Chemical potential"""
@@ -171,6 +180,10 @@ class EquationOfState:
 class CarnahanStarling(EquationOfState):
     """Carnahan and Starling equation of state for a hard sphere fluid."""
     
+    def Z(self, f):
+        """Compressibility function of f=phi/(1-phi)"""
+        return 2*f**3 + 6*f**2 + 4*f +1
+    
     def pv_0(self, f):
         """Pressure * volume = phi*Z(phi) function of f=phi/(1-phi)"""
         return f/(1+f) + 4*f**2 + 2* f**3
@@ -186,6 +199,13 @@ class CarnahanStarling(EquationOfState):
     def mu_0_nolog(self, f):
         """Chemical potential - np.log(f)"""
         return - logOnePlusX(f) + 8*f + 7*f**2 + 2*f**3
+        
+class CarnahanStarling2(EquationOfState):
+    """Carnahan and Starling equation of state for a hard sphere fluid."""
+    
+    def Z(self, f):
+        """Compressibility function of f=phi/(1-phi)"""
+        return 2*f**3 + 6*f**2 + 4*f +1
         
 class Kolafa(EquationOfState):
     """Kolafa equation of state for a hard sphere fluid."""
@@ -209,7 +229,7 @@ class Kolafa(EquationOfState):
 class LeFevre(EquationOfState):
     """Le Fevre equation of state for a hard sphere fluid.
     
-    Should be valid at all densities even if less accurate than CS at low densities"""
+    Add a divergence at RCP but is less accurate than CS at low densities, very bad between 0.45 and 0.58"""
     
     def __init__(self):
         self.P = np.poly1d([-0.0972383, -1.21581, -3.89085, -5.35009, -3.40466, -0.826856, 0])
