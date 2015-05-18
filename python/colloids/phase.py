@@ -78,7 +78,7 @@ class EquationOfState:
         
     def pv_0_2(self, f):
         """Second derivative of pv_0 with respect to f"""
-        return derivative(self.pv_0, f, dx=1e-6, n=2)
+        return derivative(self.pv_0, f, dx=1e-3, n=2,order=5)
         
     def mu_0_nolog(self, f):
         """Chemical potential - np.log(f)"""
