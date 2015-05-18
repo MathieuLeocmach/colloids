@@ -79,12 +79,15 @@ class EquationOfState:
     def pv_0_2(self, f):
         """Second derivative of pv_0 with respect to f"""
         return derivative(self.pv_0, f, dx=1e-3, n=2,order=5)
-        
+    
+    def tointegrate(self,f):
+        """The content of the integral that gives part of the chemical potential"""
+        return (self.Z(f)-1)/(1.+f)/f
+    
     def mu_0_nolog(self, f):
         """Chemical potential - np.log(f)"""
-        func = lambda x: (self.Z(x)-1)/(1.+x)/x
-        return - logOnePlusX(f) + self.Z(f) + np.vectorize(
-            lambda y: quad(func, 0, y)[0]
+        return - logOnePlusX(f) + self.Z(f)-1 + np.vectorize(
+            lambda y: quad(self.tointegrate, 0, y)[0]
             )(f)
         
     def mu_0(self, f):
@@ -206,6 +209,10 @@ class CarnahanStarling2(EquationOfState):
     def Z(self, f):
         """Compressibility function of f=phi/(1-phi)"""
         return 2*f**3 + 6*f**2 + 4*f +1
+        
+    def tointegrate(self,f):
+        """The content of the integral that gives part of the chemical potential"""
+        return (2*f**2 + 6*f + 4)/(1.+f)
         
 class Kolafa(EquationOfState):
     """Kolafa equation of state for a hard sphere fluid."""
