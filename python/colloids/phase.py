@@ -32,8 +32,8 @@ def logOnePlusX(x):
 qR2q = lambda qR: 0.9*qR**0.9
 piv2y = lambda piv, qR: qR**3*piv
 y2piv = lambda y, qR: y/qR**3
-f2vf = lambda f: f/(1+f)
-vf2f = lambda vf: vf/(1-vf)
+f2vf = lambda f: f/(1.+f)
+vf2f = lambda vf: vf/(1.-vf)
 
 #volume fraction at close packing
 eta_cp = np.pi/6*np.sqrt(2)
@@ -67,6 +67,10 @@ class EquationOfState:
     def Z(self, f):
         """Compressibility function of f=phi/(1-phi)"""
         raise NotImplementedError()
+        
+    def maxf(self):
+        """Maximum value of f (prevents divergences)."""
+        return 2.9
     
     def pv_0(self, f):
         """Pressure * volume = phi*Z(phi) function of f=phi/(1-phi)"""
@@ -84,6 +88,14 @@ class EquationOfState:
         """The content of the integral that gives part of the chemical potential"""
         return (self.Z(f)-1)/(1.+f)/f
     
+    def pv_0_ratio(self, f):
+        """Ratio pv_0_2/pv_0_1"""
+        return self.pv_0_2(f) / self.pv_0_1(f)
+        
+    def tointegrate(self, f):
+        """The function to be integrated to get part of the chemical potential"""
+        return (self.Z(f)-1)/(1.+f)/f
+        
     def mu_0_nolog(self, f):
         """Chemical potential - np.log(f)"""
         return - logOnePlusX(f) + self.Z(f)-1 + np.vectorize(
@@ -121,7 +133,7 @@ class EquationOfState:
         
     def critical_point(self, q):
         """Critical point coordinates in the (f,PIv) plane function of the effective size ratio q=delta/a"""
-        fc = fsolve(lambda f: 1/f + beta3(f,q)/beta2(f,q) - self.pv_0_2(f)/self.pv_0_1(f), 0.5)[0]
+        fc = fsolve(lambda f: 1/f + beta3(f,q)/beta2(f,q) - self.pv_0_ratio(f), 0.5)[0]
         PIvc = self.pv_0_1(fc)/fc/beta2(fc, q)
         return (fc, PIvc)
         
@@ -130,7 +142,7 @@ class EquationOfState:
         if guess is None:
             fc = self.critical_point(q)[0]
             fspG = fminbound(lambda f: -self.pv(f, piv,q), 0, fc)
-            fspL = fminbound(self.pv, fc, 2*fc, args=(piv, q))
+            fspL = fminbound(self.pv, fc, self.maxf(), args=(piv, q))
             guess = np.log([0.5*fspG, fspL+fspG])
         return fsolve(lambda Fs: [
             self.pv_of_log(Fs[0], piv, q) - self.pv_of_log(Fs[1], piv, q), 
@@ -141,10 +153,10 @@ class EquationOfState:
         """return (piv, f_gas, f_liquid) on the spinodal line at insersion works pivs"""
         fc, pivc = self.critical_point(q)
         if pivs is None:
-            pivs = 1/np.linspace(1/pivc, 1/(8*pivc))
+            pivs = 1./np.linspace(1./pivc, 1./(8*pivc))
         return np.column_stack((pivs, np.vstack([(
             fminbound(lambda f: -self.pv(f, piv, q), 0, fc),
-            fminbound(lambda f: self.pv(f, piv, q), fc, 12)
+            fminbound(lambda f: self.pv(f, piv, q), fc, self.maxf())
             ) for piv in pivs])))
     
         
@@ -154,9 +166,9 @@ class EquationOfState:
         Fc = np.log(fc)
         #start sensibly above the critical point
         startp = pivc*1.1
-        fm = fminbound(self.mu, fc, 2*fc, args=(startp, q))
+        fm = fminbound(self.mu, fc, self.maxf(), args=(startp, q))
         fM = fminbound(lambda f: -self.pv(f, startp, q), 0, fc)
-        initial_guess = np.log([0.5*fM, fm+fM])
+        initial_guess = np.log([0.5*fM, 0.5*(fm+self.maxf())])
         #construct the top of the GL binodal
         if maxpiv is None:
             maxpiv = startp*2
@@ -217,6 +229,10 @@ class CarnahanStarling2(EquationOfState):
 class Kolafa(EquationOfState):
     """Kolafa equation of state for a hard sphere fluid."""
     
+    def Z(self, f):
+        """Compressibility function of f=phi/(1-phi)"""
+        return (5*f**4 +25*f**3 +30*f**2 +15*f +3)/(3*f+3)
+    
     def pv_0(self, f):
         """Pressure * volume = phi*Z(phi) function of f=phi/(1-phi)"""
         return (3 + 15*f + 30*f**2 + 25*f**3 + 5*f**4)*f/(1+f)**2/3.
@@ -265,8 +281,86 @@ class LeFevre(EquationOfState):
         intZ = -1.75889*np.log(Q1) -0.0264744*np.log(Q2) +0.297249*np.log(Q3) +0.0954345*np.log(Q4) -2.6928*np.arctan(2.43318-4.20234*phi) -0.249103*np.arctan(0.535643-1.65716*phi)
         return - logOnePlusX(f) + Z - 1 + intZ + 2.8219814517647936
         
-
+class Liu(EquationOfState):
+    """Liu equation of state for a hard sphere fluid. ArXiv:0605392. Smoother transition between CS and divergence"""
+    
+    def __init__(self):
+        self.a = 1/0.635584
+        self.cs = [0.31416, 4.1637e10, -2.3452e11, 3.6684e11]
+        self.QZv = np.poly1d([-0.16012, -0.172284, 1.9499, -2.5848, 1])/3.68584
+        self.P = np.poly1d([self.cs[3], 0, self.cs[2], 0, self.cs[1]]+[0]*40)
         
+    def maxf(self):
+        """Maximum value of f (prevents divergences)."""
+        return vf2f(0.635584)
+    
+    def Z(self, f):
+        """Compressibility function of f=phi/(1-phi)"""
+        phi = f2vf(f)
+        #tuncated virial term
+        Zv = 1 + phi/self.QZv(phi)
+        #divergence
+        div = self.cs[0]*phi/(1 - self.a*phi)
+        #Polynomial junction
+        pol = self.P(phi)
+        return Zv + div + pol
+        
+    def pv_0_1_phi(self,phi):
+        """First derivative of pv_0 with respect to phi"""
+        #tuncated virial term
+        Zv1 = 1 + phi*(2*self.QZv - np.poly1d([1,0])*self.QZv.deriv())(phi)/(self.QZv**2)(phi)
+        #divergence
+        div1 = self.cs[0]*phi*(2-self.a*phi)/(1 - self.a*phi)**2
+        #Polynomial junction
+        pol1 = (self.P*np.poly1d([1,0])).deriv()(phi)
+        return Zv1 + div1 + pol1
+        
+    def pv_0_1(self,f):
+        """First derivative of pv_0 with respect to f"""
+        phi = f2vf(f)
+        #convert derivatives with respect to phi to derivatives with respect to f
+        return self.pv_0_1_phi(phi)*(1.-phi)**2
+        
+    def pv_0_2_phi(self, phi):
+        """Second derivative of pv_0 with respect to phi"""
+        Zv2 = (
+            np.poly1d([2,0,0]) * self.QZv.deriv()**2 
+            -np.poly1d([1,0,0]) * self.QZv * self.QZv.deriv(2) 
+            -np.poly1d([4,0]) * self.QZv * self.QZv.deriv() 
+            +2*self.QZv**2
+            )(phi)/(self.QZv**3)(phi)
+        #divergence
+        div2 = 2*self.cs[0]/(1. - self.a*phi)**3
+        #Polynomial junction
+        pol2 = (self.P*np.poly1d([1,0])).deriv(2)(phi)
+        return Zv2 + div2 + pol2
+        
+    def pv_0_2(self, f):
+        """Second derivative of pv_0 with respect to f"""
+        phi = f2vf(f)
+        #convert derivatives with respect to phi to derivatives with respect to f
+        return self.pv_0_2_phi(phi)*(1.-phi)**4 -self.pv_0_1_phi(phi)*2*(1-phi)**3
+        
+    def pv_0_ratio(self, f):
+        """Ratio pv_0_2/pv_0_1"""
+        phi = f2vf(f)
+        #convert derivatives with respect to phi to derivatives with respect to f
+        return self.pv_0_2_phi(phi)/self.pv_0_1_phi(phi)*(1.-phi)**2 -2*(1.-phi) 
+        
+        
+    def tointegrate(self, f):
+        """The function to be integrated to get part of the chemical potential"""
+        phi = f2vf(f)
+        #tuncated virial term
+        Zv = 1./self.QZv(phi)
+        #divergence
+        div = self.cs[0]/(1. - self.a*phi)
+        #Polynomial junction
+        pol = np.poly1d(self.P.coeffs[:-1])(phi)
+        #convert dphi into df
+        return (Zv + div + pol)*(1-phi)**2
+        
+
 class Hall(EquationOfState):
     """Hall equation of state for a hard sphere crystal."""
     
