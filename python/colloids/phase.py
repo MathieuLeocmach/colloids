@@ -257,6 +257,10 @@ class LeFevre(EquationOfState):
     def __init__(self):
         self.P = np.poly1d([-0.0972383, -1.21581, -3.89085, -5.35009, -3.40466, -0.826856, 0])
         self.Q = np.poly1d([1, -2.50397, 2.38135, -1.35199, -0.0972383, -0.924177, -0.826856])
+        
+    def maxf(self):
+        """Maximum value of f (prevents divergences)."""
+        return vf2f(0.636566)
     
     def pv_0(self, f):
         """Pressure * volume = phi*Z(phi) function of f=phi/(1-phi)"""
