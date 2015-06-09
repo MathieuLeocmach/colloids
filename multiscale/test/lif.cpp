@@ -14,7 +14,7 @@ BOOST_AUTO_TEST_SUITE( Lif )
     BOOST_AUTO_TEST_CASE( export_z_scan_fromSP8 )
 	{
 		LifReader reader("test_input/Playing_JH2.lif");
-		/*LifSerie &serie = reader.getSerie(2);
+		LifSerie &serie = reader.getSerie(2);
 		std::vector<size_t> dims = serie.getSpatialDimensions();
 		BOOST_CHECK_GE(dims.size(), 2);
 		cv::Mat_<unsigned char> slice(dims[0], dims[1]);
@@ -36,7 +36,7 @@ BOOST_AUTO_TEST_SUITE( Lif )
 				*c++ = *b++;
 			}
 			w << color_slice;
-		}*/
+		}
 	}
 	BOOST_AUTO_TEST_CASE( export_z_scan )
 	{
