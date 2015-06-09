@@ -24,9 +24,10 @@
  * Strongly inspired from BioimageXD VTK implementation but using standard library instead of VTK objects
  *
  */
+#include "lifFile.hpp"
 #include <algorithm>
 #include <numeric>
-#include "lifFile.hpp"
+#include <sstream>
 
 using namespace std;
 using namespace Colloids;
@@ -39,6 +40,7 @@ LifSerieHeader::LifSerieHeader(TiXmlElement *root) : name(root->Attribute("Name"
     // If Image element found
     if (elementImage)
         parseImage(elementImage);
+    
     return;
 }
 
@@ -104,6 +106,14 @@ size_t LifSerieHeader::getNbPixelsInOneTimeStep() const
     return accumulate(dims.begin(), dims.end(), 1, multiplies<size_t>());
 }
 
+/** @brief get the number of pixels in one slice, ie the product of the two first spatial dimensions  */
+size_t LifSerieHeader::getNbPixelsInOneSlice() const
+{
+    vector<size_t> dims = getSpatialDimensions();
+    dims.resize(2, 1);
+    return accumulate(dims.begin(), dims.end(), 1, multiplies<size_t>());
+}
+
 /** @brief get the ratio (Z voxel size)/(X voxel size)  */
 double LifSerieHeader::getZXratio() const
 {
@@ -127,10 +137,12 @@ void LifSerieHeader::parseImage(TiXmlNode *elementImage)
     // Parse time stamps even if there aren't any, then add empty
     // Unsigned Long Long to timestamps vector
     TiXmlNode *elementTimeStampList = elementImage->FirstChild("TimeStampList");
+    //std::cout << "parsing TimeStampList" << std::endl;
     parseTimeStampList(elementTimeStampList);
 
 
     // Parse Hardware Setting List even if there aren't
+    //std::cout << "parsing elementHardwareSettingList" << std::endl;
     TiXmlNode *elementHardwareSettingList = 0;
     TiXmlNode *child = 0;
     string Name;
@@ -140,7 +152,8 @@ void LifSerieHeader::parseImage(TiXmlNode *elementImage)
         if(Name=="HardwareSettingList" && !child->NoChildren())
             elementHardwareSettingList = child;
     }
-    parseHardwareSettingList(elementHardwareSettingList);
+    if(elementHardwareSettingList)
+    	parseHardwareSettingList(elementHardwareSettingList);
 }
 
 /** @brief parse the "ImageDescription" node of the XML header  */
@@ -173,19 +186,38 @@ void LifSerieHeader::parseTimeStampList(TiXmlNode *elementTimeStampList)
 {
     if (elementTimeStampList)
     {
-        unsigned long highInt;
-        unsigned long lowInt;
-        unsigned long long timeStamp;
-        TiXmlNode *child = 0;
-        while((child = elementTimeStampList->IterateChildren(child)))
+        int NumberOfTimeStamps = 0;
+        //new way to store timestamps
+        if (elementTimeStampList->ToElement()->Attribute("NumberOfTimeStamps", &NumberOfTimeStamps) != 0)
         {
-            child->ToElement()->QueryValueAttribute<unsigned long>("HighInteger",&highInt);
-            child->ToElement()->QueryValueAttribute<unsigned long>("LowInteger",&lowInt);
-            timeStamp = highInt;
-            timeStamp <<= 32;
-            timeStamp += lowInt;
-            timeStamp /= 10000; // Convert to ms
-            this->timeStamps.push_back(timeStamp);
+            this->timeStamps.resize(NumberOfTimeStamps);
+            //timestamps are stored in the text of the node as 16bits hexadecimal separated by spaces
+            //transform this node text in a stream
+            std::istringstream in(elementTimeStampList->ToElement()->GetText());
+            //convert each number from hex to unsigned long long and fill in the timestamp vector
+            copy(
+                std::istream_iterator<unsigned long long>(in >> std::hex),
+                std::istream_iterator<unsigned long long>(),
+                this->timeStamps.begin());
+        }
+        
+        //old way to store time stamps
+        else
+        {
+            unsigned long highInt;
+            unsigned long lowInt;
+            unsigned long long timeStamp;
+            TiXmlNode *child = 0;
+            while((child = elementTimeStampList->IterateChildren(child)))
+            {
+                child->ToElement()->QueryValueAttribute<unsigned long>("HighInteger",&highInt);
+                child->ToElement()->QueryValueAttribute<unsigned long>("LowInteger",&lowInt);
+                timeStamp = highInt;
+                timeStamp <<= 32;
+                timeStamp += lowInt;
+                timeStamp /= 10000; // Convert to ms
+                this->timeStamps.push_back(timeStamp);
+            }
         }
     }
 }
@@ -250,6 +282,18 @@ void LifSerie::fill3DBuffer(void* buffer, size_t t)
     unsigned long int frameDataSize = getNbPixelsInOneTimeStep()*channels.size();
     file.seekg(getOffset(t) ,ios::beg);
     file.read(pos,frameDataSize);
+}
+
+/**
+    \brief fill a memory buffer that already has the good dimension
+    If more than one channel, all channels are retrieved interlaced
+  */
+void LifSerie::fill2DBuffer(void* buffer, size_t t, size_t z)
+{
+    char *pos = static_cast<char*>(buffer);
+    unsigned long int sliceDataSize = getNbPixelsInOneSlice()*channels.size();
+    file.seekg(getOffset(t) + z *  sliceDataSize, ios::beg);
+    file.read(pos, sliceDataSize);
 }
 
 /** @brief return an iterator to the begining of the data of time step t
@@ -330,7 +374,13 @@ void LifHeader::parseHeader()
 
     TiXmlNode *serieNode = 0;
     while( (serieNode = elementChildren->IterateChildren("Element", serieNode)))
+    {
+        //have to remove some nodes also named "Element" introduced in later versions of LIF
+        std::string elname(serieNode->ToElement()->Attribute("Name"));
+        //std::cout << "Element Name: " << elname << std::endl;
+        if (elname == "BleachPointROISet") continue;
         series.push_back(new LifSerieHeader(serieNode->ToElement()));
+    }
 }
 
 

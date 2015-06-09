@@ -29,8 +29,7 @@
 #ifndef lif_reader_H
 #define lif_reader_H
 
-#define TIXML_USE_STL 1
-#include "tinyxml/tinyxml.h"
+#include "tinyxml.h"
 #include <string>
 #include <iostream>
 #include <fstream>
@@ -40,6 +39,7 @@
 #include <stdexcept>
 #include <memory>
 #include <boost/utility.hpp>
+#include <boost/noncopyable.hpp>
 #include <boost/ptr_container/ptr_vector.hpp>
 
 namespace Colloids{
@@ -68,6 +68,7 @@ class LifSerieHeader
         size_t getNbTimeSteps() const;
         std::vector<size_t> getSpatialDimensions() const;
         size_t getNbPixelsInOneTimeStep() const;
+        size_t getNbPixelsInOneSlice() const;
         double getZXratio() const;
         const std::map<std::string, DimensionData>& getDimensionsData() const {return dimensions;};
         const std::vector<ChannelData>& getChannels() const {return channels;};
@@ -91,6 +92,7 @@ class LifSerie : public LifSerieHeader, boost::noncopyable
         explicit LifSerie(LifSerieHeader serie, const std::string &filename, unsigned long long offset, unsigned long long memorySize);
 
         void fill3DBuffer(void* buffer, size_t t=0);
+        void fill2DBuffer(void* buffer, size_t t=0, size_t z=0);
         std::istreambuf_iterator<char> begin(size_t t=0);
         std::streampos tellg(){return file.tellg();}
         unsigned long long getOffset(size_t t=0) const;
@@ -113,6 +115,7 @@ class LifHeader : boost::noncopyable
         std::string getName() const {return this->name;};
         const int& getVersion() const {return this->lifVersion;};
         size_t getNbSeries() const {return this->series.size();}
+        bool contains(size_t s) const {return s<this->series.size();}
         size_t chooseSerieNumber() const;
         LifSerieHeader& getSerieHeader(size_t s){return this->series[s];};
         const LifSerieHeader& getSerieHeader(size_t s) const {return this->series[s];};
@@ -138,6 +141,7 @@ class LifReader : boost::noncopyable
         std::string getName() const {return getLifHeader().getName();};
         const int& getVersion() const {return getLifHeader().getVersion();};
         size_t getNbSeries() const {return this->series.size();}
+        bool contains(size_t s) const {return getLifHeader().contains(s);}
         size_t chooseSerieNumber() const {return getLifHeader().chooseSerieNumber();};
 
         LifSerie& getSerie(size_t s){return series[s];};
