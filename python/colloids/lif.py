@@ -87,11 +87,12 @@ stripping time stamps and non ascii characters
 
     def getSeriesHeaders(self):
         if not hasattr(self, '__seriesHeaders'):
-            self.__seriesHeaders = []
-            for i,s in enumerate(
-                self.xmlHeader.documentElement.getElementsByTagName('Element')[1:]
-                ):
-                self.__seriesHeaders.append(SerieHeader(s))
+            self.__seriesHeaders = [
+                SerieHeader(el)
+                for el in                self.xmlHeader.documentElement.getElementsByTagName('Element')[1:]
+                #have to remove some nodes also named "Element" introduced in later versions of LIF
+                if el.getAttribute('Name') != 'BleachPointROISet'
+                ]
         return self.__seriesHeaders
 
     def chooseSerieIndex(self):
@@ -374,17 +375,6 @@ class Reader(Header):
             
         #self.offsets = [long(m.getAttribute("Size")) for m in self.xmlHEader.getElementsByTagName("Memory")]
         
-        #remove the bleach points from new LEICA format (STED)
-        self.removeBleachPoints() 
-
-    def removeBleachPoints(self):
-        """remove the bleach points from new LEICA format (STED)"""
-        #need refactor
-        x = self.xmlHeader.documentElement.getElementsByTagName('BleachPoints')
-        for i in range(0, x.length):
-            y = x[i]
-            y.parentNode.removeChild(y)
-        return self    
 
     def __readMemoryBlockHeader(self):
         memBlock, trash, testBlock = struct.unpack("iic",self.f.read(9))
