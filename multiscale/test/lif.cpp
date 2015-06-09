@@ -11,6 +11,33 @@ using namespace Colloids;
 using namespace boost::posix_time;
 
 BOOST_AUTO_TEST_SUITE( Lif )
+    BOOST_AUTO_TEST_CASE( export_z_scan_fromSP8 )
+	{
+		LifReader reader("test_input/Playing_JH2.lif");
+		/*LifSerie &serie = reader.getSerie(2);
+		std::vector<size_t> dims = serie.getSpatialDimensions();
+		BOOST_CHECK_GE(dims.size(), 2);
+		cv::Mat_<unsigned char> slice(dims[0], dims[1]);
+		cv::Mat color_slice(slice.size(), CV_8UC3);
+		BOOST_CHECK_GT(dims.size(), 2);
+		const size_t total_z = dims.size()>2 ? dims[2] : 1;
+		BOOST_CHECK_EQUAL(total_z, 167);
+		BOOST_REQUIRE_MESSAGE(std::ofstream("test_output/Playing_JH2_z_scan.avi").good(), "Tests are not run in the right directory");
+		cv::VideoWriter w("test_output/Playing_JH2_z_scan.avi", CV_FOURCC('D', 'I', 'V', 'X'), 16, slice.size(), true);
+		for(size_t z=0; z<total_z; ++z)
+		{
+			serie.fill2DBuffer(static_cast<void*>(slice.data), 0, z);
+			unsigned char *c = color_slice.data;
+			cv::Mat_<unsigned char>::const_iterator b = slice.begin();
+			while(b!=slice.end())
+			{
+				*c++ = *b;
+				*c++ = *b;
+				*c++ = *b++;
+			}
+			w << color_slice;
+		}*/
+	}
 	BOOST_AUTO_TEST_CASE( export_z_scan )
 	{
 		LifReader reader("/home/mathieu/Code_data/liftest/Tsuru11dm_phi=52.53_J36.lif");

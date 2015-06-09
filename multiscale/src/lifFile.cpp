@@ -40,6 +40,7 @@ LifSerieHeader::LifSerieHeader(TiXmlElement *root) : name(root->Attribute("Name"
     // If Image element found
     if (elementImage)
         parseImage(elementImage);
+    
     return;
 }
 
@@ -136,10 +137,12 @@ void LifSerieHeader::parseImage(TiXmlNode *elementImage)
     // Parse time stamps even if there aren't any, then add empty
     // Unsigned Long Long to timestamps vector
     TiXmlNode *elementTimeStampList = elementImage->FirstChild("TimeStampList");
+    //std::cout << "parsing TimeStampList" << std::endl;
     parseTimeStampList(elementTimeStampList);
 
 
     // Parse Hardware Setting List even if there aren't
+    //std::cout << "parsing elementHardwareSettingList" << std::endl;
     TiXmlNode *elementHardwareSettingList = 0;
     TiXmlNode *child = 0;
     string Name;
@@ -183,19 +186,38 @@ void LifSerieHeader::parseTimeStampList(TiXmlNode *elementTimeStampList)
 {
     if (elementTimeStampList)
     {
-        unsigned long highInt;
-        unsigned long lowInt;
-        unsigned long long timeStamp;
-        TiXmlNode *child = 0;
-        while((child = elementTimeStampList->IterateChildren(child)))
+        int NumberOfTimeStamps = 0;
+        //new way to store timestamps
+        if (elementTimeStampList->ToElement()->Attribute("NumberOfTimeStamps", &NumberOfTimeStamps) != 0)
         {
-            child->ToElement()->QueryValueAttribute<unsigned long>("HighInteger",&highInt);
-            child->ToElement()->QueryValueAttribute<unsigned long>("LowInteger",&lowInt);
-            timeStamp = highInt;
-            timeStamp <<= 32;
-            timeStamp += lowInt;
-            timeStamp /= 10000; // Convert to ms
-            this->timeStamps.push_back(timeStamp);
+            this->timeStamps.resize(NumberOfTimeStamps);
+            //timestamps are stored in the text of the node as 16bits hexadecimal separated by spaces
+            //transform this node text in a stream
+            std::istringstream in(elementTimeStampList->ToElement()->GetText());
+            //convert each number from hex to unsigned long long and fill in the timestamp vector
+            copy(
+                std::istream_iterator<unsigned long long>(in >> std::hex),
+                std::istream_iterator<unsigned long long>(),
+                this->timeStamps.begin());
+        }
+        
+        //old way to store time stamps
+        else
+        {
+            unsigned long highInt;
+            unsigned long lowInt;
+            unsigned long long timeStamp;
+            TiXmlNode *child = 0;
+            while((child = elementTimeStampList->IterateChildren(child)))
+            {
+                child->ToElement()->QueryValueAttribute<unsigned long>("HighInteger",&highInt);
+                child->ToElement()->QueryValueAttribute<unsigned long>("LowInteger",&lowInt);
+                timeStamp = highInt;
+                timeStamp <<= 32;
+                timeStamp += lowInt;
+                timeStamp /= 10000; // Convert to ms
+                this->timeStamps.push_back(timeStamp);
+            }
         }
     }
 }
@@ -352,7 +374,13 @@ void LifHeader::parseHeader()
 
     TiXmlNode *serieNode = 0;
     while( (serieNode = elementChildren->IterateChildren("Element", serieNode)))
+    {
+        //have to remove some nodes also named "Element" introduced in later versions of LIF
+        std::string elname(serieNode->ToElement()->Attribute("Name"));
+        //std::cout << "Element Name: " << elname << std::endl;
+        if (elname == "BleachPointROISet") continue;
         series.push_back(new LifSerieHeader(serieNode->ToElement()));
+    }
 }
 
 
