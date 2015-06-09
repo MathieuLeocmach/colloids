@@ -373,8 +373,18 @@ class Reader(Header):
                 s.getRelativeTimeStamps()
             
         #self.offsets = [long(m.getAttribute("Size")) for m in self.xmlHEader.getElementsByTagName("Memory")]
+        
+        #remove the bleach points from new LEICA format (STED)
+        self.removeBleachPoints() 
 
-                
+    def removeBleachPoints(self):
+        """remove the bleach points from new LEICA format (STED)"""
+        #need refactor
+        x = self.xmlHeader.documentElement.getElementsByTagName('BleachPoints')
+        for i in range(0, x.length):
+            y = x[i]
+            y.parentNode.removeChild(y)
+        return self    
 
     def __readMemoryBlockHeader(self):
         memBlock, trash, testBlock = struct.unpack("iic",self.f.read(9))
