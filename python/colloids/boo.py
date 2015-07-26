@@ -75,8 +75,11 @@ def weave_qlm(pos, ngbs, inside, l=6):
         verbose=2, compiler='gcc')
     return qlm
     
-def periodic_qlm(pos, ngbs, period, l=6):
+def periodic_qlm(pos, ngbs, period, l=6, weights=None):
     assert len(pos) == len(ngbs)
+    if weights is None:
+        weights = np.ones(ngbs.shape, float)/ngbs.shape[1]
+    assert weights.shape == ngbs.shape
     qlm = np.zeros([len(pos), l+1], np.complex128)
     code = """
     #pragma omp parallel for
@@ -84,13 +87,16 @@ def periodic_qlm(pos, ngbs, period, l=6):
     {
         double cart[3] = {0, 0, 0};
         double sph[3] = {0, 0, 0};
-        int nb = 0;
+        //int nb = 0;
+        double total_weight = 0.0;
         for(int j=0; j<Nngbs[1]; ++j)
         {
             int q = ngbs(i,j);
             if(q<0 || q>=Npos[0])
                 continue;
-            nb++;
+            //nb++;
+            double weight = weights(i,j);
+            total_weight += weight;
             for(int d=0; d<3; ++d)
                 cart[d] = periodic_dist(pos(i,d), pos(q, d), period);
             sph[0] = sqrt(cart[0]*cart[0] + cart[1]*cart[1] + cart[2]*cart[2]);
@@ -107,15 +113,15 @@ def periodic_qlm(pos, ngbs, period, l=6):
 		            sph[2] += 2.0*M_PI;
             }
 		    for(int m=0; m<Nqlm[1]; ++m)
-		        qlm(i,m) += boost::math::spherical_harmonic(Nqlm[1]-1, m, sph[1], sph[2]);
+		        qlm(i,m) += weight * boost::math::spherical_harmonic(Nqlm[1]-1, m, sph[1], sph[2]);
         }
-        if(nb>0)
+        if(total_weight>0)
             for(int m=0; m<Nqlm[1]; ++m)
-                qlm(i,m) /= (double)nb;
+                qlm(i,m) /= total_weight;
     }
     """
     weave.inline(
-        code,['pos', 'ngbs', 'period', 'qlm'],
+        code,['pos', 'ngbs', 'period', 'weights', 'qlm'],
         type_converters =converters.blitz,
         headers = ['<boost/math/special_functions/spherical_harmonic.hpp>'],
         support_code = periodic.dist_code,
