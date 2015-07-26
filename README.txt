@@ -4,7 +4,12 @@
 
 Description
 
-    Colloids is a C++ library to process both experimental and simulation data of colloidal particles. Includes a tracker (Crocker&Girer) in 2D and 3D (+time), a Leica file reader, Steindhard bond orientational order calculation, etc.
+    Colloids is a C++ library to process both experimental and simulation data of colloidal particles. 
+    The main features are
+
+     * particle tracking from confocal microscopy images
+     * analysis of local structure and dynamics of particles (from simulations or experiments)
+
 
 Project Homepage
 
@@ -35,5 +40,5 @@ Aknowledge please
     Please cite Colloids and it's author(s) in any scientific publication using this software.
 
 Contact
-    Mathieu LEOCMACH, Institute of Industrial Science, the University of Tokyo, Japan
-    mathieu AT iis.u-tokyo.ac.jp
+    Mathieu LEOCMACH, Institut Lumière Matière, UMR-CNRS 5306, Lyon, France
+    mathieu.leocmach AT polytechnique.org
