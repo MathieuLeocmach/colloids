@@ -187,8 +187,9 @@ void LifSerieHeader::parseTimeStampList(TiXmlNode *elementTimeStampList)
     if (elementTimeStampList)
     {
         int NumberOfTimeStamps = 0;
+        elementTimeStampList->ToElement()->Attribute("NumberOfTimeStamps", &NumberOfTimeStamps);
         //new way to store timestamps
-        if (elementTimeStampList->ToElement()->Attribute("NumberOfTimeStamps", &NumberOfTimeStamps) != 0)
+        if (NumberOfTimeStamps != 0)
         {
             this->timeStamps.resize(NumberOfTimeStamps);
             //timestamps are stored in the text of the node as 16bits hexadecimal separated by spaces
