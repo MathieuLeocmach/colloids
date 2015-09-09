@@ -46,31 +46,38 @@ class Header:
 Parse the usefull part of the xml header,
 stripping time stamps and non ascii characters
 """
+        lightXML = StringIO.StringIO()
+        #to strip the non ascii characters
+        t = "".join(map(chr, range(256)))
+        d = "".join(map(chr, range(128,256)))
+        
         if not quick:
             #store all time stamps in a big array
             timestamps = np.fromregex(
                 xmlHeaderFile,
-                r'<TimeStamp HighInteger="(\d+)" LowInteger="(\d+)"/>'
+                r'<TimeStamp HighInteger="(\d+)" LowInteger="(\d+)"/>',
+                float
                 )
             xmlHeaderFile.seek(0)
             relTimestamps = np.fromregex(
                 xmlHeaderFile,
-                r'<RelTimeStamp Time="(\f+)" Frame="(\d+)"/>|<RelTimeStamp Frame="[0-9]*" Time="[0-9.]*"/>'
+                r'<RelTimeStamp Time="(\f+)" Frame="(\d+)"/>|<RelTimeStamp Frame="[0-9]*" Time="[0-9.]*"/>',
+                float
                 )
             xmlHeaderFile.seek(0)
+            for line in xmlHeaderFile:
+                lightXML.write(line.translate(t,d))
             
-        lightXML = StringIO.StringIO()
-        #to strip the time stamps
-        m = re.compile(
-            r'''<TimeStamp HighInteger="[0-9]*" LowInteger="[0-9]*"/>|'''
-            +r'''<RelTimeStamp Time="[0-9.]*" Frame="[0-9]*"/>|'''
-            +r'''<RelTimeStamp Frame="[0-9]*" Time="[0-9.]*"/>'''
-            )
-        #to strip the non ascii characters
-        t = "".join(map(chr, range(256)))
-        d = "".join(map(chr, range(128,256)))
-        for line in xmlHeaderFile:
-            lightXML.write(''.join(m.split(line)).translate(t,d))
+        else:
+            #to strip the time stamps
+            m = re.compile(
+                r'''<TimeStamp HighInteger="[0-9]*" LowInteger="[0-9]*"/>|'''
+                +r'''<RelTimeStamp Time="[0-9.]*" Frame="[0-9]*"/>|'''
+                +r'''<RelTimeStamp Frame="[0-9]*" Time="[0-9.]*"/>'''
+                )
+            
+            for line in xmlHeaderFile:
+                lightXML.write(''.join(m.split(line)).translate(t,d))
         lightXML.seek(0)
         self.xmlHeader = parse(lightXML)
 
@@ -225,12 +232,21 @@ class SerieHeader:
     def getTimeStamps(self):
         """if the timestamps are not empty, convert them into a more lightweight numpy array"""
         if not hasattr(self, '__timeStamps'):
-            self.__timeStamps = np.asarray([
-                (int(c.getAttribute("HighInteger"))<<32)+int(c.getAttribute("LowInteger"))
-                for c in self.root.getElementsByTagName("TimeStamp")])
-            #remove the data from XML
-            for c in self.root.getElementsByTagName("TimeStamp"):
-                c.parentNode.removeChild(c).unlink()
+            tslist = self.root.getElementsByTagName("TimeStampList")[0]
+            if tslist.hasAttribute("NumberOfTimeStamps") and int(tslist.getAttribute("NumberOfTimeStamps"))>0:
+                #SP8 way of storing time stamps in the text of the node as 16bits hexadecimal separated by spaces
+                self.__timeStamps = np.array([
+                    int(h, 16)
+                    for h in tslist.firstChild.nodeValue.split()
+                    ])
+            else:
+                #SP5 way of storing time stamps as very verbose XML
+                self.__timeStamps = np.asarray([
+                    (int(c.getAttribute("HighInteger"))<<32)+int(c.getAttribute("LowInteger"))
+                    for c in self.root.getElementsByTagName("TimeStamp")])
+                #remove the data from XML
+                for c in self.root.getElementsByTagName("TimeStamp"):
+                    c.parentNode.removeChild(c).unlink()
         return self.__timeStamps
 
     def getRelativeTimeStamps(self):
