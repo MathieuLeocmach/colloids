@@ -3,7 +3,7 @@
 ################################################################################
 
 # All Target
-all: multiscale tests bonds
+all: multiscale tests
 
 -include ../makefile.init
 
@@ -56,16 +56,10 @@ tests: $(OBJS) $(USER_OBJS)
 	@echo 'Finished building target: $@'
 	@echo ' '
 	
-bonds: $(OBJS) $(USER_OBJS)
-	@echo 'Building target: $@'
-	@echo 'Invoking: GCC C++ Linker'
-	g++ -L/usr/local/lib -o"bonds" ../bonds.cpp -O3 -g3 -Wall -lboost_program_options -fopenmp -fmessage-length=0 -mtune=native -MMD -MP
-	@echo 'Finished building target: $@'
-	@echo ' '
 
 # Other Targets
 clean:
-	-$(RM) $(OBJS)$(C++_DEPS)$(C_DEPS)$(CC_DEPS)$(CPP_DEPS)$(EXECUTABLES)$(CXX_DEPS)$(C_UPPER_DEPS) multiscale tests bonds
+	-$(RM) $(OBJS)$(C++_DEPS)$(C_DEPS)$(CC_DEPS)$(CPP_DEPS)$(EXECUTABLES)$(CXX_DEPS)$(C_UPPER_DEPS) multiscale tests
 	-@echo ' '
 
 .PHONY: all clean dependents
