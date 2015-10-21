@@ -29,7 +29,14 @@ def logOnePlusX(x):
     return np.where(np.fabs(x) > 0.375, np.log(1.0 + x), 2.0*t*w);
 
 #conversions from experimental variables to theoretically convinient ones
-qR2q = lambda qR: 0.9*qR**0.9
+def qR2q(qR, Flory=True):
+    if not Flory:
+        return 0.9*qR**0.9
+    a = 2/np.sqrt(np.pi) * (1 - 0.25*(1-1.5*np.log(2) - 0.5*np.pi + np.pi/np.sqrt(3)))
+    b = 1 - 5/8. * np.pi + 17/36. + np.pi*np.sqrt(3)/4
+    c = 1/(3*np.sqrt(np.pi)) * (1673*np.pi/48 - 551/15. - 40*np.pi/np.sqrt(3))
+    return (1 + 3*a*qR + 3*b*qR**2 - 3*c*qR**3)**(1/3.)-1
+
 piv2y = lambda piv, qR: qR**3*piv
 y2piv = lambda y, qR: y/qR**3
 f2vf = lambda f: f/(1.+f)
@@ -70,7 +77,7 @@ class EquationOfState:
         
     def maxf(self):
         """Maximum value of f (prevents divergences)."""
-        return 2.9
+        return vf2f(1-1e-6)
     
     def pv_0(self, f):
         """Pressure * volume = phi*Z(phi) function of f=phi/(1-phi)"""
