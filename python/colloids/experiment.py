@@ -203,10 +203,15 @@ class Experiment(object):
     def get_nb(self):
         """Number of particles in each frame"""
         if not hasattr(self,'__Nb'):
-            self.__Nb = np.array([
-                int(open(name,'r').readline().split()[1])
-                for t,name in self.enum()
-                ], int)
+            nbname = os.path.join(self.path, self.head + '.nb')
+            if not os.path.isfile(nbname):
+                self.__Nb = np.array([
+                    int(open(name,'r').readline().split()[1])
+                    for t,name in self.enum()
+                    ], int)
+                np.savetxt(nbname, self._Nb)
+            else:
+                self.__Nb = np.loadtxt(nbname)
         return self.__Nb
     
     def get_nb_bonds(self):
