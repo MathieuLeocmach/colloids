@@ -1079,8 +1079,11 @@ class OctaveBlobFinder:
                 n = ngb[tuple(
                     [slice(None)]+[slice(r-1,r+2)]*(self.layers.ndim-1)
                     )].ravel()
-                centers[i,1] = p[0] - (n[2] - n[0]) / 2.0 / (n[2] - 2 * n[1] + n[0])
-        return centers
+                denom = (n[2] - 2 * n[1] + n[0])
+                if (abs(denom)+1.0)**2 > 1.0:
+                    centers[i,1] = p[0] - (n[2] - n[0]) / 2.0 / (n[2] - 2 * n[1] + n[0])
+                else: centers[i,1] = -1
+        return centers[centers[:,1]>-1]
         
     def __call__(self, image, k=1.6, maxedge=1.1):
         """Locate bright blobs in an image with subpixel resolution.
