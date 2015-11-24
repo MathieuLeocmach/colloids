@@ -968,16 +968,42 @@ class OctaveBlobFinder:
         #scale space minima, whose neighbourhood are all negative 10 ms
         self.time_fill += time.clock()-t0
 
-    def initialize_binary(self, maxedge=1.1):
-        #centers are local maxima, negative and
-        #further from 0 than machine precision
+    def initialize_binary(self, maxedge=1.1, first_layer=False, maxDoG=None):
+        """Convert the DoG layers into the binary image, True at center position.
+        
+        Centers are local minima of the DoG with negative value 
+            if maxDog is None, the DoG value should be further from 0 than machine precision. 
+            else, the DoG value must be lower than maxDog
+        Centers at the edge of the image are excluded. 
+        On 2D images, if maxedge is positive, elongated blobs are excluded if the ratio of the eignevalues of the Hessian matrix is larger than maxedge.
+        Optionally, the local spatial minima in the first DoG layer can be considered as centers.
+        """
+        if maxDoG is None:
+            maxDoG = 0
+        #local minima in the DoG on both space and scale are obtained from erosion
         self.binary = numexpr.evaluate(
-            '(l==e) & (l<0) & (l**2+1.0>1.0)',
+            '(l==e) & (l<maxDoG) & (l**2+1.0>1.0)',
             {
                 'l': self.layers,
-                'e': self.eroded
+                'e': self.eroded,
+                'maxDoG': maxDoG
                 }
             )
+        #If the first DoG layer is taken into account, 
+        #its centers are translated in the layer above.
+        #Necessary for subpixel
+        if first_layer:
+            #add the condition that the center is within 1px of  
+            #a local maximum in the Gaussian layer
+            self.binary[0] &= binary_dilation(
+                grey_dilation(
+                    self.layersG[1], 
+                    [3]*(self.layers.ndim-1)
+                    ) == self.layersG[1], 
+                )
+            self.binary[1] |= self.binary[0]
+        #centers in the first and last layers are discared
+        #do not remove these lines or you break subpixel
         self.binary[0] = False
         self.binary[-1] = False
         #eliminate particles on the edges of image
@@ -1085,12 +1111,12 @@ class OctaveBlobFinder:
                 else: centers[i,1] = -1
         return centers[centers[:,1]>-1]
         
-    def __call__(self, image, k=1.6, maxedge=1.1):
+    def __call__(self, image, k=1.6, maxedge=1.1, first_layer=False, maxDoG=None):
         """Locate bright blobs in an image with subpixel resolution.
 Returns an array of (x, y, r, -intensity in scale space)"""
         self.ncalls += 1
         self.fill(image, k)
-        self.initialize_binary(maxedge)
+        self.initialize_binary(maxedge, first_layer, maxDoG)
         t0 = time.clock()
         centers = self.subpix()[:,::-1]
         self.time_subpix += time.clock() - t0
@@ -1117,7 +1143,7 @@ class MultiscaleBlobFinder:
         self.time = 0.0
         self.ncalls = 0
         
-    def __call__(self, image, k=1.6, Octave0=True, removeOverlap=True, maxedge=1.1, deconvKernel=None):
+    def __call__(self, image, k=1.6, Octave0=True, removeOverlap=True, maxedge=1.1, deconvKernel=None, first_layer=False, maxDoG=None):
         """Locate blobs in each octave and regroup the results"""
         if not self.Octave0:
             Octave0 = False
@@ -1134,7 +1160,7 @@ class MultiscaleBlobFinder:
             #preblur octave -1
             gaussian_filter(im2, k, output=self.preblurred)
             #locate blobs in octave -1
-            centers = [self.octaves[0](self.preblurred, k, maxedge)]
+            centers = [self.octaves[0](self.preblurred, k, maxedge, maxDoG=maxDoG)]
         else:
             centers = []
         if len(self.octaves)>1:
@@ -1145,9 +1171,9 @@ class MultiscaleBlobFinder:
                 #To avoid noise amplification, the blurred image is deconvolved, not the raw one
                 deconv = deconvolve(gaussian_filter(image.astype(float), k), deconvKernel)
                 #remove negative values
-                centers += [self.octaves[1](np.maximum(0, deconv), maxedge=maxedge)]
+                centers += [self.octaves[1](np.maximum(0, deconv), maxedge=maxedge, first_layer=first_layer, maxDoG=maxDoG)]
             else:
-                centers += [self.octaves[1](gaussian_filter(image, k), maxedge=maxedge)]
+                centers += [self.octaves[1](gaussian_filter(image, k), maxedge=maxedge, first_layer=first_layer, maxDoG=maxDoG)]
         #subsample the -3 layerG of the previous octave
         #which is two times more blurred that layer 0
         #and use it as the base of new octave
@@ -1155,7 +1181,7 @@ class MultiscaleBlobFinder:
             centers += [oc(
                 self.octaves[o+1].layersG[-3][
                     tuple([slice(None, None, 2)]*image.ndim)],
-                k, maxedge
+                k, maxedge, maxDoG=maxDoG
                 )]
         #merge the results and scale the coordinates and sizes
         centers = np.vstack([
