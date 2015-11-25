@@ -994,11 +994,11 @@ class OctaveBlobFinder:
         #Necessary for subpixel
         if first_layer:
             #if a local maximum in the Gaussian layer 1 is 
-            #within 1px of a potential (but doomed) center in the DoG layer 0
+            #within 2px of a potential (but doomed) center in the DoG layer 0
             #add it to binary layer 1
             self.binary[0] = binary_dilation(
                 self.binary[0], 
-                np.ones([3]*(self.layers.ndim-1))
+                np.ones([5]*(self.layers.ndim-1))
                 )
             self.binary[0] &= grey_dilation(
                 self.layersG[1], 
