@@ -993,17 +993,19 @@ class OctaveBlobFinder:
         #its centers are translated in the layer above.
         #Necessary for subpixel
         if first_layer:
-            #add the condition that the center is within 1px of  
-            #a local maximum in the Gaussian layer
-            self.binary[0] &= binary_dilation(
-                grey_dilation(
-                    self.layersG[1], 
-                    [3]*(self.layers.ndim-1)
-                    ) == self.layersG[1], 
+            #if a local maximum in the Gaussian layer 1 is 
+            #within 1px of a potential (but doomed) center in the DoG layer 0
+            #add it to binary layer 1
+            self.binary[0] = binary_dilation(
+                self.binary[0], 
                 np.ones([3]*(self.layers.ndim-1))
                 )
+            self.binary[0] &= grey_dilation(
+                self.layersG[1], 
+                [3]*(self.layers.ndim-1)
+                ) == self.layersG[1]
             self.binary[1] |= self.binary[0]
-        #centers in the first and last layers are discared
+        #centers in the first and last layers are discarded
         #do not remove these lines or you break subpixel
         self.binary[0] = False
         self.binary[-1] = False
