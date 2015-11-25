@@ -842,7 +842,7 @@ class CrockerGrierFinder:
         #Dilation
         grey_dilation(self.blurred, [3]*self.blurred.ndim, output=self.dilated)
         
-    def initialize_binary(self, maxedge=1.1, threshold=None):
+    def initialize_binary(self, maxedge=-1, threshold=None):
         if threshold is None:
             self.binary[:] = self.blurred == self.dilated
         else:
@@ -919,7 +919,7 @@ class CrockerGrierFinder:
             centers[i,0] = ngb.mean()
         return centers
         
-    def __call__(self, image, k=1.6, maxedge=1.1, threshold=None, uniform_size=None, background=None):
+    def __call__(self, image, k=1.6, maxedge=-1, threshold=None, uniform_size=None, background=None):
         """Locate bright blobs in an image with subpixel resolution.
 Returns an array of (x, y, intensity)"""
         self.fill(image, k, uniform_size, background)
@@ -968,7 +968,7 @@ class OctaveBlobFinder:
         #scale space minima, whose neighbourhood are all negative 10 ms
         self.time_fill += time.clock()-t0
 
-    def initialize_binary(self, maxedge=1.1, first_layer=False, maxDoG=None):
+    def initialize_binary(self, maxedge=-1, first_layer=False, maxDoG=None):
         """Convert the DoG layers into the binary image, True at center position.
         
         Centers are local minima of the DoG with negative value 
@@ -1114,7 +1114,7 @@ class OctaveBlobFinder:
                 else: centers[i,1] = p[0]
         return centers
         
-    def __call__(self, image, k=1.6, maxedge=1.1, first_layer=False, maxDoG=None):
+    def __call__(self, image, k=1.6, maxedge=-1, first_layer=False, maxDoG=None):
         """Locate bright blobs in an image with subpixel resolution.
 Returns an array of (x, y, r, -intensity in scale space)"""
         self.ncalls += 1
@@ -1146,7 +1146,7 @@ class MultiscaleBlobFinder:
         self.time = 0.0
         self.ncalls = 0
         
-    def __call__(self, image, k=1.6, Octave0=True, removeOverlap=True, maxedge=1.1, deconvKernel=None, first_layer=False, maxDoG=None):
+    def __call__(self, image, k=1.6, Octave0=True, removeOverlap=True, maxedge=-1, deconvKernel=None, first_layer=False, maxDoG=None):
         """Locate blobs in each octave and regroup the results"""
         if not self.Octave0:
             Octave0 = False
