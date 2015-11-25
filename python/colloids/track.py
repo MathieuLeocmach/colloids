@@ -1106,11 +1106,11 @@ class OctaveBlobFinder:
                     ))-rv)+p
                 #the subscale resolution is calculated using only 3 pixels
                 n = ngb[tuple(
-                    [slice(None)]+[slice(r-1,r+2)]*(self.layers.ndim-1)
+                    [slice(None)]+[r]*(self.layers.ndim-1)
                     )].ravel()
                 denom = (n[2] - 2 * n[1] + n[0])
                 if (abs(denom)+1.0)**2 > 1.0:
-                    centers[i,1] = p[0] - (n[2] - n[0]) / 2.0 / (n[2] - 2 * n[1] + n[0])
+                    centers[i,1] = p[0] - (n[2] - n[0]) / 2.0 / denom
                 else: centers[i,1] = -1
         return centers[centers[:,1]>-1]
         
