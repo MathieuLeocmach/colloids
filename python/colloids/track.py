@@ -1000,6 +1000,7 @@ class OctaveBlobFinder:
                     self.layersG[1], 
                     [3]*(self.layers.ndim-1)
                     ) == self.layersG[1], 
+                np.ones([3]*(self.layers.ndim-1))
                 )
             self.binary[1] |= self.binary[0]
         #centers in the first and last layers are discared
