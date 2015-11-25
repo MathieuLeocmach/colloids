@@ -1111,8 +1111,8 @@ class OctaveBlobFinder:
                 denom = (n[2] - 2 * n[1] + n[0])
                 if (abs(denom)+1.0)**2 > 1.0:
                     centers[i,1] = p[0] - (n[2] - n[0]) / 2.0 / denom
-                else: centers[i,1] = -1
-        return centers[centers[:,1]>-1]
+                else: centers[i,1] = p[0]
+        return centers
         
     def __call__(self, image, k=1.6, maxedge=1.1, first_layer=False, maxDoG=None):
         """Locate bright blobs in an image with subpixel resolution.
