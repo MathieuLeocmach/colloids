@@ -1000,10 +1000,11 @@ class OctaveBlobFinder:
                 self.binary[0], 
                 np.ones([5]*(self.layers.ndim-1))
                 )
+            #local maxima of the 0th Gaussian layer, idem Crocker&Grier
             self.binary[0] &= grey_dilation(
-                self.layersG[1], 
+                self.layersG[0], 
                 [3]*(self.layers.ndim-1)
-                ) == self.layersG[1]
+                ) == self.layersG[0]
             self.binary[1] |= self.binary[0]
         #centers in the first and last layers are discarded
         #do not remove these lines or you break subpixel
