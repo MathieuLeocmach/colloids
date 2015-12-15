@@ -5,12 +5,14 @@ import numexpr
 
 
 def plothist(data, title=None, bins=50, normed=False):
-    olf = gcf()
-    figure('histograms')
+    if 'inline' not in get_backend():
+        olf = gcf()
+        figure('histograms')
     h, b = np.histogram(data, bins=bins, normed=normed)
     step(b, h.tolist()+[h[-1]], where='post', label=title)
-    #focus to the figure previously in focus
-    figure(olf.number)
+    if 'inline' not in get_backend():
+        #focus to the figure previously in focus
+        figure(olf.number)
 
 
 def plot2dhist(datax, datay, title=None, bins=50, normed=False, cbmax=None, cbmin=None, logscale=False):
