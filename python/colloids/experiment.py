@@ -826,7 +826,7 @@ Return a dictionary (particle id -> cluster id)
 
     def get_time_clusters(self, isNode):
         clusters = [self.get_clusters(t, isNode[t]) for t in range(self.xp.size)]
-        timegr = nx.graph()
+        timegr = nx.Graph()
         for t, cluster in enumerate(clusters):
             timegr.add_nodes_from(
 		[(t,k) for k in np.unique(cluster.values())]
@@ -994,7 +994,7 @@ def find_peak_mins(a):
 
 def get_clusters(bonds):
     """Returns a list of clusters"""
-    gr = nx.graph()
+    gr = nx.Graph()
     gr.add_nodes_from(np.unique1d(bonds.ravel()))
     gr.add_edges_from(bonds)
     return nx.connected_components(gr)
