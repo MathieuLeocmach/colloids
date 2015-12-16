@@ -28,6 +28,7 @@ import os, os.path, subprocess
 import re, string, math
 from math import exp
 from colloids import vtk, statistics
+from colloids.progressbar import ProgressBar
 import networkx as nx
 import numexpr
 
@@ -477,6 +478,29 @@ class Experiment(object):
                 del blast[k]
             yield out
         yield blast
+        
+    def neverreform(self, L=3, mintrajlength=None):
+        """All the broken bonds (in term of trajectories) with a post breaking distance larger than L, associated with the last time they break"""
+        pro = ProgressBar(self.size)
+        result = dict()
+        for t, name in self.enum(ext='bonds'):
+            try:
+                bonds1 = np.atleast_2d(np.loadtxt(name, dtype=int))
+            except UserWarning:
+                bonds1 = np.zeros([0,2], int)
+            p2tr1 = np.loadtxt(self.get_format_string(ext='p2tr')%t, dtype=int)
+            if t>0:
+                for path in broken_bonds_path(bonds0, bonds1, p2tr0, p2tr1):
+                    if len(path)<=L:
+                        continue
+                    a, b = sorted([path[0], path[-1]])
+                    if mintrajlength is not None and min(len(self.trajs[u]) for u in [a,b]) <= mintrajlength:
+                        continue
+                    result[(a,b)] = t #create or replace if was already broken before
+            bonds0 = bonds1
+            p2tr0 = p2tr1
+            pro.animate(t)
+        return result
         
 
 class Txp:
@@ -999,3 +1023,33 @@ def get_clusters(bonds):
     gr.add_edges_from(bonds)
     return nx.connected_components(gr)
 
+
+def shortest_path(g, trs):
+    """From a graph g, whoes nodes are trajectory indices and edges corresponds to connectivity at time t1,
+    and couples of nodes trs, first at time t0 second at time t1,
+    yield the on-graph shortest path between each couple in term of trajectory indices. 
+    
+    trs is a iterable of couples of integers."""
+    for i, (a,b) in enumerate(trs):
+        if not g.has_node(a) or not g.has_node(b): continue
+        try:
+            yield nx.shortest_path(g, a,b)
+        except nx.NetworkXNoPath:
+            pass
+            
+def broken_bonds_path(bonds0, bonds1, p2tr0, p2tr1):
+    """Paths on graph at t1 between particles involved in a bond at t0 and no more at t1.
+    
+    bonds0, bonds1 are respectively the bonds at t0 and 1 in terms of position
+    p2tr0, p2tr1 are respectively the position to trajectory relationship at t0 and t1
+    
+    generate paths in terms of trajectory indices"""
+    #bonds (between trajectories) existing at t but no more at t+dt
+    # = broken bonds + lost trajectories
+    trbonds = set([(a,b) for a,b in np.sort(p2tr0[bonds0], 1)]) - set([(a,b) for a,b in np.sort(p2tr1[bonds1], axis=1)])
+
+    #graph of the bonds between trajectories at t+dt
+    g = nx.Graph()
+    g.add_nodes_from(p2tr1)
+    g.add_edges_from(p2tr1[bonds1])
+    return shortest_path(g, trbonds)
