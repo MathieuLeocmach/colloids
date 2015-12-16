@@ -479,9 +479,10 @@ class Experiment(object):
             yield out
         yield blast
         
-    def neverreform(self, L=3, mintrajlength=None):
+    def neverreform(self, L=3, mintrajlength=None, showprogress=True):
         """All the broken bonds (in term of trajectories) with a post breaking distance larger than L, associated with the last time they break"""
-        pro = ProgressBar(self.size)
+        if showprogress:
+            pro = ProgressBar(self.size)
         result = dict()
         for t, name in self.enum(ext='bonds'):
             try:
@@ -499,8 +500,18 @@ class Experiment(object):
                     result[(a,b)] = t #create or replace if was already broken before
             bonds0 = bonds1
             p2tr0 = p2tr1
-            pro.animate(t)
-        return result
+            if showprogress:
+                pro.animate(t)
+        #translate as a list of arrays of bonds, an array per time
+        tdl = [
+            np.zeros([nbb, 2], int) 
+            for nbb in np.histogram(result.values(), bins=np.arange(0, self.size+1))[0]
+            ]
+        ns = np.zeros(self.size, int)
+        for bond, t in result.iteritems():
+            tdl[t][ns[t]] = bond
+            ns[t] += 1
+        return tdl
         
 
 class Txp:
