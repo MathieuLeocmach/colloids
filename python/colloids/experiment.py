@@ -480,7 +480,7 @@ class Experiment(object):
         yield blast
         
     def neverreform(self, L=3, mintrajlength=None, showprogress=True):
-        """All the broken bonds (in term of trajectories) with a post breaking distance larger than L, associated with the last time they break"""
+        """All the broken bonds (in term of trajectories) with a on graph post breaking distance larger than L, associated with the last time they break"""
         if showprogress:
             pro = ProgressBar(self.size)
         result = dict()
@@ -489,7 +489,7 @@ class Experiment(object):
                 bonds1 = np.atleast_2d(np.loadtxt(name, dtype=int))
             except UserWarning:
                 bonds1 = np.zeros([0,2], int)
-            p2tr1 = np.loadtxt(self.get_format_string(ext='p2tr')%t, dtype=int)
+            p2tr1 = self.p2tr(t)
             if t>0:
                 for path in broken_bonds_path(bonds0, bonds1, p2tr0, p2tr1):
                     if len(path)<=L:
