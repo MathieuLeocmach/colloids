@@ -29,6 +29,7 @@ import re, string, math
 from math import exp
 from colloids import vtk, statistics
 from colloids.progressbar import ProgressBar
+from colloids.particles import bonds2ngbs
 import networkx as nx
 import numexpr
 
@@ -513,6 +514,26 @@ class Experiment(object):
             ns[t] += 1
         return tdl
         
+    def neighbouring_bonds(self, t, bonds_of_interest):
+        """Returns the set of bonds that are neighbouring the bonds of interest at time t. Input and output are in terms of trajectories."""
+        p2tr = self.p2tr(t)
+        #load all the bonds at time t
+        bonds = np.loadtxt(self.get_format_string(ext='bonds')%t, int)
+        #construct neighbours for each particle
+        ngb = bonds2ngbs(bonds, p2tr.shape[0])
+        result = []
+        for tra, trb in bonds_of_interest:
+            for tr in [tra, trb]:
+                a = self.trajs[tr][t - self.starts[tr]]
+                for ngb_tr in p2tr[ngb[a]]: #iterate on neighbours
+                    #exclude the bonds of interest
+                    if ngb_tr in [tra, trb]: continue
+                    result.append(sorted([tr, ngb_tr]))
+        #convert into a nice array of bonds
+        res = np.zeros([len(result), 2], int)
+        res[:] = result
+        return result
+        
 
 class Txp:
     """Implementig time algorithms in python"""
@@ -885,10 +906,7 @@ def histz(f):
     np.savetxt(f[:-3]+'z', hist/(bins[1]-bins[0]), fmt='%f', delimiter='\t')
 
 def dilate(field, bonds):
-	ngb = [[n] for n in range(field.shape[0])]
-	for b in bonds:
-		ngb[b[0]].append(b[1])
-		ngb[b[1]].append(b[0])
+	ngb = bonds2ngbs(bonds, field.shape[0])
 	dil = np.zeros_like(field)
 	for p,n in enumerate(ngb):
 		a = field[n]
@@ -896,10 +914,7 @@ def dilate(field, bonds):
 	return dil
 
 def average(field, bonds):
-	ngb = [[] for n in range(field.shape[0])]
-	for b in bonds:
-		ngb[b[0]].append(b[1])
-		ngb[b[1]].append(b[0])
+	ngb = bonds2ngbs(bonds, field.shape[0])
 	av = np.zeros_like(field)
 	for p,n in enumerate(ngb):
 		av[p] = (field[p]+field[n].mean(axis=0))/2
