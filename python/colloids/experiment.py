@@ -147,6 +147,20 @@ class Experiment(object):
             for (t, name), trs in zip(self.enum(ext='p2tr'), pos2tr):
                 np.savetxt(name, trs, fmt='%d')
         return np.loadtxt(fname, dtype=int)
+        
+    def load_all(self, showprogress=True):
+        """Returns all positions from all trajectories"""
+        trajpos = [np.zeros([len(tr), 3]) for tr in self.trajs]
+        if showprogress:
+            pro = ProgressBar(self.size)
+        for t, name in self.enum():
+            pos = np.loadtxt(name, skiprows=2)
+            p2tr = self.p2tr(t)
+            for p, tr in enumerate(p2tr):
+                trajpos[tr][t - self.starts[tr]] = pos[p]
+            if showprogress:
+                pro.animate(t)
+        return trajpos
 
     def read_pattern(self,pattern):
         m = re.match('(.*)'+self.token+'([0-9]*)',os.path.splitext(pattern)[0])
