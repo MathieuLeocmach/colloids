@@ -29,7 +29,7 @@ import re, string, math
 from math import exp
 from colloids import vtk, statistics
 from colloids.progressbar import ProgressBar
-from colloids.particles import bonds2ngbs
+from colloids.particles import bonds2ngbs_list
 import networkx as nx
 import numexpr
 
@@ -534,7 +534,7 @@ class Experiment(object):
         #load all the bonds at time t
         bonds = np.loadtxt(self.get_format_string(ext='bonds')%t, int)
         #construct neighbours for each particle
-        ngb = bonds2ngbs(bonds, p2tr.shape[0])
+        ngb = bonds2ngbs_list(bonds, p2tr.shape[0])
         result = []
         for tra, trb in bonds_of_interest:
             for tr in [tra, trb]:
@@ -546,7 +546,7 @@ class Experiment(object):
         #convert into a nice array of bonds
         res = np.zeros([len(result), 2], int)
         res[:] = result
-        return result
+        return res
         
 
 class Txp:
@@ -920,7 +920,7 @@ def histz(f):
     np.savetxt(f[:-3]+'z', hist/(bins[1]-bins[0]), fmt='%f', delimiter='\t')
 
 def dilate(field, bonds):
-	ngb = bonds2ngbs(bonds, field.shape[0])
+	ngb = bonds2ngbs_list(bonds, field.shape[0])
 	dil = np.zeros_like(field)
 	for p,n in enumerate(ngb):
 		a = field[n]
@@ -928,7 +928,7 @@ def dilate(field, bonds):
 	return dil
 
 def average(field, bonds):
-	ngb = bonds2ngbs(bonds, field.shape[0])
+	ngb = bonds2ngbs_list(bonds, field.shape[0])
 	av = np.zeros_like(field)
 	for p,n in enumerate(ngb):
 		av[p] = (field[p]+field[n].mean(axis=0))/2
