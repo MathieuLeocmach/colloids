@@ -28,8 +28,7 @@ import os, os.path, subprocess
 import re, string, math
 from math import exp
 from colloids import vtk, statistics
-from pygraph.classes.graph import graph
-from pygraph.algorithms.accessibility import connected_components
+import networkx as nx
 import numexpr
 
 def noNaN(x):
@@ -820,17 +819,16 @@ Return a dictionary (particle id -> cluster id)
 	pos2traj[self.trajs[nodes, t]] = nodes
 	trajbonds = pos2traj[posbonds]
 	trajbonds = trajbonds[np.where(trajbonds.min(axis=1)>-1)]
-	gr = graph()
-	gr.add_nodes(np.unique(trajbonds))
-	for b in trajbonds:
-		gr.add_edge(b)
-	return connected_components(gr)
+	gr = nx.Graph()
+	gr.add_nodes_from(np.unique(trajbonds))
+	gr.add_edges_from(trajbonds)
+	return nx.connected_components(gr)
 
     def get_time_clusters(self, isNode):
         clusters = [self.get_clusters(t, isNode[t]) for t in range(self.xp.size)]
-        timegr = graph()
+        timegr = nx.graph()
         for t, cluster in enumerate(clusters):
-            timegr.add_nodes(
+            timegr.add_nodes_from(
 		[(t,k) for k in np.unique(cluster.values())]
 		)
 	for t, frame in enumerate(clusters[:-1]):
@@ -838,7 +836,7 @@ Return a dictionary (particle id -> cluster id)
 		c = clusters[t+1].get(tr,-1)
 		if c>-1 and not timegr.has_edge(((t, k), (t+1, c))):
 			timegr.add_edge(((t, k), (t+1, c)))
-	return clusters, connected_components(timegr)
+	return clusters, nx.connected_components(timegr)
     
 
 
@@ -996,12 +994,8 @@ def find_peak_mins(a):
 
 def get_clusters(bonds):
     """Returns a list of clusters"""
-    gr = graph()
-    gr.add_nodes(np.unique1d(bonds.ravel()))
-    for b in bonds:
-            gr.add_edge(b)
-    clmap = connected_components(gr)
-    clusters = [[] for i in range(max(clmap.values()))]
-    for p, c in connected_components(gr).iteritems():
-            clusters[c-1].append(p)
-    return clusters
+    gr = nx.graph()
+    gr.add_nodes_from(np.unique1d(bonds.ravel()))
+    gr.add_edges_from(bonds)
+    return nx.connected_components(gr)
+
