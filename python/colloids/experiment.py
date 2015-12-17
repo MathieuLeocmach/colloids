@@ -544,9 +544,7 @@ class Experiment(object):
                     if ngb_tr in [tra, trb]: continue
                     result.append(sorted([tr, ngb_tr]))
         #convert into a nice array of bonds
-        res = np.zeros([len(result), 2], int)
-        res[:] = result
-        return res
+        return np.array(result).reshape([len(result), 2]).astype(int)
         
 
 class Txp:
