@@ -148,7 +148,7 @@ class Experiment(object):
                 np.savetxt(name, trs, fmt='%d')
         return np.loadtxt(fname, dtype=int)
         
-    def load_all(self, showprogress=True):
+    def load_all(self, removedrift=False, showprogress=True):
         """Returns all positions from all trajectories"""
         trajpos = [np.zeros([len(tr), 3]) for tr in self.trajs]
         if showprogress:
@@ -160,6 +160,13 @@ class Experiment(object):
                 trajpos[tr][t - self.starts[tr]] = pos[p]
             if showprogress:
                 pro.animate(t)
+        if removedrift:
+            drift = np.zeros((self.size,3))
+            nb = np.zeros((self.size), int)
+            for tr, start in zip(trajpos, self.starts):
+                drift[start+1:start + len(tr)] += tr[1:] - tr[:-1]
+                nb[start+1:start + len(tr)] += 1
+            trajpos -= drift / np.maximum(1, nb)
         return trajpos
 
     def read_pattern(self,pattern):
