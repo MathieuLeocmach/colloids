@@ -161,12 +161,17 @@ class Experiment(object):
             if showprogress:
                 pro.animate(t)
         if removedrift:
+            #compute drift using all trajectories
             drift = np.zeros((self.size,3))
             nb = np.zeros((self.size), int)
             for tr, start in zip(trajpos, self.starts):
                 drift[start+1:start + len(tr)] += tr[1:] - tr[:-1]
                 nb[start+1:start + len(tr)] += 1
-            trajpos -= drift / np.maximum(1, nb)
+            drift /= np.maximum(1, nb)
+            drift = np.cumsum(drift, axis=0)
+            #remove drift from each trajectory
+            for tr, start in enumerate(self.starts):
+                trajpos[tr] -= drift[start:start + len(trajpos[tr])]
         return trajpos
 
     def read_pattern(self,pattern):
