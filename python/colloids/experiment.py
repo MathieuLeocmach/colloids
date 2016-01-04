@@ -513,6 +513,9 @@ class Experiment(object):
                     if mintrajlength is not None and min(len(self.trajs[u]) for u in [a,b]) <= mintrajlength:
                         continue
                     result[(a,b)] = t #create or replace if was already broken before
+                #remove all bonds that exist at t1
+                for a,b in np.sort(p2tr1[bonds1], 1):
+                    result.pop((a,b),-1) 
             bonds0 = bonds1
             p2tr0 = p2tr1
             if showprogress:
