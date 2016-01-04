@@ -167,7 +167,7 @@ class Experiment(object):
             for tr, start in zip(trajpos, self.starts):
                 drift[start+1:start + len(tr)] += tr[1:] - tr[:-1]
                 nb[start+1:start + len(tr)] += 1
-            drift /= np.maximum(1, nb)
+            drift /= np.maximum(1, nb)[:,None]
             drift = np.cumsum(drift, axis=0)
             #remove drift from each trajectory
             for tr, start in enumerate(self.starts):
