@@ -543,6 +543,50 @@ class Experiment(object):
             ns[t] += 1
         return tdl
         
+    def never_closer(self, L=3, mintrajlength=None, showprogress=True):
+        """All the broken bonds (in term of trajectories) with a on graph distance that stays larger than L, associated with the last time they break"""
+        if showprogress:
+            pro = ProgressBar(self.size)
+        result = dict()
+        for t, name in self.enum(ext='bonds'):
+            try:
+                bonds1 = np.atleast_2d(np.loadtxt(name, dtype=int))
+            except UserWarning:
+                bonds1 = np.zeros([0,2], int)
+            p2tr1 = self.p2tr(t)
+            if t>0:
+                for path in broken_bonds_path(bonds0, bonds1, p2tr0, p2tr1):
+                    if len(path)<=L:
+                        continue
+                    a, b = sorted([path[0], path[-1]])
+                    if mintrajlength is not None and min(len(self.trajs[u]) for u in [a,b]) <= mintrajlength:
+                        continue
+                    result[(a,b)] = t #create or replace if was already broken before
+                #graph of the bonds between trajectories at t1
+                g = nx.Graph()
+                g.add_nodes_from(p2tr1)
+                g.add_edges_from(p2tr1[bonds1])
+                #remove all bonds that are closer than L at t1
+                existing = [[a,b] for a,b in result.iterkeys()]
+                for path in shortest_path(g, existing):
+                    if len(path) <= L:
+                        a,b = sorted([path[0], path[-1]])
+                        result.pop((a,b),-1)
+            bonds0 = bonds1
+            p2tr0 = p2tr1
+            if showprogress:
+                pro.animate(t)
+        #translate as a list of arrays of bonds, an array per time
+        tdl = [
+            np.zeros([nbb, 2], int) 
+            for nbb in np.histogram(result.values(), bins=np.arange(0, self.size+1))[0]
+            ]
+        ns = np.zeros(self.size, int)
+        for bond, t in result.iteritems():
+            tdl[t][ns[t]] = bond
+            ns[t] += 1
+        return tdl
+        
     def neighbouring_bonds(self, t, bonds_of_interest):
         """Returns the set of bonds that are neighbouring the bonds of interest at time t. Input and output are in terms of trajectories."""
         p2tr = self.p2tr(t)
