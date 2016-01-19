@@ -249,7 +249,7 @@ def non_overlapping(positions, radii):
         if not good[i]:
             continue
         for j in tree.query_ball_point(p, rmax + r):
-            if not good[j]:
+            if j==i or not good[j]:
                 continue
             #the python loop is actually faster than numpy on small(3) arrays
             s = 0.0
