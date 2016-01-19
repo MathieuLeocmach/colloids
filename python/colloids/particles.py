@@ -20,6 +20,7 @@ import numpy as np
 #import rtree.index
 import numexpr
 import subprocess, shlex, StringIO, os, os.path
+from scipy.spatial import cKDTree as KDTree
 from scipy import weave
 from scipy.weave import converters
 import itertools
@@ -37,6 +38,7 @@ class Particles:
                 raise ValueError("""radius must be a one dimensional array with the same length as positions""")
             self.radii = radius
         self.__maxRad = self.radii.max()
+        raise DeprecationWarning('This class is an ugly bit of code not in use since 2010')
 
     def generated_boundingbox(self):
         for i, bb in enumerate(
@@ -235,21 +237,27 @@ class Grid:
                     if(p!=q):
                         yield p,q
         
-        
+
 def non_overlapping(positions, radii):
-    """Give the indices of non-overlapping particles. Early bird."""
+    """Give the mask of non-overlapping particles. Early bird."""
+    #actually faster than weave version
     assert len(positions)==len(radii)
-    pr = rtree.index.Property()
-    pr.dimension = positions.shape[1]
-    tree = rtree.index.Index(properties=pr, interleaved=True)
-    for i,(p,r) in enumerate(zip(positions, radii)):
-        bb = np.concatenate((p-r, p+r))
-        for j in tree.intersection(bb):
-            if np.sum((p-positions[j])**2) < (r + radii[j])**2:
-                break
-        else:
-            tree.insert(i, bb)
-    return [i for i in tree.intersection(tree.bounds)]
+    tree = KDTree(positions)
+    rmax = radii.max()
+    good = np.ones(len(positions), dtype=bool)
+    for i, (p,r) in enumerate(zip(positions, radii)):
+        if not good[i]:
+            continue
+        for j in tree.query_ball_point(p, rmax + r):
+            if not good[j]:
+                continue
+            #the python loop is actually faster than numpy on small(3) arrays
+            s = 0.0
+            for pd, qd in zip(positions[j], p):
+                s = (pd - pd)**2
+            if s < (radii[j] + r)**2:
+                good[j] = False
+    return good
 
 rstartree_path = os.path.abspath(os.path.join(
     os.path.dirname(__file__),
@@ -270,55 +278,6 @@ struct Gatherer {
     }
 };
 """
-
-def weave_non_overlapping(positions, radii):
-    """Give the mask of non-overlapping particles. Early bird."""
-    assert len(positions)==len(radii)
-    good = np.zeros(len(positions), dtype=bool)
-    code = """
-    typedef RStarTree<int, %(dim)d, 4, 32, double> RTree;
-    RTree tree;
-    for(int p=0; p<Npositions[0]; ++p)
-    {
-        //norm 1 overlapping
-		typename RTree::BoundingBox bb;
-		for(int d=0; d<Npositions[1]; ++d)
-		{
-			bb.edges[d].first = positions(p,d) - radii(p);
-			bb.edges[d].second = positions(p,d) + radii(p);
-		}
-		std::list<int> overlapping;
-		tree.Query(typename RTree::AcceptOverlapping(bb), Gatherer<RTree::Leaf>(overlapping));
-		bool is_overlapping = false;
-		//norm 2 overlapping
-		for(std::list<int>::const_iterator q= overlapping.begin(); q!=overlapping.end(); ++q)
-		{
-		    double disq = 0;
-		    for(int d=0; d<Npositions[1]; ++d)
-		        disq += pow(positions(p,d)-positions(*q,d), 2);
-			if(disq < pow(radii(p) + radii(*q) ,2))
-			{
-				is_overlapping = true;
-				break;
-			}
-		}
-		if(!is_overlapping)
-		{
-			tree.Insert(p, bb);
-			good(p) = true;
-		}
-    }
-    """%{'dim':positions.shape[1]}
-    weave.inline(
-        code,['positions', 'radii', 'good'],
-        type_converters =converters.blitz,
-        support_code = support_Rtree,
-        include_dirs = [rstartree_path],
-        headers = ['"RStarTree.h"'],
-        extra_compile_args =['-O3 -fopenmp'],
-        extra_link_args=['-lgomp'],
-        verbose=2, compiler='gcc')
-    return good
     
 def weave_non_halfoverlapping(positions, radii):
     """Give the mask of non-halfoverlapping particles. Early bird."""
