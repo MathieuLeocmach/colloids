@@ -240,7 +240,6 @@ class Grid:
 
 def non_overlapping(positions, radii):
     """Give the mask of non-overlapping particles. Early bird."""
-    #actually faster than weave version
     assert len(positions)==len(radii)
     tree = KDTree(positions)
     rmax = radii.max()
@@ -256,6 +255,27 @@ def non_overlapping(positions, radii):
             for pd, qd in zip(positions[j], p):
                 s = (pd - pd)**2
             if s < (radii[j] + r)**2:
+                good[j] = False
+    return good
+    
+def non_halfoverlapping(positions, radii):
+    """Give the mask of non-half overlapping particles. Early bird.
+    Half overlap is when $r_{ij} < \max(R_i, Rj)$"""
+    assert len(positions)==len(radii)
+    tree = KDTree(positions)
+    rmax = radii.max()
+    good = np.ones(len(positions), dtype=bool)
+    for i, (p,r) in enumerate(zip(positions, radii)):
+        if not good[i]:
+            continue
+        for j in tree.query_ball_point(p, rmax + r):
+            if j==i or not good[j]:
+                continue
+            #the python loop is actually faster than numpy on small(3) arrays
+            s = 0.0
+            for pd, qd in zip(positions[j], p):
+                s = (pd - pd)**2
+            if s < max((radii[j], r))**2:
                 good[j] = False
     return good
 
@@ -278,55 +298,6 @@ struct Gatherer {
     }
 };
 """
-    
-def weave_non_halfoverlapping(positions, radii):
-    """Give the mask of non-halfoverlapping particles. Early bird."""
-    assert len(positions)==len(radii)
-    good = np.zeros(len(positions), dtype=bool)
-    code = """
-    typedef RStarTree<int, %(dim)d, 4, 32, double> RTree;
-    RTree tree;
-    for(int p=0; p<Npositions[0]; ++p)
-    {
-        //norm 1 overlapping
-		typename RTree::BoundingBox bb;
-		for(int d=0; d<Npositions[1]; ++d)
-		{
-			bb.edges[d].first = positions(p,d) - radii(p);
-			bb.edges[d].second = positions(p,d) + radii(p);
-		}
-		std::list<int> overlapping;
-		tree.Query(typename RTree::AcceptOverlapping(bb), Gatherer<RTree::Leaf>(overlapping));
-		bool is_overlapping = false;
-		//norm 2 half overlapping
-		for(std::list<int>::const_iterator q= overlapping.begin(); q!=overlapping.end(); ++q)
-		{
-		    double disq = 0;
-		    for(int d=0; d<Npositions[1]; ++d)
-		        disq += pow(positions(p,d)-positions(*q,d), 2);
-			if(disq < pow(std::max(radii(p), radii(*q)) ,2))
-			{
-				is_overlapping = true;
-				break;
-			}
-		}
-		if(!is_overlapping)
-		{
-			tree.Insert(p, bb);
-			good(p) = true;
-		}
-    }
-    """%{'dim':positions.shape[1]}
-    weave.inline(
-        code,['positions', 'radii', 'good'],
-        type_converters =converters.blitz,
-        support_code = support_Rtree,
-        include_dirs = [rstartree_path],
-        headers = ['"RStarTree.h"'],
-        extra_compile_args =['-O3 -fopenmp -mtune=native'],
-        extra_link_args=['-lgomp'],
-        verbose=2)
-    return good
 
 def get_bonds(positions, radii, maxdist=3.0):
     pairs = []
