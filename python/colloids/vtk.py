@@ -18,7 +18,7 @@
 #
 from __future__ import with_statement #for python 2.5, useless in 2.6
 import numpy as np
-from scipy.spatial import KDTree
+from scipy.spatial import cKDTree as KDTree
 import math
 import os, bz2
 from lxml import etree
