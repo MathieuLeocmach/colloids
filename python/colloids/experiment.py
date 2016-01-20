@@ -508,6 +508,15 @@ class Experiment(object):
         
     def neverreform(self, L=3, mintrajlength=None, showprogress=True):
         """All the broken bonds (in term of trajectories) with a on graph post breaking distance larger than L, associated with the last time they break"""
+        try:
+            ret = []
+            for t, name in self.enum('_L%d'%L, ext='nev'):
+                if os.stat(name).st_size:
+                    ret.append(np.loadtxt(name, dtype=int))
+                else:
+                    ret.append(np.array((0,2), dtype=int))
+        except IOError:
+            pass
         if showprogress:
             pro = ProgressBar(self.size)
         result = dict()
@@ -541,10 +550,22 @@ class Experiment(object):
         for bond, t in result.iteritems():
             tdl[t][ns[t]] = bond
             ns[t] += 1
+        #save a cache
+        for t, name in self.enum('_L%d'%L, ext='nev'):
+            np.savetxt(name, tdl[t], fmt='%d')
         return tdl
         
     def never_closer(self, L=3, mintrajlength=None, showprogress=True):
         """All the broken bonds (in term of trajectories) with a on graph distance that stays larger than L, associated with the last time they break"""
+        try:
+            ret = []
+            for t, name in self.enum('_L%d'%L, ext='nevc'):
+                if os.stat(name).st_size:
+                    ret.append(np.loadtxt(name, dtype=int))
+                else:
+                    ret.append(np.array((0,2), dtype=int))
+        except IOError:
+            pass
         if showprogress:
             pro = ProgressBar(self.size)
         result = dict()
@@ -585,6 +606,9 @@ class Experiment(object):
         for bond, t in result.iteritems():
             tdl[t][ns[t]] = bond
             ns[t] += 1
+        #save a cache
+        for t, name in self.enum('_L%d'%L, ext='nevc'):
+            np.savetxt(name, tdl[t], fmt='%d')
         return tdl
         
     def neighbouring_bonds(self, t, bonds_of_interest):
