@@ -278,6 +278,26 @@ def non_halfoverlapping(positions, radii):
             if s < max((radii[j], r))**2:
                 good[j] = False
     return good
+    
+def get_bonds(positions, radii, maxdist=3.0):
+    """Bonds by relative distances, such that $r_{ij} < maxdist (R_i + R_j)$.
+    
+    Returns pairs, distances. Pairs are sorted and unique."""
+    assert len(positions)==len(radii)
+    tree = KDTree(positions)
+    rmax = radii.max()
+    #fetch all potential pairs, already sorted
+    pairs = np.array([
+        [i,j] 
+        for i, js in enumerate(tree.query_ball_tree(tree, 2*rmax*maxdist))
+        for j in sorted(js)
+        if i<j
+        ])
+    #compute all pair's square distances via numpy
+    dists = np.sum((positions[pairs[:,0]] - positions[pairs[:,1]])**2, -1)
+    #filter out the pairs that are too far
+    good = dists < maxdist**2 * radii[pairs].sum(-1)**2
+    return pairs[good], np.sqrt(dists[good])
 
 rstartree_path = os.path.abspath(os.path.join(
     os.path.dirname(__file__),
@@ -299,66 +319,7 @@ struct Gatherer {
 };
 """
 
-def get_bonds(positions, radii, maxdist=3.0):
-    pairs = []
-    dists = []
-    code = """
-    //spatial indexing
-    typedef RStarTree<int, %(dim)d, 4, 32, double> RTree;
-    RTree tree;
-    for(int p=0; p<Npositions[0]; ++p)
-    {
-        typename RTree::BoundingBox bb;
-		for(int d=0; d<Npositions[1]; ++d)
-		{
-			bb.edges[d].first = positions(p,d) - maxdist*radii(p);
-			bb.edges[d].second = positions(p,d) + maxdist*radii(p);
-		}
-        tree.Insert(p, bb);
-    }
-    //look for nearby particles
-    #pragma omp parallel for
-    for(int p=0; p<Npositions[0]; ++p)
-    {
-        double rsq = 9.0*radii(p)*radii(p);
-        std::list<int> overlapping;
-        typename RTree::BoundingBox bb;
-        for(int d=0; d<Npositions[1]; ++d)
-		{
-			bb.edges[d].first = positions(p,d) - maxdist*radii(p);
-			bb.edges[d].second = positions(p,d) + maxdist*radii(p);
-		}
-		tree.Query(typename RTree::AcceptOverlapping(bb), Gatherer<RTree::Leaf>(overlapping));
-        overlapping.sort();
-        overlapping.unique();
-        for(std::list<int>::const_iterator it=std::lower_bound(
-            overlapping.begin(), overlapping.end(), p+1
-            ); it!=overlapping.end(); ++it)
-        {
-            const int q = *it;
-            double dsq = 0;
-            for(int d=0; d<Npositions[1]; ++d)
-                dsq += pow(positions(p,d)-positions(q,d), 2);
-            if(dsq < pow(maxdist*(radii(p)+radii(q)) ,2))
-            #pragma omp critical
-            {
-                 pairs.append(p);
-                 pairs.append(q);
-                 dists.append(sqrt(dsq));
-            }
-        }
-    }
-    """%{'dim':positions.shape[1]}
-    weave.inline(
-        code,['positions', 'radii', 'maxdist', 'pairs', 'dists'],
-        type_converters =converters.blitz,
-        support_code = support_Rtree,
-        include_dirs = [rstartree_path],
-        headers = ['"RStarTree.h"','<deque>', '<list>'],
-        extra_compile_args =['-O3 -fopenmp'],
-        extra_link_args=['-lgomp'],
-        verbose=2, compiler='gcc')
-    return np.resize(pairs, [len(pairs)/2,2]), np.asarray(dists)
+
     
 def get_N_ngbs(positions, radii, N=12, maxdist=8.0):
     #extreme positions
