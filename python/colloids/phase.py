@@ -138,6 +138,14 @@ class EquationOfState:
         """Redefine pv with U=log(u) as variable, with u = 1/f - 1/f_cp. Prevents going over f_cp and numerical errors when doing exp(log(u))"""
         return self.pv(1/(np.exp(U) + 1/f_cp), piv, q)
         
+    def omega(self, f, piv, q):
+        """Semi-grand potential for the system with polymers"""
+        return -self.pv(f, piv, q) + f2vf(f) * self.mu(f, piv, q)
+    
+    def omega_of_log(self, F, piv, q):
+        """Redefine omega with F=log(f) as variable. Prevents numerical errors when doing exp(log(f))"""
+        return -self.pv_of_log(F, piv, q) + f2vf(np.exp(F)) * self.mu_of_log(F, piv, q)
+        
     def critical_point(self, q):
         """Critical point coordinates in the (f,PIv) plane function of the effective size ratio q=delta/a"""
         fc = fsolve(lambda f: 1/f + beta3(f,q)/beta2(f,q) - self.pv_0_ratio(f), 0.5)[0]
@@ -375,6 +383,13 @@ class Liu(EquationOfState):
 class Hall(EquationOfState):
     """Hall equation of state for a hard sphere crystal."""
     
+    def Z(self, f):
+        """Compressibility function of f=phi/(1-phi)"""
+        phi = f2vf(f)
+        xi = f2vf(f_cp) - phi
+        num = 1+phi+phi**2 -0.67825*phi**3 -phi**4 -6.028*np.exp(xi * (7.9-3.9*xi))*phi**6
+        return num / (1-3*phi+3*phi**2 -1.04305*phi**3)
+    
     def pv_0(self, f):
         """Pressure * volume = phi*Z(phi) function of f=phi/(1-phi)"""
         return 3/(1.0/f - 1/f_cp)
@@ -383,6 +398,10 @@ class Hall(EquationOfState):
         """Chemical potential"""
         u = 1/f - 1/f_cp
         return 2.1306 + 3.0*(1+f)/u/f - 3*np.log(u)
+        
+    def mu_0_nolog(self, f):
+        """Chemical potential - np.log(f)"""
+        return self.mu_0(f) - np.log(f)
         
     def mu_of_U(self, U, piv, q):
         """Redefine the chemical potential with U=log(u) as variable, with u = 1/f - 1/f_cp. Prevents going over f_cp and numerical errors when doing exp(log(u))"""
