@@ -42,6 +42,10 @@ y2piv = lambda y, qR: y/qR**3
 f2vf = lambda f: f/(1.+f)
 vf2f = lambda vf: vf/(1.-vf)
 
+#volume fraction at hard sphere fluid-solid coexistence
+f_HSf = 0.970
+f_HSs = 1.185
+
 #volume fraction at close packing
 eta_cp = np.pi/6*np.sqrt(2)
 f_cp = vf2f(eta_cp)
@@ -421,7 +425,7 @@ class Hall(EquationOfState):
 
     
 
-def coexistence(piv, q, fluid, solid, guess=[0.970, 1.185], Delta_muS_0=0.0):
+def coexistence(piv, q, fluid, solid, guess=[f_HSf, f_HSs], Delta_muS_0=0.0):
     """return (f_Fluid, f_solid) at a given insersion work piv. 
     
     fluid, solid are respective EOS of the two phases.
@@ -435,7 +439,7 @@ def coexistence(piv, q, fluid, solid, guess=[0.970, 1.185], Delta_muS_0=0.0):
     
 def all_coexistence(q, fluid, solid, pivs=None, maxpiv=None):
     """return (piv, f_Fluid, f_solid) at various insersion works pivs. If not given, pivs are sampled from 0 to maxpiv (default 2*critical pressure)."""
-    Delta_muS_0 = solid.mu_of_U(np.log(1/1.185-1/f_cp), 0, q) - fluid.mu_of_U(np.log(1/0.970-1/f_cp), 0, q)
+    Delta_muS_0 = solid.mu_of_U(np.log(1/f_HSs-1/f_cp), 0, q) - fluid.mu_of_U(np.log(1/f_HSf-1/f_cp), 0, q)
     if pivs is None:
         fc, pivc = fluid.critical_point(q)
         if maxpiv is None:
@@ -449,6 +453,69 @@ def all_coexistence(q, fluid, solid, pivs=None, maxpiv=None):
     for piv in pivs:
         topFS.append(coexistence(piv, q, fluid, solid, topFS[-1], Delta_muS_0))
     return np.vstack((
-        [0, 0.970, 1.185],
+        [0, f_HSf, f_HSs],
         np.column_stack((pivs, topFS[1:]))[::-1]
         ))
+        
+        
+def triple(q, fluid, solid, guess=[10, 0.05, f_HSf, f_HSs], Delta_muS_0=0.0):
+    """return the insersion work piv of the triple coexistence, and the f of the three phases. 
+    
+    fluid, solid are respective EOS of the two phases.
+    Delta_muS_0 is a constant that can be added to the solid chemical potential to ensure HS coexistence"""
+    Us0 = np.log(1./np.array(guess[1:]) - 1/f_cp)
+    iv = np.array(guess[:1] + Us0.tolist())
+    result = fsolve(lambda iv: [
+        fluid.pv_of_U(iv[2], iv[0], q) - solid.pv_of_U(iv[3], iv[0], q), 
+        fluid.mu_of_U(iv[2], iv[0], q) - solid.mu_of_U(iv[3], iv[0], q) + Delta_muS_0, 
+        fluid.pv_of_U(iv[2], iv[0], q) - fluid.pv_of_U(iv[1], iv[0], q), 
+        fluid.mu_of_U(iv[2], iv[0], q) - fluid.mu_of_U(iv[1], iv[0], q)
+        ], iv)
+    return np.array(result[:1].tolist() + (1./(np.exp(result[1:])+1/f_cp)).tolist())
+    
+    
+def generate(q, fluid=CarnahanStarling(), solid=Hall(), maxpiv=None):
+    """Generate the theoretical phase diagram in (f, piv) plane."""
+    #tune the two EOS to ensure fluid-solid coexistence
+    Delta_muS_0 = solid.mu_of_U(np.log(1/f_HSs-1/f_cp), 0, q) - fluid.mu_of_U(np.log(1/f_HSf-1/f_cp), 0, q)
+    #critical point
+    fc, pivc = fluid.critical_point(q)
+    #triple line
+    pivt, fgt, flt, fst = triple(
+        q, fluid, solid, 
+        guess=[2*pivc, fc/10, f_HSf, f_HSs], 
+        Delta_muS_0=Delta_muS_0
+        )
+    #bottom of the fluid-solid coexistence
+    pivLS = np.linspace(0,pivt)
+    LS = np.column_stack((
+        pivLS,
+        np.vstack([
+            coexistence(
+                piv, q, fluid, solid, 
+                guess=[0.970, 1.185], 
+                Delta_muS_0=Delta_muS_0
+                ) 
+            for piv in pivLS
+            ])
+        ))
+    #top of the fluid-solid coexistence
+    if maxpiv is None:
+        maxpiv = 2*pivt
+    #GS = all_coexistence(q, fluid, solid, pivs=np.linspace(maxpiv, pivt))
+    pivGS = np.linspace(pivt, maxpiv)
+    fGS = [np.array([fgt, fst])]
+    for piv in pivGS[1:]:
+        fGS.append(coexistence(piv, q, fluid, solid, fGS[-1], Delta_muS_0))
+    GS = np.column_stack((pivGS, fGS))
+    #gas-liquid coexistence
+    pivGL = np.linspace(pivt, pivc)
+    binGL = [np.log([fgt, flt])]
+    for piv in pivGL[1:]:
+        binGL.append(fluid.binodalGL(piv, q, binGL[-1]))
+    GL = np.column_stack((
+        pivGL,
+        np.exp(binGL),
+        fluid.spinodalGL(q, pivGL)[:,1:]
+        ))
+    return LS, GS, GL
