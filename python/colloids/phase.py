@@ -485,7 +485,7 @@ def critical_end_point(fluid=CarnahanStarling(), solid=Hall(), Delta_muS_0=0.0):
         ], iv)
     return np.array([result[0], PIvc(result[1], result[0])] + U2f(result[1:]).tolist())
     
-def generate(q, fluid=CarnahanStarling(), solid=Hall(), maxpiv=None):
+def generate(q, fluid=CarnahanStarling(), solid=Hall(), maxpiv=None, sampling=50):
     """Generate the theoretical phase diagram in (f, piv) plane in case of triple coexistence."""
     #tune the two EOS to ensure fluid-solid coexistence
     Delta_muS_0 = solid.mu_of_U(f2U(f_HSs), 0, q) - fluid.mu_of_U(f2U(f_HSf), 0, q)
@@ -498,29 +498,31 @@ def generate(q, fluid=CarnahanStarling(), solid=Hall(), maxpiv=None):
         Delta_muS_0=Delta_muS_0
         )
     #bottom of the fluid-solid coexistence
-    pivLS = np.linspace(0,pivt)
-    LS = np.column_stack((
-        pivLS,
-        np.vstack([
-            coexistence(
-                piv, q, fluid, solid, 
-                guess=[0.970, 1.185], 
-                Delta_muS_0=Delta_muS_0
-                ) 
-            for piv in pivLS
-            ])
-        ))
+    pivLS = np.linspace(pivt, 0, sampling)
+    LS = all_coexistence(q, fluid, solid, pivs=pivLS, guess=[flt, fst])
+    #pivLS = np.linspace(0,pivt, sampling)
+    #LS = np.column_stack((
+     #   pivLS,
+      #  np.vstack([
+       #     coexistence(
+        #        piv, q, fluid, solid, 
+         #       guess=[0.970, 1.185], 
+          #      Delta_muS_0=Delta_muS_0
+           #     ) 
+            #for piv in pivLS
+            #])
+        #))
     #top of the fluid-solid coexistence
     if maxpiv is None:
         maxpiv = 2*pivt
     #GS = all_coexistence(q, fluid, solid, pivs=np.linspace(maxpiv, pivt))
-    pivGS = np.linspace(pivt, maxpiv)
+    pivGS = np.linspace(pivt, maxpiv, sampling)
     fGS = [np.array([fgt, fst])]
     for piv in pivGS[1:]:
         fGS.append(coexistence(piv, q, fluid, solid, fGS[-1], Delta_muS_0))
     GS = np.column_stack((pivGS, fGS))
     #gas-liquid coexistence
-    pivGL = np.linspace(pivt, pivc)
+    pivGL = np.linspace(pivt, pivc, sampling)
     binGL = [np.log([fgt, flt])]
     for piv in pivGL[1:]:
         binGL.append(fluid.binodalGL(piv, q, binGL[-1]))
