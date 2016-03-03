@@ -19,7 +19,7 @@
 import numpy as np
 #import rtree.index
 import numexpr
-import subprocess, shlex, StringIO, os, os.path
+import subprocess, shlex, os, os.path
 from scipy.spatial import cKDTree as KDTree
 from scipy import weave
 from scipy.weave import converters
@@ -324,6 +324,15 @@ def get_N_ngbs(positions, radii, N=12, maxdist=3.0, edge = None):
             N2 = np.where(disq[ags] < to_edge[i])[0][0]+1
             neighbours[i, :N2] = np.array(js)[ags[:N2]]
     return neighbours, inside
+    
+def ngbN2bonds(ngbs):
+    """Convert the result of get_N_ngbs into a sorted array of bonds"""
+    bonds = []
+    for i,l in enumerate(ngbs):
+        for n in l:
+            if n<0: continue
+            bonds.append(tuple(sorted([i,n])))
+    return np.array([[a,b] for a,b in set(bonds)])
 
 rstartree_path = os.path.abspath(os.path.join(
     os.path.dirname(__file__),
@@ -345,47 +354,6 @@ struct Gatherer {
 };
 """
 
-
-    
-def ngbN2bonds(ngbs):
-    b0 = []
-    b1 = []
-    code="""
-    #pragma omp parallel for
-    for(int i=0; i<Nngbs[0]; ++i)
-    {
-        for(int j=0; j<Nngbs[1]; ++j)
-        {
-            int n = ngbs(i,j);
-            if (n<0) continue;
-            if (i<n)
-            {
-                #pragma omp critical
-                {
-                b0.append(i);
-                b1.append(n);
-                }
-            }
-            else
-            {
-                #pragma omp critical
-                {
-                b0.append(n);
-                b1.append(i);
-                }
-            }
-        }
-    }   
-    """
-    weave.inline(
-        code,['ngbs', 'b0', 'b1'],
-        type_converters =converters.blitz,
-        extra_compile_args =['-O3 -fopenmp -mtune=native'],
-        extra_link_args=['-lgomp'],
-        verbose=2, compiler='gcc')
-    bonds = list(set([b for b in zip(b0,b1)]))
-    bonds.sort()
-    return np.array(bonds)
     
 def bonds2ngbs_list(bonds, N):
     """Returns a list of arrays of neighbours from bond data. N is the number of particles"""
