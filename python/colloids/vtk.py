@@ -16,12 +16,25 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Colloids.  If not, see <http://www.gnu.org/licenses/>.
 #
-from __future__ import with_statement #for python 2.5, useless in 2.6
+ #for python 2.5, useless in 2.6
 import numpy as np
 from scipy.spatial import cKDTree as KDTree
 import math
 import os, bz2
 from lxml import etree
+
+dtypes = {
+    'B': 'unsigned_char',
+    'b': 'char',
+    'H': 'unsigned_short',
+    'h': 'short',
+    'I': 'unsigned_int',
+    'i': 'int',
+    'L': 'unsigned_long',
+    'l': 'long',
+    'f': 'float',
+    'd': 'double',
+    }
 
 
 class Polydata:
@@ -164,7 +177,7 @@ class Polydata:
                     ))]+[v for n, v in self.vectors]
                       )),
             np.array(
-                range(len(self.scalars))
+                list(range(len(self.scalars)))
                 + [i/3 + len(self.scalars) for i in range(3*len(self.vectors))]
                 ),
             Nbins,
@@ -174,7 +187,7 @@ class Polydata:
     def clustersize(self):
         import networkx as nx
         G = nx.Graph()
-        G.add_nodes_from(range(len(self.points)))
+        G.add_nodes_from(list(range(len(self.points))))
         G.add_edges_from([(a,b) for a,b in self.bonds])
         cc = nx.connected_components(G)
         cl_size = np.zeros(len(self.points), int)
@@ -189,25 +202,22 @@ def export_structured_points(fname, data, name="", spacing=np.ones(3), origin=np
     shape.reverse()
     with open(fname, 'wb') as f:
         f.write(
-            ('# vtk DataFile Version 3.0\n%s\n' % name)+
-            'BINARY\nDATASET STRUCTURED_POINTS\n'+
-            ('DIMENSIONS %d %d %d\n'%tuple(shape))+
-            ('ORIGIN %g %g %g\n'%tuple(list(origin)))+
-            ('SPACING %g %g %g\n'%tuple(list(spacing)))+
-            ('POINT_DATA %d\n'%data.size)+
-            ('SCALARS Intensity %s\nLOOKUP_TABLE default\n'%({
-                'B': 'unsigned_char',
-                'b': 'char',
-                'H': 'unsigned_short',
-                'h': 'short',
-                'I': 'unsigned_int',
-                'i': 'int',
-                'L': 'unsigned_long',
-                'l': 'long',
-                'f': 'float',
-                'd': 'double',
-                }[data.dtype.char]))
-            )
+"""# vtk DataFile Version 3.0
+{name}
+BINARY
+DATASET STRUCTURED_POINTS
+DIMENSIONS {shape[0]} {shape[1]} {shape[2]}
+ORIGIN {origin[0]:g} {origin[1]:g} {origin[2]:g}
+SPACING {spacing[0]:g} {spacing[1]:g} {spacing[2]:g}
+POINT_DATA {size:d}
+SCALARS Intensity {dtype}
+LOOKUP_TABLE default
+""".format(
+                name=name, shape=shape, origin=origin, spacing=spacing,
+                size= data.size,
+                dtype=dtypes[data.dtype.char]
+                ).encode('utf-8')
+        )
         if data.dtype.itemsize > 1:
              #Paraview reads only bigendian by default
             np.array(data, np.dtype('>'+data.dtype.str[1:])).tofile(f)
