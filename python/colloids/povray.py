@@ -1,8 +1,9 @@
 ## {{{ http://code.activestate.com/recipes/205451/ (r1)
 import sys, os
 import numpy as np
-from pygraph.classes.graph import graph
-from pygraph.algorithms.accessibility import connected_components
+import networkx as nx
+#from pygraph.classes.graph import graph
+#from pygraph.algorithms.accessibility import connected_components
 
 class File:
   def __init__(self,fnam="out.pov",*items):
@@ -73,7 +74,7 @@ class Item:
         opt.write(file)
       else:
         file.writeln( str(opt) )
-    for key,val in self.kwargs.items():
+    for key,val in list(self.kwargs.items()):
       if type(val)==tuple or type(val)==list:
         val = Vector(*val)
         file.writeln( "%s %s"%(key,val) )
@@ -248,15 +249,15 @@ def exportPOV(
                     positions[:,-1][bonds].max(axis=-1)>zmin
                     )
             )])
-    gr = graph()
+    gr = nx.Graph()
     gr.add_nodes(ico)
     for a,b in bonds[ico_bonds]:
             gr.add_edge((a,b))
 
     try:
-            cc = connected_components(gr)
+            cc = nx.connected_components(gr)
     except RuntimeError:
-            print "Graph is too large for ico_thr=%g, lower the threshold."%ico_thr
+            print("Graph is too large for ico_thr=%g, lower the threshold."%ico_thr)
             return
       #remove clusters than contain less than 10 particles
 ##        sizes = np.zeros(max(cc.values()), int)
@@ -285,7 +286,7 @@ def exportPOV(
                 radii[p],
                 Texture(Pigment(color="COLORSCALE(%f)"%(cl*120.0/max(cc.values()))))
                 )
-            for p, cl in cc.iteritems()]
+            for p, cl in cc.items()]
     else:
         pov_ico = [
             Sphere(
@@ -293,7 +294,7 @@ def exportPOV(
                 6,
                 Texture(Pigment(color="COLORSCALE(%f)"%(cl*120.0/max(cc.values()))))
                 )
-            for p, cl in cc.iteritems()]
+            for p, cl in cc.items()]
     pov_ico = Union(*pov_ico)
     f = File(out, "colors.inc", header)
     f.write(pov_mrco, pov_ico)
