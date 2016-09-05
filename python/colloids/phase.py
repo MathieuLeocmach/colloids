@@ -42,9 +42,15 @@ y2piv = lambda y, qR: y/qR**3
 f2vf = lambda f: f/(1.+f)
 vf2f = lambda vf: vf/(1.-vf)
 
+#volume fraction at hard sphere fluid-solid coexistence
+f_HSf = 0.970
+f_HSs = 1.185
+
 #volume fraction at close packing
 eta_cp = np.pi/6*np.sqrt(2)
 f_cp = vf2f(eta_cp)
+f2U = lambda f: np.log(1./f - 1/f_cp)
+U2f = lambda U: 1/(np.exp(U) + 1/f_cp)
 
 #volume fraction at random close packing
 eta_rcp = 0.637
@@ -137,6 +143,14 @@ class EquationOfState:
     def pv_of_U(self, U, piv, q):
         """Redefine pv with U=log(u) as variable, with u = 1/f - 1/f_cp. Prevents going over f_cp and numerical errors when doing exp(log(u))"""
         return self.pv(1/(np.exp(U) + 1/f_cp), piv, q)
+        
+    def omega(self, f, piv, q):
+        """Semi-grand potential for the system with polymers"""
+        return -self.pv(f, piv, q) + f2vf(f) * self.mu(f, piv, q)
+    
+    def omega_of_log(self, F, piv, q):
+        """Redefine omega with F=log(f) as variable. Prevents numerical errors when doing exp(log(f))"""
+        return -self.pv_of_log(F, piv, q) + f2vf(np.exp(F)) * self.mu_of_log(F, piv, q)
         
     def critical_point(self, q):
         """Critical point coordinates in the (f,PIv) plane function of the effective size ratio q=delta/a"""
@@ -375,6 +389,13 @@ class Liu(EquationOfState):
 class Hall(EquationOfState):
     """Hall equation of state for a hard sphere crystal."""
     
+    def Z(self, f):
+        """Compressibility function of f=phi/(1-phi)"""
+        phi = f2vf(f)
+        xi = f2vf(f_cp) - phi
+        num = 1+phi+phi**2 -0.67825*phi**3 -phi**4 -6.028*np.exp(xi * (7.9-3.9*xi))*phi**6
+        return num / (1-3*phi+3*phi**2 -1.04305*phi**3)
+    
     def pv_0(self, f):
         """Pressure * volume = phi*Z(phi) function of f=phi/(1-phi)"""
         return 3/(1.0/f - 1/f_cp)
@@ -383,6 +404,10 @@ class Hall(EquationOfState):
         """Chemical potential"""
         u = 1/f - 1/f_cp
         return 2.1306 + 3.0*(1+f)/u/f - 3*np.log(u)
+        
+    def mu_0_nolog(self, f):
+        """Chemical potential - np.log(f)"""
+        return self.mu_0(f) - np.log(f)
         
     def mu_of_U(self, U, piv, q):
         """Redefine the chemical potential with U=log(u) as variable, with u = 1/f - 1/f_cp. Prevents going over f_cp and numerical errors when doing exp(log(u))"""
@@ -402,21 +427,21 @@ class Hall(EquationOfState):
 
     
 
-def coexistence(piv, q, fluid, solid, guess=[0.970, 1.185], Delta_muS_0=0.0):
+def coexistence(piv, q, fluid, solid, guess=[f_HSf, f_HSs], Delta_muS_0=0.0):
     """return (f_Fluid, f_solid) at a given insersion work piv. 
     
     fluid, solid are respective EOS of the two phases.
     Delta_muS_0 is a constant that can be added to the solid chemical potential to ensure HS coexistence"""
-    Us0 = np.log(1./np.array(guess) - 1/f_cp)
+    Us0 = f2U(np.array(guess))
     result = fsolve(lambda Us: [
         fluid.pv_of_U(Us[0], piv, q) - solid.pv_of_U(Us[1], piv, q), 
         fluid.mu_of_U(Us[0], piv, q) - solid.mu_of_U(Us[1], piv, q) + Delta_muS_0
         ], Us0)
-    return 1./(np.exp(result)+1/f_cp)
+    return U2f(result)
     
-def all_coexistence(q, fluid, solid, pivs=None, maxpiv=None):
+def all_coexistence(q, fluid, solid, pivs=None, maxpiv=None, guess=[1e-3, f_cp-1e-3]):
     """return (piv, f_Fluid, f_solid) at various insersion works pivs. If not given, pivs are sampled from 0 to maxpiv (default 2*critical pressure)."""
-    Delta_muS_0 = solid.mu_of_U(np.log(1/1.185-1/f_cp), 0, q) - fluid.mu_of_U(np.log(1/0.970-1/f_cp), 0, q)
+    Delta_muS_0 = solid.mu_of_U(f2U(f_HSs), 0, q) - fluid.mu_of_U(f2U(f_HSf), 0, q)
     if pivs is None:
         fc, pivc = fluid.critical_point(q)
         if maxpiv is None:
@@ -426,10 +451,84 @@ def all_coexistence(q, fluid, solid, pivs=None, maxpiv=None):
             np.linspace(0, 1.1*pivc), 
             np.linspace(1.1*pivc, maxpiv)
             )[::-1]
-    topFS = [[1e-3, f_cp-1e-3]]
+    topFS = [guess]
     for piv in pivs:
         topFS.append(coexistence(piv, q, fluid, solid, topFS[-1], Delta_muS_0))
     return np.vstack((
-        [0, 0.970, 1.185],
+        [0, f_HSf, f_HSs],
         np.column_stack((pivs, topFS[1:]))[::-1]
         ))
+        
+        
+def triple(q, fluid, solid, guess=[10, 0.05, f_HSf, f_HSs], Delta_muS_0=0.0):
+    """return the insersion work piv of the triple coexistence, and the f of the three phases. 
+    
+    fluid, solid are respective EOS of the two phases.
+    Delta_muS_0 is a constant that can be added to the solid chemical potential to ensure HS coexistence"""
+    iv = np.array(guess[:1] + f2U(np.array(guess[1:])).tolist())
+    result = fsolve(lambda v: [
+        fluid.pv_of_U(v[2], v[0], q) - solid.pv_of_U(v[3], v[0], q), 
+        fluid.mu_of_U(v[2], v[0], q) - solid.mu_of_U(v[3], v[0], q) + Delta_muS_0, 
+        fluid.pv_of_U(v[2], v[0], q) - fluid.pv_of_U(v[1], v[0], q), 
+        fluid.mu_of_U(v[2], v[0], q) - fluid.mu_of_U(v[1], v[0], q)
+        ], iv)
+    return np.array(result[:1].tolist() + U2f(result[1:]).tolist())
+    
+def critical_end_point(fluid=CarnahanStarling(), solid=Hall(), Delta_muS_0=0.0):
+    """return (q, piv, f_Fluid, f_Solid) at the endpoint of the stable part of the critical curve"""
+    PIvc = lambda Uc, q: fluid.pv_0_1(U2f(Uc))/U2f(Uc)/beta2(U2f(Uc), q)
+    iv = np.array([0.3] + f2U(np.array([0.36, 1.32])).tolist())
+    result = fsolve(lambda v: [
+        1/U2f(v[1]) + beta3(U2f(v[1]), v[0])/beta2(U2f(v[1]), v[0]) - fluid.pv_0_ratio(U2f(v[1])),
+        fluid.pv_of_U(v[1], PIvc(v[1], v[0]), v[0]) - solid.pv_of_U(v[2],  PIvc(v[1], v[0]), v[0]), 
+        fluid.mu_of_U(v[1], PIvc(v[1], v[0]), v[0]) - solid.mu_of_U(v[2],  PIvc(v[1], v[0]), v[0]) + Delta_muS_0
+        ], iv)
+    return np.array([result[0], PIvc(result[1], result[0])] + U2f(result[1:]).tolist())
+    
+def generate(q, fluid=CarnahanStarling(), solid=Hall(), maxpiv=None, sampling=50):
+    """Generate the theoretical phase diagram in (f, piv) plane in case of triple coexistence."""
+    #tune the two EOS to ensure fluid-solid coexistence
+    Delta_muS_0 = solid.mu_of_U(f2U(f_HSs), 0, q) - fluid.mu_of_U(f2U(f_HSf), 0, q)
+    #critical point
+    fc, pivc = fluid.critical_point(q)
+    #triple line
+    pivt, fgt, flt, fst = triple(
+        q, fluid, solid, 
+        guess=[pivc, fc/10, f_HSf, f_HSs], 
+        Delta_muS_0=Delta_muS_0
+        )
+    #bottom of the fluid-solid coexistence
+    pivLS = np.linspace(pivt, 0, sampling)
+    LS = all_coexistence(q, fluid, solid, pivs=pivLS, guess=[flt, fst])
+    #pivLS = np.linspace(0,pivt, sampling)
+    #LS = np.column_stack((
+     #   pivLS,
+      #  np.vstack([
+       #     coexistence(
+        #        piv, q, fluid, solid, 
+         #       guess=[0.970, 1.185], 
+          #      Delta_muS_0=Delta_muS_0
+           #     ) 
+            #for piv in pivLS
+            #])
+        #))
+    #top of the fluid-solid coexistence
+    if maxpiv is None:
+        maxpiv = 2*pivt
+    #GS = all_coexistence(q, fluid, solid, pivs=np.linspace(maxpiv, pivt))
+    pivGS = np.linspace(pivt, maxpiv, sampling)
+    fGS = [np.array([fgt, fst])]
+    for piv in pivGS[1:]:
+        fGS.append(coexistence(piv, q, fluid, solid, fGS[-1], Delta_muS_0))
+    GS = np.column_stack((pivGS, fGS))
+    #gas-liquid coexistence
+    pivGL = np.linspace(pivt, pivc, sampling)
+    binGL = [np.log([fgt, flt])]
+    for piv in pivGL[1:]:
+        binGL.append(fluid.binodalGL(piv, q, binGL[-1]))
+    GL = np.column_stack((
+        pivGL,
+        np.exp(binGL),
+        fluid.spinodalGL(q, pivGL)[:,1:]
+        ))
+    return LS, GS, GL

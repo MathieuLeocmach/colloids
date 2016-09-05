@@ -449,39 +449,22 @@ def split_clusters(clusters, centers):
     return clusters
     
 def draw_spheres(shape, pos, radii):
-    im = np.zeros(shape, np.uint8)
+    im = np.zeros(shape, bool)
     if np.isscalar(radii):
         radii = radii * np.ones(len(pos))
     assert len(pos)==len(radii)
     assert np.min(pos.max(0)<shape[::-1]) and np.min([0,0,0]<=pos.min(0)), "points out of bounds"
-    code = """
-    #pragma omp parallel for
-    for(int p=0; p<Npos[0]; ++p)
-    {
-        const double rsq = pow(radii(p), 2);
-        for(int i = std::max(0, (int)(pos(p,2)-radii(p))); i<std::min(Nim[0], (int)(pos(p,2)+radii(p))+1); ++i)
-        {
-            const double di = pow(pos(p,2)-i, 2);
-            for(int j = std::max(0, (int)(pos(p,1)-radii(p))); j<std::min(Nim[1], int(pos(p,1)+radii(p))+1); ++j)
-            {
-                const double dj = pow(pos(p,1)-j, 2);
-                for(int k = std::max(0, (int)(pos(p,0)-radii(p))); k<std::min(Nim[2], (int)(pos(p,0)+radii(p))+1); ++k)
-                {
-                    const double dsq = pow(pos(p,0)-k, 2) + dj + di;
-                    if(dsq<=rsq)
-                        im(i,j,k) = 255;
-                }
-            }
-        }
-    }
-    """
-    weave.inline(
-        code,['pos', 'radii', 'im'],
-        type_converters = converters.blitz,
-        extra_compile_args =['-O3 -fopenmp'],
-        extra_link_args=['-lgomp'],
-        verbose=2, compiler='gcc')
-    return im;
+    for p, rsq, m, M in zip(
+        pos, radii**2, 
+        np.maximum(0, pos[:,::-1] - radii[:,None]).astype(int), 
+        np.minimum(im.shape, pos[:,::-1] + radii[:,None] + 1).astype(int)
+    ):
+        im[m[0]:M[0], m[1]:M[1], m[2]:M[2]] |= (
+            (p[2] - np.arange(m[0], M[0]))[:,None,None]**2 + 
+            (p[1] - np.arange(m[1], M[1]))[None,:,None]**2 +
+            (p[0] - np.arange(m[2], M[2]))[None,None,:]**2 <= rsq
+        )
+    return im
     
 def draw_rods(pos, radii, shape=None, im=None):
     if im is None:

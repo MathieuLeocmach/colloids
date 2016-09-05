@@ -39,6 +39,32 @@ Aknowledge please
 
     Please cite Colloids and it's author(s) in any scientific publication using this software.
 
+    The code in itself has a DOI number so you can cite it. Bibtex entry could be something like 
+
+@misc{
+    Leocmach2015, 
+    title={The colloid toolkit}, 
+    url={http://dx.doi.org/10.5281/zenodo.31286}, 
+    DOI={10.5281/zenodo.31286},
+    author={Mathieu Leocmach}, 
+    year={2015}
+}
+
+   The multiscale algorithm is described in 
+
+@Article{Leocmach2013,
+    author ="Leocmach, Mathieu and Tanaka, Hajime",
+    title  ="A novel particle tracking method with individual particle size measurement and its application to ordering in glassy hard sphere colloids",
+    journal  ="Soft Matter",
+    year  ="2013",
+    volume  ="9",
+    issue  ="5",
+    pages  ="1447-1457",
+    publisher  ="The Royal Society of Chemistry",
+    doi  ="10.1039/C2SM27107A",
+}
+
+
 Contact
     Mathieu LEOCMACH, Institut Lumière Matière, UMR-CNRS 5306, Lyon, France
     mathieu.leocmach AT polytechnique.org

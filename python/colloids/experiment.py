@@ -17,6 +17,7 @@
 #    along with Colloids.  If not, see <http://www.gnu.org/licenses/>.
 #
 from __future__ import with_statement #for python 2.5, useless in 2.6
+from __future__ import print_function #for python 2.x
 import scipy as sp
 import numpy as np
 import scipy.constants as const
@@ -509,10 +510,12 @@ class Experiment(object):
     def neverreform(self, L=3, mintrajlength=None, showprogress=True):
         """All the broken bonds (in term of trajectories) with a on graph post breaking distance larger than L, associated with the last time they break"""
         try:
-            return [
-                np.loadtxt(name, dtype=int) 
-                for t, name in self.enum('_L%d'%L, ext='nev')
-                ]
+            ret = []
+            for t, name in self.enum('_L%d'%L, ext='nev'):
+                if os.stat(name).st_size:
+                    ret.append(np.loadtxt(name, dtype=int))
+                else:
+                    ret.append(np.array((0,2), dtype=int))
         except IOError:
             pass
         if showprogress:
