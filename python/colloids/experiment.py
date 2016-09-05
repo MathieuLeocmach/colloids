@@ -17,6 +17,7 @@
 #    along with Colloids.  If not, see <http://www.gnu.org/licenses/>.
 #
 from __future__ import with_statement #for python 2.5, useless in 2.6
+from __future__ import print_function #for python 2.x
 import scipy as sp
 import numpy as np
 import scipy.constants as const
