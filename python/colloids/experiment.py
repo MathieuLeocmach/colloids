@@ -1053,7 +1053,7 @@ p0 - parameters as [prefactor, tau1, beta1, tau2, beta2, ...]"""
         multipleStrechedExp, p0,
         ([np.arange(1, len(k)) for k in isfs], [k[1:] for k in isfs])
         )
-    if not success==1: print "Fitting failure"
+    if not success==1: print("Fitting failure")
     return p
 
 def fit_vft(tau, p0 = [30, 0.5, 0.62]):
