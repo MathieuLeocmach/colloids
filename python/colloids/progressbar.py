@@ -1,5 +1,6 @@
 #Code from https://github.com/ipython/ipython/issues/1527/
 
+from __future__ import print_function #for python 2.x
 import sys, time
 try:
     from IPython.core.display import clear_output
