@@ -42,6 +42,10 @@ y2piv = lambda y, qR: y/qR**3
 f2vf = lambda f: f/(1.+f)
 vf2f = lambda vf: vf/(1.-vf)
 
+def xp2th(cp, phi, qR=0.1, cpov=1.):
+    """Converts experimental polymer concentration in osmotic pressure"""
+    return y2piv(cp/cpov/alpha(vf2f(phi), qR2q(qR)), qR)
+
 #volume fraction at hard sphere fluid-solid coexistence
 f_HSf = 0.970
 f_HSs = 1.185
@@ -500,18 +504,6 @@ def generate(q, fluid=CarnahanStarling(), solid=Hall(), maxpiv=None, sampling=50
     #bottom of the fluid-solid coexistence
     pivLS = np.linspace(pivt, 0, sampling)
     LS = all_coexistence(q, fluid, solid, pivs=pivLS, guess=[flt, fst])
-    #pivLS = np.linspace(0,pivt, sampling)
-    #LS = np.column_stack((
-     #   pivLS,
-      #  np.vstack([
-       #     coexistence(
-        #        piv, q, fluid, solid, 
-         #       guess=[0.970, 1.185], 
-          #      Delta_muS_0=Delta_muS_0
-           #     ) 
-            #for piv in pivLS
-            #])
-        #))
     #top of the fluid-solid coexistence
     if maxpiv is None:
         maxpiv = 2*pivt

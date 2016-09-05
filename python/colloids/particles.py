@@ -333,6 +333,24 @@ def ngbN2bonds(ngbs):
             if n<0: continue
             bonds.append(tuple(sorted([i,n])))
     return np.array([[a,b] for a,b in set(bonds)])
+    
+    
+def bonds2ngbs_list(bonds, N):
+    """Returns a list of arrays of neighbours from bond data. N is the number of particles"""
+    ngbs = [[] for i in range(N)]
+    for a,b in bonds:
+        ngbs[a].append(b)
+        ngbs[b].append(a)
+    return map(np.array, ngbs)
+    
+def bonds2ngbs(bonds, N):
+    """Returns an array of neighbours from bond data. N is the number of particles"""
+    ngbs = -np.ones([N, np.histogram(bonds, bins=np.arange(N+1))[0].max()], int)
+    if bonds.shape[-1]>0:
+        for a,b in bonds:
+            ngbs[a, np.where(ngbs[a]==-1)[0][0]] = b
+            ngbs[b, np.where(ngbs[b]==-1)[0][0]] = a
+    return ngbs
 
 rstartree_path = os.path.abspath(os.path.join(
     os.path.dirname(__file__),
@@ -354,24 +372,6 @@ struct Gatherer {
 };
 """
 
-    
-def bonds2ngbs_list(bonds, N):
-    """Returns a list of arrays of neighbours from bond data. N is the number of particles"""
-    ngbs = [[] for i in range(N)]
-    for a,b in bonds:
-        ngbs[a].append(b)
-        ngbs[b].append(a)
-    return map(np.array, ngbs)
-    
-def bonds2ngbs(bonds, N):
-    """Returns an array of neighbours from bond data. N is the number of particles"""
-    ngbs = -np.ones([N, np.histogram(bonds, bins=np.arange(N+1))[0].max()], int)
-    if bonds.shape[-1]>0:
-        for a,b in bonds:
-            ngbs[a, np.where(ngbs[a]==-1)[0][0]] = b
-            ngbs[b, np.where(ngbs[b]==-1)[0][0]] = a
-    return ngbs
-    
 def get_rdf(pos, inside, Nbins=250, maxdist=30.0):
     g = np.zeros(Nbins, int)
     code = """

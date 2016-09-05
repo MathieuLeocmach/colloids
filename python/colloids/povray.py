@@ -171,6 +171,25 @@ class Difference(Item):
 class Merge(Item):
   def __init__(self,*opts,**kwargs):
     Item.__init__(self,"merge",(),opts,**kwargs)
+    
+class Mesh2(Item):
+  class VertexVectors(Item):
+    def __init__(self,vertex,*opts,**kwargs):
+      Item.__init__(self, "vertex_vectors", (len(vertex), *map(Vector, vertex)), opts,**kwargs)
+      
+  class FaceIndices(Item):
+    def __init__(self,faces,*opts,**kwargs):
+      Item.__init__(self, "face_indices", (len(faces), *map(Vector, faces)), opts,**kwargs)
+   
+  class VertexNormals(Item):
+    def __init__(self,faces,*opts, **kwargs):
+      Item.__init__(self, "normal_vectors", (len(faces), *map(Vector, faces)), opts,**kwargs)
+      
+  def __init__(self,vertex,faces,*opts, normals=None,**kwargs):
+    if normals is None:
+      Item.__init__(self, "mesh2", (), (self.VertexVectors(vertex), self.FaceIndices(faces), *opts), **kwargs)
+    else:
+      Item.__init__(self, "mesh2", (), (self.VertexVectors(vertex), self.VertexNormals(normals), self.FaceIndices(faces), *opts), **kwargs)
 
 x = Vector(1,0,0)
 y = Vector(0,1,0)
