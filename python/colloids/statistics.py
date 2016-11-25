@@ -1,4 +1,4 @@
-m   m   import numpy as np
+import numpy as np
 from matplotlib.pyplot import *
 from matplotlib.colors import LogNorm
 import numexpr
