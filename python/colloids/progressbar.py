@@ -10,7 +10,7 @@ try:
         from ipywidgets import FloatProgress
         from IPython.display import display
         in_notebook = isinstance(get_ipython(), ZMQInteractiveShell)
-    except ImportError:
+    except (ImportError, NameError):
         in_notebook = False
 except ImportError:
     have_ipython = False
