@@ -67,7 +67,7 @@ class Experiment(object):
             #find size, token and number of digits out of the .dat filenames
             self.digits = 0
             mask = re.compile(self.head+'(.*?)([0-9]+)\.dat')
-            files = filter(mask.match,os.listdir(self.path))
+            files = [name for name in os.listdir(self.path) if mask.match(name) is not None]
             self.offset = 0
             self.size = len(files)
             for m in map(mask.match,files):
@@ -769,34 +769,34 @@ class Txp:
 
     def get_vtk(self, t):
         """Get a view of a time step as a vtk file. remove_drift recommended before use."""
-	v=vtk.Polydata()
-	v.points=self.positions[t]
-	v.bonds=self.load_bonds(t)
-	cgcloud = np.loadtxt(
-		self.xp.get_format_string(postfix='_space', ext='cloud')%t
-		)[self.trajs[:,t]]
-	v.scalars.append(('Q6',cgcloud[:,1]))
-	v.scalars.append(('W4',cgcloud[:,4]))
-	cloud = np.loadtxt(
-		self.xp.get_format_string(ext='cloud')%t
-		)[self.trajs[:,t]]
-	v.scalars.append(('w6',cloud[:,5]))
-	v.scalars.append(('w10',cloud[:,7]))
-	lngb = np.loadtxt(
-		self.xp.get_format_string(postfix='_post', ext='lngb')%t
-		)[self.trajs[:,t]]
-	v.scalars.append(('lngb',lngb))
-	phi = np.loadtxt(
-		self.xp.get_format_string(postfix='_space', ext='phi')%t,
-		skiprows=2
-		)[self.trajs[:,t]]
-	v.scalars.append(('phi',phi))
-	vel = np.loadtxt(
-		self.xp.get_format_string(ext='vel')%t,
-		skiprows=1
-		)[self.trajs[:,t]]
-	v.vectors.append(('vel', vel-vel.mean(axis=0)))
-	return v
+        v=vtk.Polydata()
+        v.points=self.positions[t]
+        v.bonds=self.load_bonds(t)
+        cgcloud = np.loadtxt(
+            self.xp.get_format_string(postfix='_space', ext='cloud')%t
+            )[self.trajs[:,t]]
+        v.scalars.append(('Q6',cgcloud[:,1]))
+        v.scalars.append(('W4',cgcloud[:,4]))
+        cloud = np.loadtxt(
+            self.xp.get_format_string(ext='cloud')%t
+            )[self.trajs[:,t]]
+        v.scalars.append(('w6',cloud[:,5]))
+        v.scalars.append(('w10',cloud[:,7]))
+        lngb = np.loadtxt(
+            self.xp.get_format_string(postfix='_post', ext='lngb')%t
+            )[self.trajs[:,t]]
+        v.scalars.append(('lngb',lngb))
+        phi = np.loadtxt(
+            self.xp.get_format_string(postfix='_space', ext='phi')%t,
+            skiprows=2
+            )[self.trajs[:,t]]
+        v.scalars.append(('phi',phi))
+        vel = np.loadtxt(
+            self.xp.get_format_string(ext='vel')%t,
+            skiprows=1
+            )[self.trajs[:,t]]
+        v.vectors.append(('vel', vel-vel.mean(axis=0)))
+        return v
 
 
     def msd(self,start,stop,av):
@@ -950,9 +950,9 @@ class Txp:
         A = np.exp(
             self.positions * (1j * np.pi / self.xp.radius)
             )
-	B = np.atleast_3d(A.mean(axis=-1)) * q6m
-	C = np.real(B[start].conj() * B[start:stop])
-	return (C.sum(axis=2)-C[:,:,0]).mean(axis=1)
+        B = np.atleast_3d(A.mean(axis=-1)) * q6m
+        C = np.real(B[start].conj() * B[start:stop])
+        return (C.sum(axis=2)-C[:,:,0]).mean(axis=1)
         
     def get_clusters(self, t, isNode):
         """Regroup the given particles into connected clusters.
@@ -965,30 +965,30 @@ Single particle clusters are not returned, even if the particle was declared as 
 Return a dictionary (particle id -> cluster id)
 
 """
-	nodes = np.where(isNode)
-	posbonds = np.loadtxt(self.xp.get_format_string(ext='bonds')%t, dtype=int)
-	pos2traj = -np.ones((posbonds.max()+1), dtype=int)
-	pos2traj[self.trajs[nodes, t]] = nodes
-	trajbonds = pos2traj[posbonds]
-	trajbonds = trajbonds[np.where(trajbonds.min(axis=1)>-1)]
-	gr = nx.Graph()
-	gr.add_nodes_from(np.unique(trajbonds))
-	gr.add_edges_from(trajbonds)
-	return nx.connected_components(gr)
+        nodes = np.where(isNode)
+        posbonds = np.loadtxt(self.xp.get_format_string(ext='bonds')%t, dtype=int)
+        pos2traj = -np.ones((posbonds.max()+1), dtype=int)
+        pos2traj[self.trajs[nodes, t]] = nodes
+        trajbonds = pos2traj[posbonds]
+        trajbonds = trajbonds[np.where(trajbonds.min(axis=1)>-1)]
+        gr = nx.Graph()
+        gr.add_nodes_from(np.unique(trajbonds))
+        gr.add_edges_from(trajbonds)
+        return nx.connected_components(gr)
 
     def get_time_clusters(self, isNode):
         clusters = [self.get_clusters(t, isNode[t]) for t in range(self.xp.size)]
         timegr = nx.Graph()
         for t, cluster in enumerate(clusters):
             timegr.add_nodes_from(
-		[(t,k) for k in np.unique(cluster.values())]
-		)
-	for t, frame in enumerate(clusters[:-1]):
-            for tr, k in frame.iteritems():
-		c = clusters[t+1].get(tr,-1)
-		if c>-1 and not timegr.has_edge(((t, k), (t+1, c))):
-			timegr.add_edge(((t, k), (t+1, c)))
-	return clusters, nx.connected_components(timegr)
+        [(t,k) for k in np.unique(cluster.values())]
+        )
+        for t, frame in enumerate(clusters[:-1]):
+                for tr, k in frame.iteritems():
+                    c = clusters[t+1].get(tr,-1)
+                    if c>-1 and not timegr.has_edge(((t, k), (t+1, c))):
+                        timegr.add_edge(((t, k), (t+1, c)))
+        return clusters, nx.connected_components(timegr)
     
 
 
@@ -1002,19 +1002,19 @@ def histz(f):
     np.savetxt(f[:-3]+'z', hist/(bins[1]-bins[0]), fmt='%f', delimiter='\t')
 
 def dilate(field, bonds):
-	ngb = bonds2ngbs_list(bonds, field.shape[0])
-	dil = np.zeros_like(field)
-	for p,n in enumerate(ngb):
-		a = field[n]
-		dil[p] = a[np.absolute(a).argmax(axis=0), range(a.shape[1])]
-	return dil
+    ngb = bonds2ngbs_list(bonds, field.shape[0])
+    dil = np.zeros_like(field)
+    for p,n in enumerate(ngb):
+        a = field[n]
+        dil[p] = a[np.absolute(a).argmax(axis=0), range(a.shape[1])]
+    return dil
 
 def average(field, bonds):
-	ngb = bonds2ngbs_list(bonds, field.shape[0])
-	av = np.zeros_like(field)
-	for p,n in enumerate(ngb):
-		av[p] = (field[p]+field[n].mean(axis=0))/2
-	return av
+    ngb = bonds2ngbs_list(bonds, field.shape[0])
+    av = np.zeros_like(field)
+    for p,n in enumerate(ngb):
+        av[p] = (field[p]+field[n].mean(axis=0))/2
+    return av
 
 OrnsteinZernike3D = lambda p, r: p[0]/r * np.exp(-r/p[1])
 singleExponentialDecay = lambda p, t: p[0] * np.exp(-(t/p[1])**p[2])
@@ -1093,31 +1093,31 @@ def envelope(g6, smooth=1.0):
     return env
 
 def fit_cg6(infile, crop=None, remove_peaks=[], rmin=2, rmax=10):
-	#a file.cg6 has 3 columns : r, N, N*G_6
-	data = np.loadtxt(infile)
-	#remove the end of the table if long time correlations are wrong
-	if crop is not None:
-		data = data[:crop]
-	#remove the begining of the table with N=0
-	blank = np.where(data[:,1]==0)[0]
-	if len(blank)>0 and (blank[-1] < len(data)-1):
+    #a file.cg6 has 3 columns : r, N, N*G_6
+    data = np.loadtxt(infile)
+    #remove the end of the table if long time correlations are wrong
+    if crop is not None:
+        data = data[:crop]
+    #remove the begining of the table with N=0
+    blank = np.where(data[:,1]==0)[0]
+    if len(blank)>0 and (blank[-1] < len(data)-1):
             data = data[blank[-1]+1:]
-        #remove all values for r<1.5
-        data = data[np.searchsorted(data[:,0],1):]
-	#smooth the data
-	cg6 = gaussian_filter1d(data[:,-1]/data[:,1], rmin)
-	#high-pass filter to transform the function into an oscillatory decaying function
-	#extract peaks from it
-	peaks, mins = find_peak_mins(cg6*data[:,0]-gaussian_filter1d(cg6*data[:,0], rmax))
-	#remove the peaks with negative values
-	peaks = [p for p in peaks if cg6[p]>0]
-	peaks = [p for i,p in enumerate(peaks) if i not in remove_peaks]
-	params = leastsq(
-	    lambda p, x, y: np.log(p[0]/x*np.exp(-x/p[1]))-np.log(y),
-	    [2,3],
-	    args=(data[peaks,0], cg6[peaks])
-	    )[0]
-	return params, np.column_stack((data[:,0], cg6)), peaks
+    #remove all values for r<1.5
+    data = data[np.searchsorted(data[:,0],1):]
+    #smooth the data
+    cg6 = gaussian_filter1d(data[:,-1]/data[:,1], rmin)
+    #high-pass filter to transform the function into an oscillatory decaying function
+    #extract peaks from it
+    peaks, mins = find_peak_mins(cg6*data[:,0]-gaussian_filter1d(cg6*data[:,0], rmax))
+    #remove the peaks with negative values
+    peaks = [p for p in peaks if cg6[p]>0]
+    peaks = [p for i,p in enumerate(peaks) if i not in remove_peaks]
+    params = leastsq(
+        lambda p, x, y: np.log(p[0]/x*np.exp(-x/p[1]))-np.log(y),
+        [2,3],
+        args=(data[peaks,0], cg6[peaks])
+        )[0]
+    return params, np.column_stack((data[:,0], cg6)), peaks
 
 def rdf2Sq(rdf, rho):
     """Calculate the radial Fourier transform of rdf(r) and normalize it to get the structure factor S(q)"""
