@@ -22,9 +22,39 @@ import scipy.constants as const
 from scipy.special import gamma
 import warnings
 
+def log_msd_vs_tau(tau,msd,maxtime=None):
+    """
+Converts MSD and tau vectors in one 2 column matrix spaced
+logarithmically in tau, roughly 16 points per decade.
+
+ INPUTS
+ 
+ tau - the tau vector
+ msd - the MSD vector
+ maxtime - the maximum time to consider in second
+
+ OUTPUTS
+
+ msdtau - a 2 column matrix, with tau in the first column and the MSD in
+ the second column.
+"""
+    timestep = tau[tau>0].min()
+    if maxtime is None:
+        maxtime = (tau>0).sum()
+    maxT = np.log(maxtime)/np.log(1.15)
+    dt = np.unique(np.round(1.15**np.arange(maxT)).astype(int))-1
+    w = dt < maxtime
+    ndt = w.sum()
+    if ndt > 0:
+        dt = dt[w]
+    else:
+        raise ValueError('Invalid maximum dt!')
+    return np.column_stack((tau[tau>0][dt], msd[tau>0][dt]))
+
+
 def logderive(x,f,width):
     """A special purpose routine for finding the first and second logarithmic derivatives of slowly varying, but noisy data.  It returns a smoother version of 'f' and its first and second log derivative."""
-    assert len(x)==len(y)
+    assert len(x)==len(f)
     lx = np.log(x)
     ly = np.log(f)
     f2 = np.zeros_like(f)
