@@ -76,6 +76,10 @@ class Experiment(object):
                 if len(m.group(2)) > self.digits:
                     self.digits = len(m.group(2))
                     self.token = m.group(1)
+            #if last frame is empty, reduce size
+            lastname = self.get_format_string()%(self.size-1)
+            if int(open(lastname,'r').readline().split()[1])==0:
+                self.size -= 1
             #guess time interval from file name
             self.dt = 0.0
             m = re.search('([0-9]+)min',self.head)
