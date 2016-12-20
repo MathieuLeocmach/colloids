@@ -48,9 +48,11 @@ def load_trajectories(fname):
         for l, line in enumerate(f):
             if l==3:
                 break
-        for line in f:
-            starts.append(int(line[:-1]))
-            positions.append(map(int, f.next()[:-1].split()))
+        for l, line in enumerate(f):
+            if l%2 == 0:
+                starts.append(int(line[:-1]))
+            else:
+                positions.append([int(p) for p in line[:-1].split()])
     return starts, positions
 
 class Experiment(object):
@@ -183,19 +185,19 @@ class Experiment(object):
     def cut(self):
         """Remove centers closer than 3 pixels in each frame."""
         subprocess.check_call(
-                map(str,['cutter',self.get_format_string()%0, 
-                   self.token, 5, self.offset, self.size, 0.3])
+                list(map(str,['cutter',self.get_format_string()%0, 
+                   self.token, 5, self.offset, self.size, 0.3]))
                 )
 
     def link(self):
         """Link trajectories. Export a file.traj"""
         actual = os.getcwd()
         os.chdir(self.path)
-        subprocess.check_call(map(str,
+        subprocess.check_call(list(map(str,
                  ['linker', 
                  self.get_format_string(absPath=False)%0, self.token,
                  self.radius, self.dt,
-                 self.offset,self.size])
+                 self.offset,self.size]))
             )
         os.chdir(actual)
 
@@ -203,12 +205,12 @@ class Experiment(object):
         """calculate total g(r), radius, BOO for each time step and link trajectories."""
         actual = os.getcwd()
         os.chdir(self.path)
-        subprocess.check_call(map(str,
+        subprocess.check_call(list(map(str,
                  ['linkboo',
                   self.get_format_string(absPath=False)%0,
                   self.token,
                   self.dt,self.size,
-                  self.offset])
+                  self.offset]))
             )
         os.chdir(actual)
 
@@ -275,9 +277,9 @@ class Experiment(object):
         in pixel unit"""
         name = os.path.join(self.path, self.head + '.rdf')
         if force or not os.path.exists(name):
-            subprocess.check_call(map(str,
+            subprocess.check_call(list(map(str,
                   ['totalRdf',self.get_format_string()%0, self.token,
-                   200, 15])
+                   200, 15]))
                 )
         r,g = np.loadtxt(name, unpack=True)
         return r[np.argmax(g)]
@@ -386,8 +388,8 @@ class Experiment(object):
                     break
         if force:
             for t, name in self.enum():
-                subprocess.check_call(map(str,
-                    ['g6', name, self.radius, Nbins, nbDiameters]))
+                subprocess.check_call(list(map(str,
+                    ['g6', name, self.radius, Nbins, nbDiameters])))
         tot = np.zeros((Nbins,3))
         for t, name in self.enum(ext='g6'):
             tot += np.nan_to_num(
@@ -460,7 +462,7 @@ class Experiment(object):
             for line in f:
                 t0 = int(line[:-1])
                 pos = string.split(f.next()[:-1],'\t')
-                trajs.append((t0, map(int, pos)))
+                trajs.append((t0, list(map(int, pos))))
         #mapping (t, pos)->traj
         framesizes = np.zeros(self.size, dtype=int)
         for t0, pos in trajs:
@@ -670,7 +672,7 @@ class Txp:
         starts, positions = load_trajectories(
             os.path.join(self.xp.path,self.xp.trajfile)
             )
-        lengths = np.array(map(len, positions))
+        lengths = np.array([len(p) for p in positions])
         begin = self.start - np.array(starts)
         size = lengths - begin
         return np.asarray([
