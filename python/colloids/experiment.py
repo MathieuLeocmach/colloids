@@ -25,6 +25,7 @@ from scipy.ndimage.filters import gaussian_filter1d
 from scipy.ndimage.morphology import grey_dilation
 from scipy import optimize, sparse
 from scipy.optimize import leastsq
+#from scipy.spatial import cKDTree as KDTree
 import os, os.path, subprocess
 import re, string, math
 from math import exp
@@ -41,7 +42,7 @@ def noNaN(x):
         return float(x)
 
 def load_trajectories(fname):
-    """returns (staring times, list of position indices)"""
+    """returns (starting times, list of position indices)"""
     starts = []
     positions = []
     with open(fname,'r') as f:
@@ -52,7 +53,8 @@ def load_trajectories(fname):
             if l%2 == 0:
                 starts.append(int(line[:-1]))
             else:
-                positions.append([int(p) for p in line[:-1].split()])
+                #positions.append([int(p) for p in line[:-1].split()])
+                positions.append(np.fromstring(line[:-1], int, sep='\t'))
     return starts, positions
 
 class Experiment(object):
@@ -638,7 +640,7 @@ class Experiment(object):
         
 
 class Txp:
-    """Implementig time algorithms in python"""
+    """Contains spanning trajectories as a (time, particle, dimention) array. Implements time-dependent algorithms."""
     
     def __init__(self, xp=None, start=None, size=None, copy=None):
         if copy is not None:
@@ -652,7 +654,7 @@ class Txp:
                 self.start = self.xp.offset
             else:
                 self.start=start
-            if size is None or start+size > self.xp.offset+self.xp.size:
+            if size is None or self.start+size > self.xp.offset+self.xp.size:
                 self.size = self.xp.size + self.xp.offset - self.start
             else:
                 self.size= size
@@ -959,6 +961,84 @@ class Txp:
         B = np.atleast_3d(A.mean(axis=-1)) * q6m
         C = np.real(B[start].conj() * B[start:stop])
         return (C.sum(axis=2)-C[:,:,0]).mean(axis=1)
+        
+    def get_Brownian_corr(self, t0, dt, rmin, rmax, nbins, verbose=False):
+        """Calculates 'Brownian correlation' components.
+        See JC Crocker, MT Valentine, ER Weeks, T Gisler, PD Kaplan, AG Yodh, and DA Weitz, Phys. Rev. Lett. 85, 888 (2000).
+
+        Input
+            - t0: initial time
+            - dt: time lag
+            - rmin: minimim distance between particles
+            - rmax: maximum distance between particles
+            - nbins: number of bins
+        
+        Output:
+            - r dependent sums of r-r, theta-theta and phi-phi components and sums of squares
+            - number of pairs used for the sum
+            - r bins
+        
+        Code Inspired by John C. Crocker IDL code http://www.physics.emory.edu/faculty/weeks//idl/rheo.html
+        """
+        # generate the 'r' partition in log scale
+        lrmin, lrmax = np.log([rmin, rmax])
+        lrbinsize = (lrmax - lrmin) / nbins
+        rbins = np.arange(nbins+1) * lrbinsize
+        #accumulate both sums and squared sums
+        bres = np.zeros((2*self.positions.shape[-1], nbins))
+        nb = np.zeros(nbins, int)
+        #vector displacements
+        pos0 = self.positions[t0]
+        displs = self.positions[t0+dt] - pos0
+        #3D only
+        assert self.positions.shape[-1] == 3, "Implemented only for 3D data"
+        #Tried cKDtree but too slow since we are looking at long distances
+        #tree = KDTree(pos0, 12)
+        #for i, j, dist in tree.sparse_distance_matrix(tree, rmax):
+            #if i==j or dist < rmin: continue
+        
+        if verbose:
+            pro = ProgressBar(pos0.shape[0]-1)
+        for i in range(pos0.shape[0]-1):
+            if verbose:
+                pro.animate(i)
+            rs = pos0[i+1:] - pos0[i]
+            distsq = np.sum(rs**2, -1)
+            ok = (distsq >= rmin**2) & (distsq < rmax**2)
+            js = np.where(ok)[0] + i + 1
+            #distances
+            dists = np.sqrt(distsq[ok])
+            #vector separations
+            rs = rs[ok]
+            #note: in the original code direction of the unit vector (from i to j or from j to i) is randomized to help with numerical errors. Not done here.
+            #unit vectors along r
+            ns = rs / dists[:,None]
+            #unit vectors in xy plane
+            ps = rs[:, :-1] / np.sqrt(np.sum(rs[:, :-1]**2, -1))[:,None]
+            #third unit vectors
+            qs = np.cross(ns, np.column_stack([ps[:,0], ps[:,1], np.zeros(len(ps))]))
+            #calculate the longitudinal part
+            ddn = (displs[i] * ns).sum(-1) * (displs[js] * ns).sum(-1)
+            # calculate the theta transverse part
+            ddq = (displs[i] * qs).sum(-1) * (displs[js] * qs).sum(-1)
+            # calculate the phi transverse part
+            ddp = (displs[i,:-1] * ps).sum(-1) * (displs[js, :-1] * ps).sum(-1)
+            # accumulate
+            lrs = np.floor((np.log(dists)-lrmin)/lrbinsize).astype(int)
+            bres[:, lrs] += [ddn, ddq, ddp, ddn**2, ddq**2, ddp**2]
+            nb[lrs] += 1
+        return bres, nb, rbins
+    
+    def MSD_twopoint(self, bres, nb):
+        """Convert 'Brownian correlation' components (e.g. the output of get_Brownian_corr) into two-point mean squared displacement.
+        
+        Output :
+            - r dependent two-point MSD components along r-r, theta-theta and phi-phi
+            - the respective errors"""
+        msds = bres[:3] / nb
+        errors = np.sqrt(bres[3:] /nb - msds**2)
+        return msds, errors
+        
         
     def get_clusters(self, t, isNode):
         """Regroup the given particles into connected clusters.
