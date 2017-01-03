@@ -730,11 +730,20 @@ class Txp:
             Q6m[t] = B[self.trajs[:,t]][:, ::2] + 1j * B[self.trajs[:,t]][:, 1::2]
         return q6m, Q6m
 
-    def remove_drift(self):
+    def remove_drift(self, on=True):
         """Remove the average drift between time steps"""
         drift = np.cumsum(np.diff(self.positions,axis=0).mean(axis=1),axis=0)
         sw = np.swapaxes(self.positions[1:],0,1)
         sw -= drift
+#        if on:
+ #           if not hasattr(self, 'drift'):
+  #              self.drift = np.cumsum(np.diff(self.positions,axis=0).mean(axis=1),axis=0)
+   #         self.positions[1:] -= self.drift[:,None,:]
+    #    else:
+     #       if hasattr(self, 'drift'):
+      #          self.positions[1:] += self.drift[:,None,:]
+       #     else:
+        #        raise UserWarning("Can't add back a drift that was not previously removed")
 
     def z_slab(self, bottom, top, allTimes=True):
         """remove all trajectories that are not in the slab
@@ -962,7 +971,7 @@ class Txp:
         C = np.real(B[start].conj() * B[start:stop])
         return (C.sum(axis=2)-C[:,:,0]).mean(axis=1)
         
-    def get_Brownian_corr(self, t0, dt, rmin, rmax, nbins, verbose=False):
+    def get_Brownian_corr(self, t0, dt, rmin, rmax, nbins, inside=None, verbose=False):
         """Calculates 'Brownian correlation' components.
         See JC Crocker, MT Valentine, ER Weeks, T Gisler, PD Kaplan, AG Yodh, and DA Weitz, Phys. Rev. Lett. 85, 888 (2000).
 
@@ -983,7 +992,7 @@ class Txp:
         # generate the 'r' partition in log scale
         lrmin, lrmax = np.log([rmin, rmax])
         lrbinsize = (lrmax - lrmin) / nbins
-        rbins = np.arange(nbins+1) * lrbinsize
+        lrbins = np.arange(nbins+1) * lrbinsize
         #accumulate both sums and squared sums
         bres = np.zeros((2*self.positions.shape[-1], nbins))
         nb = np.zeros(nbins, int)
@@ -992,31 +1001,40 @@ class Txp:
         displs = self.positions[t0+dt] - pos0
         #3D only
         assert self.positions.shape[-1] == 3, "Implemented only for 3D data"
+        
+        if inside is None:
+            inside = np.arange(len(pos0))
+        
         #Tried cKDtree but too slow since we are looking at long distances
         #tree = KDTree(pos0, 12)
         #for i, j, dist in tree.sparse_distance_matrix(tree, rmax):
             #if i==j or dist < rmin: continue
         
         if verbose:
-            pro = ProgressBar(pos0.shape[0]-1)
-        for i in range(pos0.shape[0]-1):
+            pro = ProgressBar(len(inside)-1)
+        for it,i in enumerate(inside):
             if verbose:
-                pro.animate(i)
-            rs = pos0[i+1:] - pos0[i]
+                pro.animate(it)
+            rs = pos0 - pos0[i]
             distsq = np.sum(rs**2, -1)
             ok = (distsq >= rmin**2) & (distsq < rmax**2)
-            js = np.where(ok)[0] + i + 1
+            js = np.where(ok)[0] #+ i + 1
             #distances
             dists = np.sqrt(distsq[ok])
             #vector separations
             rs = rs[ok]
-            #note: in the original code direction of the unit vector (from i to j or from j to i) is randomized to help with numerical errors. Not done here.
             #unit vectors along r
             ns = rs / dists[:,None]
-            #unit vectors in xy plane
+            #unit vectors in xy plane: projection
             ps = rs[:, :-1] / np.sqrt(np.sum(rs[:, :-1]**2, -1))[:,None]
+            ps = np.column_stack((ps[:,1], -ps[:,0])) #orthogonal
             #third unit vectors
             qs = np.cross(ns, np.column_stack([ps[:,0], ps[:,1], np.zeros(len(ps))]))
+            #randomize the directions of the unit vectors to help with numerical errors
+            #actually useless, commented
+            #ns *= (2*np.random.randint(2, size=len(ns)) -1)[:,None]
+            #ps *= (2*np.random.randint(2, size=len(ns)) -1)[:,None]
+            #qs *= (2*np.random.randint(2, size=len(ns)) -1)[:,None]
             #calculate the longitudinal part
             ddn = (displs[i] * ns).sum(-1) * (displs[js] * ns).sum(-1)
             # calculate the theta transverse part
@@ -1027,7 +1045,7 @@ class Txp:
             lrs = np.floor((np.log(dists)-lrmin)/lrbinsize).astype(int)
             bres[:, lrs] += [ddn, ddq, ddp, ddn**2, ddq**2, ddp**2]
             nb[lrs] += 1
-        return bres, nb, rbins
+        return bres, nb, np.exp(lrbins+lrmin)
     
     def MSD_twopoint(self, bres, nb):
         """Convert 'Brownian correlation' components (e.g. the output of get_Brownian_corr) into two-point mean squared displacement.
