@@ -971,13 +971,13 @@ class Txp:
         C = np.real(B[start].conj() * B[start:stop])
         return (C.sum(axis=2)-C[:,:,0]).mean(axis=1)
         
-    def get_Brownian_corr(self, t0, dt, rmin, rmax, nbins, inside=None, verbose=False):
+    def get_Brownian_corr(self, t0, dts, rmin, rmax, nbins, inside=None, verbose=False):
         """Calculates 'Brownian correlation' components.
         See JC Crocker, MT Valentine, ER Weeks, T Gisler, PD Kaplan, AG Yodh, and DA Weitz, Phys. Rev. Lett. 85, 888 (2000).
 
         Input
             - t0: initial time
-            - dt: time lag
+            - dts: 1D-array of time lags
             - rmin: minimim distance between particles
             - rmax: maximum distance between particles
             - nbins: number of bins
@@ -994,31 +994,29 @@ class Txp:
         lrbinsize = (lrmax - lrmin) / nbins
         lrbins = np.arange(nbins+1) * lrbinsize
         #accumulate both sums and squared sums
-        bres = np.zeros((2*self.positions.shape[-1], nbins))
+        bres = np.zeros((2*self.positions.shape[-1], len(dts), nbins))
         nb = np.zeros(nbins, int)
         #vector displacements
         pos0 = self.positions[t0]
-        displs = self.positions[t0+dt] - pos0
+        displs = self.positions[t0+np.array(dts)] - pos0
         #3D only
         assert self.positions.shape[-1] == 3, "Implemented only for 3D data"
         
         if inside is None:
             inside = np.arange(len(pos0))
         
-        #Tried cKDtree but too slow since we are looking at long distances
-        #tree = KDTree(pos0, 12)
-        #for i, j, dist in tree.sparse_distance_matrix(tree, rmax):
-            #if i==j or dist < rmin: continue
-        
+        #Spatial indexing
+        tree = KDTree(pos0, 12)
         if verbose:
             pro = ProgressBar(len(inside)-1)
         for it,i in enumerate(inside):
             if verbose:
                 pro.animate(it)
-            rs = pos0 - pos0[i]
+            js = tree.query_ball_point(pos0[i], rmax)
+            rs = pos0[js] - pos0[i]
             distsq = np.sum(rs**2, -1)
-            ok = (distsq >= rmin**2) & (distsq < rmax**2)
-            js = np.where(ok)[0] #+ i + 1
+            ok = (distsq >= rmin**2) #& (distsq < rmax**2)
+            js = np.array(js)[ok]#np.where(ok)[0] #+ i + 1
             #distances
             dists = np.sqrt(distsq[ok])
             #vector separations
@@ -1036,14 +1034,14 @@ class Txp:
             #ps *= (2*np.random.randint(2, size=len(ns)) -1)[:,None]
             #qs *= (2*np.random.randint(2, size=len(ns)) -1)[:,None]
             #calculate the longitudinal part
-            ddn = (displs[i] * ns).sum(-1) * (displs[js] * ns).sum(-1)
+            ddn = (displs[...,None,i,:] * ns).sum(-1) * (displs[...,js,:] * ns).sum(-1)
             # calculate the theta transverse part
-            ddq = (displs[i] * qs).sum(-1) * (displs[js] * qs).sum(-1)
+            ddq = (displs[...,None,i,:] * qs).sum(-1) * (displs[...,js,:] * qs).sum(-1)
             # calculate the phi transverse part
-            ddp = (displs[i,:-1] * ps).sum(-1) * (displs[js, :-1] * ps).sum(-1)
+            ddp = (displs[...,None,i,:-1] * ps).sum(-1) * (displs[...,js, :-1] * ps).sum(-1)
             # accumulate
             lrs = np.floor((np.log(dists)-lrmin)/lrbinsize).astype(int)
-            bres[:, lrs] += [ddn, ddq, ddp, ddn**2, ddq**2, ddp**2]
+            bres[..., lrs] += [ddn, ddq, ddp, ddn**2, ddq**2, ddp**2]
             nb[lrs] += 1
         return bres, nb, np.exp(lrbins+lrmin)
     
