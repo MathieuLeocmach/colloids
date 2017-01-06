@@ -96,7 +96,7 @@ def msd2G(dt, msd, a, T, dim=3, clip=0.03, width=0.7):
         *extremely* clean.  Set 'clip' to less than 0.03 to see more.
         See Tom Mason's paper: PRL *79*, 3284, (1997) for details.
 
-        set the width to something bigger for noisy data, aok if the data
+        set the width to something bigger for noisy data, ok if the data
         is very weakly curved. recommended starting value: 0.7
         
         This function is the translation of the IDL implementation by John C. Crocker in 1999
@@ -114,7 +114,9 @@ def msd2G(dt, msd, a, T, dim=3, clip=0.03, width=0.7):
     
     #use 2nd order local formula for G'(w),G"(w)-- good to 2% of G(w)
     g, da, dda = logderive(omega, Gs, width)
-    G  = g / (1+dda) * (np.exp(0.5j * np.pi * da) - (np.pi/2 - 1) * (1-da) * dda)
+    foo = (np.pi/2 - 1) * (da + 1j*(1-da)) * dda
+    G  = g / (1+dda) * (np.exp(0.5j * np.pi * da) - foo)
+
     
     if (np.abs(dd).max() > 0.15) or (np.abs(dda).max() > 0.15):   #original value: 0.15
         warnings.warn('High curvature in data, moduli may be unreliable!')
