@@ -148,10 +148,12 @@ class Experiment(object):
                     if l==3:
                         break
                 tr=0
-                for line in f:
-                    start = int(line[:-1])
-                    for dt, p in enumerate(map(int, f.next()[:-1].split())):
-                        pos2tr[start+dt][p] = tr
+                for i, line in enumerate(f):
+                    if i%2 == 0:
+                        start = int(line[:-1])
+                    else:
+                        for dt, p in enumerate(map(int, line[:-1].split())):
+                            pos2tr[start+dt][p] = tr
                     tr += 1
             for (t, name), trs in zip(self.enum(ext='p2tr'), pos2tr):
                 np.savetxt(name, trs, fmt='%d')
@@ -245,9 +247,9 @@ class Experiment(object):
                     int(open(name,'r').readline().split()[1])
                     for t,name in self.enum()
                     ], int)
-                np.savetxt(nbname, self._Nb)
+                np.savetxt(nbname, self.__Nb, fmt='%d')
             else:
-                self.__Nb = np.loadtxt(nbname)
+                self.__Nb = np.loadtxt(nbname).astype(int)
         return self.__Nb
     
     def get_nb_bonds(self):
