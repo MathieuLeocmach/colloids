@@ -378,6 +378,7 @@ int main(int ac, char* av[])
                 {
                     boost::progress_timer ptimer;
                     ParticlesExporter pe(outputPath, track.getLif().getNbTimeSteps(), track.quiet());
+                    //actually perform the tracking and export here
                     for_each(track, track.end(), pe);
                     pe.close();
                 }
