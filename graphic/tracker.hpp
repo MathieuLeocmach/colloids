@@ -63,6 +63,7 @@ class Tracker
 
 		void setFlags(const unsigned fs=FFTW_ESTIMATE){flags = fs;};
         void setDimensions(const boost::array<size_t,3> &dims);
+        const size_t* getDimensions(){return centersMap.shape();};
         void makeBandPassMask(const boost::array<double,3> &radiiMin, const boost::array<double,3> &radiiMax);
         void makeLowPassMask(const boost::array<double,3> &radiiMin);
         void mirrorMask();
