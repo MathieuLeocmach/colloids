@@ -1,7 +1,9 @@
+#note: need autoconf and autoconf-archive installed
 AC_INIT([colloids], [1.0], [mathieu@iis.u-tokyo.ac.jp])
 AC_CANONICAL_HOST
 AC_CONFIG_MACRO_DIR([m4])
 AM_INIT_AUTOMAKE([subdir-objects foreign -Wall -Werror])
+m4_ifdef([AM_PROG_AR], [AM_PROG_AR])
 AC_LIBTOOL_WIN32_DLL
 
 AC_PROG_CXX

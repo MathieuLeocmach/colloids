@@ -8,7 +8,7 @@ libcolloids_la_SOURCES = lib/boo_data.cpp lib/fields.cpp lib/particles.cpp lib/d
 
 LDADD = libcolloids.la
 AM_CPPFLAGS = -I$(srcdir)/lib -I$(srcdir)/graphic -DTIXML_USE_STL
-bin_PROGRAMS = bonds boo boo_flip cage2vtk cutter dat2vtk dhlngb drift dynamics g6 ISF linkboo linker lostngb MSD percolation rdf sp5c totalRdf traj2vtk periodic_rdf periodic_boo periodic_g6 $(binvoro) aquireWisdom tracker
+bin_PROGRAMS = bonds boo boo_flip cage2vtk cutter dat2vtk dhlngb drift dynamics g6 ISF linkboo linker lostngb MSD percolation rdf sp5c totalRdf traj2vtk periodic_rdf periodic_boo periodic_g6 $(binvoro) aquireWisdom tracker tests
 
 EXTRA_PROGRAMS = cgVoro periodic_cgVoro
 periodic_boo_CPPFLAGS = $(AM_CPPFLAGS) -Duse_periodic
@@ -54,3 +54,6 @@ aquireWisdom_SOURCES = graphic/mains/aquireWisdom.cpp
 tracker_SOURCES = graphic/mains/tracker.cpp
 
 tracker_LDFLAGS = $(BOOST_LDFLAGS) $(BOOST_PROGRAM_OPTIONS_LIB)
+
+tests_SOURCES = test/main.cpp
+LDADD += -lboost_unit_test_framework
