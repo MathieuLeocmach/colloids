@@ -712,52 +712,26 @@ valarray<double> centroid::operator()(const size_t& l) const
     
     valarray<double> c(0.0,3);
     
-    double d =0, dd=0;
-    for(int mi=0; mi<2*scope+1; mi++)
-    {
-        d += (double)ngb[scope][mi][scope] * coefprime[mi];
-        dd += (double)ngb[scope][mi][scope] * coefsec[mi];
-        //std::cout<<  ngb[scope][mi][scope] << ", "; //TODO: export to an file
-    }
-    //std::cout<<std::endl;
-    //exit(0);
-    c[1] = - d/dd;
-    //c[1] = 0.4383 - d/dd;
-    
-    
-    
-    
+    //dimension independent code to get subpixel accuracy
+    const float * center = image.origin() + l;
+    for(size_t dim=0;dim<3;++dim)
+        if(image.shape()[dim] >= 2*scope+1)// is the image flat in this dimension?
+        {
+            //Perform Newton's method using 5 points derivatives
+            double d =0, dd=0;
+            for(int mi=-scope; mi<scope+1; mi++)
+            {
+                const double v = *(center + mi * image.strides()[dim]);
+                d += v * coefprime[mi+scope];
+                dd += v * coefsec[mi+scope];
+            }
+            c[dim] = -d/dd;
+        }
+    //add the integer pixel position
     c[0] += i;
 	c[1] += j;
 	c[2] += k;
-	//c[0] = d;
-	//c[2] = dd;
 	return c;
-    
-
-	
-
-	/*//calculation of the intensity centroid
-	valarray<double> c(0.0,3);
-	double total_w = 0.0;
-	float *px = ngb.origin();
-	for(int x=0; x<ngb.shape()[0];++x)
-        for(int y=0; y<ngb.shape()[1];++y)
-            for(int z=0; z<ngb.shape()[2];++z)
-            {
-                const double weight = pow((double)(x-scope), 2) + pow((double)(y-scope), 2) + pow((double)(z-scope), 2) * (double)(*px);
-                c[0] += (x-scope)*weight;
-                c[1] += (y-scope)*weight;
-                c[2] += (z-scope)*weight;
-                total_w += weight ;
-                px++;
-            }
-
-    c /= total_w/pow(2.0*scope+1, 2);
-	c[0] += i;
-	c[1] += j;
-	c[2] += k;
-	return c;*/
 };
 
 /** \brief helper functor to transform zyx into xyz*/

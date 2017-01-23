@@ -127,7 +127,7 @@ BOOST_AUTO_TEST_SUITE( filling_tracking )
 	        output.origin(), output.origin()+output.num_elements());
 	    //tracker.display();
 	    //draw a sphere
-		drawsphere(input, 32, 32, 32, 4.0, (unsigned char)1);
+		drawtanhsphere(input, 32, 32, 32, 4.0, (unsigned char)1);
 		tracker.fillImage(input.origin());
 		tracker.unpad();
 		//tracker.display();
@@ -147,7 +147,7 @@ BOOST_AUTO_TEST_SUITE( filling_tracking )
         boost::multi_array<float, 3> input(boost::extents[64][64][64]);
         std::fill(input.origin(), input.origin()+input.num_elements(), 0);
 		//draw a sphere
-		drawsphere(input, 32, 32, 32, 4.0, 1.0f);
+		drawtanhsphere(input, 32, 32, 32, 4.0, 1.0f);
 		tracker.fillImage(input.origin());
 		
 		tracker.FFTapplyMask();
@@ -182,7 +182,7 @@ BOOST_AUTO_TEST_SUITE( filling_tracking )
 		{
 			
 			std::fill(input.origin(), input.origin()+input.num_elements(), 0);
-			drawsphere(input, 8*16, 8*16+x, 8*16, 8*4, (float)256.);
+			drawtanhsphere(input, 8*16, 8*16+x, 8*16, 8*4, (float)256.);
 			tracker.fillImage(input.origin());
 			Particles v_s = tracker.trackXYZ(64.f);
 			BOOST_CHECK_MESSAGE(v_s.size()==1, "x="<<x<<"\t"<<v_s.size()<<" centers. MinI="<<tracker.get_image(ordering)
@@ -212,10 +212,6 @@ BOOST_AUTO_TEST_SUITE( filling_tracking )
             radiiMin = {4,4,4},
             radiiMax = {16,16,16};
         tracker.makeBandPassMask(radiiMin, radiiMax);
-		//cv cannot draw circle sizes better than a pixel, so the input image is drawn in high resolution
-		/*boost::multi_array<float, 3> 
-		    input(boost::extents[8*32][8*32][8*32]), 
-		    small_input(boost::extents[32][32][32]);*/
 		boost::multi_array<float, 3> input(boost::extents[32][32][32]);
 		
 		Particles v;
@@ -224,9 +220,6 @@ BOOST_AUTO_TEST_SUITE( filling_tracking )
 			for(int i=0; i<24; ++i) //loop on radius (4->7)
 			{
 				std::fill(input.origin(), input.origin()+input.num_elements(), 0);
-				//drawsphere(input, 8*16, 8*16+x, 8*16, 8*4+i, (float)256.);
-				//volume_shrink(input, small_input, 8);
-				//tracker.fillImage(small_input.origin());
 				drawtanhsphere(input, 16,16+0.125*x, 16, 4+0.125*i, (float)256.);
 				tracker.fillImage(input.origin());
 				Particles v_s = tracker.trackXYZ(0.1f);
@@ -249,6 +242,24 @@ BOOST_AUTO_TEST_SUITE( filling_tracking )
 				BOOST_CHECK_SMALL(v[i+24*(x+4)][1]-(16+0.125*x), 0.1);
 			}
 		}
+		for(int x=-4; x<4; ++x) //loop on position
+			for(int y=-4; y<4; ++y)
+			    for(int z=-4; z<4; ++z) 
+			    {
+				    std::fill(input.origin(), input.origin()+input.num_elements(), 0);
+				    drawtanhsphere(input, 16+0.125*x,16+0.125*y, 16+0.125*z, 4, (float)256.);
+				    tracker.fillImage(input.origin());
+				    Particles v_s = tracker.trackXYZ(0.1f);
+				    BOOST_REQUIRE_MESSAGE(v_s.size()>0, "x="<<x/8.<<"\t"<<"y="<<x/8.<<"\t"<<"z="<<x/8.<<"\t"<<v_s.size()<<" centers.");
+				    /*BOOST_CHECK_MESSAGE(v_s.size()==1, "x="<<x/8.<<"\t"<<"y="<<x/8.<<"\t"<<"z="<<x/8.<<"\t"<<v_s.size()<<" centers. MinI="<<tracker.get_image(ordering)
+			            [(size_t)(v_s.back()[0])]
+			            [(size_t)(v_s.back()[1])]
+			            [(size_t)(v_s.back()[2])] / tracker.centersMap.num_elements());*/
+				    BOOST_CHECK_SMALL(v_s[0][0]-(16+0.125*x), 0.1);
+				    BOOST_CHECK_SMALL(v_s[0][1]-(16+0.125*y), 0.1);
+				    BOOST_CHECK_SMALL(v_s[0][2]-(16+0.125*z), 0.1);
+			    }
+		
 	}
 	
 BOOST_AUTO_TEST_SUITE_END() //filling_tracking
