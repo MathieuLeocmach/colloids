@@ -534,6 +534,11 @@ template <class T> struct less_pointer : binary_function <T*,T*,bool> {
     {return *x < *y;}
 };
 
+template <class T> struct deref : unary_function<T*, T> {
+    bool operator()(const T* x) const
+        {return *x;} 
+};
+
 /** @brief Fill the centersMap so that only pixels corresponding to a center are True
 	Works like a dilatation-origin and a threshold (see Peter Lu) but with no extra memory consumption.
 	Hopefully this is also faster (~3N instead of N^3)
@@ -564,6 +569,7 @@ void Tracker::findPixelCenters(float threshold)
 	for(size_t d=0;d<3;++d)
         if(centersMap.shape()[d] >= 2*margin+1)
             offset += margin * centersMap.strides()[d];
+    //pointer to the first useful pixel value
     float *px = data + offset, *end = data+centersMap.num_elements()-offset;
 
 	//what are the neighbours of the first usefull pixel ? (pointers)
@@ -574,8 +580,17 @@ void Tracker::findPixelCenters(float threshold)
             neighbours.push_back(px-centersMap.strides()[d]);
             neighbours.push_back(px+centersMap.strides()[d]);
         }
-	//iterate over the usefull pixels, incrementing the neighbourhoods pointers
+    
+    //pointer to the center of not value of the first useful pixel
 	bool *c = centersMap.origin() + offset;
+	
+	//what are the preceding potential neighbours of the first useful pixel ? (pointers)
+    vector<bool*> ngbcenters;
+    for(size_t d=0;d<3;++d)
+        if(centersMap.shape()[d] >= 2*margin+1)
+            ngbcenters.push_back(c-centersMap.strides()[d]);
+	
+	//iterate over the useful pixels, incrementing the neighbourhoods pointers
 	while(px != end)
 	{
         //set center to false if px<threshold || px< one of its neighbours
@@ -590,12 +605,20 @@ void Tracker::findPixelCenters(float threshold)
                     neighbours.begin(), neighbours.end(),
                     bind1st(less_pointer<float>(), px)
                     ) == neighbours.end()
+                ) &&
+            (//Remove the adjacent neighbours (two pixels exactly equal)
+                find_if(
+                    ngbcenters.begin(), ngbcenters.end(),
+                    deref<bool>()
+                    ) == ngbcenters.end()
                 )
         );
         //incrementation
         px++;
         for(vector<float*>::iterator n = neighbours.begin(); n!=neighbours.end(); ++n)
             (*n)++;
+        for(vector<bool*>::iterator nc = ngbcenters.begin(); nc!=ngbcenters.end(); ++nc)
+            (*nc)++;
 	}
 
     //removing margin in each dimension
@@ -617,6 +640,7 @@ void Tracker::findPixelCenters(float threshold)
                 fill_n(j->begin(), margin, false);
                 fill_n(j->rbegin(), margin, false);
             }
+            
 }
 
 /** @brief compare two indicies by the intensity of the pixel they point to  */
@@ -636,11 +660,16 @@ struct centroid : public std::unary_function<const size_t&, std::valarray<double
     const boost::multi_array_ref<float,3> &image;
     boost::multi_array<float,3> ngb;
     //boost::multi_array<char, 4> slides;
+    //first and second order derivative on 5 points
+    static const boost::array<double,5> coefprime, coefsec;
 
     centroid(const boost::multi_array_ref<float,3> & im);//:image(im){return;};
 
     valarray<double> operator()(const size_t& l) const;
 };
+const boost::array<double,5> 
+    centroid::coefprime  = {{1,-8, 0, 8, -1}}, 
+    centroid::coefsec = {{-1, 16, -30, 16, -1}};
 
 /** @brief centroid functor constructor. prepare the gradients  */
 centroid::centroid(const boost::multi_array_ref<float,3> & im) : image(im)
@@ -648,37 +677,24 @@ centroid::centroid(const boost::multi_array_ref<float,3> & im) : image(im)
     boost::array<size_t, 3> kernel_dims;
     for(size_t d=0;d<3;++d)
         kernel_dims[d] = (im.shape()[d]<3)?1:3;
-    /*cout<<"using neighbourhood (";
-    copy(kernel_dims.begin(), kernel_dims.end(), ostream_iterator<size_t>(cout, ", "));
-    cout<<") ...";*/
+    
     ngb.resize(kernel_dims);
 
-    /*slides.resize(
-        3u*accumulate(kernel_dims.begin(), kernel_dims.end(), 1u, multiplies<size_t>()),
-        0.0);
-
-
-    slides =
-    {
-         {-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1},
-         {-1,-1,-1,0,0,0,1,1,1,-1,-1,-1,0,0,0,1,1,1,-1,-1,-1,0,0,0,1,1,1},
-         {-1,0,1,-1,0,1,-1,0,1,-1,0,1,-1,0,1,-1,0,1,-1,0,1,-1,0,1,-1,0,1}
-    };*/
+    
 }
 
 
 /** \brief get the centroid of the neighbourhood of an image pixel given by it's offset */
 valarray<double> centroid::operator()(const size_t& l) const
 {
-    const int scope = 1;
+    const int scope = 2;
     //convert the raveled index to 3D indices
 	size_t
 		i = l / image.strides()[0],
 		j = (l % image.strides()[0]) / image.strides()[1],
 		k = (l % image.strides()[0]) % image.strides()[1];
-    //cout<<"l="<<l<<" -> i="<<i<<" j="<<j<<" k="<<k<<" ... ";
-
-	//the data of the neighbourhood view are copied together for the coder's sanity
+    
+    //the data of the neighbourhood view are copied together for the coder's sanity
 	boost::multi_array<float,3> ngb =
 		image[boost::indices
 				[image.shape()[0]<2*scope+1 ? range() : range(i-scope, i+scope+1)]
@@ -693,8 +709,35 @@ valarray<double> centroid::operator()(const size_t& l) const
 	//marking non local maxima (including diagonals)
 	if(image.origin()[l] != *minmax.second)
         return valarray<double>(-1.0, 3);
+    
+    valarray<double> c(0.0,3);
+    
+    double d =0, dd=0;
+    for(int mi=0; mi<2*scope+1; mi++)
+    {
+        d += (double)ngb[scope][mi][scope] * coefprime[mi];
+        dd += (double)ngb[scope][mi][scope] * coefsec[mi];
+        //std::cout<<  ngb[scope][mi][scope] << ", "; //TODO: export to an file
+    }
+    //std::cout<<std::endl;
+    //exit(0);
+    c[1] = - d/dd;
+    //c[1] = 0.4383 - d/dd;
+    
+    
+    
+    
+    c[0] += i;
+	c[1] += j;
+	c[2] += k;
+	//c[0] = d;
+	//c[2] = dd;
+	return c;
+    
 
-	//calculation of the intensity centroid
+	
+
+	/*//calculation of the intensity centroid
 	valarray<double> c(0.0,3);
 	double total_w = 0.0;
 	float *px = ngb.origin();
@@ -709,30 +752,12 @@ valarray<double> centroid::operator()(const size_t& l) const
                 total_w += weight ;
                 px++;
             }
-    //cout<<c[0]<<"\t"<<c[1]<<"\t"<<c[2]<<endl;
-    //cout<<"divide by a weight of "<<total_w<<endl;
+
     c /= total_w/pow(2.0*scope+1, 2);
-    //cout<<c[0]<<"\t"<<c[1]<<"\t"<<c[2]<<endl;
-    //c /= (double)accumulate(ngb.origin(), ngb.origin()+ngb.num_elements(), 0.0);
-
-	//double sum = accumulate(ngb.origin(),ngb.origin()+ngb.num_elements(),0.0);
-	//cout<<"valarrays ... ";
-	/*valarray<double> c(0.0,3), pos(0.0,3), middle(0.0,3);
-	for(size_t d=0; d<3;++d)
-		middle[d] = ngb.shape()[d]/3;
-	float *v = ngb.origin();
-	for(pos[0]=0;pos[0]<ngb.shape()[0];++pos[0])
-		for(pos[1]=0;pos[1]<ngb.shape()[1];++pos[1])
-			for(pos[2]=0;pos[2]<ngb.shape()[2];++pos[2])
-				c += (pos-middle) * (*v++);//pow(*v++, 2.0f);
-	c /= image.origin()[l];//pow(image.origin()[l], 2.0f);
-
-	for(size_t d=0;d<3;++d)
-        c[d] = (c[d]<0?-1:1) * sqrt(abs(c[d]))/4.5;*/
 	c[0] += i;
 	c[1] += j;
 	c[2] += k;
-	return c;
+	return c;*/
 };
 
 /** \brief helper functor to transform zyx into xyz*/
