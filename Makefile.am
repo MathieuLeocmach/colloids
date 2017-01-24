@@ -55,5 +55,5 @@ tracker_SOURCES = graphic/mains/tracker.cpp
 
 tracker_LDFLAGS = $(BOOST_LDFLAGS) $(BOOST_PROGRAM_OPTIONS_LIB)
 
-tests_SOURCES = test/main.cpp
+tests_SOURCES = test/main.cpp test/tracker.cpp
 LDADD += -lboost_unit_test_framework

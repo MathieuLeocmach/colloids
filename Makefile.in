@@ -257,7 +257,7 @@ am_sp5c_OBJECTS = mains/sp5c.$(OBJEXT)
 sp5c_OBJECTS = $(am_sp5c_OBJECTS)
 sp5c_LDADD = $(LDADD)
 sp5c_DEPENDENCIES = libcolloids.la libcolloids-graphic.la
-am_tests_OBJECTS = test/main.$(OBJEXT)
+am_tests_OBJECTS = test/main.$(OBJEXT) test/tracker.$(OBJEXT)
 tests_OBJECTS = $(am_tests_OBJECTS)
 tests_LDADD = $(LDADD)
 tests_DEPENDENCIES = libcolloids.la libcolloids-graphic.la
@@ -567,7 +567,7 @@ libcolloids_graphic_la_SOURCES = graphic/lifFile.cpp graphic/lifFile.hpp graphic
 aquireWisdom_SOURCES = graphic/mains/aquireWisdom.cpp
 tracker_SOURCES = graphic/mains/tracker.cpp
 tracker_LDFLAGS = $(BOOST_LDFLAGS) $(BOOST_PROGRAM_OPTIONS_LIB)
-tests_SOURCES = test/main.cpp
+tests_SOURCES = test/main.cpp test/tracker.cpp
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-am
 
@@ -923,6 +923,8 @@ test/$(DEPDIR)/$(am__dirstamp):
 	@: > test/$(DEPDIR)/$(am__dirstamp)
 test/main.$(OBJEXT): test/$(am__dirstamp) \
 	test/$(DEPDIR)/$(am__dirstamp)
+test/tracker.$(OBJEXT): test/$(am__dirstamp) \
+	test/$(DEPDIR)/$(am__dirstamp)
 
 tests$(EXEEXT): $(tests_OBJECTS) $(tests_DEPENDENCIES) $(EXTRA_tests_DEPENDENCIES) 
 	@rm -f tests$(EXEEXT)
@@ -1007,6 +1009,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@mains/$(DEPDIR)/totalRdf.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@mains/$(DEPDIR)/traj2vtk.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@test/$(DEPDIR)/main.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@test/$(DEPDIR)/tracker.Po@am__quote@
 
 .cpp.o:
 @am__fastdepCXX_TRUE@	$(AM_V_CXX)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.o$$||'`;\
