@@ -21,8 +21,8 @@ import numpy as np
 import numexpr
 import subprocess, shlex, os, os.path
 from scipy.spatial import cKDTree as KDTree
-from scipy import weave
-from scipy.weave import converters
+#from scipy import weave
+#from scipy.weave import converters
 import itertools
 import os.path
 from colloids import periodic
@@ -376,59 +376,15 @@ struct Gatherer {
 
 def get_rdf(pos, inside, Nbins=250, maxdist=30.0):
     g = np.zeros(Nbins, int)
-    code = """
-    //spatial indexing
-    typedef RStarTree<int, %(dim)d, 4, 32, double> RTree;
-    RTree tree;
-    for(int p=0; p<Npos[0]; ++p)
-    {
-        typename RTree::BoundingBox bb;
-		for(int d=0; d<Npos[1]; ++d)
-		{
-			bb.edges[d].first = pos(p,d) - maxdist;
-			bb.edges[d].second = pos(p,d) + maxdist;
-		}
-        tree.Insert(p, bb);
-    }
-    const double imaxsq = 1.0 / pow(maxdist, 2);
-    #pragma omp parallel for schedule(dynamic)
-    for(int i=0; i<Npos[0]; ++i)
-    {
-        if(!inside(i))
-            continue;
-        std::list<int> overlapping;
-        typename RTree::BoundingBox bb;
-        for(int d=0; d<Npos[1]; ++d)
-		{
-			bb.edges[d].first = pos(i,d) - maxdist;
-			bb.edges[d].second = pos(i,d) + maxdist;
-		}
-		tree.Query(typename RTree::AcceptOverlapping(bb), Gatherer<RTree::Leaf>(overlapping));
-        overlapping.sort();
-        overlapping.unique();
-        for(std::list<int>::const_iterator it=overlapping.begin(); it!=overlapping.end(); ++it)
-        {
-            const int j = *it;
-            if(i==j)
-                continue;
-            const double disq = blitz::sum(blitz::pow(pos(j,blitz::Range::all())-pos(i,blitz::Range::all()), 2));
-            if(disq*imaxsq>=1.0)
-                continue;
-            const int r = sqrt(disq*imaxsq)*Ng[0];
-            #pragma omp atomic
-            ++g(r);
-        }
-    }
-    """%{'dim':pos.shape[1]}
-    weave.inline(
-        code,['pos', 'inside', 'maxdist', 'g'],
-        type_converters =converters.blitz,
-        support_code = support_Rtree,
-        include_dirs = [rstartree_path],
-        headers = ['"RStarTree.h"','<deque>', '<list>'],
-        extra_compile_args =['-O3 -fopenmp'],
-        extra_link_args=['-lgomp'],
-        verbose=2, compiler='gcc')
+    #spatial indexing
+    tree = KDtree(pos, 12)
+    for i in np.where(inside):
+        js = tree.query_ball_point(pos[i], maxdist)
+        js = js[js!=i]
+        rs = np.sqrt(np.sum((pos[js] - pos[i])**2, -1)) / maxdist * g.shape[0]
+        g[rs] +=1
+        
+        
     return g
 
 def structure_factor(positions, Nbins, Ls=[203.0]*3, maxNvec=30, field=None):

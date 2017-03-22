@@ -80,11 +80,12 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-bin_PROGRAMS = bonds$(EXEEXT) boo$(EXEEXT) boo_flip$(EXEEXT) \
-	cage2vtk$(EXEEXT) cutter$(EXEEXT) dat2vtk$(EXEEXT) \
-	dhlngb$(EXEEXT) drift$(EXEEXT) dynamics$(EXEEXT) g6$(EXEEXT) \
-	ISF$(EXEEXT) linkboo$(EXEEXT) linker$(EXEEXT) lostngb$(EXEEXT) \
-	MSD$(EXEEXT) percolation$(EXEEXT) rdf$(EXEEXT) sp5c$(EXEEXT) \
+bin_PROGRAMS = all_bonds$(EXEEXT) bonds$(EXEEXT) boo$(EXEEXT) \
+	boo_flip$(EXEEXT) cage2vtk$(EXEEXT) cutter$(EXEEXT) \
+	dat2vtk$(EXEEXT) dhlngb$(EXEEXT) drift$(EXEEXT) \
+	dynamics$(EXEEXT) g6$(EXEEXT) ISF$(EXEEXT) linkboo$(EXEEXT) \
+	linker$(EXEEXT) lostngb$(EXEEXT) MSD$(EXEEXT) \
+	percolation$(EXEEXT) rdf$(EXEEXT) sp5c$(EXEEXT) \
 	totalRdf$(EXEEXT) traj2vtk$(EXEEXT) periodic_rdf$(EXEEXT) \
 	periodic_boo$(EXEEXT) periodic_g6$(EXEEXT) $(binvoro) \
 	aquireWisdom$(EXEEXT) tracker$(EXEEXT) tests$(EXEEXT)
@@ -166,6 +167,10 @@ am_MSD_OBJECTS = mains/MSD.$(OBJEXT)
 MSD_OBJECTS = $(am_MSD_OBJECTS)
 MSD_LDADD = $(LDADD)
 MSD_DEPENDENCIES = libcolloids.la libcolloids-graphic.la
+am_all_bonds_OBJECTS = mains/all_bonds.$(OBJEXT)
+all_bonds_OBJECTS = $(am_all_bonds_OBJECTS)
+all_bonds_LDADD = $(LDADD)
+all_bonds_DEPENDENCIES = libcolloids.la libcolloids-graphic.la
 am_aquireWisdom_OBJECTS = graphic/mains/aquireWisdom.$(OBJEXT)
 aquireWisdom_OBJECTS = $(am_aquireWisdom_OBJECTS)
 aquireWisdom_LDADD = $(LDADD)
@@ -257,7 +262,8 @@ am_sp5c_OBJECTS = mains/sp5c.$(OBJEXT)
 sp5c_OBJECTS = $(am_sp5c_OBJECTS)
 sp5c_LDADD = $(LDADD)
 sp5c_DEPENDENCIES = libcolloids.la libcolloids-graphic.la
-am_tests_OBJECTS = test/main.$(OBJEXT)
+am_tests_OBJECTS = test/main.$(OBJEXT) test/tracker.$(OBJEXT) \
+	test/serietracker.$(OBJEXT)
 tests_OBJECTS = $(am_tests_OBJECTS)
 tests_LDADD = $(LDADD)
 tests_DEPENDENCIES = libcolloids.la libcolloids-graphic.la
@@ -329,18 +335,7 @@ am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
 SOURCES = $(libcolloids_graphic_la_SOURCES) $(libcolloids_la_SOURCES) \
-	$(ISF_SOURCES) $(MSD_SOURCES) $(aquireWisdom_SOURCES) \
-	$(bonds_SOURCES) $(boo_SOURCES) $(boo_flip_SOURCES) \
-	$(cage2vtk_SOURCES) $(cgVoro_SOURCES) $(cutter_SOURCES) \
-	$(dat2vtk_SOURCES) $(dhlngb_SOURCES) $(drift_SOURCES) \
-	$(dynamics_SOURCES) $(g6_SOURCES) $(linkboo_SOURCES) \
-	$(linker_SOURCES) $(lostngb_SOURCES) $(percolation_SOURCES) \
-	$(periodic_boo_SOURCES) $(periodic_cgVoro_SOURCES) \
-	$(periodic_g6_SOURCES) $(periodic_rdf_SOURCES) $(rdf_SOURCES) \
-	$(sp5c_SOURCES) $(tests_SOURCES) $(totalRdf_SOURCES) \
-	$(tracker_SOURCES) $(traj2vtk_SOURCES)
-DIST_SOURCES = $(libcolloids_graphic_la_SOURCES) \
-	$(libcolloids_la_SOURCES) $(ISF_SOURCES) $(MSD_SOURCES) \
+	$(ISF_SOURCES) $(MSD_SOURCES) $(all_bonds_SOURCES) \
 	$(aquireWisdom_SOURCES) $(bonds_SOURCES) $(boo_SOURCES) \
 	$(boo_flip_SOURCES) $(cage2vtk_SOURCES) $(cgVoro_SOURCES) \
 	$(cutter_SOURCES) $(dat2vtk_SOURCES) $(dhlngb_SOURCES) \
@@ -351,6 +346,18 @@ DIST_SOURCES = $(libcolloids_graphic_la_SOURCES) \
 	$(periodic_rdf_SOURCES) $(rdf_SOURCES) $(sp5c_SOURCES) \
 	$(tests_SOURCES) $(totalRdf_SOURCES) $(tracker_SOURCES) \
 	$(traj2vtk_SOURCES)
+DIST_SOURCES = $(libcolloids_graphic_la_SOURCES) \
+	$(libcolloids_la_SOURCES) $(ISF_SOURCES) $(MSD_SOURCES) \
+	$(all_bonds_SOURCES) $(aquireWisdom_SOURCES) $(bonds_SOURCES) \
+	$(boo_SOURCES) $(boo_flip_SOURCES) $(cage2vtk_SOURCES) \
+	$(cgVoro_SOURCES) $(cutter_SOURCES) $(dat2vtk_SOURCES) \
+	$(dhlngb_SOURCES) $(drift_SOURCES) $(dynamics_SOURCES) \
+	$(g6_SOURCES) $(linkboo_SOURCES) $(linker_SOURCES) \
+	$(lostngb_SOURCES) $(percolation_SOURCES) \
+	$(periodic_boo_SOURCES) $(periodic_cgVoro_SOURCES) \
+	$(periodic_g6_SOURCES) $(periodic_rdf_SOURCES) $(rdf_SOURCES) \
+	$(sp5c_SOURCES) $(tests_SOURCES) $(totalRdf_SOURCES) \
+	$(tracker_SOURCES) $(traj2vtk_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -537,6 +544,7 @@ periodic_rdf_CPPFLAGS = $(AM_CPPFLAGS) -Duse_periodic
 periodic_g6_CPPFLAGS = $(AM_CPPFLAGS) -Duse_periodic
 cgVoro_CPPFLAGS = $(AM_CPPFLAGS) -I$(VORO_SRC)
 periodic_cgVoro_CPPFLAGS = $(cgVoro_CPPFLAGS) -Duse_periodic
+all_bonds_SOURCES = mains/all_bonds.cpp
 bonds_SOURCES = mains/bonds.cpp
 boo_SOURCES = mains/boo.cpp
 periodic_boo_SOURCES = mains/boo.cpp
@@ -567,7 +575,7 @@ libcolloids_graphic_la_SOURCES = graphic/lifFile.cpp graphic/lifFile.hpp graphic
 aquireWisdom_SOURCES = graphic/mains/aquireWisdom.cpp
 tracker_SOURCES = graphic/mains/tracker.cpp
 tracker_LDFLAGS = $(BOOST_LDFLAGS) $(BOOST_PROGRAM_OPTIONS_LIB)
-tests_SOURCES = test/main.cpp
+tests_SOURCES = test/main.cpp test/tracker.cpp test/serietracker.cpp
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-am
 
@@ -777,6 +785,12 @@ mains/MSD.$(OBJEXT): mains/$(am__dirstamp) \
 MSD$(EXEEXT): $(MSD_OBJECTS) $(MSD_DEPENDENCIES) $(EXTRA_MSD_DEPENDENCIES) 
 	@rm -f MSD$(EXEEXT)
 	$(AM_V_CXXLD)$(CXXLINK) $(MSD_OBJECTS) $(MSD_LDADD) $(LIBS)
+mains/all_bonds.$(OBJEXT): mains/$(am__dirstamp) \
+	mains/$(DEPDIR)/$(am__dirstamp)
+
+all_bonds$(EXEEXT): $(all_bonds_OBJECTS) $(all_bonds_DEPENDENCIES) $(EXTRA_all_bonds_DEPENDENCIES) 
+	@rm -f all_bonds$(EXEEXT)
+	$(AM_V_CXXLD)$(CXXLINK) $(all_bonds_OBJECTS) $(all_bonds_LDADD) $(LIBS)
 graphic/mains/$(am__dirstamp):
 	@$(MKDIR_P) graphic/mains
 	@: > graphic/mains/$(am__dirstamp)
@@ -923,6 +937,10 @@ test/$(DEPDIR)/$(am__dirstamp):
 	@: > test/$(DEPDIR)/$(am__dirstamp)
 test/main.$(OBJEXT): test/$(am__dirstamp) \
 	test/$(DEPDIR)/$(am__dirstamp)
+test/tracker.$(OBJEXT): test/$(am__dirstamp) \
+	test/$(DEPDIR)/$(am__dirstamp)
+test/serietracker.$(OBJEXT): test/$(am__dirstamp) \
+	test/$(DEPDIR)/$(am__dirstamp)
 
 tests$(EXEEXT): $(tests_OBJECTS) $(tests_DEPENDENCIES) $(EXTRA_tests_DEPENDENCIES) 
 	@rm -f tests$(EXEEXT)
@@ -983,6 +1001,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@lib/$(DEPDIR)/traj.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@mains/$(DEPDIR)/ISF.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@mains/$(DEPDIR)/MSD.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@mains/$(DEPDIR)/all_bonds.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@mains/$(DEPDIR)/bonds.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@mains/$(DEPDIR)/boo.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@mains/$(DEPDIR)/boo_flip.Po@am__quote@
@@ -1007,6 +1026,8 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@mains/$(DEPDIR)/totalRdf.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@mains/$(DEPDIR)/traj2vtk.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@test/$(DEPDIR)/main.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@test/$(DEPDIR)/serietracker.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@test/$(DEPDIR)/tracker.Po@am__quote@
 
 .cpp.o:
 @am__fastdepCXX_TRUE@	$(AM_V_CXX)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.o$$||'`;\

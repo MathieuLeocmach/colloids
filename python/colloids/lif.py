@@ -16,8 +16,8 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Colloids.  If not, see <http://www.gnu.org/licenses/>.
 #
-from __future__ import with_statement #for python 2.5, useless in 2.6
-import struct, StringIO, re, os.path, subprocess, shlex, io
+ #for python 2.5, useless in 2.6
+import struct, io, re, os.path, subprocess, shlex, sys
 from bs4 import BeautifulSoup
 from xml.dom.minidom import parse
 import numpy as np
@@ -38,18 +38,28 @@ class Header:
     """The XML header of a Leica LIF files"""
 
     def __init__(self,xmlHeaderFileName, quick=True):
-        with open(xmlHeaderFileName) as f:
-            self.parse(f,quick)
+        if sys.version_info > (3, 0):
+            with open(xmlHeaderFileName, encoding="latin-1") as f:
+                self.parse(f,quick)
+        else:
+            with open(xmlHeaderFileName) as f:
+                self.parse(f,quick)
 
     def parse(self,xmlHeaderFile,quick=True):
         """
 Parse the usefull part of the xml header,
 stripping time stamps and non ascii characters
 """
-        lightXML = StringIO.StringIO()
+        
         #to strip the non ascii characters
-        t = "".join(map(chr, range(256)))
-        d = "".join(map(chr, range(128,256)))
+        t = "".join(map(chr, list(range(256))))
+        d = "".join(map(chr, list(range(128,256))))
+        if sys.version_info > (3, 0):
+            trans = str.maketrans('','',d)
+            lightXML = io.StringIO()
+        else:
+            import StringIO
+            lightXML = StringIO.StringIO()
         
         if not quick:
             #store all time stamps in a big array
@@ -65,8 +75,12 @@ stripping time stamps and non ascii characters
                 float
                 )
             xmlHeaderFile.seek(0)
-            for line in xmlHeaderFile:
-                lightXML.write(line.translate(t,d))
+            if sys.version_info > (3, 0):
+                for line in xmlHeaderFile:
+                    lightXML.write(line.translate(trans))
+            else:
+                for line in xmlHeaderFile:
+                    lightXML.write(line.translate(t,d))
             
         else:
             #to strip the time stamps
@@ -75,9 +89,12 @@ stripping time stamps and non ascii characters
                 +r'''<RelTimeStamp Time="[0-9.]*" Frame="[0-9]*"/>|'''
                 +r'''<RelTimeStamp Frame="[0-9]*" Time="[0-9.]*"/>'''
                 )
-            
-            for line in xmlHeaderFile:
-                lightXML.write(''.join(m.split(line)).translate(t,d))
+            if sys.version_info > (3, 0):
+                for line in xmlHeaderFile:
+                    lightXML.write(''.join(m.split(line)).translate(trans))
+            else:
+                for line in xmlHeaderFile:
+                    lightXML.write(''.join(m.split(line)).translate(t,d))
         lightXML.seek(0)
         self.xmlHeader = parse(lightXML)
 
@@ -117,18 +134,18 @@ stripping time stamps and non ascii characters
                     int(d.getAttribute("NumberOfElements"))
                     )
             st += "\n"
-        print st
+        print(st)
         if len(self.getSeriesHeaders())<2:
            r=0
         else:
             while(True):
                 try:
-                    r = int(raw_input("Choose a serie --> "))
+                    r = int(input("Choose a serie --> "))
                     if r<0 or r>len(self.getSeriesHeaders()):
                         raise ValueError()
                     break
                 except ValueError:
-                    print "Oops!  That was no valid number.  Try again..."
+                    print("Oops!  That was no valid number.  Try again...")
         return r
 
     def chooseSerieHeader(self):
@@ -270,24 +287,24 @@ class SerieHeader:
             setattr(self, '__'+dim, 0)
             for d in self.getDimensions():
                 if dimName[int(d.getAttribute("DimID"))] == dim:
-                    setattr(self, '__'+dim, long(d.getAttribute("BytesInc")))
+                    setattr(self, '__'+dim, int(d.getAttribute("BytesInc")))
         return getattr(self, '__'+dim)
 
     def chooseChannel(self):
         st ="Serie: %s\n" % self.getName()
         for i,c in enumerate(self.getChannels()):
             st += "(%i) %s\n" % (i,channelTag[int(c.getAttribute("ChannelTag"))])
-        print st
+        print(st)
         if len(self.getChannels())<2:
             r=0
         while(True):
             try:
-                r = int(raw_input("Choose a channel --> "))
+                r = int(input("Choose a channel --> "))
                 if r<0 or r>len(self.getChannels()):
                     raise ValueError()
                 break
             except ValueError:
-                print "Oops!  That was no valid number.  Try again..."
+                print("Oops!  That was no valid number.  Try again...")
         return r
 
     def getNbFrames(self):
@@ -295,7 +312,7 @@ class SerieHeader:
             self.__nbFrames = 1
             for d in self.getDimensions():
                 if d.getAttribute("DimID") == "4":
-                    self.__nbFrames = long(d.getAttribute("NumberOfElements"))
+                    self.__nbFrames = int(d.getAttribute("NumberOfElements"))
         return self.__nbFrames
 
     def getFrameShape(self):
@@ -303,7 +320,7 @@ class SerieHeader:
             shape = []
             for d in self.getDimensions():
                 if int(d.getAttribute("DimID")) <4:
-                    shape.append(long(d.getAttribute("NumberOfElements")))
+                    shape.append(int(d.getAttribute("NumberOfElements")))
             self.__frameShape = shape
         return self.__frameShape
 
@@ -313,7 +330,7 @@ class SerieHeader:
 
     def getNbPixelsPerFrame(self):
         if not hasattr(self, '__nbPixelsPerFrame'):
-            nb = 1L
+            nb = 1
             for d in self.getFrameShape():
                 nb *= d
             self.__nbPixelsPerFrame = nb
@@ -321,7 +338,7 @@ class SerieHeader:
 
     def getNbPixelsPerSlice(self):
         if not hasattr(self, '__nbPixelsPerSlice'):
-            nb = 1L
+            nb = 1
             for d in self.get2DShape():
                 nb *= d
             self.__nbPixelsPerSlice = nb
@@ -366,7 +383,7 @@ class Reader(Header):
         #Read the XML header as raw buffer. It should avoid encoding problems
         # but who uses japanese characters anyway
         xmlHeaderString = self.f.read(xmlHeaderLength*2)
-        self.parse(StringIO.StringIO(xmlHeaderString[::2]),quick)
+        self.parse(io.StringIO(xmlHeaderString[::2]),quick)
 
         #Index the series offsets
         self.offsets = []
@@ -430,7 +447,7 @@ class Serie(SerieHeader):
 
     def getOffset(self,**dimensionsIncrements):
         of = 0
-        for d,b in dimensionsIncrements.iteritems():
+        for d,b in dimensionsIncrements.items():
             of += self.getBytesInc(d)*b
         if of >= self.getMemorySize():
             raise IndexError("offset out of bound")
@@ -439,7 +456,7 @@ class Serie(SerieHeader):
     def get2DSlice(self,**dimensionsIncrements):
         """Use the two first dimensions as image dimension. Axis are in C order (last index is X)."""
         for d in self.getDimensions()[:2]:
-            if dimensionsIncrements.has_key(dimName[int(d.getAttribute("DimID"))]):
+            if dimName[int(d.getAttribute("DimID"))] in dimensionsIncrements:
                 raise Exception('You can\'t set %s in serie %s' % (
                     dimName[int(d.getAttribute("DimID"))],
                     self.getName())
@@ -456,7 +473,7 @@ class Serie(SerieHeader):
     def get2DString(self,**dimensionsIncrements):
         """Use the two first dimensions as image dimension"""
         for d in self.getDimensions()[:2]:
-            if dimensionsIncrements.has_key(dimName[int(d.getAttribute("DimID"))]):
+            if dimName[int(d.getAttribute("DimID"))] in dimensionsIncrements:
                 raise Exception('You can\'t set %s in serie %s' % (
                     dimName[int(d.getAttribute("DimID"))],
                     self.getName()) )
@@ -473,7 +490,7 @@ class Serie(SerieHeader):
             try:
                 import PIL as Image
             except:
-                print "Impossible to find image library"
+                print("Impossible to find image library")
                 return None
         size = self.getNumberOfElements()[:2]
         return Image.fromstring(
