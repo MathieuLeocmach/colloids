@@ -293,6 +293,8 @@ def get_bonds(positions, radii, maxdist=3.0):
         for j in sorted(js)
         if i<j
         ])
+    if len(pairs) == 0:
+        return np.zeros((0,2), int), np.zeros(0)
     #compute all pair's square distances via numpy
     dists = np.sum((positions[pairs[:,0]] - positions[pairs[:,1]])**2, -1)
     #filter out the pairs that are too far
