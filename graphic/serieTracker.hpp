@@ -50,13 +50,16 @@ class SerieTracker : public TrackerIterator
 		bool operator==(const SerieTracker& rhs) {return (getPattern()==rhs.getPattern()) && (time_step==rhs.time_step);}
 		//bool operator!=(const SerieTracker& rhs) {return (getPattern()!=rhs.getPattern()) || (time_step!=rhs.time_step);}
 
-		std::string getPattern() const;
+		std::string getPattern() const {return namePattern;};
+		bool has_time() const {return hasTime;}
+		bool has_depth() const {return hasDepth;}
 
     private:
         boost::format serie;
         size_t length;
         double ZXratio;
         bool hasTime, hasDepth;
+        std::string namePattern;
 
         /** \brief default constructor that should be used only to get an "end" iterator*/
         SerieTracker(const size_t end_step) {time_step = end_step;};

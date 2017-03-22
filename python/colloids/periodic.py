@@ -1,8 +1,8 @@
 import numpy as np
 from colloids import vtk, statistics
 import os, subprocess, shlex
-from scipy import weave
-from scipy.weave import converters
+#from scipy import weave
+#from scipy.weave import converters
 
 dist_code = """
 inline double periodic_dist(const double &x, const double &y, const double &period)
@@ -69,7 +69,7 @@ def remove_drift(a, L=203):
         [get_displ(a[i], a[i+1], L).mean(axis=0) for i in range(len(a)-1)],
         axis=0)
     for i, d in enumerate(mean_displ):
-		a[i+1] -= d
+        a[i+1] -= d
     a = np.mod(a + 1.5 * L, L) - 0.5 * L
 
 def msd(A, av=10, L=203):
@@ -469,18 +469,18 @@ code_kvec = """
 inline int generate_kvec(const int nk, blitz::Array<int,2> &kvectors, const int maxNvec=30)
 {
     assert(maxNvec%3==0);
-	kvectors = 0;
-	int nvec = 0;
-	for(int i=0; i<nk && nvec<maxNvec; ++i)
-		for(int j=0; j*j<nk*nk-i*i && nvec<maxNvec; ++j)
-		{
-			const int k = sqrt(nk*nk-i*i-j*j);
-			if(k != floor(k)) continue;
-			kvectors(nvec++, blitz::Range::all()) = i, j, k;
-			kvectors(nvec++, blitz::Range::all()) = j, k, i;
-			kvectors(nvec++, blitz::Range::all()) = k, i, j;
-		}
-	return nvec;
+    kvectors = 0;
+    int nvec = 0;
+    for(int i=0; i<nk && nvec<maxNvec; ++i)
+        for(int j=0; j*j<nk*nk-i*i && nvec<maxNvec; ++j)
+        {
+            const int k = sqrt(nk*nk-i*i-j*j);
+            if(k != floor(k)) continue;
+            kvectors(nvec++, blitz::Range::all()) = i, j, k;
+            kvectors(nvec++, blitz::Range::all()) = j, k, i;
+            kvectors(nvec++, blitz::Range::all()) = k, i, j;
+        }
+    return nvec;
 }
 """
 
@@ -507,7 +507,7 @@ def get_Sq(pos, Nbins, L=203.0, maxNvec=30, field=None):
     {
         //generate the k-vectors
         blitz::Array<int,2> kvectors(maxNvec, 3);
-		const int nvec = generate_kvec(nk, kvectors, maxNvec);
+        const int nvec = generate_kvec(nk, kvectors, maxNvec);
         
         for(int k=0; k<nvec; ++k)
         {
@@ -530,7 +530,7 @@ def get_Sq(pos, Nbins, L=203.0, maxNvec=30, field=None):
     """
     weave.inline(
         code,['pos', 'field', 'Sq', 'cache', 'L', 'maxNvec'],
-		support_code = code_kvec,
+        support_code = code_kvec,
         type_converters =converters.blitz,
         extra_compile_args =['-O3 -fopenmp'],
         extra_link_args=['-lgomp'],
@@ -541,18 +541,18 @@ def get_Sq(pos, Nbins, L=203.0, maxNvec=30, field=None):
 code_kvec_rect = """
 inline int generate_kvec_rect(const int nk, blitz::Array<double,2> &kvectors, const blitz::Array<double,1> &Lsq, const int maxNvec=30)
 {
-	kvectors = 0;
-	int nvec = 0;
-	for(int i=0; i<nk+1 && nvec<maxNvec; ++i)
-		for(int j=0; Lsq(0)*j*j<Lsq(1)*(nk*nk-i*i)+1 && nvec<maxNvec; ++j)
-		{
-		    const int ksqmax = Lsq(2) * ((nk*nk-i*i)/Lsq(0) - j*j/Lsq(1));
-		    const int ksqmin = Lsq(2) * (((nk-1)*(nk-1)-i*i)/Lsq(0) - j*j/Lsq(1));
-		    for (int k=sqrt(std::max(0, ksqmin)); k<=sqrt(ksqmax) && nvec<maxNvec; ++k)
-		        if (((nk-1)*(nk-1) - i*i)/Lsq(0) < j*j/Lsq(1) + k*k/Lsq(2))
-    		        kvectors(nvec++, blitz::Range::all()) = i, j, k;
-		}
-	return nvec;
+    kvectors = 0;
+    int nvec = 0;
+    for(int i=0; i<nk+1 && nvec<maxNvec; ++i)
+        for(int j=0; Lsq(0)*j*j<Lsq(1)*(nk*nk-i*i)+1 && nvec<maxNvec; ++j)
+        {
+            const int ksqmax = Lsq(2) * ((nk*nk-i*i)/Lsq(0) - j*j/Lsq(1));
+            const int ksqmin = Lsq(2) * (((nk-1)*(nk-1)-i*i)/Lsq(0) - j*j/Lsq(1));
+            for (int k=sqrt(std::max(0, ksqmin)); k<=sqrt(ksqmax) && nvec<maxNvec; ++k)
+                if (((nk-1)*(nk-1) - i*i)/Lsq(0) < j*j/Lsq(1) + k*k/Lsq(2))
+                    kvectors(nvec++, blitz::Range::all()) = i, j, k;
+        }
+    return nvec;
 }
 """
 
@@ -584,8 +584,8 @@ def rectangular_Sq(positions, Nbins, Ls=[203.0]*3, maxNvec=30, field=None):
     {
         //generate the k-vectors
         blitz::Array<double,2> kvectors(maxNvec, 3);
-		const int nvec = generate_kvec_rect(nk, kvectors, Lsq, maxNvec);
-		//const int nvec = generate_kvec(nk, kvectors, maxNvec);
+        const int nvec = generate_kvec_rect(nk, kvectors, Lsq, maxNvec);
+        //const int nvec = generate_kvec(nk, kvectors, maxNvec);
         
         for(int k=0; k<nvec; ++k)
         {
@@ -608,7 +608,7 @@ def rectangular_Sq(positions, Nbins, Ls=[203.0]*3, maxNvec=30, field=None):
     """
     weave.inline(
         code,['pos', 'field', 'Sq', 'dims', 'cache', 'Lsq', 'maxNvec'],
-		support_code = code_kvec_rect,
+        support_code = code_kvec_rect,
         type_converters =converters.blitz,
         extra_compile_args =['-O3 -fopenmp'],
         extra_link_args=['-lgomp'],

@@ -176,40 +176,46 @@ SerieTracker::SerieTracker(const std::string &namePattern, boost::array<size_t, 
 
     if(tpos!=string::npos)
     {
-        if(xyzt[3]>1)
-            throw invalid_argument("Name pattern doesn't accept time dependence");
         this->hasTime=true;
         head.resize(tpos);
         tdigits = namePattern.find_first_not_of("0123456789", tpos+2);
         tail = namePattern.substr(tdigits);
-        tdigits -= tpos;
+        tdigits -= tpos+2;
     }
     else
+    {
+        if(xyzt[3]>1)
+            throw invalid_argument("Name pattern doesn't accept time dependence");
         this->hasTime=false;
+    }
     if(zpos!=string::npos)
     {
-        if(xyzt[2]>1)
-            throw invalid_argument("Name pattern doesn't accept z dependence");
         this->hasDepth=true;
         head.resize(zpos);
         zdigits = namePattern.find_first_not_of("0123456789", zpos+2);
         //get the tail only if no time
         if(tail.empty())
             tail = namePattern.substr(zdigits);
-        zdigits -= zpos;
+        zdigits -= zpos+2;
     }
     else
+    {
+        if(xyzt[2]>1)
+            throw invalid_argument("Name pattern doesn't accept z dependence");
         this->hasDepth=false;
+    }
 
     //reconstruct the format
     ostringstream os;
     os<<head;
     if(this->hasDepth)
-        os<<"_z%|0"<<zdigits;
+        os<<"_z%|0"<<zdigits<<"d|";
     if(this->hasTime)
-        os<<"_t%|0"<<tdigits;
+        os<<"_t%|0"<<tdigits<<"d|";
     os<<tail;
-    this->serie.parse(os.str());
+    this->namePattern = std::string(os.str());
+    //std::cout<<this->namePattern<<std::endl;
+    this->serie.parse(this->namePattern);
 
 	this->centers=0;
 	setTimeStep(0);
