@@ -59,6 +59,7 @@ stripping time stamps and non ascii characters
             lightXML = io.StringIO()
         else:
             import StringIO
+            trans = {ord(c): None for c in d}
             lightXML = StringIO.StringIO()
         
         if not quick:
@@ -80,7 +81,10 @@ stripping time stamps and non ascii characters
                     lightXML.write(line.translate(trans))
             else:
                 for line in xmlHeaderFile:
-                    lightXML.write(line.translate(t,d))
+                    try:
+                        lightXML.write(line.translate(t,d))
+                    except TypeError:
+                        lightXML.write(line.translate(trans))
             
         else:
             #to strip the time stamps
@@ -94,7 +98,10 @@ stripping time stamps and non ascii characters
                     lightXML.write(''.join(m.split(line)).translate(trans))
             else:
                 for line in xmlHeaderFile:
-                    lightXML.write(''.join(m.split(line)).translate(t,d))
+                    try:
+                        lightXML.write(''.join(m.split(line)).translate(t,d))
+                    except TypeError:
+                        lightXML.write(''.join(m.split(line)).translate(trans))
         lightXML.seek(0)
         self.xmlHeader = parse(lightXML)
 
@@ -366,7 +373,7 @@ class Reader(Header):
     
     def __init__(self, lifFile, quick=True):
         #open file and find it's size
-        if isinstance(lifFile, file):
+        if isinstance(lifFile, io.IOBase):
             self.f = lifFile
         else:
             self.f = open(lifFile,"rb")
@@ -382,14 +389,14 @@ class Reader(Header):
 
         #Read the XML header as raw buffer. It should avoid encoding problems
         # but who uses japanese characters anyway
-        xmlHeaderString = self.f.read(xmlHeaderLength*2)
+        xmlHeaderString = self.f.read(xmlHeaderLength*2).decode('latin-1')
         self.parse(io.StringIO(xmlHeaderString[::2]),quick)
 
         #Index the series offsets
         self.offsets = []
         while(self.f.tell()<filesize):
             memorysize = self.__readMemoryBlockHeader()
-            while(self.f.read(1) != "*"):
+            while(self.f.read(1) != b"*"):
                 pass
             #size of the memory description
             memDescrSize, = struct.unpack("I",self.f.read(4))
@@ -413,8 +420,8 @@ class Reader(Header):
         memBlock, trash, testBlock = struct.unpack("iic",self.f.read(9))
         if memBlock != 112:
             raise Exception("This is not a valid LIF file")
-        if testBlock != '*':
-            raise Exception ("Invalid block at %l" % self.f.tell())
+        if testBlock != b'*':
+            raise Exception ("Invalid block at %d" % self.f.tell())
         if not hasattr(self, 'xmlHeader') or self.getVersion()<2:
             memorysize, = struct.unpack("I",self.f.read(4))
         else:
