@@ -25,7 +25,7 @@ from scipy.ndimage.filters import gaussian_filter1d
 from scipy.ndimage.morphology import grey_dilation
 from scipy import optimize, sparse
 from scipy.optimize import leastsq
-#from scipy.spatial import cKDTree as KDTree
+from scipy.spatial import cKDTree as KDTree
 import os, os.path, subprocess
 import re, string, math
 from math import exp
@@ -383,6 +383,38 @@ class Experiment(object):
                          ),
                  title)
         
+    def msd(self, t0=0, dts=None, showProgress=False):
+        """Compute mean square displacement from one initial time, given an array of interval times. By default dts are logarythmically spaced."""
+        assert t0 >= 0
+        assert t0 < self.size-1
+        #generate default dts
+        if dts is None:
+            dts = np.unique(np.logspace(0, np.log10(self.size-t0-1),100).astype(int))
+        assert t0 + max(dts) < self.size
+        msd = np.zeros(len(dts))
+        if showProgress:
+            pro = ProgressBar(len(msd))
+        #load initial time
+        p0 = np.loadtxt(self.get_format_string()%(t0), skiprows=2)
+        p2tr0 = self.p2tr(t0)
+        for idt, dt in enumerate(dts):
+            p1 = np.loadtxt(self.get_format_string()%(t0+dt), skiprows=2)
+            p2tr1 = self.p2tr(t0+dt)
+            #select trajectories that span both time steps
+            span = np.zeros(max([p2tr0.max(), p2tr1.max()])+1, bool)
+            span[np.intersect1d(p2tr0, p2tr1)] = True
+            #displacement between t0 and t1
+            dx = np.zeros((len(span),3))
+            dx[p2tr1[span[p2tr1]]] = p1[span[p2tr1]]
+            dx[p2tr0[span[p2tr0]]] -= p0[span[p2tr0]]
+            #remove drift
+            dx[span] -= dx[span].mean()
+            #msd for this dt
+            msd[idt] = np.mean(dx[span]**2)
+            if showProgress:
+                pro.animate(idt)
+        return dts, msd
+
         
     def g6(self, Nbins=200, nbDiameters=4.5, force=False):
         """
