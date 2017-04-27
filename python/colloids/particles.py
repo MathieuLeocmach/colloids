@@ -377,12 +377,12 @@ struct Gatherer {
 def get_rdf(pos, inside, Nbins=250, maxdist=30.0):
     g = np.zeros(Nbins, int)
     #spatial indexing
-    tree = KDtree(pos, 12)
-    for i in np.where(inside):
-        js = tree.query_ball_point(pos[i], maxdist)
+    tree = KDTree(pos, 12)
+    for i in np.where(inside)[0]:
+        js = np.array(tree.query_ball_point(pos[i], maxdist))
         js = js[js!=i]
         rs = np.sqrt(np.sum((pos[js] - pos[i])**2, -1)) / maxdist * g.shape[0]
-        g[rs] +=1
+        g[rs.astype(int)] +=1
         
         
     return g
