@@ -101,10 +101,6 @@ class EquationOfState:
         """Second derivative of pv_0 with respect to f"""
         return derivative(self.pv_0, f, dx=1e-3, n=2,order=5)
     
-    def tointegrate(self,f):
-        """The content of the integral that gives part of the chemical potential"""
-        return (self.Z(f)-1)/(1.+f)/f
-    
     def pv_0_ratio(self, f):
         """Ratio pv_0_2/pv_0_1"""
         return self.pv_0_2(f) / self.pv_0_1(f)
