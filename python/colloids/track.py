@@ -15,17 +15,18 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Colloids.  If not, see <http://www.gnu.org/licenses/>.
 #
-from __future__ import with_statement #for python 2.5, useless in 2.6
+ #for python 2.5, useless in 2.6
 import numpy as np
-import os.path, subprocess, shlex, string, re, time
+import os.path, subprocess, shlex, string, re, time, sys
 from colloids import lif, vtk
 from scipy.ndimage.filters import gaussian_filter, gaussian_filter1d, sobel, uniform_filter
 from scipy.ndimage.morphology import grey_erosion, grey_dilation, binary_dilation
 from scipy.ndimage import measurements
 from scipy.sparse.linalg import splu, spsolve
 from scipy import sparse
-from scipy import weave
-from scipy.weave import converters
+if (sys.version_info <= (3, 0)):
+    from scipy import weave
+    from scipy.weave import converters
 import numexpr
 import PIL.Image
 import unittest
@@ -87,18 +88,18 @@ def bestParams(inputPath, outputPath, radMins=np.arange(2.5, 5, 0.5), radMaxs=np
                     )
                 out, err = p.communicate()
                 if not p.returncode==0:
-                    print 'At radMin=%(m)g and radMax=%(M)g'%{'m':radMin, 'M':radMax}
-                    print out
-                    print err
+                    print('At radMin=%(m)g and radMax=%(M)g'%{'m':radMin, 'M':radMax})
+                    print(out)
+                    print(err)
                     return
     hists = np.asarray([[
-	np.histogram(
-		np.loadtxt(
+    np.histogram(
+        np.loadtxt(
                     (out_noext+'.intensity')%{'m':radMin, 'M':radMax, 't':t}
                     ),
-		bins=range(300)
-		)[0]
-	for radMax in radMaxs] for radMin in radMins])
+        bins=list(range(300))
+        )[0]
+    for radMax in radMaxs] for radMin in radMins])
     return hists
 
 def getBandPassMask(serie, radMin, radMax):
@@ -121,13 +122,13 @@ def getBandPassMask(serie, radMin, radMax):
     return mask
 
 def saveIntensityVTK(fname):
-	v=vtk.Polydata()
-	v.points = np.loadtxt(fname, skiprows=2)
-	v.scalars = [('Intensity', np.loadtxt(os.path.splitext(fname)[0]+'.intensity'))]
-	n = fname.split('_t')
-	n[-2]+='_test'
-	n[-1] = n[-1][:-3]+'vtk'
-	v.save('_t'.join(n))
+    v=vtk.Polydata()
+    v.points = np.loadtxt(fname, skiprows=2)
+    v.scalars = [('Intensity', np.loadtxt(os.path.splitext(fname)[0]+'.intensity'))]
+    n = fname.split('_t')
+    n[-2]+='_test'
+    n[-1] = n[-1][:-3]+'vtk'
+    v.save('_t'.join(n))
 
 def diff_of_gaussians(im, k=1.6, n=3):
     """
@@ -149,8 +150,8 @@ def pixel_centers_2Dscale(im, k=1.6, n=3):
     assert im.ndim==2, "work only with 2D images"
     DoG2D = diff_of_gaussians(np.asarray(im, float), k, n)
     centers_scale = np.bitwise_and(np.bitwise_and(
-	    DoG2D[1:-1]==grey_erosion(DoG2D, [7]*3)[1:-1],
-	    DoG2D[1:-1]<0), grey_dilation(DoG2D, [3]*3)[1:-1]<0)
+        DoG2D[1:-1]==grey_erosion(DoG2D, [7]*3)[1:-1],
+        DoG2D[1:-1]<0), grey_dilation(DoG2D, [3]*3)[1:-1]<0)
     centers_scale[:,:,0] = 0
     centers_scale[:,:,-1] = 0
     centers_scale[:,0] = 0
@@ -239,8 +240,8 @@ def find_blob(im, k=1.6, n=3):
     """Blob finder : find the local maxima in an octave of the scale space"""
     DoG = diff_of_gaussians(np.asarray(im, float), k, n)
     centers_scale = np.bitwise_and(
-	    DoG==grey_erosion(DoG, [3]*DoG.ndim),
-	    DoG<0)
+        DoG==grey_erosion(DoG, [3]*DoG.ndim),
+        DoG<0)
     #remove maxima on the borders
     for a in range(centers_scale.ndim):
         centers_scale[tuple([slice(None)]*(centers_scale.ndim-1-a)+[0])]=0
@@ -281,20 +282,20 @@ def find_blob(im, k=1.6, n=3):
 
 def save_2Dcenters(file_pattern, frame):
     for z, im in enumerate(frame):
-	centers = np.vstack((
-		find_blob(np.repeat(np.repeat(im, 2, 0), 2,1))*[1, 0.5, 0.5,1],
-		find_blob(im)+[3,0,0,0]
-	))[:,[2,1,0,3]]
-	centers[:,2] = 1.6/np.sqrt(2)*2**(centers[:,2]/3)
-	np.savetxt(
-		file_pattern%(z, 'dat'),
-		np.vstack((
-			[1, len(centers), 1],
-			[256, 256, 1.6*np.sqrt(2)*2**(7.0/3)],
-			centers[:,:-1]
-			)), fmt='%g'
-		)
-	np.savetxt(file_pattern%(z, 'intensity'), centers[:,-1], fmt='%g')
+        centers = np.vstack((
+            find_blob(np.repeat(np.repeat(im, 2, 0), 2,1))*[1, 0.5, 0.5,1],
+            find_blob(im)+[3,0,0,0]
+        ))[:,[2,1,0,3]]
+        centers[:,2] = 1.6/np.sqrt(2)*2**(centers[:,2]/3)
+        np.savetxt(
+            file_pattern%(z, 'dat'),
+            np.vstack((
+                [1, len(centers), 1],
+                [256, 256, 1.6*np.sqrt(2)*2**(7.0/3)],
+                centers[:,:-1]
+                )), fmt='%g'
+            )
+        np.savetxt(file_pattern%(z, 'intensity'), centers[:,-1], fmt='%g')
     
 
 def load_clusters(trajfile):
@@ -306,7 +307,7 @@ def load_clusters(trajfile):
         ZXratio = float(f.next()[:-1].split("\t")[1])
         pattern, ext = os.path.splitext(f.next()[:-1].split("\t")[0])
         token, = f.next()[:-1].split("\t")
-        offset,size = map(int, f.next()[:-1].split("\t"))
+        offset,size = list(map(int, f.next()[:-1].split("\t")))
         m = re.match('(.*)'+token+'([0-9]*)',pattern)
         head = m.group(1)
         digits = len(m.group(2))
@@ -320,12 +321,12 @@ def load_clusters(trajfile):
         #parse cluster description
         for line in f:
             z0 = int(line[:-1])
-            pos = map(int, string.split(f.next()[:-1],'\t'))
+            pos = list(map(int, string.split(f.next()[:-1],'\t')))
             clusters.append(np.asarray([
                 [s[p,0], s[p,1], z*ZXratio,
                  s[p,-2],
                  s[p,-1]] for z, s, p in zip(
-                    range(z0, z0+len(pos)),
+                    list(range(z0, z0+len(pos))),
                     slices[z0:],
                     pos)
                 ]))
@@ -334,7 +335,7 @@ def load_clusters(trajfile):
 def clusters2particles(clusters, k=1.6, n=3, noDuplicate=True, outputFinders=False):
     particles = []
     #allocate the memory for each possible size of MultiscaleBlobFinder
-    N = max(map(len, clusters))
+    N = max(list(map(len, clusters)))
     finders = [MultiscaleBlobFinder([l], n, 3) for l in range(5, N+1)]
     for cl in clusters:
         #a cluster that appears in less than 3 slices is not a real particle
@@ -371,9 +372,9 @@ def clusters2particles(clusters, k=1.6, n=3, noDuplicate=True, outputFinders=Fal
                 #subclusters will be treated further in the loop
                 continue
             #get the blobs for each signal, remove signals without blob
-            blobs = filter(len, [
+            blobs = list(filter(len, [
                 finders[len(cl)-5](u, k) for u in [cl[:,3], cl[:,4]]
-                ])
+                ]))
             if len(blobs)==0:
                 #no blob in any signal, we just take the position of the maximum radius
                 m = np.argmax(cl[:,-2])
@@ -1190,7 +1191,7 @@ class MultiscaleBlobFinder:
             else:
                 out.append(i)
         self.time += time.clock() - t0
-	return np.vstack(out)
+        return np.vstack(out)
 
 def treatFrame(serie, t, file_pattern, finder=None ):
     if finder is None:
