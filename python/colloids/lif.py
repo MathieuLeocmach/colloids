@@ -201,7 +201,7 @@ class SerieHeader:
     def getMemorySize(self):
         if not hasattr(self, '__memorySize'):
             for m in self.root.getElementsByTagName("Memory"):
-                self.__memorySize = m.getAttribute("Size")
+                self.__memorySize = int(m.getAttribute("Size"))
                 break
         return self.__memorySize
 
