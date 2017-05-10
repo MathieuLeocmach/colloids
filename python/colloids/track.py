@@ -875,7 +875,7 @@ class CrockerGrierFinder:
         centers = np.empty([nb_centers, self.blurred.ndim+1])
         #original positions of the centers
         c0 = np.transpose(np.where(self.binary))
-        if self.binary.ndim==2:
+        if self.binary.ndim==2 and (sys.version_info <= (3, 0)):
             im = self.blurred
             code = """
             #pragma omp parallel for
