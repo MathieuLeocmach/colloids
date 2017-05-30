@@ -322,33 +322,33 @@ class SerieHeader:
                     self.__nbFrames = int(d.getAttribute("NumberOfElements"))
         return self.__nbFrames
 
+    def getBoxShape(self):
+        """Shape of the field of view in the X,Y,Z order."""
+        if not hasattr(self, '__boxShape'):
+            dims = {
+                int(d.getAttribute('DimID')): int(d.getAttribute("NumberOfElements"))
+                for d in self.getDimensions()
+                }
+            #ensure dimensions are sorted, keep only spatial dimensions
+            self.__boxShape = [s for d, s in sorted(dims.items()) if d<4]
+        return self.__boxShape
+        
     def getFrameShape(self):
-        if not hasattr(self, '__frameShape'):
-            shape = []
-            for d in self.getDimensions():
-                if int(d.getAttribute("DimID")) <4:
-                    shape.append(int(d.getAttribute("NumberOfElements")))
-            self.__frameShape = shape
-        return self.__frameShape
+        """Shape of the frame (nD image) in C order, that is Z,Y,X"""
+        return self.getBoxShape()[::-1]
 
     def get2DShape(self):
-        """size of the two first spatial dimensions"""
-        return self.getFrameShape()[:2]
+        """size of the two first spatial dimensions, in C order, e.g. Y,X"""
+        return self.getBoxShape()[:2][::-1]
 
     def getNbPixelsPerFrame(self):
         if not hasattr(self, '__nbPixelsPerFrame'):
-            nb = 1
-            for d in self.getFrameShape():
-                nb *= d
-            self.__nbPixelsPerFrame = nb
+            self.__nbPixelsPerFrame = np.prod(self.getBoxShape())
         return self.__nbPixelsPerFrame
 
     def getNbPixelsPerSlice(self):
         if not hasattr(self, '__nbPixelsPerSlice'):
-            nb = 1
-            for d in self.get2DShape():
-                nb *= d
-            self.__nbPixelsPerSlice = nb
+            self.__nbPixelsPerSlice = np.prod(self.get2DShape())
         return self.__nbPixelsPerSlice
 
 def extract_XML(name):
@@ -475,7 +475,7 @@ class Serie(SerieHeader):
             self.f,
             dtype=np.ubyte,
             count=self.getNbPixelsPerSlice()
-            ).reshape(shape[::-1])
+            ).reshape(shape)
 
     def get2DString(self,**dimensionsIncrements):
         """Use the two first dimensions as image dimension"""
@@ -514,12 +514,11 @@ class Serie(SerieHeader):
          (ok if no T dependence)
         """
         self.f.seek(self.getOffset(**dict({'T':T})))
-        shape = self.getFrameShape()
         return np.fromfile(
             self.f,
             dtype=np.ubyte,
             count=self.getNbPixelsPerFrame()
-            ).reshape(shape[::-1])
+            ).reshape(self.getFrameShape())
 
     def getVTK(self, fname, T=0):
         """Export the frame at time T to a vtk file"""
@@ -527,7 +526,7 @@ class Serie(SerieHeader):
             f.write(
                 ('# vtk DataFile Version 3.0\n%s\n' % self.getName)+
                 'BINARY\nDATASET STRUCTURED_POINTS\n'+
-                ('DIMENSIONS %d %d %d\n'%tuple(self.getFrameShape()))+
+                ('DIMENSIONS %d %d %d\n'%tuple(self.getBoxShape()))+
                 'ORIGIN 0 0 0\n'+
                 ('SPACING 1 1 %g\n'%self.getZXratio())+
                 ('POINT_DATA %d\n'%self.getNbPixelsPerFrame())+
@@ -537,7 +536,7 @@ class Serie(SerieHeader):
             f.write(self.f.read(self.getNbPixelsPerFrame()))
 
     def getDispl2DImage(self, t0=0, t1=1, Z=0):
-        ham = np.hamming(self.get2DShape()[1])*np.atleast_2d(np.hamming(self.get2DShape()[0])).T
+        ham = np.hamming(self.get2DShape()[0])*np.atleast_2d(np.hamming(self.get2DShape()[1])).T
         a = rfft2(self.get2DSlice(T=t0, Z=Z)*ham)
         b = rfft2(self.get2DSlice(T=t1, Z=Z)*ham)
         R = numexpr.evaluate(
@@ -558,7 +557,7 @@ class Serie(SerieHeader):
             Z = self.getNbPixelsPerFrame()/self.getNbPixelsPerSlice()/2
         shape = np.asarray(self.get2DShape())
         if window:
-            ham = np.hamming(shape[1])*np.atleast_2d(np.hamming(shape[0])).T
+            ham = np.hamming(shape[0])*np.atleast_2d(np.hamming(shape[1])).T
         else:
             ham = 1.0
         displs = np.zeros((self.getNbFrames(),2))
@@ -578,10 +577,10 @@ class Serie(SerieHeader):
             displs[t] = np.unravel_index(l, r.shape)
             #prepare next step
             a = b
-        return np.where(displs<shape/2, displs, displs-shape)
+        return np.where(displs<shape[::-1]/2, displs, displs-shape[::-1])
 
     def enumByFrame(self):
-        """yield time steps one after the other as a couple (time,numpy array)"""
+        """yield time steps one after the other as a couple (time,numpy array). It is not safe to combine this syntax with getFrame or get2DSlice."""
         yield 0,self.getFrame()
         for t in range(1,self.getNbFrames()):
             yield t,np.fromfile(
@@ -591,7 +590,7 @@ class Serie(SerieHeader):
                 ).reshape(self.getFrameShape())
 
     def enumBySlice(self):
-        """yield 2D slices one after the other as a 3-tuple (time,z,numpy array)"""
+        """yield 2D slices one after the other as a 3-tuple (time,z,numpy array). It is not safe to combine this syntax with getFrame or get2DSlice."""
         self.f.seek(self.getOffset())
         for t in range(self.getNbFrames()):
             for z in range(self.getNbPixelsPerFrame()/self.getNbPixelsPerSlice()):
@@ -599,7 +598,7 @@ class Serie(SerieHeader):
                     self.f,
                     dtype=np.ubyte,
                     count=self.getNbPixelsPerSlice()
-                    ).reshape(self.get2DShape()[::-1])
+                    ).reshape(self.get2DShape())
 
 def getNeighbourhood(point, image, radius=10):
     box = np.floor([np.maximum(0, point-radius), np.minimum(image.shape, point+radius+1)])
