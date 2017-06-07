@@ -11,12 +11,14 @@ if __name__ == '__main__':
     parser.add_argument('--out', help='The file.h5 where to save the data. By default the same name as trajectory file, one level below in the directory tree.')
     args = parser.parse_args()
     trname = args.trname
-    n = os.path.splitext(trname)[0]
     print(trname)
     x = xp.Experiment(trname)
     
     if args.out is None:
-        args.out = os.path.join(os.path.split(x.path)[0], n+'.h5')
+        args.out = os.path.join(
+            os.path.split(x.path)[0], 
+            os.path.splitext(x.trajfile)[0]+'.h5'
+            )
     print('to %s'%args.out)
     assert x.size < 2**15, "Too many time steps, use larger data types"
     assert x.nb_trajs < 2**31, "Too many trajectories, use larger data types"
