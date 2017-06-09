@@ -357,8 +357,8 @@ def extract_XML(name):
         memBlock, trash, testBlock = struct.unpack("iic", f.read(9))
         if memBlock != 112:
             raise Exception("This is not a valid LIF file")
-        if testBlock != '*':
-            raise Exception ("Invalid block at %l" % self.f.tell())
+        if testBlock != b'*':
+            raise Exception ("Invalid block at %l" % f.tell())
         memorysize, = struct.unpack("I", f.read(4))
         #read and parse the header
         soup = BeautifulSoup(f.read(2*memorysize).decode("utf-16"), "xml")
