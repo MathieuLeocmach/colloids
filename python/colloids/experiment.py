@@ -25,7 +25,7 @@ from scipy.ndimage.filters import gaussian_filter1d
 from scipy.ndimage.morphology import grey_dilation
 from scipy import optimize, sparse
 from scipy.optimize import leastsq
-#from scipy.spatial import cKDTree as KDTree
+from scipy.spatial import cKDTree as KDTree
 import os, os.path, subprocess
 import re, string, math
 from math import exp
@@ -41,20 +41,26 @@ def noNaN(x):
     else:
         return float(x)
 
-def load_trajectories(fname):
-    """returns (starting times, list of position indices)"""
-    starts = []
-    positions = []
+def trajectory_stream(fname):
+    """Generator yielding (starting time, list of position indices) for each trajectory"""
     with open(fname,'r') as f:
         for l, line in enumerate(f):
             if l==3:
                 break
         for l, line in enumerate(f):
             if l%2 == 0:
-                starts.append(int(line[:-1]))
+                start = int(line[:-1])
             else:
-                #positions.append([int(p) for p in line[:-1].split()])
-                positions.append(np.fromstring(line[:-1], int, sep='\t'))
+                positions = np.fromstring(line[:-1], int, sep='\t')
+                yield start, positions
+
+def load_trajectories(fname):
+    """returns (starting times, list of position indices)"""
+    starts = []
+    positions = []
+    for start, pos in trajectory_stream(fname):
+        starts.append(start)
+        positions.append(pos)
     return starts, positions
 
 class Experiment(object):
@@ -143,18 +149,11 @@ class Experiment(object):
         fname = self.get_format_string(ext='p2tr')%t
         if not os.path.exists(fname):
             pos2tr = [np.zeros(n, int) for n in self.get_nb()]
-            with open(os.path.join(self.path,self.trajfile),'r') as f:
-                for l, line in enumerate(f):
-                    if l==3:
-                        break
-                tr=0
-                for i, line in enumerate(f):
-                    if i%2 == 0:
-                        start = int(line[:-1])
-                    else:
-                        for dt, p in enumerate(map(int, line[:-1].split())):
-                            pos2tr[start+dt][p] = tr
-                    tr += 1
+            for tr, (start, pos) in enumerate(trajectory_stream(
+                os.path.join(self.path,self.trajfile)
+                )):
+                for dt, p in enumerate(pos):
+                    pos2tr[start+dt][p] = tr
             for (t, name), trs in zip(self.enum(ext='p2tr'), pos2tr):
                 np.savetxt(name, trs, fmt='%d')
         return np.loadtxt(fname, dtype=int)
@@ -383,6 +382,38 @@ class Experiment(object):
                          ),
                  title)
         
+    def msd(self, t0=0, dts=None, showProgress=False):
+        """Compute mean square displacement from one initial time, given an array of interval times. By default dts are logarythmically spaced."""
+        assert t0 >= 0
+        assert t0 < self.size-1
+        #generate default dts
+        if dts is None:
+            dts = np.unique(np.logspace(0, np.log10(self.size-t0-1),100).astype(int))
+        assert t0 + max(dts) < self.size
+        msd = np.zeros(len(dts))
+        if showProgress:
+            pro = ProgressBar(len(msd))
+        #load initial time
+        p0 = np.loadtxt(self.get_format_string()%(t0), skiprows=2)
+        p2tr0 = self.p2tr(t0)
+        for idt, dt in enumerate(dts):
+            p1 = np.loadtxt(self.get_format_string()%(t0+dt), skiprows=2)
+            p2tr1 = self.p2tr(t0+dt)
+            #select trajectories that span both time steps
+            span = np.zeros(max([p2tr0.max(), p2tr1.max()])+1, bool)
+            span[np.intersect1d(p2tr0, p2tr1)] = True
+            #displacement between t0 and t1
+            dx = np.zeros((len(span),3))
+            dx[p2tr1[span[p2tr1]]] = p1[span[p2tr1]]
+            dx[p2tr0[span[p2tr0]]] -= p0[span[p2tr0]]
+            #remove drift
+            dx[span] -= dx[span].mean()
+            #msd for this dt
+            msd[idt] = np.mean(dx[span]**2)
+            if showProgress:
+                pro.animate(idt)
+        return dts, msd
+
         
     def g6(self, Nbins=200, nbDiameters=4.5, force=False):
         """
@@ -489,6 +520,30 @@ class Experiment(object):
                 np.asarray([len(trajs[tr][1]) for tr in pos2traj[t]])
                 ))
             v.save(self.get_format_string('_check', ext='vtk')%t)
+            
+    def broken_bonds(self, t0, t1):
+        """bonds (between trajectories) existing at t0 but no more at t1 with both members still existing at t1 = broken bonds - lost trajectories"""
+        #load trajectory data
+        p2tr0 = self.p2tr(t0)
+        p2tr1 = self.p2tr(t1)
+        #which trajectories exist at both times step
+        existin0 = np.zeros(max(p2tr0.max(), p2tr1.max())+1, bool)
+        existin1 = np.zeros_like(existin0)
+        existin0[p2tr0] = True
+        existin1[p2tr1] = True
+        existinboth = existin0 & existin1
+        #load bonds, translate to trajectory indices
+        gb0, gb1 = (
+            p2tr[np.loadtxt(self.get_format_string(ext='bonds')%t, dtype=int)]
+            for t, p2tr in zip([t0,t1], [p2tr0, p2tr1])
+            )
+        #restrict to these trajectories, sort for unicity
+        gb0, gb1 = (
+            np.sort(gb[existinboth[gb].min(-1)], 1)
+            for gb in (gb0, gb1)
+            )
+        #bonds existing at t but not t+dt
+        return set([(a,b) for a,b in gb0]) - set([(a,b) for a,b in gb1])
     
     def bond_life(self):
         """When do bonds first form and are last seen"""

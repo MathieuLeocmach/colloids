@@ -375,16 +375,21 @@ struct Gatherer {
 """
 
 def get_rdf(pos, inside, Nbins=250, maxdist=30.0):
+    """Radial distribution function, not normalised.
+    For each particle tagged as inside, count the particles around and bin then with respect to distance. Need to be normalised by inside.sum() and density x volume of the spherical shell between r and r+maxdist/Nbins.
+    
+     - pos is a Nxd array of coordinates, with d the dimension of space
+     - inside is a N array of booleans. For example all particles further away than maxdist from any edge of the box.
+     - Nbins is the number of bins along r
+     - maxdist is the maximum distance considered"""
     g = np.zeros(Nbins, int)
     #spatial indexing
-    tree = KDtree(pos, 12)
-    for i in np.where(inside):
-        js = tree.query_ball_point(pos[i], maxdist)
+    tree = KDTree(pos, 12)
+    for i in np.where(inside)[0]:
+        js = np.array(tree.query_ball_point(pos[i], maxdist))
         js = js[js!=i]
         rs = np.sqrt(np.sum((pos[js] - pos[i])**2, -1)) / maxdist * g.shape[0]
-        g[rs] +=1
-        
-        
+        np.add.at(g, rs.astype(int), 1)
     return g
 
 def structure_factor(positions, Nbins, Ls=[203.0]*3, maxNvec=30, field=None):
