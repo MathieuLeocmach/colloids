@@ -233,7 +233,7 @@ class ImageStructureFactor:
     def __init__(self, shape):
         assert len(shape) == 2, "only 2D images implemented"
         L = max(shape)
-        self.qs = np.fft.fftfreq(L)[:L/2]
+        self.qs = np.fft.fftfreq(L)[:int(L/2)]
         self.dists = np.sqrt(np.fft.fftfreq(shape[0])[:,None]**2 + np.fft.fftfreq(shape[1])**2)
         self.dcount = np.histogram(self.dists.ravel(), bins=self.qs)[0]
         self.has_window = False
@@ -243,6 +243,9 @@ class ImageStructureFactor:
             self.has_window = False
         elif hasattr(np, w):
             self.window = [getattr(np,w)(self.dists.shape[0])[:,None], getattr(np,w)(self.dists.shape[1])]
+            #normalize by the gain of the window
+            for i, w in enumerate(self.window):
+                self.window = w/w.mean()
             self.has_window = True
         elif isinstance(w, np.ndarray):
             assert w.shape == self.dists.shape
