@@ -22,9 +22,18 @@ try:
     from scipy import weave
     from scipy.weave import converters
 except ImportError:
-    pass
+    try:
+        import weave
+        from weave import converters
+    except ImportError:
+        pass
 import numexpr
+import numba
 from colloids import periodic
+
+@numba.vectorize([numba.float64(numba.complex128),numba.float32(numba.complex64)])
+def abs2(x):
+    return x.real**2 + x.imag**2
         
 def weave_qlm(pos, ngbs, inside, l=6):
     qlm = np.zeros([len(pos), l+1], np.complex128)
@@ -154,7 +163,7 @@ phi is cologitudinal and theta azimutal"""
     return spherical
     
 def vect2Ylm(v, l):
-    """Projects vectors v on the base of spherical harmonics of order l."""
+    """Projects vectors v on the base of spherical harmonics of degree l."""
     spherical = cart2sph(v)
     return sph_harm(
         np.arange(l+1)[:,None], l, 
@@ -219,8 +228,8 @@ def boo_product(qlm1, qlm2):
         return p
 
 def ql(qlm):
-    q = np.abs(qlm[:,0])**2
-    q += (2*np.abs(qlm[:,1:])**2).sum(-1)
+    q = abs2(qlm[:,0])
+    q += 2*abs2(qlm[:,1:]).sum(-1)
     l = qlm.shape[1]-1
     return np.sqrt(4*np.pi / (2*l+1) * q)
     
