@@ -229,7 +229,7 @@ class StructureFactor3D:
         
         
 class ImageStructureFactor:
-    """A class to compute rapially averaged structure factor of a 2D image"""
+    """A class to compute radially averaged structure factor of a 2D image"""
     def __init__(self, shape):
         assert len(shape) == 2, "only 2D images implemented"
         L = max(shape)
@@ -245,7 +245,7 @@ class ImageStructureFactor:
             self.window = [getattr(np,w)(self.dists.shape[0])[:,None], getattr(np,w)(self.dists.shape[1])]
             #normalize by the gain of the window
             for i, w in enumerate(self.window):
-                self.window = w/w.mean()
+                self.window[i] = w/w.mean()
             self.has_window = True
         elif isinstance(w, np.ndarray):
             assert w.shape == self.dists.shape
