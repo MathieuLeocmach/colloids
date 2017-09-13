@@ -264,6 +264,6 @@ class ImageStructureFactor:
             'real(abs(f))**2',
             {'f':np.fft.fft2(self.windowing(im))}
             )
-        return np.histogram(self.dists.ravel(), bins=self.qs, weights=spectrum.ravel())[0] / self.dcount
+        return np.histogram(self.dists.ravel(), bins=self.qs, weights=spectrum.ravel())[0] / self.dcount / spectrum.mean()
         
         
