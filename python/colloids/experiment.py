@@ -140,9 +140,9 @@ class Experiment(object):
                         if l==3:
                                 break
                         tr=0
-                    for line in f:
-                        tr += 1
-                self._nb_trajs =  tr/2
+                    for l,line in enumerate(f):
+                        tr += l%2
+                self._nb_trajs =  tr
         return self._nb_trajs
         
     def p2tr(self, t):

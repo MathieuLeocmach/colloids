@@ -18,10 +18,22 @@
 #
 import numpy as np
 from scipy.special import sph_harm
-from scipy import weave
-from scipy.weave import converters
+try:
+    from scipy import weave
+    from scipy.weave import converters
+except ImportError:
+    try:
+        import weave
+        from weave import converters
+    except ImportError:
+        pass
 import numexpr
-import periodic
+import numba
+from colloids import periodic
+
+@numba.vectorize([numba.float64(numba.complex128),numba.float32(numba.complex64)])
+def abs2(x):
+    return x.real**2 + x.imag**2
         
 def weave_qlm(pos, ngbs, inside, l=6):
     qlm = np.zeros([len(pos), l+1], np.complex128)
@@ -56,10 +68,10 @@ def weave_qlm(pos, ngbs, inside, l=6):
                 sph[1] = acos(cart[2]/sph[0]);
                 sph[2] = atan2(cart[1], cart[0]);
                 if(sph[2]<0)
-		            sph[2] += 2.0*M_PI;
+                    sph[2] += 2.0*M_PI;
             }
-		    for(int m=0; m<Nqlm[1]; ++m)
-		        qlm(i,m) += boost::math::spherical_harmonic(Nqlm[1]-1, m, sph[1], sph[2]);
+            for(int m=0; m<Nqlm[1]; ++m)
+                qlm(i,m) += boost::math::spherical_harmonic(Nqlm[1]-1, m, sph[1], sph[2]);
         }
         if(nb>0)
             for(int m=0; m<Nqlm[1]; ++m)
@@ -110,10 +122,10 @@ def periodic_qlm(pos, ngbs, period, l=6, weights=None):
                 sph[1] = acos(cart[2]/sph[0]);
                 sph[2] = atan2(cart[1], cart[0]);
                 if(sph[2]<0)
-		            sph[2] += 2.0*M_PI;
+                    sph[2] += 2.0*M_PI;
             }
-		    for(int m=0; m<Nqlm[1]; ++m)
-		        qlm(i,m) += weight * boost::math::spherical_harmonic(Nqlm[1]-1, m, sph[1], sph[2]);
+            for(int m=0; m<Nqlm[1]; ++m)
+                qlm(i,m) += weight * boost::math::spherical_harmonic(Nqlm[1]-1, m, sph[1], sph[2]);
         }
         if(total_weight>0)
             for(int m=0; m<Nqlm[1]; ++m)
@@ -135,18 +147,49 @@ def cart2sph(cartesian):
 phi is cologitudinal and theta azimutal"""
     spherical = np.zeros_like(cartesian)
     #distances
-    spherical[:,0] = np.sum(cartesian**2, axis=-1)
-    sel = np.asarray([
-        r!=z or r+1.0>1.0
-        for z, r in zip(cartesian[:,-1]**2, spherical[:,0])
-        ])
-    spherical[:,0] = np.sqrt(spherical[:,0])
+    c2 = cartesian**2
+    r2 = c2.sum(-1)
+    spherical[:,0] = np.sqrt(r2)
+    #work only on non-zero, non purely z vectors
+    sel = (r2 > c2[:,0]) | (r2+1.0 > 1.0)
+    x, y, z = cartesian[sel].T
+    r = spherical[sel,0]
     #colatitudinal phi [0, pi[
-    spherical[sel,1] = np.arccos(cartesian[sel,-1]/spherical[sel,0])
+    spherical[sel,1] = np.arccos(z/r)
     #azimutal (longitudinal) theta [0, 2pi[
-    spherical[sel,2] = np.arctan2(cartesian[sel,1], cartesian[sel,0])
-    spherical[spherical[:,2]<0, 2] += 2*np.pi
+    theta = np.arctan2(y, x)
+    theta[theta<0] += 2*np.pi
+    spherical[sel,2] = theta
     return spherical
+    
+def vect2Ylm(v, l):
+    """Projects vectors v on the base of spherical harmonics of degree l."""
+    spherical = cart2sph(v)
+    return sph_harm(
+        np.arange(l+1)[:,None], l, 
+        spherical[:,2][None,:], 
+        spherical[:,1][None,:]
+        )
+        
+def single_pos2qlm(pos, i, ngb_indices, l=6):
+    """Returns the qlm for a single position"""
+    #vectors to neighbours
+    vectors = pos[ngb_indices]-pos[i]
+    return vect2Ylm(vectors, l).mean(-1)
+    
+def bonds2qlm(pos, bonds, l=6):
+    """Returns the qlm for every particle"""
+    qlm = np.zeros((len(pos), l+1), np.complex128)
+    #spherical harmonic coefficients for each bond
+    Ylm = vect2Ylm(pos[bonds[:,1]] - pos[bonds[:,0]], l).T
+    #bin bond into each particle belonging to it
+    np.add.at(qlm, bonds[:,0], Ylm)
+    np.add.at(qlm, bonds[:,1], Ylm)
+    #divide by the number of bonds each particle belongs to
+    Nngb = np.zeros(len(pos), int)
+    np.add.at(Nngb, bonds.ravel(), 1)
+    return qlm / np.maximum(1, Nngb)[:,None]
+    
     
 def boo_product(qlm1, qlm2):
     if qlm1.ndim==2 and qlm2.ndim==2:
@@ -185,24 +228,10 @@ def boo_product(qlm1, qlm2):
         return p
 
 def ql(qlm):
-    q = np.empty(len(qlm))
-    code = """
-    #pragma omp parallel for
-    for(int i=0; i<Nqlm[0]; ++i)
-    {
-        q(i) = std::norm(qlm(i,0));
-        for(int m=1; m<Nqlm[1]; ++m)
-            q(i) += 2.0 * std::norm(qlm(i,m));
-        q(i) = sqrt(4*M_PI / (2*(Nqlm[1]-1)+1) * q(i));
-    }
-    """
-    weave.inline(
-        code,['qlm', 'q'],
-        type_converters =converters.blitz,
-        extra_compile_args =['-O3 -fopenmp'],
-        extra_link_args=['-lgomp'],
-        verbose=2, compiler='gcc')
-    return q
+    q = abs2(qlm[:,0])
+    q += 2*abs2(qlm[:,1:]).sum(-1)
+    l = qlm.shape[1]-1
+    return np.sqrt(4*np.pi / (2*l+1) * q)
     
 def wl(qlm):
     support = """
@@ -394,10 +423,10 @@ def steinhardt_g_l(pos, bonds, is_center, Nbins, maxdist, l=6):
             sph[1] = acos(cart(2)/sph[0]);
             sph[2] = atan2(cart(1), cart(0));
             if(sph[2]<0)
-	            sph[2] += 2.0*M_PI;
+                sph[2] += 2.0*M_PI;
         }
-	    for(int m=0; m<Nqlms[1]; ++m)
-	        qlms(b,m) = boost::math::spherical_harmonic(Nqlms[1]-1, m, sph[1], sph[2]);
+        for(int m=0; m<Nqlms[1]; ++m)
+            qlms(b,m) = boost::math::spherical_harmonic(Nqlms[1]-1, m, sph[1], sph[2]);
     }
     #pragma omp parallel for
     for(int b=0; b<Nbonds[0]; ++b)

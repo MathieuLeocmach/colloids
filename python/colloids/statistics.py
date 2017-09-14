@@ -135,18 +135,12 @@ def space_correlation(positions, values, bins):
 
     
 class StructureFactor2D:
+    """Discreet FFT to make a structure factor"""
     def __init__(self, shape):
+        self.im2S = ImageStructureFactor(shape)
+        self.im2S.set_window()
         self.im = np.zeros(shape)
-        #mask of wavenumbers
-        self.wavenumbers = list(map(np.fft.fftfreq, shape))
-        self.dists = numexpr.evaluate('sqrt(qx**2+qy**2)', {
-            'qx':self.wavenumbers[0][:,None],
-            'qy':self.wavenumbers[1][None,:]
-            })
-        #bin the wavenumbers
-        self.nbq, self.qs = np.histogram(self.dists.ravel(), self.wavenumbers[0][:len(self.wavenumbers[0])//2])
-        self.S = np.zeros(self.nbq.shape)
-        self.ws = list(map(np.hamming, shape))
+        self.S = np.zeros(len(self.im2S.qs))
         self.Ns = []
         
     def __call__(self, pos, accumulate=True):
@@ -159,13 +153,8 @@ class StructureFactor2D:
             self.im[x,y,z] = 1
         #remove offset
         self.im -= self.im.mean()
-        #windowing
-        for d, w in enumerate(self.ws):
-            self.im *= w[tuple([None]*d + [slice(None)] + [None]*(2-d))]
-        #do the (half)Fourier transform
-        spectrum = np.abs(np.fft.rfftn(self.im)[:,:,0])**2
-        #radial average (sum)
-        S = np.histogram(self.dists.ravel(), self.qs, weights=spectrum.ravel())[0]/spectrum.mean()
+        #send to im2S
+        S = self.im2S(self.im)
         if accumulate:
             self.S += S*len(pos)
             self.Ns.append(len(pos))
@@ -247,6 +236,9 @@ class ImageStructureFactor:
             self.has_window = False
         elif hasattr(np, w):
             self.window = [getattr(np,w)(self.dists.shape[0])[:,None], getattr(np,w)(self.dists.shape[1])]
+            #normalize by the gain of the window
+            for i, w in enumerate(self.window):
+                self.window[i] = w/w.mean()
             self.has_window = True
         elif isinstance(w, np.ndarray):
             assert w.shape == self.dists.shape
@@ -265,6 +257,6 @@ class ImageStructureFactor:
             'real(abs(f))**2',
             {'f':np.fft.fft2(self.windowing(im))}
             )
-        return np.histogram(self.dists.ravel(), bins=self.qs, weights=spectrum.ravel())[0] / self.dcount
+        return np.histogram(self.dists.ravel(), bins=self.qs, weights=spectrum.ravel())[0] / self.dcount / spectrum.mean()
         
         
