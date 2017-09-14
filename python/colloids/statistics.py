@@ -1,7 +1,11 @@
+from __future__ import division
+
 import numpy as np
 from matplotlib.pyplot import *
 from matplotlib.colors import LogNorm
 import numexpr
+
+
 
 
 def plothist(data, title=None, bins=50, normed=False):
@@ -140,7 +144,7 @@ class StructureFactor2D:
             'qy':self.wavenumbers[1][None,:]
             })
         #bin the wavenumbers
-        self.nbq, self.qs = np.histogram(self.dists.ravel(), self.wavenumbers[0][:len(self.wavenumbers[0])/2])
+        self.nbq, self.qs = np.histogram(self.dists.ravel(), self.wavenumbers[0][:len(self.wavenumbers[0])//2])
         self.S = np.zeros(self.nbq.shape)
         self.ws = list(map(np.hamming, shape))
         self.Ns = []
@@ -183,11 +187,11 @@ class StructureFactor3D:
         self.dists = numexpr.evaluate('sqrt(qx**2+qy**2+qz**2)', {
             'qx':self.wavenumbers[0][:,None,None],
             'qy':self.wavenumbers[1][None,:,None],
-            'qz':self.wavenumbers[1][None,None,:shape[-1]/2+1]
+            'qz':self.wavenumbers[1][None,None,:shape[-1]//2+1]
             })
         self.spectrum = np.zeros_like(self.dists)
         #bin the wavenumbers
-        self.nbq, self.qs = np.histogram(self.dists.ravel(), self.wavenumbers[0][:len(self.wavenumbers[0])/2])
+        self.nbq, self.qs = np.histogram(self.dists.ravel(), self.wavenumbers[0][:len(self.wavenumbers[0])//2])
         self.S = np.zeros(self.nbq.shape)
         self.ws = list(map(np.hamming, shape))
         self.Ns = []
@@ -229,11 +233,11 @@ class StructureFactor3D:
         
         
 class ImageStructureFactor:
-    """A class to compute rapially averaged structure factor of a 2D image"""
+    """A class to compute radially averaged structure factor of a 2D image"""
     def __init__(self, shape):
         assert len(shape) == 2, "only 2D images implemented"
         L = max(shape)
-        self.qs = np.fft.fftfreq(L)[:L/2]
+        self.qs = np.fft.fftfreq(L)[:L//2]
         self.dists = np.sqrt(np.fft.fftfreq(shape[0])[:,None]**2 + np.fft.fftfreq(shape[1])**2)
         self.dcount = np.histogram(self.dists.ravel(), bins=self.qs)[0]
         self.has_window = False
