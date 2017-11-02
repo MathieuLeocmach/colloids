@@ -13,7 +13,7 @@ Description
 
 Project Homepage
 
-    The project has a homepage which can be found at http://colloids.sourceforge.net.
+    The project has a homepage which can be found at https://github.com/MathieuLeocmach/colloids/wiki
 
 Copyright and License
 
