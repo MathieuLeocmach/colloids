@@ -4,6 +4,28 @@ import os, subprocess, shlex
 #from scipy import weave
 #from scipy.weave import converters
 
+def periodify(u, v, periods=None):
+    """Given two arrays of points in a d-dimentional space with periodic boundary conditions, find the shortest vector between each pair"""
+    assert u.shape == v.shape
+    diff = np.array(v, float) - u
+    if periods is None:
+        return diff
+    assert len(periods) == u.shape[-1]
+    #ensures the largest coordinate is smaller than half a period
+    half = 0.5*np.array(periods)
+    pers = np.tile(periods, [len(diff),1])
+    toolarge = diff > half
+    while np.any(toolarge):
+        diff[toolarge] -= pers[toolarge]
+        toolarge = diff > half
+    #same for negative coordinates
+    toosmall = diff < -half
+    while np.any(toosmall):
+        diff[toosmall] += pers[toosmall]
+        toosmall = diff < -half
+    return diff
+    
+
 dist_code = """
 inline double periodic_dist(const double &x, const double &y, const double &period)
 {
