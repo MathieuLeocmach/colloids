@@ -93,40 +93,20 @@ def bonds2qlm(pos, bonds, l=6, periods=None):
     
     
 def boo_product(qlm1, qlm2):
-    if qlm1.ndim==2 and qlm2.ndim==2:
-        prod = np.empty([len(qlm1), len(qlm2)])
-        code ="""
-        #pragma omp parallel for
-        for(int p=0; p<Nqlm1[0]; ++p)
-            for(int q=0; q<Nqlm2[0]; ++q)
-            {
-                prod(p,q) = real(qlm1(p,0)*conj(qlm2(q,0)));
-                for(int m=1; m<Nqlm1[1]; ++m)
-                    prod(p,q) += 2.0*real(qlm1(p,m)*conj(qlm2(q,m)));
-                prod(p,q) *= 4.0*M_PI/(2.0*(Nqlm1[1]-1)+1);
-            }
-        """
-        weave.inline(
-            code,['qlm1', 'qlm2', 'prod'],
-            type_converters =converters.blitz,
-            extra_compile_args =['-O3 -fopenmp'],
-            extra_link_args=['-lgomp'],
-            verbose=2, compiler='gcc')
-        return prod
-    else:
-        n = np.atleast_2d(numexpr.evaluate(
-            """real(complex(real(a), -imag(a)) * b)""",
-            {'a':qlm1, 'b':qlm2}
-            ))
-        p = numexpr.evaluate(
-            """4*pi/(2*l+1)*(2*na + nb)""",
-            {
-                'na': n[:,1:].sum(-1),
-                'nb': n[:,0],
-                'l': n.shape[1]-1,
-                'pi': np.pi
-                })
-        return p
+    """Product between two qlm"""
+    n = np.atleast_2d(numexpr.evaluate(
+        """real(complex(real(a), -imag(a)) * b)""",
+        {'a':qlm1, 'b':qlm2}
+        ))
+    p = numexpr.evaluate(
+        """4*pi/(2*l+1)*(2*na + nb)""",
+        {
+            'na': n[:,1:].sum(-1),
+            'nb': n[:,0],
+            'l': n.shape[1]-1,
+            'pi': np.pi
+            })
+    return p
 
 def ql(qlm):
     q = abs2(qlm[:,0])
