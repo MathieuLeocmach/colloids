@@ -109,12 +109,22 @@ def boo_product(qlm1, qlm2):
     return p
 
 def ql(qlm):
+    """Second order rotational invariant of the bond orientational order of l-fold symmetry
+    $$ q_\ell = \sqrt{\frac{4\pi}{2l+1} \sum_{m=-\ell}^{\ell} |q_{\ell m}|^2 } $$"""
     q = abs2(qlm[:,0])
     q += 2*abs2(qlm[:,1:]).sum(-1)
     l = qlm.shape[1]-1
     return np.sqrt(4*np.pi / (2*l+1) * q)
     
 def wl(qlm):
+    """Third order rotational invariant of the bond orientational order of l-fold symmetry
+    $$ w_\ell = \sum_{m_1+m_2+m_3=0} 
+			\left( \begin{array}{ccc}
+				\ell & \ell & \ell \\
+				m_1 & m_2 & m_3 
+			\end{array} \right)
+			q_{\ell m_1} q_{\ell m_2} q_{\ell m_3}
+			$$"""
     support = """
     inline std::complex<double> get_qlm(const blitz::Array<std::complex<double>,2> &qlms, const int &i, const int &m)
     {
