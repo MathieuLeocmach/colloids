@@ -1,8 +1,15 @@
 import numpy as np
 from colloids import vtk, statistics
 import os, subprocess, shlex
-#from scipy import weave
-#from scipy.weave import converters
+try:
+    from scipy import weave
+    from scipy.weave import converters
+except ImportError:
+    try:
+        import weave
+        from weave import converters
+    except ImportError:
+        pass
 
 dist_code = """
 inline double periodic_dist(const double &x, const double &y, const double &period)
