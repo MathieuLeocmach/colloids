@@ -125,55 +125,13 @@ def wl(qlm):
 			\end{array} \right)
 			q_{\ell m_1} q_{\ell m_2} q_{\ell m_3}
 			$$"""
-    support = """
-    inline std::complex<double> get_qlm(const blitz::Array<std::complex<double>,2> &qlms, const int &i, const int &m)
-    {
-        if(m>=0)
-            return qlms(i,m);
-        if((-m)%2 == 0)
-            return std::conj(qlms(i,-m));
-        return -std::conj(qlms(i,-m));
-    }
-    inline const double& getW3j(const blitz::Array<double, 1> &w3j, const int &m1, const int &m2)
-    {
-        const int w3j_m1_offset[11] = {0,1,2,4,6,9,12,16,20,25,30};
-        std::list<int> ms;
-        ms.push_back(abs(m1));
-        ms.push_back(abs(m2));
-        ms.push_back(abs(m1+m2));
-        ms.sort();
-        const int off = w3j_m1_offset[ms.back()]+ms.front();
-        return w3j(off);
-    }
-    """
-    w = np.zeros(qlm.shape[0])
-    code = """
-    const int l = Nqlm[1]-1;
-    #pragma omp parallel for
-    for(int i=0; i<Nqlm[0]; ++i)
-        for(int m1=-l; m1<=l; ++m1)
-        {
-            std::complex<double> qlm1 = get_qlm(qlm, i, m1);
-            for(int m2=-l; m2<=l; ++m2)
-            {
-                int m3 = -m1-m2;
-                if( m3<-l || m3>l)
-                    continue;
-                std::complex<double> qlm2 = get_qlm(qlm, i, m2), 
-                    qlm3 = get_qlm(qlm, i, m3);
-                w(i) += std::real(getW3j(w3j, m1, m2) * qlm1 * qlm2 * qlm3);
-            }
-        }
-    """
-    w3j = _w3j[(qlm.shape[1]-1)/2]
-    weave.inline(
-        code,['qlm', 'w', 'w3j', '_w3j_m1_offset'],
-        type_converters =converters.blitz,
-        support_code = support,
-        headers = ['<list>'],
-        extra_compile_args =['-O3 -fopenmp'],
-        extra_link_args=['-lgomp'],
-        verbose=2, compiler='gcc')
+    l = qlm.shape[1]-1
+    w = np.zeros(qlm.shape[0], qlm.dtype)
+    for m1 in range(-l, l+1):
+        for m2 in range(-l, l+1):
+            m3 = -m1-m2
+            if -l<=m3 and m3<=l:
+                w+= get_w3j(l, [m1, m2, m3]) * get_qlm(qlm, m1) * get_qlm(qlm, m2) * get_qlm(qlm, m3)
     return w
     
 def get_qlm(qlms, m):
