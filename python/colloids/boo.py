@@ -91,6 +91,25 @@ def bonds2qlm(pos, bonds, l=6, periods=None):
     np.add.at(Nngb, bonds.ravel(), 1)
     return qlm / np.maximum(1, Nngb)[:,None]
     
+def coarsegrain_qlm(qlm, bonds, inside):
+    """Coarse grain the bond orientational order on the neighbourhood of a particle
+    $$Q_{\ell m}(i) = \frac{1}{N_i+1}\left( q_{\ell m}(i) +  \sum_{j=0}^{N_i} q_{\ell m}(j)\right)$$
+    Returns Qlm and the mask of the valid particles
+    """
+    #Valid particles must be valid themselves have only valid neighbours
+    inside2 = np.copy(inside)
+    np.bitwise_and.at(inside2, bonds[:,0], inside[bonds[:,1]])
+    np.bitwise_and.at(inside2, bonds[:,1], inside[bonds[:,0]])
+    #number of neighbours
+    Nngb = np.zeros(len(qlm), int)
+    np.add.at(Nngb, bonds.ravel(), 1)
+    #sum the boo coefficients of all the neighbours
+    Qlm = np.zeros_like(qlm)
+    np.add.at(Qlm, bonds[:,0], qlm[bonds[:,1]])
+    np.add.at(Qlm, bonds[:,1], qlm[bonds[:,0]])
+    Qlm[np.bitwise_not(inside2)] = 0
+    return Qlm / np.maximum(1, Nngb)[:,None], inside2
+    
     
 def boo_product(qlm1, qlm2):
     """Product between two qlm"""
@@ -132,7 +151,7 @@ def wl(qlm):
             m3 = -m1-m2
             if -l<=m3 and m3<=l:
                 w+= get_w3j(l, [m1, m2, m3]) * get_qlm(qlm, m1) * get_qlm(qlm, m2) * get_qlm(qlm, m3)
-    return w
+    return w.real
     
 def get_qlm(qlms, m):
     if m>=0:
