@@ -383,13 +383,21 @@ def get_rdf(pos, inside, Nbins=250, maxdist=30.0):
      - Nbins is the number of bins along r
      - maxdist is the maximum distance considered"""
     g = np.zeros(Nbins, int)
+    #conversion factor between indices and bins
+    l2r = Nbins/maxdist
     #spatial indexing
     tree = KDTree(pos, 12)
-    for i in np.where(inside)[0]:
-        js = np.array(tree.query_ball_point(pos[i], maxdist))
-        js = js[js!=i]
-        rs = np.sqrt(np.sum((pos[js] - pos[i])**2, -1)) / maxdist * g.shape[0]
-        np.add.at(g, rs.astype(int), 1)
+    centertree = KDTree(pos[inside], 12)
+    centerindex = np.where(inside)[0]
+    #all pairs of points closer than maxdist with their distances in a record array
+    query = centertree.sparse_distance_matrix(tree, maxdist, output_type='ndarray')
+    #keep only pairs where the points are distinct
+    query['i'] = centerindex[query['i']]
+    good = query['i'] != query['j']
+    query = query[good]
+    #binning
+    rs = (query['v'] * l2r).astype(int)
+    np.add.at(g, rs, 1)
     return g
 
 def structure_factor(positions, Nbins, Ls=[203.0]*3, maxNvec=30, field=None):
