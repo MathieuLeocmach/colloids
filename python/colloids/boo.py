@@ -161,55 +161,44 @@ def get_qlm(qlms, m):
     return -np.conj(qlms[:,-m])
 
 def gG_l(pos, qlms, Qlms, is_center, Nbins, maxdist):
-    """
-    Spatial correlation of the qlms and the Qlms
-    """
+    """Spatial correlation of the qlms and the Qlms (non normalized.
+    For each particle tagged as is_center, do the cross product between their qlm, their Qlm and count, 
+    then bin each quantity with respect to distance. 
+    The two first sums need to be normalised by the last one.
+    
+     - pos is a Nxd array of coordinates, with d the dimension of space
+     - qlm is a Nx(2l+1) array of boo coordinates for l-fold symmetry
+     - Qlm is the coarse-grained version of qlm
+     - is_center is a N array of booleans. For example all particles further away than maxdist from any edge of the box.
+     - Nbins is the number of bins along r
+     - maxdist is the maximum distance considered"""
     assert len(pos) == len(qlms)
     assert len(qlms) == len(Qlms)
     assert len(is_center) == len(pos)
-    maxsq = float(maxdist**2)
-    hQ = np.zeros(Nbins)
-    hq = np.zeros(Nbins)
+    #conversion factor between indices and bins
+    l2r = Nbins/maxdist
+    #result containers
+    hqQ = np.zeros((Nbins,2)) 
     g = np.zeros(Nbins, int)
-    code = """
-    #pragma omp parallel for
-    for(int i=0; i<Npos[0]; ++i)
-    {
-        if(!is_center(i)) 
-            continue;
-        for(int j=0; j<Npos[0]; ++j)
-        {
-            if(i==j) continue;
-            double disq = 0.0;
-            for(int dim=0; dim<3;++dim)
-                disq += pow(pos(i,dim)-pos(j,dim), 2);
-            if(disq>=(double)maxsq)
-                continue;
-            const int r = sqrt(disq/(double)maxsq)*Nbins;
-            double pq = real(qlms(i,0)*conj(qlms(j,0)));
-            for(int m=1; m<Nqlms[1]; ++m)
-                pq += 2.0*real(qlms(i,m)*conj(qlms(j,m)));
-            pq *= 4.0*M_PI/(2.0*(Nqlms[1]-1)+1);
-            double pQ = real(Qlms(i,0)*conj(Qlms(j,0)));
-            for(int m=1; m<NQlms[1]; ++m)
-                pQ += 2.0*real(Qlms(i,m)*conj(Qlms(j,m)));
-            pQ *= 4.0*M_PI/(2.0*(NQlms[1]-1)+1);
-            #pragma omp critical
-            {
-                ++g(r);
-                hq(r) += pq;
-                hQ(r) += pQ;
-            }
-        }
-    }
-    """
-    weave.inline(
-        code,['qlms', 'Qlms', 'pos', 'maxsq', 'Nbins', 'hQ', 'hq', 'g','is_center'],
-        type_converters =converters.blitz,
-        extra_compile_args =['-O3 -fopenmp'],
-        extra_link_args=['-lgomp'],
-        verbose=2, compiler='gcc')
-    return hq, hQ, g
+    #spatial indexing
+    tree = KDTree(pos, 12)
+    centertree = KDTree(pos[is_center], 12)
+    #all pairs of points closer than maxdist with their distances in a record array
+    query = centertree.sparse_distance_matrix(tree, maxdist, output_type='ndarray')
+    #keep only pairs where the points are distinct
+    centerindex = np.where(is_center)[0]
+    query['i'] = centerindex[query['i']]
+    good = query['i'] != query['j']
+    query = query[good]
+    #binning of distances
+    rs = (query['v'] * l2r).astype(int)
+    np.add.at(g, rs, 1)
+    #binning of boo cross products
+    pqQs = np.empty((len(rs),2))
+    pqQs[:,0] = boo_product(qlms[query['i']], qlms[query['j']])
+    pqQs[:,1] = boo_product(Qlms[query['i']], Qlms[query['j']])
+    np.add.at(hqQ, rs, pqQs)
+    return hqQ[:,0], hqQ[:,1], g
 
 def periodic_gG_l(pos, L, qlms, Qlms, Nbins):
     """
