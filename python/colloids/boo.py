@@ -71,7 +71,7 @@ def single_pos2qlm(pos, i, ngb_indices, l=6):
     vectors = pos[ngb_indices]-pos[i]
     return vect2Ylm(vectors, l).mean(-1)
     
-def bonds2qlm(pos, bonds, l=6, periods=None):
+def bonds2qlm(pos, bonds, l=6, periods=-1):
     """Returns the qlm for every particle"""
     qlm = np.zeros((len(pos), l+1), np.complex128)
     #spherical harmonic coefficients for each bond

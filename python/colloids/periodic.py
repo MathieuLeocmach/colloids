@@ -10,27 +10,16 @@ except ImportError:
         from weave import converters
     except ImportError:
         pass
-
-def periodify(u, v, periods=None):
-    """Given two arrays of points in a d-dimentional space with periodic boundary conditions, find the shortest vector between each pair"""
-    assert u.shape == v.shape
-    diff = np.array(v, float) - u
-    if periods is None:
+        
+from numba import vectorize, float64
+from math import floor
+@vectorize([float64(float64,float64,float64)], nopython=True)
+def periodify(u,v,period=-1.0):
+    """Given two arrays of points in a d-dimentional space with periodic boundary conditions, find the shortest vector between each pair. period can be a float or an array of floats of length d. Negative paeriods indicate no periodicity in this dimension."""
+    diff = v - u
+    if period <= 0:
         return diff
-    assert len(periods) == u.shape[-1]
-    #ensures the largest coordinate is smaller than half a period
-    half = 0.5*np.array(periods)
-    pers = np.tile(periods, [len(diff),1])
-    toolarge = diff > half
-    while np.any(toolarge):
-        diff[toolarge] -= pers[toolarge]
-        toolarge = diff > half
-    #same for negative coordinates
-    toosmall = diff < -half
-    while np.any(toosmall):
-        diff[toosmall] += pers[toosmall]
-        toosmall = diff < -half
-    return diff
+    return diff - period * floor(diff /period + 0.5)
     
 
 dist_code = """
