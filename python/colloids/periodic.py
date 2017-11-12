@@ -11,8 +11,9 @@ except ImportError:
     except ImportError:
         pass
         
-from numba import vectorize, float64
-from math import floor
+from numba import vectorize, float64, int64
+from math import sqrt, floor
+
 @vectorize([float64(float64,float64,float64)], nopython=True)
 def periodify(u,v,period=-1.0):
     """Given two arrays of points in a d-dimentional space with periodic boundary conditions, find the shortest vector between each pair. period can be a float or an array of floats of length d. Negative paeriods indicate no periodicity in this dimension."""
@@ -301,37 +302,27 @@ def get_rdf(p, pos, Nbins, L=203.0, maxdist=None):
         verbose=2, compiler='gcc')
     return g
     
-def get_mono_rdf(pos, Nbins, L, maxdist=None):
-    if maxdist is None:
-        maxdist = L/2.0
-    imaxsq = 1.0/(maxdist**2)
-    g = np.zeros([len(pos), Nbins], int)
-    code = """
-    #pragma omp parallel for
-    for(int i=0; i<Npos[0]; ++i)
-    {
-        for(int j=i+1; j<Npos[0]; ++j)
-        {
-            double disq = 0.0;
-            for(int dim=0; dim<3;++dim)
-                disq += pow(periodic_dist(pos(i,dim), pos(j,dim), L), 2);
-            if(disq*imaxsq>=1)
-                continue;
-            const int r = sqrt(disq*imaxsq)*Ng[1];
-            #pragma omp atomic
-            ++g(i, r);
-            #pragma omp atomic
-            ++g(j, r);
-        }
-    }
-    """
-    weave.inline(
-        code,['pos', 'imaxsq', 'L', 'g'],
-        type_converters =converters.blitz,
-        support_code = dist_code,
-        extra_compile_args =['-O3 -fopenmp'],
-        extra_link_args=['-lgomp'],
-        verbose=2, compiler='gcc')
+
+@jit(int64[:,:](float64[:,:], int64, float64), nopython=True)
+def get_mono_rdf(pos, Nbins, L):
+    """Radial distribution function of each particle in a periodic box of size L"""
+    maxdist = L/2.0
+    g = np.zeros((pos.shape[0], Nbins), np.int64)
+    #conversion factor between indices and bins
+    l2r = Nbins/maxdist
+    for i in range(pos.shape[0]):
+        for j in range(pos.shape[0]):
+            if j==i:
+                continue
+            dist = 0
+            for d in range(pos.shape[1]):
+                diff = pos[i,d] - pos[j,d]
+                diff -= L * floor(diff /L + 0.5)
+                dist += diff*diff
+            dist = sqrt(dist)
+            r = int(dist * l2r)
+            if r<Nbins:
+                g[i,r] += 1
     return g
     
 def get_binary_rdf(pos, Nbins, L, sep=800, maxdist=None):
