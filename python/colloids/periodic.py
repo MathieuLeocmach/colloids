@@ -307,6 +307,7 @@ def get_rdf(p, pos, Nbins, L=203.0, maxdist=None):
 def get_mono_rdf(pos, Nbins, L):
     """Radial distribution function of each particle in a periodic box of size L"""
     maxdist = L/2.0
+    rL = 1.0/L
     g = np.zeros((pos.shape[0], Nbins), np.int64)
     #conversion factor between indices and bins
     l2r = Nbins/maxdist
@@ -317,7 +318,7 @@ def get_mono_rdf(pos, Nbins, L):
             dist = 0
             for d in range(pos.shape[1]):
                 diff = pos[i,d] - pos[j,d]
-                diff -= L * floor(diff /L + 0.5)
+                diff -= L * floor(diff * rL + 0.5)
                 dist += diff*diff
             dist = sqrt(dist)
             r = int(dist * l2r)
