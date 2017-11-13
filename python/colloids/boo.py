@@ -18,6 +18,7 @@
 #
 import numpy as np
 from scipy.special import sph_harm
+from scipy.spatial import cKDTree as KDTree
 try:
     from scipy import weave
     from scipy.weave import converters
@@ -29,6 +30,7 @@ except ImportError:
         pass
 import numexpr
 import numba
+from numba import jit
 from colloids import periodic
 
 @numba.vectorize([numba.float64(numba.complex128),numba.float32(numba.complex64)])
@@ -111,21 +113,17 @@ def coarsegrain_qlm(qlm, bonds, inside):
     return Qlm / np.maximum(1, Nngb)[:,None], inside2
     
     
+@jit([
+    "float64[:](complex128[:,:], complex128[:,:])", 
+    "float64[:](complex128[:], complex128[:])",
+    "float64[:](complex128[:], complex128[:,:])",
+    "float64[:](complex128[:,:], complex128[:])"
+    ], nopython=True)
 def boo_product(qlm1, qlm2):
     """Product between two qlm"""
-    n = np.atleast_2d(numexpr.evaluate(
-        """real(complex(real(a), -imag(a)) * b)""",
-        {'a':qlm1, 'b':qlm2}
-        ))
-    p = numexpr.evaluate(
-        """4*pi/(2*l+1)*(2*na + nb)""",
-        {
-            'na': n[:,1:].sum(-1),
-            'nb': n[:,0],
-            'l': n.shape[1]-1,
-            'pi': np.pi
-            })
-    return p
+    n = np.atleast_2d((qlm1 * np.conj(qlm2)).real)
+    l = n.shape[1]-1
+    return 4*np.pi/(2*l+1)*(2*n[:,1:].sum(-1) + n[:,0])
 
 def ql(qlm):
     """Second order rotational invariant of the bond orientational order of l-fold symmetry
@@ -160,25 +158,24 @@ def get_qlm(qlms, m):
         return np.conj(qlms[:,-m])
     return -np.conj(qlms[:,-m])
 
-def gG_l(pos, qlms, Qlms, is_center, Nbins, maxdist):
-    """Spatial correlation of the qlms and the Qlms (non normalized.
-    For each particle tagged as is_center, do the cross product between their qlm, their Qlm and count, 
+def gG_l(pos, qlms, is_center, Nbins, maxdist):
+    """Spatial correlation of the qlms (non normalized).
+    For each particle tagged as is_center, do the cross product between their qlm and count, 
     then bin each quantity with respect to distance. 
     The two first sums need to be normalised by the last one.
     
      - pos is a Nxd array of coordinates, with d the dimension of space
-     - qlm is a Nx(2l+1) array of boo coordinates for l-fold symmetry
-     - Qlm is the coarse-grained version of qlm
+     - qlms is a list of Nx(2l+1) arrays of boo coordinates for l-fold symmetry. l can be different for each item.
      - is_center is a N array of booleans. For example all particles further away than maxdist from any edge of the box.
      - Nbins is the number of bins along r
      - maxdist is the maximum distance considered"""
-    assert len(pos) == len(qlms)
-    assert len(qlms) == len(Qlms)
+    for qlm in qlms:
+        assert len(pos) == len(qlm)
     assert len(is_center) == len(pos)
     #conversion factor between indices and bins
     l2r = Nbins/maxdist
     #result containers
-    hqQ = np.zeros((Nbins,2)) 
+    hqQ = np.zeros((Nbins, len(qlms)))
     g = np.zeros(Nbins, int)
     #spatial indexing
     tree = KDTree(pos, 12)
@@ -194,11 +191,11 @@ def gG_l(pos, qlms, Qlms, is_center, Nbins, maxdist):
     rs = (query['v'] * l2r).astype(int)
     np.add.at(g, rs, 1)
     #binning of boo cross products
-    pqQs = np.empty((len(rs),2))
-    pqQs[:,0] = boo_product(qlms[query['i']], qlms[query['j']])
-    pqQs[:,1] = boo_product(Qlms[query['i']], Qlms[query['j']])
+    pqQs = np.empty((len(rs), len(qlms)))
+    for it, qlm in enumerate(qlms):
+        pqQs[:,it] = boo_product(qlm[query['i']], qlm[query['j']])
     np.add.at(hqQ, rs, pqQs)
-    return hqQ[:,0], hqQ[:,1], g
+    return hqQ, g
 
 def periodic_gG_l(pos, L, qlms, Qlms, Nbins):
     """
