@@ -30,7 +30,7 @@ except ImportError:
         pass
 import numexpr
 import numba
-from numba import jit
+from numba import jit, guvectorize
 from colloids import periodic
 
 @numba.vectorize([numba.float64(numba.complex128),numba.float32(numba.complex64)])
@@ -112,18 +112,19 @@ def coarsegrain_qlm(qlm, bonds, inside):
     Qlm[np.bitwise_not(inside2)] = 0
     return Qlm / np.maximum(1, Nngb)[:,None], inside2
     
-    
-@jit([
-    "float64[:](complex128[:,:], complex128[:,:])", 
-    "float64[:](complex128[:], complex128[:])",
-    "float64[:](complex128[:], complex128[:,:])",
-    "float64[:](complex128[:,:], complex128[:])"
-    ], nopython=True)
-def boo_product(qlm1, qlm2):
+
+@guvectorize(
+    ['void(complex128[:], complex128[:], float64[:])'], 
+    '(n),(n)->()', 
+    nopython=True
+)
+def numba2_boo_product(qlm1, qlm2, prod):
     """Product between two qlm"""
-    n = np.atleast_2d((qlm1 * np.conj(qlm2)).real)
-    l = n.shape[1]-1
-    return 4*np.pi/(2*l+1)*(2*n[:,1:].sum(-1) + n[:,0])
+    l = qlm1.shape[0]-1
+    prod[0] = (qlm1[0] * qlm2[0].conjugate()).real
+    for i in range(1, len(qlm1)):
+        prod[0] += 2 * (qlm1[i] * qlm2[i].conjugate()).real
+    prod[0] *= 4*np.pi/(2*l+1)
 
 def ql(qlm):
     """Second order rotational invariant of the bond orientational order of l-fold symmetry
