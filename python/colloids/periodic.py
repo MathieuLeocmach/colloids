@@ -11,7 +11,7 @@ except ImportError:
     except ImportError:
         pass
         
-from numba import vectorize, float64, int64
+from numba import jit, vectorize, float64, int64
 from math import sqrt, floor
 
 @vectorize([float64(float64,float64,float64)], nopython=True)
