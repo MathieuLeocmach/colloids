@@ -118,7 +118,7 @@ def coarsegrain_qlm(qlm, bonds, inside):
     '(n),(n)->()', 
     nopython=True
 )
-def numba2_boo_product(qlm1, qlm2, prod):
+def boo_product(qlm1, qlm2, prod):
     """Product between two qlm"""
     l = qlm1.shape[0]-1
     prod[0] = (qlm1[0] * qlm2[0].conjugate()).real
@@ -317,7 +317,7 @@ def steinhardt_g_l(pos, bonds, is_center, Nbins, maxdist, l=6):
     return hq, g
             
 _w3j = [
-    [1],
+    np.array([1.]),
     np.sqrt([2/35., 1/70., 2/35., 3/35.])*[-1,1,1,-1],
     np.sqrt([
         2/1001., 1/2002., 11/182., 5/1001.,
