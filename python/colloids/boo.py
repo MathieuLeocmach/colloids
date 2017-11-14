@@ -116,7 +116,7 @@ def coarsegrain_qlm(qlm, bonds, inside):
 @guvectorize(
     ['void(complex128[:], complex128[:], float64[:])'], 
     '(n),(n)->()', 
-    nopython=True
+    #nopython=True
 )
 def boo_product(qlm1, qlm2, prod):
     """Product between two qlm"""
@@ -125,6 +125,16 @@ def boo_product(qlm1, qlm2, prod):
     for i in range(1, len(qlm1)):
         prod[0] += 2 * (qlm1[i] * qlm2[i].conjugate()).real
     prod[0] *= 4*np.pi/(2*l+1)
+    
+@jit#(['complex128[:](complex128[:,:], int64)'], nopython=True)
+def get_qlm(qlms, m):
+    """qlm coefficients are redundant, negative m are obtained from positive m"""
+    if m>=0:
+        return qlms[...,m]
+    elif (-m)%2 == 0:
+        return np.conj(qlms[...,-m])
+    else:
+        return -np.conj(qlms[...,-m])
 
 def ql(qlm):
     """Second order rotational invariant of the bond orientational order of l-fold symmetry
@@ -133,7 +143,14 @@ def ql(qlm):
     q += 2*abs2(qlm[:,1:]).sum(-1)
     l = qlm.shape[1]-1
     return np.sqrt(4*np.pi / (2*l+1) * q)
-    
+
+@jit#(['float64(int64, int64[:])'], nopython=True)
+def get_w3j(l, ms):
+    """Wigner 3j coefficients"""
+    sm = np.sort(np.abs(ms))
+    return _w3j[l//2, _w3j_m1_offset[sm[-1]] + sm[0]]
+     
+@jit
 def wl(qlm):
     """Third order rotational invariant of the bond orientational order of l-fold symmetry
     $$ w_\ell = \sum_{m_1+m_2+m_3=0} 
@@ -143,21 +160,16 @@ def wl(qlm):
 			\end{array} \right)
 			q_{\ell m_1} q_{\ell m_2} q_{\ell m_3}
 			$$"""
-    l = qlm.shape[1]-1
-    w = np.zeros(qlm.shape[0], qlm.dtype)
+    l = qlm.shape[-1]-1
+    w = np.zeros(qlm.shape[:-1])
     for m1 in range(-l, l+1):
         for m2 in range(-l, l+1):
             m3 = -m1-m2
             if -l<=m3 and m3<=l:
-                w+= get_w3j(l, [m1, m2, m3]) * get_qlm(qlm, m1) * get_qlm(qlm, m2) * get_qlm(qlm, m3)
-    return w.real
+                w += get_w3j(l, np.array([m1, m2, m3])) * (get_qlm(qlm, m1) * get_qlm(qlm, m2) * get_qlm(qlm, m3)).real
+    return w
     
-def get_qlm(qlms, m):
-    if m>=0:
-        return qlms[:,m]
-    if (-m)%2 == 0:
-        return np.conj(qlms[:,-m])
-    return -np.conj(qlms[:,-m])
+
 
 def gG_l(pos, qlms, is_center, Nbins, maxdist):
     """Spatial correlation of the qlms (non normalized).
@@ -316,22 +328,22 @@ def steinhardt_g_l(pos, bonds, is_center, Nbins, maxdist, l=6):
         verbose=2, compiler='gcc')
     return hq, g
             
-_w3j = [
-    np.array([1.]),
-    np.sqrt([2/35., 1/70., 2/35., 3/35.])*[-1,1,1,-1],
-    np.sqrt([
+_w3j = np.zeros([6,36])
+_w3j[0,0] = 1
+_w3j[1,:4] = np.sqrt([2/35., 1/70., 2/35., 3/35.])*[-1,1,1,-1]
+_w3j[2,:9] = np.sqrt([
         2/1001., 1/2002., 11/182., 5/1001.,
         7/286., 5/143., 14/143., 35/143., 5/143.,
-        ])*[3, -3, -1/3.0, 2, 1, -1/3.0, 1/3.0, -1/3.0, 1],
-    np.sqrt([
+        ])*[3, -3, -1/3.0, 2, 1, -1/3.0, 1/3.0, -1/3.0, 1]
+_w3j[3,:16] = np.sqrt([
         1/46189., 1/46189.,
         11/4199., 105/46189.,
         1/46189., 21/92378.,
         1/46189., 35/46189., 14/46189.,
         11/4199., 21/4199., 7/4199.,
         11/4199., 77/8398., 70/4199., 21/4199.
-        ])*[-20, 10, 1, -2, -43/2.0, 3, 4, 2.5, -6, 2.5, -1.5, 1, 1, -1, 1, -2],
-    np.sqrt([
+        ])*[-20, 10, 1, -2, -43/2.0, 3, 4, 2.5, -6, 2.5, -1.5, 1, 1, -1, 1, -2]
+_w3j[4,:25] = np.sqrt([
         10/96577., 5/193154.,
         1/965770., 14/96577.,
         1/965770., 66/482885.,
@@ -344,8 +356,8 @@ _w3j = [
             7, -7, -37, 6, 73, -3,
             -5, -8, 6, -1, 3, -1,
             1, 0, -3, 2, 7, -1, 3, -1,
-            1, -3, 1, -1, 3],
-    np.sqrt([
+            1, -3, 1, -1, 3]
+_w3j[5,:36] = np.sqrt([
         7/33393355., 7/33393355.,
         7/33393355., 462/6678671.,
         7/33393355., 1001/6678671.,
@@ -365,9 +377,5 @@ _w3j = [
             214/3.0, -3, -2/3.0, 71/3.0, -1,
             3, -1/3.0, 5/3.0, -2, 1/3.0,
             2/3.0, -1/3.0, 2, -4/3.0, 2/3.0, -1]
-    ]
+    
 _w3j_m1_offset = np.array([0,1,2,4,6,9,12,16,20,25,30], int)
-
-def get_w3j(l, ms):
-    sm = np.sort(np.abs(ms))
-    return _w3j[l/2][_w3j_m1_offset[sm[-1]]+sm[0]]
