@@ -33,7 +33,7 @@ import numba
 from numba import jit, guvectorize
 from colloids import periodic
 
-@numba.vectorize([numba.float64(numba.complex128),numba.float32(numba.complex64)])
+@numba.vectorize#(['float64(complex128)', 'float32(complex64)'])
 def abs2(x):
     return x.real**2 + x.imag**2
         
@@ -126,6 +126,15 @@ def boo_product(qlm1, qlm2, prod):
         prod[0] += 2 * (qlm1[i] * qlm2[i].conjugate()).real
     prod[0] *= 4*np.pi/(2*l+1)
     
+@jit(nopython=True)
+def ql(qlm):
+    """Second order rotational invariant of the bond orientational order of l-fold symmetry
+    $$ q_\ell = \sqrt{\frac{4\pi}{2l+1} \sum_{m=-\ell}^{\ell} |q_{\ell m}|^2 } $$"""
+    q = abs2(qlm[...,0])
+    q += 2*abs2(qlm[...,1:]).sum(-1)
+    l = qlm.shape[-1]-1
+    return np.sqrt(4*np.pi / (2*l+1) * q)
+    
 @jit#(['complex128[:](complex128[:,:], int64)'], nopython=True)
 def get_qlm(qlms, m):
     """qlm coefficients are redundant, negative m are obtained from positive m"""
@@ -136,13 +145,6 @@ def get_qlm(qlms, m):
     else:
         return -np.conj(qlms[...,-m])
 
-def ql(qlm):
-    """Second order rotational invariant of the bond orientational order of l-fold symmetry
-    $$ q_\ell = \sqrt{\frac{4\pi}{2l+1} \sum_{m=-\ell}^{\ell} |q_{\ell m}|^2 } $$"""
-    q = abs2(qlm[:,0])
-    q += 2*abs2(qlm[:,1:]).sum(-1)
-    l = qlm.shape[1]-1
-    return np.sqrt(4*np.pi / (2*l+1) * q)
 
 @jit#(['float64(int64, int64[:])'], nopython=True)
 def get_w3j(l, ms):
@@ -260,73 +262,7 @@ def periodic_gG_l(pos, L, qlms, Qlms, Nbins):
         verbose=2, compiler='gcc')
     return hq, hQ, g
     
-def steinhardt_g_l(pos, bonds, is_center, Nbins, maxdist, l=6):
-    """
-    Spatial correlation of the bond's spherical harmonics
-    """
-    assert len(is_center) == len(pos)
-    maxsq = float(maxdist**2)
-    hq = np.zeros(Nbins)
-    g = np.zeros(Nbins, int)
-    qlms = np.zeros([len(bonds), l+1], np.complex128)
-    bpos = np.zeros([len(bonds), 3])
-    code = """
-    //position and spherical harmonics of each bond
-    #pragma omp parallel for
-    for(int b=0; b<Nbonds[0]; ++b)
-    {
-        int i = bonds(b,0), j = bonds(b,1);
-        blitz::Array<double,1> cart(pos(i, blitz::Range::all()) - pos(j, blitz::Range::all()));
-        bpos(b, blitz::Range::all()) = pos(j, blitz::Range::all()) + 0.5 * cart;
-        double sph[3] = {0, 0, 0};
-        sph[0] = sqrt(blitz::sum(blitz::pow(cart, 2)));
-        if(abs(cart(2))==sph[0] || sph[0]*sph[0]+1.0 == 1.0)
-        {
-            sph[1] = 0;
-            sph[2] = 0;
-        }
-        else
-        {
-            sph[1] = acos(cart(2)/sph[0]);
-            sph[2] = atan2(cart(1), cart(0));
-            if(sph[2]<0)
-                sph[2] += 2.0*M_PI;
-        }
-        for(int m=0; m<Nqlms[1]; ++m)
-            qlms(b,m) = boost::math::spherical_harmonic(Nqlms[1]-1, m, sph[1], sph[2]);
-    }
-    #pragma omp parallel for
-    for(int b=0; b<Nbonds[0]; ++b)
-    {
-        int i = bonds(b,0), j = bonds(b,1);
-        if(!is_center(i) || !is_center(j))
-            continue;
-        for(int c=0; c<Nbonds[0]; ++c)
-        {
-            const double disq = blitz::sum(blitz::pow(bpos(b, blitz::Range::all()) - bpos(c, blitz::Range::all()),2));
-            if(disq>=(double)maxsq)
-                continue;
-            const int r = sqrt(disq/(double)maxsq)*Nbins;
-            double pq = real(qlms(b,0)*conj(qlms(c,0)));
-            for(int m=1; m<Nqlms[1]; ++m)
-                pq += 2.0*real(qlms(b,m)*conj(qlms(c,m)));
-            pq *= 4.0*M_PI/(2.0*(Nqlms[1]-1)+1);
-            #pragma omp critical
-            {
-                ++g(r);
-                hq(r) += pq;
-            }
-        }
-    }
-    """
-    weave.inline(
-        code,['qlms', 'pos', 'bonds', 'bpos', 'maxsq', 'Nbins', 'hq', 'g','is_center'],
-        type_converters =converters.blitz,
-        headers=['<boost/math/special_functions/spherical_harmonic.hpp>'],
-        extra_compile_args =['-O3 -fopenmp'],
-        extra_link_args=['-lgomp'],
-        verbose=2, compiler='gcc')
-    return hq, g
+
             
 _w3j = np.zeros([6,36])
 _w3j[0,0] = 1
