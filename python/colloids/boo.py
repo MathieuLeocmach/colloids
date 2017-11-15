@@ -19,21 +19,10 @@
 import numpy as np
 from scipy.special import sph_harm
 from scipy.spatial import cKDTree as KDTree
-try:
-    from scipy import weave
-    from scipy.weave import converters
-except ImportError:
-    try:
-        import weave
-        from weave import converters
-    except ImportError:
-        pass
-import numexpr
-import numba
-from numba import jit, guvectorize
+from numba import jit, vectorize, guvectorize
 from colloids import periodic
 
-@numba.vectorize#(['float64(complex128)', 'float32(complex64)'])
+@vectorize#(['float64(complex128)', 'float32(complex64)'])
 def abs2(x):
     return x.real**2 + x.imag**2
         
@@ -175,7 +164,7 @@ def wl(qlm):
 
 def gG_l(pos, qlms, is_center, Nbins, maxdist):
     """Spatial correlation of the qlms (non normalized).
-    For each particle tagged as is_center, do the cross product between their qlm and count, 
+    For each particle i tagged as is_center, for each particle j closer than maxdist, do the cross product between their qlm and count, 
     then bin each quantity with respect to distance. 
     The two first sums need to be normalised by the last one.
     
@@ -212,57 +201,9 @@ def gG_l(pos, qlms, is_center, Nbins, maxdist):
     np.add.at(hqQ, rs, pqQs)
     return hqQ, g
 
-def periodic_gG_l(pos, L, qlms, Qlms, Nbins):
-    """
-    Spatial correlation of the qlms and the Qlms in a periodic box of size L
-    """
-    assert len(pos) == len(qlms)
-    assert len(qlms) == len(Qlms)
-    maxdist = L/2.0
-    maxsq = float(maxdist**2)
-    hQ = np.zeros(Nbins)
-    hq = np.zeros(Nbins)
-    g = np.zeros(Nbins, int)
-    code = """
-    #pragma omp parallel for
-    for(int i=0; i<Npos[0]-1; ++i)
-    {
-        for(int j=i+1; j<Npos[0]; ++j)
-        {
-            if(i==j) continue;
-            double disq = 0.0;
-            for(int dim=0; dim<3;++dim)
-                disq += pow(periodic_dist(pos(i,dim), pos(j,dim), L), 2);
-            if(disq>=(double)maxsq)
-                continue;
-            const int r = sqrt(disq/(double)maxsq)*Nbins;
-            double pq = real(qlms(i,0)*conj(qlms(j,0)));
-            for(int m=1; m<Nqlms[1]; ++m)
-                pq += 2.0*real(qlms(i,m)*conj(qlms(j,m)));
-            pq *= 4.0*M_PI/(2.0*(Nqlms[1]-1)+1);
-            double pQ = real(Qlms(i,0)*conj(Qlms(j,0)));
-            for(int m=1; m<NQlms[1]; ++m)
-                pQ += 2.0*real(Qlms(i,m)*conj(Qlms(j,m)));
-            pQ *= 4.0*M_PI/(2.0*(NQlms[1]-1)+1);
-            #pragma omp critical
-            {
-                ++g(r);
-                hq(r) += pq;
-                hQ(r) += pQ;
-            }
-        }
-    }
-    """
-    weave.inline(
-        code,['qlms', 'Qlms', 'pos', 'maxsq', 'Nbins', 'hQ', 'hq', 'g', 'L'],
-        type_converters =converters.blitz,
-        support_code = periodic.dist_code,
-        extra_compile_args =['-O3 -fopenmp'],
-        extra_link_args=['-lgomp'],
-        verbose=2, compiler='gcc')
-    return hq, hQ, g
-    
 
+    
+# Define constants for Wigner 3j symbols
             
 _w3j = np.zeros([6,36])
 _w3j[0,0] = 1
