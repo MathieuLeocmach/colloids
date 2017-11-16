@@ -382,9 +382,10 @@ def get_rdf(pos, inside, Nbins=250, maxdist=30.0):
      - inside is a N array of booleans. For example all particles further away than maxdist from any edge of the box.
      - Nbins is the number of bins along r
      - maxdist is the maximum distance considered"""
-    g = np.zeros(Nbins, int)
+    #an additional bin for the case where the distance is exactly equal to maxdist
+    g = np.zeros(Nbins+1, int)
     #conversion factor between indices and bins
-    l2r = (Nbins-1)/maxdist
+    l2r = Nbins/maxdist
     #spatial indexing
     tree = KDTree(pos, 12)
     centertree = KDTree(pos[inside], 12)
@@ -398,7 +399,7 @@ def get_rdf(pos, inside, Nbins=250, maxdist=30.0):
     #binning
     rs = (query['v'] * l2r).astype(int)
     np.add.at(g, rs, 1)
-    return g
+    return g[:-1]
 
 def structure_factor(positions, Nbins, Ls=[203.0]*3, maxNvec=30, field=None):
     """Compute the structure factor of the positions in a non-periodic rectinilear box of dimensions Ls. 
