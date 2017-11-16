@@ -310,7 +310,7 @@ def get_mono_rdf(pos, Nbins, L):
     rL = 1.0/L
     g = np.zeros((pos.shape[0], Nbins), np.int64)
     #conversion factor between indices and bins
-    l2r = Nbins/maxdist
+    l2r = (Nbins-1)/maxdist
     for i in range(pos.shape[0]):
         for j in range(pos.shape[0]):
             if j==i:

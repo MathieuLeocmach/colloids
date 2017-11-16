@@ -384,7 +384,7 @@ def get_rdf(pos, inside, Nbins=250, maxdist=30.0):
      - maxdist is the maximum distance considered"""
     g = np.zeros(Nbins, int)
     #conversion factor between indices and bins
-    l2r = Nbins/maxdist
+    l2r = (Nbins-1)/maxdist
     #spatial indexing
     tree = KDTree(pos, 12)
     centertree = KDTree(pos[inside], 12)
