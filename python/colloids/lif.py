@@ -120,9 +120,9 @@ stripping time stamps and non ascii characters
         if not hasattr(self, '__seriesHeaders'):
             self.__seriesHeaders = [
                 SerieHeader(el)
-                for el in                self.xmlHeader.documentElement.getElementsByTagName('Element')[1:]
+                for el in self.xmlHeader.documentElement.getElementsByTagName('Element')[1:]
                 #have to remove some nodes also named "Element" introduced in later versions of LIF
-                if el.getAttribute('Name') != 'BleachPointROISet'
+                if el.getAttribute('Name') not in ['BleachPointROISet', 'DCROISet']
                 ]
         return self.__seriesHeaders
 
@@ -147,7 +147,7 @@ stripping time stamps and non ascii characters
         else:
             while(True):
                 try:
-                    r = int(input("Choose a serie --> "))
+                    r = int(input("Choose an item --> "))
                     if r<0 or r>len(self.getSeriesHeaders()):
                         raise ValueError()
                     break
@@ -200,9 +200,14 @@ class SerieHeader:
 
     def getMemorySize(self):
         if not hasattr(self, '__memorySize'):
-            for m in self.root.getElementsByTagName("Memory"):
-                self.__memorySize = int(m.getAttribute("Size"))
-                break
+            sizes = [
+                int(m.getAttribute("Size"))
+                for m in self.root.getElementsByTagName("Memory")
+                ]
+            if len(sizes)>0:
+                self.__memorySize = max(sizes)
+            else:
+                self.__memorySize = 0
         return self.__memorySize
 
     def getResolution(self,channel):
@@ -430,10 +435,13 @@ class Reader(Header):
 
     def getSeries(self):
         if not hasattr(self, '__series'):
-            self.__series = [
-                Serie(s.root,self.f,self.offsets[i]) \
-                for i,s in enumerate(self.getSeriesHeaders())
-                ]
+            try:
+                self.__series = [
+                    Serie(s.root,self.f,self.offsets[i]) \
+                    for i,s in enumerate(self.getSeriesHeaders())
+                    ]
+            except IndexError:
+                raise IndexError('More SeriesHeaders than offsets. Try to run chooseSeriesHeaders(), note the name of the strange items on the list, and edit Reader.getSeriesHeaders to discard Elements named that way from the list of SeriesHeaders. (Or contact the maintainter with the output of chooseSeriesHeaders)')
         return self.__series
 
     def chooseSerie(self):
