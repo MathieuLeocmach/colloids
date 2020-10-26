@@ -196,7 +196,7 @@ class Polydata:
         self.scalars += [('cl_size', cl_size)]
         
 
-def export_structured_points(fname, data, name="", spacing=np.ones(3), origin=np.zeros(3)):
+def export_structured_points(fname, data, fieldname="Intensity", name="", spacing=np.ones(3), origin=np.zeros(3)):
     """Export grid data to a vtk file"""
     shape = list(data.shape)
     shape.reverse()
@@ -210,10 +210,10 @@ DIMENSIONS {shape[0]} {shape[1]} {shape[2]}
 ORIGIN {origin[0]:g} {origin[1]:g} {origin[2]:g}
 SPACING {spacing[0]:g} {spacing[1]:g} {spacing[2]:g}
 POINT_DATA {size:d}
-SCALARS Intensity {dtype}
+SCALARS {fieldname} {dtype}
 LOOKUP_TABLE default
 """.format(
-                name=name, shape=shape, origin=origin, spacing=spacing,
+                fieldname=fieldname, name=name, shape=shape, origin=origin, spacing=spacing,
                 size= data.size,
                 dtype=dtypes[data.dtype.char]
                 ).encode('utf-8')
