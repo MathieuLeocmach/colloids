@@ -38,7 +38,7 @@ def readTIFF16(path, bigendian=True):
     """Read 16bits TIFF"""
     im = PIL.Image.open(path)
     out = np.fromstring(
-        im.tostring(), 
+        im.tostring(),
         np.uint8
         ).reshape(tuple(list(im.size)+[2]))
     if bigendian:
@@ -201,9 +201,9 @@ class LocalDispl:
         else:
             #on a border, use errorproof but slow scipy code
             return local_disp(c, self.space)
-            
-        
-        
+
+
+
 def local_disp(c, DoG):
     """Interpolate the scale-space to find the extremum with subpixel resolution"""
     m = np.maximum(np.zeros_like(c), c-2)
@@ -234,7 +234,7 @@ def elongated(c, DoG, elong_max=10):
         #the point is not a maximum
         return True
     return np.trace(hess[sl])**2/det > (elong_max+1.0)**2/elong_max
-    
+
 
 def find_blob(im, k=1.6, n=3):
     """Blob finder : find the local maxima in an octave of the scale space"""
@@ -296,7 +296,7 @@ def save_2Dcenters(file_pattern, frame):
                 )), fmt='%g'
             )
         np.savetxt(file_pattern%(z, 'intensity'), centers[:,-1], fmt='%g')
-    
+
 
 def load_clusters(trajfile):
     """Load the piles of 2D centers as formed by linker"""
@@ -331,7 +331,7 @@ def load_clusters(trajfile):
                     pos)
                 ]))
     return clusters
-    
+
 def clusters2particles(clusters, k=1.6, n=3, noDuplicate=True, outputFinders=False):
     particles = []
     #allocate the memory for each possible size of MultiscaleBlobFinder
@@ -448,7 +448,7 @@ def split_clusters(clusters, centers):
         clusters.append(out)
         clusters[i] = [p for p,c in zip(k, core) if c]
     return clusters
-    
+
 def draw_spheres(shape, pos, radii):
     im = np.zeros(shape, bool)
     if np.isscalar(radii):
@@ -456,17 +456,17 @@ def draw_spheres(shape, pos, radii):
     assert len(pos)==len(radii)
     assert np.min(pos.max(0)<shape[::-1]) and np.min([0,0,0]<=pos.min(0)), "points out of bounds"
     for p, rsq, m, M in zip(
-        pos, radii**2, 
-        np.maximum(0, pos[:,::-1] - radii[:,None]).astype(int), 
+        pos, radii**2,
+        np.maximum(0, pos[:,::-1] - radii[:,None]).astype(int),
         np.minimum(im.shape, pos[:,::-1] + radii[:,None] + 1).astype(int)
     ):
         im[m[0]:M[0], m[1]:M[1], m[2]:M[2]] |= (
-            (p[2] - np.arange(m[0], M[0]))[:,None,None]**2 + 
+            (p[2] - np.arange(m[0], M[0]))[:,None,None]**2 +
             (p[1] - np.arange(m[1], M[1]))[None,:,None]**2 +
             (p[0] - np.arange(m[2], M[2]))[None,None,:]**2 <= rsq
         )
     return im
-    
+
 def draw_rods(pos, radii, shape=None, im=None):
     if im is None:
         im = np.zeros(shape, bool)
@@ -492,21 +492,21 @@ def draw_rods(pos, radii, shape=None, im=None):
         extra_link_args=['-lgomp'],
         verbose=2, compiler='gcc')
     return im;
-    
-    
+
+
 def get_deconv_kernel(im, k=1.6, pxZ = 1.0, pxX=1.0):
-    """Compute the deconvolution kernel from a priori isotropic image. 
+    """Compute the deconvolution kernel from a priori isotropic image.
     Returned kernel is in Fourier space."""
     assert im.ndim == 3
     imbl = gaussian_filter(im, k)
     sblx = (np.abs(np.fft.rfft(imbl, axis=2))**2).mean(0).mean(0)
     sblz = (np.abs(np.fft.rfft(imbl, axis=0))**2).mean(1).mean(1)
     f2 = np.interp(
-        np.fft.fftfreq(2*len(sblz), pxZ)[:len(sblz)], 
+        np.fft.fftfreq(2*len(sblz), pxZ)[:len(sblz)],
         np.fft.fftfreq(2*len(sblx), pxX)[:len(sblx)], sblx
         )/sblz
     return np.sqrt(f2)
-    
+
 def deconvolve(im, kernel):
     """Deconvolve the input image. Suppose no noise (already blurred input)."""
     return np.fft.irfft(np.fft.rfft(im, axis=0) * kernel[:,None,None], axis=0, n=im.shape[0])
@@ -522,15 +522,15 @@ def scale2radius(x, k=1.6, n=3.0, dim=3):
     return k * 2**((x+1)/float(n))*np.sqrt(
         2 * dim * np.log(2) / float(n) / (2**(2.0/n)-1)
         )
-        
+
 def radius2sigma(R, n=3.0, dim=3):
     """Converts a radius (in pixels) to a scale (logarithmic pixel scale)"""
     return R / np.sqrt(2*dim* np.log(2) / n/(1 - 2**(-2.0/n)))
-    
+
 def sigma2radius(sigma, n=3.0, dim=3):
     """Converts a scale (logarithmic pixel scale) to a radius (in pixels)"""
     return sigma * np.sqrt(2*dim* np.log(2) / n/(1 - 2**(-2.0/n)))
-        
+
 support_functions = """
 #include <boost/math/special_functions/erf.hpp>
     inline double halfG(const double &d, const double &R, const double &sigma)
@@ -586,7 +586,7 @@ support_functions = """
 
 def global_rescale_weave(sigma0, bonds, dists, R0=None, n=3):
     """Takes into account the overlapping of the blurred spot of neighbouring particles to compute the radii of all particles. Suppose all particles equally bright.
-    
+
     parameters
     ----------
     sigma0 :  array((N))
@@ -600,7 +600,7 @@ def global_rescale_weave(sigma0, bonds, dists, R0=None, n=3):
     n : int
         Same as in MultiscaleTracker
     """
-    assert len(bonds)==len(dists) 
+    assert len(bonds)==len(dists)
     alpha = 2**(1.0/n)
     if R0==None:
         R0 = sigma2radius(sigma0, n=float(n))
@@ -635,10 +635,10 @@ def global_rescale_weave(sigma0, bonds, dists, R0=None, n=3):
     for i,a in enumerate(tr):
         jacob0[i,i] = a
     return R0 + spsolve(jacob0.tocsc(), -v0)
-    
+
 def global_rescale_intensity(sigma0, bonds, dists, intensities, R0=None, n=3):
     """Takes into account the overlapping of the blurred spot of neighbouring particles to compute the radii of all particles. The brightness of the particles is taken into account.
-    
+
     parameters
     ----------
     sigma0 :  array((N))
@@ -654,7 +654,7 @@ def global_rescale_intensity(sigma0, bonds, dists, intensities, R0=None, n=3):
     n : int
         Same as in MultiscaleTracker
     """
-    assert len(bonds)==len(dists) 
+    assert len(bonds)==len(dists)
     alpha = 2**(1.0/n)
     if R0==None:
         R0 = sigma2radius(sigma0, n=float(n))
@@ -695,10 +695,10 @@ def global_rescale_intensity(sigma0, bonds, dists, intensities, R0=None, n=3):
     for i,a in enumerate(tr):
         jacob0[i,i] = a
     return R0 + spsolve(jacob0.tocsc(), -v0)
-    
+
 def solve_intensities(sigma0, bonds, dists, intensities, R0=None, n=3):
     """Takes into account the overlapping of the blurred spot of neighbouring particles to compute the brightness of all particles.
-    
+
     parameters
     ----------
     sigma0 :  array((N))
@@ -714,7 +714,7 @@ def solve_intensities(sigma0, bonds, dists, intensities, R0=None, n=3):
     n : int
         Same as in MultiscaleTracker
     """
-    assert len(bonds)==len(dists) 
+    assert len(bonds)==len(dists)
     alpha = 2**(1.0/n)
     if R0==None:
         R0 = sigma2radius(sigma0, n=float(n))
@@ -747,8 +747,8 @@ def solve_intensities(sigma0, bonds, dists, intensities, R0=None, n=3):
     for i,a in enumerate(tr):
         mat[i,i] = a
     return spsolve(mat.tocsc(), intensities)
-    
-    
+
+
 halfG_dsigma = lambda d, R, sigma : (R**2+d*R+sigma**2)*np.exp(-(R+d)**2/(2*sigma**2))/np.sqrt(2*np.pi)/d/sigma**2
 
 def G_dsigma(d, R, sigma):
@@ -760,11 +760,11 @@ def G_dsigma(d, R, sigma):
 DoG_dsigma = lambda d, R, sigma, alpha : alpha*G_dsigma(d,R,alpha*sigma) - G_dsigma(d, R, sigma)
 
 halfG_dsigma_dR = lambda d, R, sigma : -R*((R+d)**2-sigma**2)*np.exp(-(R+d)**2/(2*sigma**2))/np.sqrt(2*np.pi)/d/sigma**4
-    
+
 def G_dsigma_dR(d, R, sigma):
     if d==0 or (R+d**2==R):
         return R**2*(R**2-3*sigma**2)/sigma**6*np.sqrt(2/np.pi)*np.exp(-R**2/2/sigma**2)
-    else:                                                                
+    else:
         return halfG_dsigma_dR(d,R,sigma) + halfG_dsigma_dR(-d, R, sigma)
 
 DoG_dsigma_dR = lambda d, R, sigma, alpha : alpha*G_dsigma_dR(d,R,alpha*sigma) - G_dsigma_dR(d, R, sigma)
@@ -796,7 +796,7 @@ def global_rescale(coords, sigma0, R0=None, bonds=None, n=3):
         v0[i] += DoG_dsigma(d, R0[j], sigma0[i], alpha)
         v0[j] += DoG_dsigma(d, R0[i], sigma0[j], alpha)
     return R0 + spsolve(jacob0.tocsc(), -v0)
-    
+
 class CrockerGrierFinder:
     """A single scale blob finder using Crocker & Grier algorithm"""
     def __init__(self, shape=(256,256), dtype=np.float32):
@@ -805,7 +805,7 @@ class CrockerGrierFinder:
         self.background = np.empty(shape, dtype)
         self.dilated = np.empty_like(self.blurred)
         self.binary = np.empty(self.blurred.shape, bool)
-        
+
     def fill(self, image, k=1.6, uniform_size=None, background=None):
         """All the image processing when accepting a new image."""
         assert self.blurred.shape == image.shape, """Wrong image size:
@@ -825,7 +825,7 @@ class CrockerGrierFinder:
             self.blurred -= background
         #Dilation
         grey_dilation(self.blurred, [3]*self.blurred.ndim, output=self.dilated)
-        
+
     def initialize_binary(self, maxedge=-1, threshold=None):
         if threshold is None:
             self.binary[:] = self.blurred == self.dilated
@@ -856,7 +856,7 @@ class CrockerGrierFinder:
                 ratio = (hess[0]+hess[1])**2/(4.0*hess[0]*hess[1])
                 if detH<0 or ratio>maxedge:
                     self.binary[tuple(p.tolist())] = False
-                    
+
     def no_subpix(self):
         """extracts centers positions and values from binary without subpixel resolution"""
         nb_centers = self.binary.sum()
@@ -866,7 +866,7 @@ class CrockerGrierFinder:
         c0 = np.transpose(np.where(self.binary))
         vals = self.blurred[self.binary]
         return np.column_stack((vals, c0))
-        
+
     def subpix(self):
         """Extract and refine to subpixel resolution the positions and size of the blobs"""
         nb_centers = self.binary.sum()
@@ -902,7 +902,7 @@ class CrockerGrierFinder:
                 centers[i,dim+1] = p[dim] - np.dot(coefprime,a)/np.dot(coefsec,a)
             centers[i,0] = ngb.mean()
         return centers
-        
+
     def __call__(self, image, k=1.6, maxedge=-1, threshold=None, uniform_size=None, background=None):
         """Locate bright blobs in an image with subpixel resolution.
 Returns an array of (x, y, intensity)"""
@@ -931,10 +931,10 @@ class OctaveBlobFinder:
         sigmas = k*2**(np.arange(nbLayers+3)/float(nbLayers))
         #corresponding blob sizes and iterative blurring radii
         return np.rint(sigmas*np.sqrt(2)).astype(int), np.sqrt(np.diff(sigmas**2))
-        
+
     def fill(self, image, k=1.6):
         """All the image processing when accepting a new image."""
-        t0 = time.clock()
+        t0 = time.process_time()
         #total 220 ms
         assert self.layersG[0].shape == image.shape, """Wrong image size:
 %s instead of %s"""%(image.shape, self.layersG[0].shape)
@@ -950,15 +950,15 @@ class OctaveBlobFinder:
         #Erosion 86.2 ms
         grey_erosion(self.layers, [3]*self.layers.ndim, output=self.eroded)
         #scale space minima, whose neighbourhood are all negative 10 ms
-        self.time_fill += time.clock()-t0
+        self.time_fill += time.process_time()-t0
 
     def initialize_binary(self, maxedge=-1, first_layer=False, maxDoG=None):
         """Convert the DoG layers into the binary image, True at center position.
-        
-        Centers are local minima of the DoG with negative value 
-            if maxDog is None, the DoG value should be further from 0 than machine precision. 
+
+        Centers are local minima of the DoG with negative value
+            if maxDog is None, the DoG value should be further from 0 than machine precision.
             else, the DoG value must be lower than maxDog
-        Centers at the edge of the image are excluded. 
+        Centers at the edge of the image are excluded.
         On 2D images, if maxedge is positive, elongated blobs are excluded if the ratio of the eignevalues of the Hessian matrix is larger than maxedge.
         Optionally, the local spatial minima in the first DoG layer can be considered as centers.
         """
@@ -973,20 +973,20 @@ class OctaveBlobFinder:
                 'maxDoG': maxDoG
                 }
             )
-        #If the first DoG layer is taken into account, 
+        #If the first DoG layer is taken into account,
         #its centers are translated in the layer above.
         #Necessary for subpixel
         if first_layer:
-            #if a local maximum in the Gaussian layer 1 is 
+            #if a local maximum in the Gaussian layer 1 is
             #within 2px of a potential (but doomed) center in the DoG layer 0
             #add it to binary layer 1
             self.binary[0] = binary_dilation(
-                self.binary[0], 
+                self.binary[0],
                 np.ones([5]*(self.layers.ndim-1))
                 )
             #local maxima of the 0th Gaussian layer, idem Crocker&Grier
             self.binary[0] &= grey_dilation(
-                self.layersG[0], 
+                self.layersG[0],
                 [3]*(self.layers.ndim-1)
                 ) == self.layersG[0]
             self.binary[1] |= self.binary[0]
@@ -1098,28 +1098,28 @@ class OctaveBlobFinder:
                     centers[i,1] = p[0] - (n[2] - n[0]) / 2.0 / denom
                 else: centers[i,1] = p[0]
         return centers
-        
+
     def __call__(self, image, k=1.6, maxedge=-1, first_layer=False, maxDoG=None):
         """Locate bright blobs in an image with subpixel resolution.
 Returns an array of (x, y, r, -intensity in scale space)"""
         self.ncalls += 1
         self.fill(image, k)
         self.initialize_binary(maxedge, first_layer, maxDoG)
-        t0 = time.clock()
+        t0 = time.process_time()
         centers = self.subpix()[:,::-1]
-        self.time_subpix += time.clock() - t0
+        self.time_subpix += time.process_time() - t0
         #convert scale to size
         n = (len(self.layers)-2)
         centers[:,-2] = scale2radius(centers[:,-2], k, n, self.layers.ndim-1)
         self.noutputs += len(centers)
         return centers
-        
-        
+
+
 class MultiscaleBlobFinder:
     """Locator of bright blobs in an image of fixed shape. Works on more than one octave, starting at octave -1."""
     def __init__(self, shape=(256,256), nbLayers=3, nbOctaves=3, dtype=np.float32, Octave0=True):
         """Allocate memory for each octave"""
-        shapes = np.vstack([np.ceil([s*2.0**(Octave0-o) for s in shape]) for o in range(nbOctaves)])
+        shapes = np.vstack([np.ceil([s*2.0**(Octave0-o) for s in shape]) for o in range(nbOctaves)]).astype(int)
         self.preblurred = np.empty(shapes[0], dtype)
         self.octaves = [
             OctaveBlobFinder(s, nbLayers, dtype)
@@ -1130,13 +1130,13 @@ class MultiscaleBlobFinder:
         self.Octave0 = Octave0
         self.time = 0.0
         self.ncalls = 0
-        
+
     def __call__(self, image, k=1.6, Octave0=True, removeOverlap=True, maxedge=-1, deconvKernel=None, first_layer=False, maxDoG=None):
         """Locate blobs in each octave and regroup the results"""
         if not self.Octave0:
             Octave0 = False
         self.ncalls += 1
-        t0 = time.clock()
+        t0 = time.process_time()
         if len(self.octaves)==0:
             return np.zeros([0, image.ndim+2])
         #upscale the image for octave -1
@@ -1190,7 +1190,7 @@ class MultiscaleBlobFinder:
                     break
             else:
                 out.append(i)
-        self.time += time.clock() - t0
+        self.time += time.process_time() - t0
         return np.vstack(out)
 
 def treatFrame(serie, t, file_pattern, finder=None ):
@@ -1226,10 +1226,10 @@ def localize2D3D(serie, file_pattern, cleanup=True):
             for z in range(serie.getFrameShape()[-1]):
                 os.remove(file_pattern%(t, z, 'dat'))
                 os.remove(file_pattern%(t, z, 'intensity'))
-              
-        
-  
-                
+
+
+
+
 if __name__ == '__main__':
     import os.path
     #tests
