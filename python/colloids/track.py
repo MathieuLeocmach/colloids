@@ -24,6 +24,8 @@ from scipy.ndimage.morphology import grey_erosion, grey_dilation, binary_dilatio
 from scipy.ndimage import measurements
 from scipy.sparse.linalg import splu, spsolve
 from scipy import sparse
+from numba import jit, vectorize
+import math
 if (sys.version_info <= (3, 0)):
     from scipy import weave
     from scipy.weave import converters
@@ -531,60 +533,70 @@ def sigma2radius(sigma, n=3.0, dim=3):
     """Converts a scale (logarithmic pixel scale) to a radius (in pixels)"""
     return sigma * np.sqrt(2*dim* np.log(2) / n/(1 - 2**(-2.0/n)))
 
-support_functions = """
-#include <boost/math/special_functions/erf.hpp>
-    inline double halfG(const double &d, const double &R, const double &sigma)
-    {
-        return exp(-pow(R+d, 2)/(2*pow(sigma,2)))*sqrt(2/M_PI)*sigma/d + boost::math::erf((R+d)/sigma/sqrt(2));
-    }
-    inline double G(const double &d, const double &R, const double &sigma)
-    {
-        return halfG(d,R,sigma) + halfG(-d, R, sigma);
-    }
-    inline double G(const double &R, const double &sigma)
-    {
-        const double x = R/sigma/sqrt(2);
-        return boost::math::erf(x) - x*exp(-pow(x, 2))*2/sqrt(M_PI);
-    }
-    inline double DoG(const double &d, const double &R, const double &sigma, const double &alpha)
-    {
-        return G(d,R, alpha*sigma) - G(d, R, sigma);
-    }
-    inline double halfG_dsigma(const double &d, const double &R, const double &s2)
-    {
-        return (R*R+d*R+s2)*exp(-pow(R+d, 2)/(2*s2))/sqrt(2*M_PI)/d/s2;
-    }
-    inline double G_dsigma(const double &d, const double &R, const double &s2)
-    {
-        return halfG_dsigma(d,R,s2) + halfG_dsigma(-d, R, s2);
-    }
-    inline double DoG_dsigma(const double &d, const double &R, const double &sigma, const double &alpha)
-    {
-        return alpha*G_dsigma(d,R, pow(alpha*sigma, 2)) - G_dsigma(d, R, sigma*sigma);
-    }
-    inline double G_dsigma(const double &R, const double &sigma)
-    {
-        return -pow(R,3)/pow(sigma,4)*sqrt(2/M_PI)*exp(-pow(R,2)/2/pow(sigma,2));
-    }
-    inline double halfG_dsigma_dR(const double &d, const double &R, const double &s2)
-    {
-        return -R*(pow(R+d, 2)-s2)*exp(-pow(R+d, 2)/(2*s2))/sqrt(2*M_PI)/d/(s2*s2);
-    }
-    inline double G_dsigma_dR(const double &d, const double &R, const double &s2)
-    {
-        return halfG_dsigma_dR(d,R,s2) + halfG_dsigma_dR(-d, R, s2);
-    }
-    inline double DoG_dsigma_dR(const double &d, const double &R, const double &sigma, const double &alpha)
-    {
-        return alpha*G_dsigma_dR(d,R, pow(alpha*sigma, 2)) - G_dsigma_dR(d, R, sigma*sigma);
-    }
-    inline double G_dsigma_dR(const double &R, const double &sigma)
-    {
-        return pow(R,2)*(pow(R,2)-3*pow(sigma,2))/pow(sigma,6)*sqrt(2/M_PI)*exp(-pow(R,2)/2/pow(sigma,2));
-    }
-    """
+@vectorize(["float64(float64, float64, float64)"])
+def halfG(d, R, sigma):
+    """helper function for G"""
+    return math.exp(-(R+d)**2/(2*sigma**2)) * math.sqrt(2/np.pi)*sigma/d + math.erf((R+d)/sigma/math.sqrt(2))
 
-def global_rescale_weave(sigma0, bonds, dists, R0=None, n=3):
+@vectorize(["float64(float64, float64)"])
+def midG(R,sigma):
+    """helper function for G"""
+    x = R/sigma/math.sqrt(2);
+    return math.erf(x) - x*math.exp(-x**2)*2/math.sqrt(np.pi)
+
+def G(R, sigma, d=None):
+    """Value of the Gaussian blur sigma of a step of radius R (at a distance d)"""
+    if d is None:
+        return midG(R,sigma)
+    return halfG(d,R,sigma) + halfG(-d, R, sigma)
+
+def DoG(R, sigma, alpha, d=None):
+    """Value of the difference of Gaussian blurs alpha*sigma and sigma of a step of radius R (at a distance d)"""
+    return G(R, alpha*sigma, d) - G(R, sigma, d)
+
+@vectorize(["float64(float64, float64, float64)"])
+def halfG_dsigma(d, R, s2):
+    """helper function for G_dsigma"""
+    return (R**2 + d*R + s2)*math.exp(-(R+d)**2/(2*s2))/math.sqrt(2*np.pi)/d/s2
+
+@vectorize(["float64(float64, float64)"])
+def midG_dsigma(R,sigma):
+    """helper function for G_dsigma"""
+    return -R**3/sigma**4 *math.sqrt(2/np.pi)*math.exp(-R**2/2/sigma**2)
+
+def G_dsigma(R, sigma, d=None):
+    """Value of the derivative along R of the Gaussian blur sigma of a step of radius R (at a distance d)"""
+    if d is None:
+        return midG_dsigma(R,sigma)
+    s2 = sigma**2
+    return halfG_dsigma(d, R, s2) + halfG_dsigma(-d, R, s2)
+
+def DoG_dsigma(R, sigma, alpha, d=None):
+    """Value of the derivative along R of the difference of Gaussian blurs alpha*sigma and sigma of a step of radius R (at a distance d)"""
+    return alpha*G_dsigma(R, alpha*sigma, d) - G_dsigma(R, sigma, d)
+
+@vectorize(["float64(float64, float64, float64)"])
+def halfG_dsigma_dR(d, R, s2):
+    """helper function for G_dsigma_dR"""
+    return -R * ((R+d)**2 - s2) * math.exp(-(R+d)**2/(2*s2))/math.sqrt(2*np.pi)/d/(s2**2)
+
+@vectorize(["float64(float64, float64)"])
+def midG_dsigma_dR(R,sigma):
+    """helper function for G_dsigma_dR"""
+    return R**2 * (R**2 - 3*sigma**2)/sigma**6 * math.sqrt(2/np.pi)*math.exp(-R**2/2/sigma**2)
+
+def G_dsigma_dR(R, sigma, d=None):
+    """Value of the derivative along R and sigma of the Gaussian blur sigma of a step of radius R (at a distance d)"""
+    if d is None:
+        return midG_dsigma_dR(R,sigma)
+    s2 = sigma**2
+    return halfG_dsigma_dR(d, R, s2) + halfG_dsigma_dR(-d, R, s2)
+
+def DoG_dsigma_dR(R, sigma, alpha, d=None):
+    """Value of the derivative along R and sigma of the difference of Gaussian blurs alpha*sigma and sigma of a step of radius R (at a distance d)"""
+    return alpha*G_dsigma_dR(R, alpha*sigma, d) - G_dsigma_dR(R, sigma, d)
+
+def global_rescale(sigma0, bonds, dists, R0=None, n=3):
     """Takes into account the overlapping of the blurred spot of neighbouring particles to compute the radii of all particles. Suppose all particles equally bright.
 
     parameters
@@ -602,39 +614,19 @@ def global_rescale_weave(sigma0, bonds, dists, R0=None, n=3):
     """
     assert len(bonds)==len(dists)
     alpha = 2**(1.0/n)
-    if R0==None:
+    if R0 is None:
         R0 = sigma2radius(sigma0, n=float(n))
-    v0 = np.zeros([len(sigma0)])
-    tr = np.zeros([len(sigma0)])
-    jacob = np.zeros([len(bonds),2])
-    code = """
-    //using blitz++ expression
-    v0 = -alpha*pow(R0,3)/pow(alpha*sigma0,4)*sqrt(2/M_PI)*exp(-pow(R0, 2)/2/pow(alpha*sigma0,2)) + pow(R0,3)/pow(sigma0,4)*sqrt(2/M_PI)*exp(-pow(R0, 2)/2/pow(sigma0,2));
-    tr = alpha*pow(R0,2)*(pow(R0,2)-3*pow(alpha*sigma0,2))/pow(alpha*sigma0,6)*sqrt(2/M_PI)*exp(-pow(R0,2)/2/pow(alpha*sigma0,2)) - pow(R0,2)*(pow(R0,2)-3*pow(sigma0,2))/pow(sigma0,6)*sqrt(2/M_PI)*exp(-pow(R0,2)/2/pow(sigma0,2));
-    #pragma omp parallel for
-    for(int b=0; b<Nbonds[0]; ++b)
-    {
-        int i = bonds(b,0), j = bonds(b,1);
-        jacob(b,0) = DoG_dsigma_dR(dists(b), R0(j), sigma0(i), alpha);
-        jacob(b,1) = DoG_dsigma_dR(dists(b), R0(i), sigma0(j), alpha);
-        v0(i) += DoG_dsigma(dists(b), R0(j), sigma0(i), alpha);
-        v0(j) += DoG_dsigma(dists(b), R0(i), sigma0(j), alpha);
-    }
-    """
-    weave.inline(
-        code,['bonds', 'dists', 'sigma0', 'R0', 'alpha', 'v0', 'jacob', 'tr'],
-        type_converters =converters.blitz,
-        support_code = support_functions,
-        extra_compile_args =['-O3 -fopenmp'],
-        extra_link_args=['-lgomp'],
-        verbose=2, compiler='gcc')
-    jacob0 = sparse.lil_matrix(tuple([len(sigma0)]*2))
-    for (i,j), (a,b) in zip(bonds, jacob):
-        jacob0[i,j] = a
-        jacob0[j,i] = b
-    for i,a in enumerate(tr):
-        jacob0[i,i] = a
-    return R0 + spsolve(jacob0.tocsc(), -v0)
+    jacob = sparse.lil_matrix(tuple([len(sigma0)]*2))
+    v0 = DoG_dsigma(R0, sigma0, alpha)
+    for d, (i,j) in zip(np.maximum(dists, R0[bonds].sum(-1)), bonds):
+        #d = max(dists[b], R0[i] + R0[j])
+        jacob[i,j] = DoG_dsigma_dR(R0[j], sigma0[i], alpha, d)
+        jacob[j,i] = DoG_dsigma_dR(R0[i], sigma0[j], alpha, d)
+        v0[i] += DoG_dsigma(R0[j], sigma0[i], alpha, d)
+        v0[j] += DoG_dsigma(R0[i], sigma0[j], alpha, d)
+    for i,a in enumerate(DoG_dsigma_dR(R0, sigma0, alpha)):
+        jacob[i,i] = a
+    return R0 + spsolve(jacob.tocsc(), -v0)
 
 def global_rescale_intensity(sigma0, bonds, dists, intensities, R0=None, n=3):
     """Takes into account the overlapping of the blurred spot of neighbouring particles to compute the radii of all particles. The brightness of the particles is taken into account.
@@ -656,45 +648,19 @@ def global_rescale_intensity(sigma0, bonds, dists, intensities, R0=None, n=3):
     """
     assert len(bonds)==len(dists)
     alpha = 2**(1.0/n)
-    if R0==None:
+    if R0 is None:
         R0 = sigma2radius(sigma0, n=float(n))
-    v0 = np.zeros([len(sigma0)])
-    tr = np.zeros([len(sigma0)])
-    jacob = np.zeros([len(bonds),2])
-    code = """
-    //using blitz++ expression
-    //tr = intensities * (alpha*pow(R0,2)*(pow(R0,2)-3*pow(alpha*sigma0,2))/pow(alpha*sigma0,6)*sqrt(2/M_PI)*exp(-pow(R0,2)/2/pow(alpha*sigma0,2)) - pow(R0,2)*(pow(R0,2)-3*pow(sigma0,2))/pow(sigma0,6)*sqrt(2/M_PI)*exp(-pow(R0,2)/2/pow(sigma0,2)));
-    #pragma omp parallel for
-    for(int i=0; i<Nv0[0]; ++i)
-    {
-        v0(i) = intensities(i) * (alpha*G_dsigma(R0(i), alpha*sigma0(i)) - G_dsigma(R0(i), sigma0(i)));
-        tr(i) = intensities(i) * (alpha*G_dsigma_dR(R0(i), alpha*sigma0(i)) - G_dsigma_dR(R0(i), sigma0(i)));
-    }
-    #pragma omp parallel for
-    for(int b=0; b<Nbonds[0]; ++b)
-    {
-        int i = bonds(b,0), j = bonds(b,1);
-        const double d = std::max(dists(b), R0(i)+R0(j));
-        jacob(b,0) = intensities(j) * DoG_dsigma_dR(d, R0(j), sigma0(i), alpha);
-        jacob(b,1) = intensities(i) * DoG_dsigma_dR(d, R0(i), sigma0(j), alpha);
-        v0(i) += intensities(j) * DoG_dsigma(d, R0(j), sigma0(i), alpha);
-        v0(j) += intensities(i) * DoG_dsigma(d, R0(i), sigma0(j), alpha);
-    }
-    """
-    weave.inline(
-        code,['bonds', 'dists', 'sigma0', 'intensities', 'R0', 'alpha', 'v0', 'jacob', 'tr'],
-        type_converters =converters.blitz,
-        support_code = support_functions,
-        extra_compile_args =['-O3 -fopenmp'],
-        extra_link_args=['-lgomp'],
-        verbose=2, compiler='gcc')
-    jacob0 = sparse.lil_matrix(tuple([len(sigma0)]*2))
-    for (i,j), (a,b) in zip(bonds, jacob):
-        jacob0[i,j] = a
-        jacob0[j,i] = b
-    for i,a in enumerate(tr):
-        jacob0[i,i] = a
-    return R0 + spsolve(jacob0.tocsc(), -v0)
+    jacob = sparse.lil_matrix(tuple([len(sigma0)]*2))
+    v0 = intensities * DoG_dsigma(R0, sigma0, alpha)
+    for d, (i,j) in zip(np.maximum(dists, R0[bonds].sum(-1)), bonds):
+        #d = max(dists[b], R0[i] + R0[j])
+        jacob[i,j] = intensities[j] * DoG_dsigma_dR(R0[j], sigma0[i], alpha, d)
+        jacob[j,i] = intensities[i] * DoG_dsigma_dR(R0[i], sigma0[j], alpha, d)
+        v0[i] += intensities[j] * DoG_dsigma(R0[j], sigma0[i], alpha, d)
+        v0[j] += intensities[i] * DoG_dsigma(R0[i], sigma0[j], alpha, d)
+    for i,a in enumerate(intensities * DoG_dsigma_dR(R0, sigma0, alpha)):
+        jacob[i,i] = a
+    return R0 + spsolve(jacob.tocsc(), -v0)
 
 def solve_intensities(sigma0, bonds, dists, intensities, R0=None, n=3):
     """Takes into account the overlapping of the blurred spot of neighbouring particles to compute the brightness of all particles.
@@ -716,86 +682,15 @@ def solve_intensities(sigma0, bonds, dists, intensities, R0=None, n=3):
     """
     assert len(bonds)==len(dists)
     alpha = 2**(1.0/n)
-    if R0==None:
+    if R0 is None:
         R0 = sigma2radius(sigma0, n=float(n))
-    tr = np.zeros([len(sigma0)])
-    ofd = np.zeros([len(bonds),2])
-    code = """
-    #pragma omp parallel for
-    for(int i=0; i<Ntr[0]; ++i)
-        tr(i) = G(R0(i), alpha*sigma0(i)) - G(R0(i), sigma0(i));
-    #pragma omp parallel for
-    for(int b=0; b<Nbonds[0]; ++b)
-    {
-        int i = bonds(b,0), j = bonds(b,1);
-        const double d = dists(b);
-        ofd(b,0) = DoG(d, R0(j), sigma0(i), alpha);
-        ofd(b,1) = DoG(d, R0(i), sigma0(j), alpha);
-    }
-    """
-    weave.inline(
-        code,['bonds', 'dists', 'sigma0', 'R0', 'alpha', 'ofd', 'tr'],
-        type_converters =converters.blitz,
-        support_code = support_functions,
-        extra_compile_args =['-O3 -fopenmp'],
-        extra_link_args=['-lgomp'],
-        verbose=2, compiler='gcc')
     mat = sparse.lil_matrix(tuple([len(sigma0)]*2))
-    for (i,j), (a,b) in zip(bonds, ofd):
-        mat[i,j] = a
-        mat[j,i] = b
-    for i,a in enumerate(tr):
+    for d, (i,j) in zip(dists, bonds):
+        mat[i,j] = DoG(R0[j], sigma0[i], alpha, d)
+        mat[j,i] = DoG(R0[i], sigma0[j], alpha, d)
+    for i,a in enumerate(DoG(R0, sigma0, alpha)):
         mat[i,i] = a
     return spsolve(mat.tocsc(), intensities)
-
-
-halfG_dsigma = lambda d, R, sigma : (R**2+d*R+sigma**2)*np.exp(-(R+d)**2/(2*sigma**2))/np.sqrt(2*np.pi)/d/sigma**2
-
-def G_dsigma(d, R, sigma):
-    if d==0 or (R+d**2==R):
-        return -(R**3)/sigma**4*np.sqrt(2/np.pi)*np.exp(-R**2/2/sigma**2)
-    else:
-        return halfG_dsigma(d,R,sigma) + halfG_dsigma(-d, R, sigma)
-
-DoG_dsigma = lambda d, R, sigma, alpha : alpha*G_dsigma(d,R,alpha*sigma) - G_dsigma(d, R, sigma)
-
-halfG_dsigma_dR = lambda d, R, sigma : -R*((R+d)**2-sigma**2)*np.exp(-(R+d)**2/(2*sigma**2))/np.sqrt(2*np.pi)/d/sigma**4
-
-def G_dsigma_dR(d, R, sigma):
-    if d==0 or (R+d**2==R):
-        return R**2*(R**2-3*sigma**2)/sigma**6*np.sqrt(2/np.pi)*np.exp(-R**2/2/sigma**2)
-    else:
-        return halfG_dsigma_dR(d,R,sigma) + halfG_dsigma_dR(-d, R, sigma)
-
-DoG_dsigma_dR = lambda d, R, sigma, alpha : alpha*G_dsigma_dR(d,R,alpha*sigma) - G_dsigma_dR(d, R, sigma)
-
-def global_rescale(coords, sigma0, R0=None, bonds=None, n=3):
-    alpha = 2**(1.0/n)
-    if R0==None:
-        R0 = sigma2radius(sigma0, n=float(n))
-        v0 = np.zeros([len(coords)])
-    else:
-        v0 = DoG_dsigma(0, R0, sigma0, alpha)
-    jacob0 = sparse.lil_matrix(tuple([len(coords)]*2))
-    for i,(r,s) in enumerate(zip(R0, sigma0)):
-        jacob0[i,i] = DoG_dsigma_dR(0, r, s, alpha)
-    if bonds==None:
-        bonds=[]
-        for i,p in enumerate(coords):
-            for j,dsq in enumerate(np.sum(numexpr.evaluate(
-                    '(q-p)**2',
-                    {'p':p, 'q':coords[i+1:]}
-                    ), axis=-1)):
-                if dsq<4*(R0[i]+R0[i+1+j])**2:
-                    bonds.append([i, i+1+j, np.sqrt(dsq)])
-    if len(bonds[0])==2:
-        bonds = [[i, j, np.sqrt(np.sum((coords[i]-coords[j])**2))] for i,j in bonds]
-    for i, j, d in bonds:
-        jacob0[i, j] = DoG_dsigma_dR(d, R0[j], sigma0[i], alpha)
-        jacob0[j, i] = DoG_dsigma_dR(d, R0[i], sigma0[j], alpha)
-        v0[i] += DoG_dsigma(d, R0[j], sigma0[i], alpha)
-        v0[j] += DoG_dsigma(d, R0[i], sigma0[j], alpha)
-    return R0 + spsolve(jacob0.tocsc(), -v0)
 
 class CrockerGrierFinder:
     """A single scale blob finder using Crocker & Grier algorithm"""
@@ -875,25 +770,6 @@ class CrockerGrierFinder:
         centers = np.empty([nb_centers, self.blurred.ndim+1])
         #original positions of the centers
         c0 = np.transpose(np.where(self.binary))
-        if self.binary.ndim==2 and (sys.version_info <= (3, 0)):
-            im = self.blurred
-            code = """
-            #pragma omp parallel for
-            for(int p=0; p<Nc0[0]; ++p)
-            {
-                const int i = c0(p,0), j = c0(p,1);
-                centers(p,0) = blitz::sum(im(blitz::Range(i-2,i+2), blitz::Range(j-2,j+2)))/25.;
-                centers(p,1) = i - blitz::sum(im(blitz::Range(i-2,i+2), j) * coefprime) / blitz::sum(im(blitz::Range(i-2,i+2), j) * coefsec);
-                centers(p,2) = j - blitz::sum(im(i, blitz::Range(j-2,j+2)) * coefprime) / blitz::sum(im(i, blitz::Range(j-2,j+2)) * coefsec);
-            }
-            """
-            weave.inline(
-                code,['c0', 'centers', 'coefprime', 'coefsec', 'im'],
-                type_converters =converters.blitz,
-                extra_compile_args =['-O3 -fopenmp -mtune=native'],
-                extra_link_args=['-lgomp'],
-                verbose=2)
-            return centers
         for i, p in enumerate(c0):
             #neighbourhood
             ngb = self.blurred[tuple([slice(u-2, u+3) for u in p])]
