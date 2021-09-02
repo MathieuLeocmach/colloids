@@ -26,9 +26,6 @@ from scipy.sparse.linalg import splu, spsolve
 from scipy import sparse
 from numba import jit, vectorize
 import math
-if (sys.version_info <= (3, 0)):
-    from scipy import weave
-    from scipy.weave import converters
 import numexpr
 import PIL.Image
 import unittest
@@ -476,23 +473,15 @@ def draw_rods(pos, radii, shape=None, im=None):
         shape = im.shape
     assert len(pos)==len(radii)
     assert np.min(pos.max(0)<shape[::-1]) and np.min([0,0,0]<=pos.min(0)), "points out of bounds"
-    code = """
-    #pragma omp parallel for
-    for(int p=0; p<Npos[0]; ++p)
-    {
-        const int i = pos(p,0), j = pos(p,1);
-        im(blitz::Range(
-            std::max(0, (int)(pos(p,2)-radii(p))),
-            std::min(Nim[0], (int)(pos(p,2)+radii(p))+1)-1
-            ), j, i) = 1;
-    }
-    """
-    weave.inline(
-        code,['pos', 'radii', 'im'],
-        type_converters = converters.blitz,
-        extra_compile_args =['-O3 -fopenmp'],
-        extra_link_args=['-lgomp'],
-        verbose=2, compiler='gcc')
+    for p, rsq, m, M in zip(
+        pos, radii**2,
+        np.maximum(0, pos[:,::-1] - radii[:,None]).astype(int),
+        np.minimum(im.shape, pos[:,::-1] + radii[:,None] + 1).astype(int)
+    ):
+        im[m[0]:M[0], m[1]:M[1], m[2]:M[2]] |= (
+            (p[1] - np.arange(m[1], M[1]))[None,:,None]**2 +
+            (p[0] - np.arange(m[2], M[2]))[None,None,:]**2 <= rsq
+        )
     return im;
 
 
