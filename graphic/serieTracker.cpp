@@ -92,11 +92,11 @@ struct spectrum_norm : public unary_function<const complex<float>&, float>
 void Tracker::displaySpectrum(const std::string &windowName) const
 {
     using namespace boost;
-    array<size_t,3> shape;
+    boost::array<size_t,3> shape;
     copy(FFTmask.shape(), FFTmask.shape()+3, shape.begin());
     const_multi_array_ref<complex<float> ,3> c_spectrum((complex<float>*)data, shape);
 
-    array<size_t,2> proj_shape;
+    boost::array<size_t,2> proj_shape;
     proj_shape[0] = FFTmask.shape()[0] + FFTmask.shape()[1];
     proj_shape[1] = FFTmask.shape()[1] + FFTmask.shape()[2];
     multi_array<complex<float> ,2> c_proj(proj_shape);
@@ -126,7 +126,7 @@ void Tracker::displaySpectrum(const std::string &windowName) const
 void Tracker::displayMask(const std::string &windowName) const
 {
     using namespace boost;
-    array<size_t,2> proj_shape;
+    boost::array<size_t,2> proj_shape;
     proj_shape[0] = FFTmask.shape()[0] + FFTmask.shape()[1];
     proj_shape[1] = FFTmask.shape()[1] + FFTmask.shape()[2];
     multi_array<bool,2> projections(proj_shape);
